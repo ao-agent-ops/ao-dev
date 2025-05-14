@@ -26,4 +26,4 @@ py-modules = ["main"]
 [tool.setuptools.packages.find]
 # treat traces/ as a package
 where = ["."]
-include = ["traces", "traces.*"]
+include = ["traces", "traces.*", "find_errors", "find_errors.*"]

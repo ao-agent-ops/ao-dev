@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+from matplotlib.patches import Patch
 import networkx as nx
 import matplotlib.pyplot as plt
 import concurrent.futures
@@ -25,9 +26,18 @@ class CallGraph:
 
     CallGraph also contains eval data of graph nodes (e.g., pass/fail 
     for unit tests).
+
+    `trace_path` can be an exact path, or:
+     - 'fundraising_crm latest'
     """
 
-    def __init__(self):
+    def __init__(self, trace_path):
+
+        # 1. If path doesn't exist, assume it's a trace name.
+        self.trace_path = trace_path
+        if not os.path.exists(trace_path):
+            self.trace_path = get_trace_path(trace_path)
+
         self.G = None
         self.graph_type = GraphType.EMPTY
 
@@ -37,25 +47,18 @@ class CallGraph:
         # TODO
 
 
-    def from_codegen_log(self, trace_path):
+    def from_codegen_log(self):
         """
         Parses out the call lineage of how functions are generated. 
         For each test, it also parses out what functions that test 
         called.
-
-        `trace_path` can be an exact path, or:
-        - 'fundraising_crm latest'
         """
         self.graph_type = GraphType.CODE_GEN
-        self.G = nx.Graph(directed=True)
-
-        # 1. If path doesn't exist, assume it's a trace name.
-        if not os.path.exists(trace_path):
-            trace_path = get_trace_path(trace_path)
+        self.G = nx.DiGraph()
         
         # 2. Read file and init nodes.
         start = time.time()
-        with open(trace_path, "r") as f:
+        with open(os.path.join(self.trace_path, "fundraising_crm_traj.jsonl"), "r") as f:
             llm_calls = f.readlines()
         
         # Node 0 is the input spec.
@@ -75,7 +78,7 @@ class CallGraph:
                             llm_out=call_dict["output"], 
                             timestamp=call_dict["timestamp"], 
                             cache_key=call_dict["cache_key"])
-        logger.info(f"Insert nodes: {time.time() - start}")
+        logger.debug(f"Insert nodes: {time.time() - start}")
 
         # 3. Insert edges (build dependency lineage).
         start = time.time()
@@ -85,42 +88,58 @@ class CallGraph:
         for node in self.G.nodes:
             if self.G.degree(node) == 1:
                 self.terminal_nodes.append(node)
-        logger.info(f"Insert edges: {time.time() - start}")
+        logger.debug(f"Insert edges: {time.time() - start}")
 
 
-        # TODO: Cache graph.
+    def get_test_lineage(self, test_name):
+        """
+        test_name must have format like: `database/test_db_operations.py`
 
-        # 4. Parse test log (TODO)
-        start = time.time()
-        self.passed_test_calls = {}
-        self.failed_test_calls = {}
-        logger.info(f"Parse test log: {time.time() - start}")
+        `test_function_calls.json` has the following format:
+        {
+          "database/test_db_operations.py": ["database.db_operations"]
+        }
+        """
+        # Get all functions called by the test case.
+        with open(os.path.join(self.trace_path, "test_function_calls.json"), "r") as f:
+            called_functions_dict = json.load(f)
+        called_functions = called_functions_dict[test_name]
+
+        # Loop through terminal nodes and see which ones generated called functions.
+        test_terminal_nodes = []
+        test_added = False # test node will be added many times bc per class ... maybe better way to do this?
+        for t in self.terminal_nodes:
+            cache_key = self.G.nodes[t]["cache_key"]
+
+            if "test" in cache_key:
+                transformed_cache_key = self._test_id_from_cache_key(cache_key)
+                if not test_added and transformed_cache_key in called_functions:
+                    test_terminal_nodes.append(t)
+                    test_added = True # TODO: We have several entries for same test ... leave for now but need to address
+            else:
+                transformed_cache_key = self._function_id_from_cache_key(cache_key)
+                if transformed_cache_key in called_functions:
+                    test_terminal_nodes.append(t)
+
+        # Insert lineage of each called function.
+        test_lineage = nx.DiGraph()
+        for src in test_terminal_nodes:
+            for u, v in nx.dfs_edges(self.G, source=src):
+                test_lineage.add_edge(u, v)
 
 
-    def get_test_lineage(self):
-        # Make subgraph for test's lineage.
-        test_lineage = nx.Graph(directed=True)
+        # HACK: Just for visualization purposes, we abuse this function and don't only insert the DFS 
+        # tree but also add further (unnecessary) edges.
+        # TODO: Delete this part.
+        for u, v in [(15, 0), (2, 0)]:
+            test_lineage.add_edge(u, v)
 
-        # Test entry example:
-        # fundraising_crm_tree_src.backend_services.data_models.Task_0_sonnet3.7-nothink
-
-        # Get terminal relevant nodes.
-        "test should just be the path as is?"
-        " -> map"
-
-        "for all terminal nodes, check which ones match. You need to consider that some terminal nodes are for classes and others not"
-        # Get leave nodes -> called fn in csv to node.
-        # Nimm den closest match und dann die hoechste nummer.
-        # Jede gecallte function is File.Class
-        # 1. File.Class if available, else File
-        # 2. Groesste nummer davon 
-
-        # Do DFS and insert nodes
-
-        pass
+        return test_lineage
 
 
     def visualize(self):
+        plt.figure(figsize=(7, 3.5))
+
         # Categorize nodes for plotting.
         root_node = [0]
         normal_nodes = []
@@ -137,10 +156,7 @@ class CallGraph:
                 normal_nodes.append(node)
 
         # Plotting layout (spread nodes out)
-        pos = nx.spring_layout(self.G,
-                            k=0.06,
-                            iterations=50,
-                            seed=42)
+        pos = nx.spring_layout(self.G, k=0.06, iterations=50, seed=42)
         
         # Normal nodes.
         nx.draw_networkx_nodes(self.G,
@@ -165,9 +181,69 @@ class CallGraph:
                             node_color="limegreen",
                             label="Terminal LLM call")
 
+
+        legend_handles = [
+            Patch(color='red', label="User's design doc"),
+            Patch(color='limegreen', label="Terminal LLM call"),
+            Patch(color='tab:blue', label="LLM calls")
+        ]
+
+        plt.title("LLM Call Dependency Graph")
+        plt.legend(handles=legend_handles, loc='upper left')
         nx.draw_networkx_edges(self.G, pos)
-        plt.legend(loc="lower right")
+        # plt.legend(loc="lower right")
         plt.show()
+
+
+    # def _test_id_from_cache_key(self, cache_key):
+    #     parts = cache_key.split('.')
+    #     if len(parts) < 4:
+    #         raise ValueError("We're assuming a string like this:" \
+    #         "{prefix}.{module}.{file}.{suffix with dot, e.g. abc_sonnet-3.7_abc}")
+
+    #     # Assume format: {prefix}.{folder}.{module}.{suffix}
+    #     folder = parts[-4]
+    #     module = parts[-3]
+
+    #     filename = f"test_{module}.py"
+    #     return f"{folder}/{filename}"
+
+    def _test_id_from_cache_key(self, cache_key):
+        parts = cache_key.split('.')
+        if len(parts) < 4:
+            raise ValueError("Expected format: {prefix}.{module}.{file_with_suffix}")
+
+        module = parts[-4]
+        file_with_suffix = parts[-3]
+
+        # Split by underscore and keep parts until we hit the first digit-starting part
+        file_parts = []
+        for part in file_with_suffix.split('_'):
+            if re.match(r'^\d', part):  # starts with a digit, suffix begins
+                break
+            file_parts.append(part)
+
+        file = '_'.join(file_parts)
+        return f"{module}.test_{file}"
+
+
+    def _function_id_from_cache_key(self, cache_key):
+        parts = cache_key.split('.')
+        if len(parts) < 3:
+            raise ValueError("Expected format: {prefix}.{module}.{file_with_suffix}")
+
+        module = parts[-3]
+        file_with_suffix = parts[-2]
+
+        # Split by underscore and keep parts until we hit the first digit-starting part
+        file_parts = []
+        for part in file_with_suffix.split('_'):
+            if re.match(r'^\d', part):  # starts with a digit, suffix begins
+                break
+            file_parts.append(part)
+
+        file = '_'.join(file_parts)
+        return f"{module}.{file}"
 
 
     def _insert_edges_lcs(self, match_threshold=100):
@@ -207,6 +283,14 @@ class CallGraph:
 
 
     def _insert_edges_hardcoded(self):
+        # TODO BUG: Unexpected terminals:
+        # review should be last
+        # method_test_transpiling_fix_fundraising_crm_tree_src.app.app.FlaskApp_9_sonnet3.7-nothink  terminal
+        # Odd number should be last 
+        # file_transpiler_transpilation_fundraising_crm_tree_src.database.db_operations_34_sonnet3.7-nothink
+        # file_transpiler_transpilation_fundraising_crm_tree_src.app.routes_34_sonnet3.7-nothink
+
+
         # 1. Connect code transpile nodes.
         self._connect_adjacent_cache_keys(node_type="file_planner_analysis", dependent_node_type="file_planner_iterate")
         self._connect_adjacent_cache_keys(node_type="file_planner_iterate", dependent_node_type="file_transpiler_analysis")
@@ -214,20 +298,28 @@ class CallGraph:
         self._connect_adjacent_cache_keys(node_type="file_transpiler_transpilation", dependent_node_type=None)
 
         # 2. Connect test transpile nodes.
-        self._connect_adjacent_cache_keys(node_type="class_test_spec_gen_unit", dependent_node_type=None)
-        self._connect_adjacent_cache_keys(node_type="class_test_spec_gen_integration", dependent_node_type=None)
+        self._connect_adjacent_cache_keys(node_type="class_test_spec_gen_unit", dependent_node_type="class_test_spec_gen_integration")
+        self._connect_adjacent_cache_keys(node_type="class_test_spec_gen_integration", dependent_node_type="method_test_transpiling_gen")
         self._connect_adjacent_cache_keys(node_type="method_test_transpiling_gen", dependent_node_type="method_test_transpiling_review")
         self._interleave_cache_keys(node_type="method_test_transpiling_review", dependent_node_type="method_test_transpiling_fix")
 
         # self._connect_node_types(node_type="class_test_spec_gen_unit", dependent_node_type="class_test_spec_gen_integration")
-        self._connect_node_types(node_type="class_test_spec_gen_unit", dependent_node_type="method_test_transpiling_gen")
-        self._connect_node_types(node_type="class_test_spec_gen_integration", dependent_node_type="method_test_transpiling_gen")
-        self._connect_node_types(node_type="method_test_transpiling_review", dependent_node_type="file_planner_analysis")
+        # self._connect_node_types(node_type="class_test_spec_gen_unit", dependent_node_type="method_test_transpiling_gen")
 
         # 3. Connect to root spec.
         self._connect_to_root(dependent_node_type="file_planner_analysis")
         self._connect_to_root(dependent_node_type="class_test_spec_gen_unit")
-        self._connect_to_root(dependent_node_type="class_test_spec_gen_integration")
+        # self._connect_to_root(dependent_node_type="class_test_spec_gen_integration")
+
+        # 4. Connect test cases to planner.
+        self.delete_unconnected() # TODO: Sometimes there's an extra review (without fix before).
+        self._connect_node_types(node_type="method_test_transpiling_review", dependent_node_type="file_planner_analysis", test_and_impl=True)
+
+    
+    def delete_unconnected(self):
+        isolated_nodes = list(nx.isolates(self.G))
+        self.G.remove_nodes_from(isolated_nodes)
+
 
 
     def _group_nodes_by_cache_key(self, node_type):
@@ -247,6 +339,39 @@ class CallGraph:
 
             middle, num_str, suffix = match.groups()
             grouped[(middle, suffix)].append((int(num_str), node_id))
+
+        return grouped
+
+
+    def _group_test_and_impl_nodes_by_cache_key(self, node_type):
+        """
+        Groups nodes by a canonical key (module + file, without any class suffix).
+        Returns: dict { key: [(index, node_id), ...] }
+        """
+        # match <node_type>_<middle>_<index>_<suffix>
+        pattern = re.compile(rf"^{re.escape(node_type)}_(.*?_)(\d+)(_.*)$")
+        grouped = defaultdict(list)
+
+        for node_id in self.G.nodes:
+            cache_key = self.G.nodes[node_id].get("cache_key", "")
+            m = pattern.match(cache_key)
+            if not m:
+                continue
+
+            middle_with_underscore, num_str, _suffix = m.groups()
+
+            # 1) strip the trailing underscore
+            middle = middle_with_underscore.rstrip('_')
+
+            # 2) split on '.' and drop a final class name if it starts with uppercase
+            parts = middle.split('.')
+            if parts and parts[-1] and parts[-1][0].isupper():
+                parts.pop()
+
+            # recombine into our canonical key
+            canonical_key = '.'.join(parts)
+
+            grouped[canonical_key].append((int(num_str), node_id))
 
         return grouped
 
@@ -307,13 +432,17 @@ class CallGraph:
                     self.G.add_edge(dep_next, main_next)
 
 
-    def _connect_node_types(self, node_type, dependent_node_type):
+    def _connect_node_types(self, node_type, dependent_node_type, test_and_impl=False):
         """
         For each shared (middle, suffix) group between node_type and dependent_node_type,
         adds an edge from the first node of dependent_node_type to the last node of node_type.
         """
-        primary_map = self._group_nodes_by_cache_key(node_type)
-        dep_map = self._group_nodes_by_cache_key(dependent_node_type)
+        if test_and_impl:
+            primary_map = self._group_test_and_impl_nodes_by_cache_key(node_type)
+            dep_map = self._group_test_and_impl_nodes_by_cache_key(dependent_node_type)
+        else:
+            primary_map = self._group_nodes_by_cache_key(node_type)
+            dep_map = self._group_nodes_by_cache_key(dependent_node_type)
 
         # For keys present in both maps, connect first dependent → last primary
         for key in primary_map.keys() & dep_map.keys():
@@ -366,7 +495,7 @@ def get_trace_path(trace_name):
         ])
 
         assert most_recent, "No matching trace dir present"
-        fundraising_crm_dir = os.path.join(cur_dir, "code_gen", most_recent, "fundraising_crm_traj.jsonl")
+        fundraising_crm_dir = os.path.join(cur_dir, "code_gen", most_recent)
         return fundraising_crm_dir
     else:
         raise ValueError(f"Trace name '{trace_name}' is not a recognized.")
@@ -395,7 +524,56 @@ def find_longest_match(string_a, string_b):
     return max_match
 
 
+def plot_lineage_graph(lineage):
+    plt.figure(figsize=(7, 3.5))
+
+    # your layout
+    pos = nx.kamada_kawai_layout(lineage)
+
+    # the nodes you want to highlight
+    big_red   = {0}
+    small_green = {284, 264, 170, 146}
+
+    # build parallel lists of colors and sizes
+    colors = []
+    sizes  = []
+    for n in lineage.nodes():
+        if n in big_red:
+            colors.append('red')
+            sizes.append(200)       # big
+        elif n in small_green:
+            colors.append('limegreen')
+            sizes.append(100)       # medium
+        else:
+            colors.append('tab:blue')
+            sizes.append(50)        # default
+
+    # draw
+    nx.draw_networkx(
+        lineage,
+        pos,
+        node_color=colors,
+        node_size=sizes,
+        with_labels=False
+    )
+
+    legend_handles = [
+        Patch(color='red', label="User's design doc"),
+        Patch(color='limegreen', label="Terminal LLM call"),
+        Patch(color='tab:blue', label="LLM calls")
+    ]
+
+    plt.title("LLM Call Dependency Graph")
+    plt.legend(handles=legend_handles, loc='best')
+    # plt.title("Dependency graph")
+    plt.show()
+
+
+
 if __name__ == "__main__":
-    cg = CallGraph()
-    cg.from_codegen_log("fundraising_crm latest")
-    cg.visualize()
+    cg = CallGraph("fundraising_crm latest")
+    cg.from_codegen_log()
+    # cg.visualize()
+
+    lineage = cg.get_test_lineage("backend_services/test_agent_service.py")
+    plot_lineage_graph(lineage)
