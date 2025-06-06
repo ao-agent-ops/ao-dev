@@ -1,0 +1,17 @@
+{
+  "site_package_search_strategy": "none",
+  "source_directories": [
+    "/Users/ferdi/Documents/agent-copilot/testbed/code_repos/try"
+  ],
+  "search_path": [
+    "/Users/ferdi/Documents/agent-copilot/testbed/code_repos/try"
+  ],
+  "taint_models_path": [
+    "/Users/ferdi/Documents/agent-copilot/pyre_config/taint"
+  ],
+  "exclude": [
+    ".*/build/.*",
+    ".*/venv/.*"
+  ],
+  "strict": false
+}

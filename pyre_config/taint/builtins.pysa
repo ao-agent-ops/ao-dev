@@ -1,0 +1,9 @@
+# Create this file as: /Users/ferdi/Documents/agent-copilot/pyre_config/taint/builtins.pysa
+
+# Model for input() function - marks it as a UserControlled source
+def input(__prompt = ...) -> TaintSource[UserControlled]: ...
+
+# Create this file as: /Users/ferdi/Documents/agent-copilot/pyre_config/taint/os.pysa
+
+# Model for os.system() function - marks it as a RemoteCodeExecution sink
+def os.system(command: TaintSink[RemoteCodeExecution]): ...

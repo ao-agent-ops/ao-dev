@@ -1,0 +1,75 @@
+{
+  "input": [
+    "try.vulnerable"
+  ],
+  "os.system": [
+    "try.A.__init__"
+  ],
+  "random.random": [
+    "try.vulnerable"
+  ],
+  "try.func1": [
+    "try.vulnerable"
+  ],
+  "try.func2": [
+    "try.func1",
+    "try.vulnerable"
+  ],
+  "try.func_next": [
+    "try.func2"
+  ],
+  "try.func_ultimate": [
+    "try.func_next"
+  ],
+  "try.vulnerable": [
+    "try.$toplevel"
+  ],
+  "float.__gt__": [
+    "Overrides{float.__gt__}"
+  ],
+  "float.__le__": [
+    "Overrides{float.__le__}"
+  ],
+  "int.__add__": [
+    "try.func_next"
+  ],
+  "int.__gt__": [
+    "Overrides{int.__gt__}"
+  ],
+  "int.__le__": [
+    "Overrides{int.__le__}"
+  ],
+  "int.__new__": [
+    "try.func_next"
+  ],
+  "object.__init__": [
+    "try.func_next"
+  ],
+  "object.__new__": [
+    "try.func_ultimate"
+  ],
+  "str.__add__": [
+    "try.vulnerable"
+  ],
+  "str.__eq__": [
+    "try.$toplevel"
+  ],
+  "str.__ne__": [
+    "try.$toplevel"
+  ],
+  "try.A.__init__": [
+    "try.func_ultimate"
+  ],
+  "Overrides{float.__gt__}": [
+    "try.vulnerable"
+  ],
+  "Overrides{float.__le__}": [
+    "try.vulnerable"
+  ],
+  "Overrides{int.__gt__}": [
+    "Overrides{float.__gt__}"
+  ],
+  "Overrides{int.__le__}": [
+    "Overrides{float.__le__}"
+  ]
+}

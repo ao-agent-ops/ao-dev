@@ -1,0 +1,1 @@
+{"filename_spec":"taint-output.json","root":"/Users/ferdi/Documents/agent-copilot/pyre_config","tool":"pysa","version":"d1ea05c3d0b5c6a8b2e114ba42fb7b81e2f1f1a8","stats":{"skipped_overrides":[],"model_verification_errors":[]},"codes":{"5001":"Shell injection"},"cache":{"shared_memory_status":"Disabled","save_cache":false}}

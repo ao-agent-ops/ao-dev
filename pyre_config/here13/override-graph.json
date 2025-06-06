@@ -1,0 +1,5813 @@
+{
+  "BaseException.__init__": [
+    "BaseExceptionGroup"
+  ],
+  "BaseException.__new__": [
+    "BaseExceptionGroup"
+  ],
+  "BaseException.__setstate__": [
+    "psycopg2._psycopg.Error"
+  ],
+  "BaseExceptionGroup.__init__": [
+    "ExceptionGroup"
+  ],
+  "BaseExceptionGroup.__new__": [
+    "ExceptionGroup"
+  ],
+  "BaseExceptionGroup.exceptions": [
+    "ExceptionGroup"
+  ],
+  "BaseExceptionGroup.split": [
+    "ExceptionGroup"
+  ],
+  "BaseExceptionGroup.subgroup": [
+    "ExceptionGroup"
+  ],
+  "ImportError.name": [
+    "importlib.metadata.PackageNotFoundError"
+  ],
+  "MySQLdb._mysql.connection.__init__": [
+    "MySQLdb.connections.Connection"
+  ],
+  "MySQLdb._mysql.connection.autocommit": [
+    "MySQLdb.connections.Connection"
+  ],
+  "MySQLdb._mysql.connection.query": [
+    "MySQLdb.connections.Connection"
+  ],
+  "MySQLdb._mysql.connection.set_character_set": [
+    "MySQLdb.connections.Connection"
+  ],
+  "MySQLdb._mysql.connection.warning_count": [
+    "MySQLdb.connections.Connection"
+  ],
+  "_ast.excepthandler.__init__": [
+    "_ast.ExceptHandler"
+  ],
+  "_ast.expr.__init__": [
+    "_ast.Attribute",
+    "_ast.Await",
+    "_ast.BinOp",
+    "_ast.BoolOp",
+    "_ast.Call",
+    "_ast.Compare",
+    "_ast.Constant",
+    "_ast.Dict",
+    "_ast.DictComp",
+    "_ast.FormattedValue",
+    "_ast.GeneratorExp",
+    "_ast.IfExp",
+    "_ast.JoinedStr",
+    "_ast.Lambda",
+    "_ast.List",
+    "_ast.ListComp",
+    "_ast.Name",
+    "_ast.NamedExpr",
+    "_ast.Set",
+    "_ast.SetComp",
+    "_ast.Slice",
+    "_ast.Starred",
+    "_ast.Subscript",
+    "_ast.Tuple",
+    "_ast.UnaryOp",
+    "_ast.Yield",
+    "_ast.YieldFrom"
+  ],
+  "_ast.pattern.__init__": [
+    "_ast.MatchAs",
+    "_ast.MatchClass",
+    "_ast.MatchMapping",
+    "_ast.MatchOr",
+    "_ast.MatchSequence",
+    "_ast.MatchSingleton",
+    "_ast.MatchStar",
+    "_ast.MatchValue"
+  ],
+  "_ast.stmt.__init__": [
+    "_ast.AnnAssign",
+    "_ast.Assert",
+    "_ast.Assign",
+    "_ast.AsyncFor",
+    "_ast.AsyncFunctionDef",
+    "_ast.AsyncWith",
+    "_ast.AugAssign",
+    "_ast.ClassDef",
+    "_ast.Delete",
+    "_ast.Expr",
+    "_ast.For",
+    "_ast.FunctionDef",
+    "_ast.Global",
+    "_ast.If",
+    "_ast.Import",
+    "_ast.ImportFrom",
+    "_ast.Match",
+    "_ast.Nonlocal",
+    "_ast.Raise",
+    "_ast.Return",
+    "_ast.Try",
+    "_ast.TryStar",
+    "_ast.TypeAlias",
+    "_ast.While",
+    "_ast.With"
+  ],
+  "_ast.type_param.__init__": [
+    "_ast.ParamSpec",
+    "_ast.TypeVar",
+    "_ast.TypeVarTuple"
+  ],
+  "_compression.DecompressReader.__init__": [
+    "gzip._GzipReader"
+  ],
+  "_csv.Dialect.__init__": [
+    "csv.Dialect"
+  ],
+  "_ctypes._SimpleCData.__init__": [
+    "ctypes.c_bool",
+    "ctypes.c_char"
+  ],
+  "_dummy_thread.LockType.release": [
+    "_dummy_thread.RLock"
+  ],
+  "_dummy_threading.Thread.__init__": [
+    "_dummy_threading.Timer"
+  ],
+  "_random.Random.__init__": [
+    "random.Random"
+  ],
+  "_random.Random.getrandbits": [
+    "random.SystemRandom"
+  ],
+  "_random.Random.getstate": [
+    "random.Random"
+  ],
+  "_random.Random.seed": [
+    "random.Random"
+  ],
+  "_random.Random.setstate": [
+    "random.Random"
+  ],
+  "_socket.socket.__init__": [
+    "socket.socket"
+  ],
+  "_socket.socket.connect": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.connect_ex": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.family": [
+    "socket.socket"
+  ],
+  "_socket.socket.recv": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.recv_into": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.recvfrom": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.recvfrom_into": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.recvmsg": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.recvmsg_into": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.send": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.sendall": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.sendmsg": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.sendto": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.shutdown": [
+    "ssl.SSLSocket"
+  ],
+  "_socket.socket.type": [
+    "socket.socket"
+  ],
+  "_ssl._SSLContext.__new__": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.get_ca_certs": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.get_ciphers": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.load_dh_params": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.load_verify_locations": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.protocol": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.set_ciphers": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.set_default_verify_paths": [
+    "ssl.SSLContext"
+  ],
+  "_ssl._SSLContext.set_ecdh_curve": [
+    "ssl.SSLContext"
+  ],
+  "_typeshed.SliceableBuffer.__getitem__": [
+    "_typeshed.SupportsGetItemBuffer"
+  ],
+  "_typeshed.structseq.__new__": [
+    "os.sched_param"
+  ],
+  "abc.ABCMeta.__new__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "aiofiles.base.AiofilesContextManager.__aenter__": [
+    "aiofiles.tempfile.AiofilesContextManagerTempDir"
+  ],
+  "aiofiles.base.AsyncBase.__init__": [
+    "aiofiles.base.AsyncIndirectBase"
+  ],
+  "argparse.Action.__init__": [
+    "argparse.BooleanOptionalAction",
+    "argparse._AppendConstAction",
+    "argparse._CountAction",
+    "argparse._HelpAction",
+    "argparse._StoreConstAction",
+    "argparse._SubParsersAction",
+    "argparse._VersionAction"
+  ],
+  "argparse._ActionsContainer.__init__": [
+    "argparse._ArgumentGroup"
+  ],
+  "argparse._ArgumentGroup.__init__": [
+    "argparse._MutuallyExclusiveGroup"
+  ],
+  "argparse._StoreConstAction.__init__": [
+    "argparse._StoreFalseAction",
+    "argparse._StoreTrueAction"
+  ],
+  "ast.NodeVisitor.generic_visit": [
+    "ast.NodeTransformer"
+  ],
+  "asynchat.async_chat.collect_incoming_data": [
+    "smtpd.SMTPChannel"
+  ],
+  "asynchat.async_chat.found_terminator": [
+    "smtpd.SMTPChannel"
+  ],
+  "asynchat.async_chat.push": [
+    "smtpd.SMTPChannel"
+  ],
+  "asyncio.events.AbstractEventLoop.add_reader": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.add_signal_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.add_writer": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.call_at": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.call_exception_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.call_later": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.call_soon": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.call_soon_threadsafe": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.close": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.connect_accepted_socket": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.connect_read_pipe": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.connect_write_pipe": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_connection": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_datagram_endpoint": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_future": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_server": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_task": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.create_unix_server": [
+    "asyncio.unix_events._UnixSelectorEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.default_exception_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.get_debug": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.get_exception_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.get_task_factory": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.getaddrinfo": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.getnameinfo": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.is_closed": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.is_running": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.remove_reader": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.remove_signal_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.remove_writer": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.run_forever": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.run_in_executor": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.run_until_complete": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sendfile": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.set_debug": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.set_default_executor": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.set_exception_handler": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.set_task_factory": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.shutdown_asyncgens": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.shutdown_default_executor": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_accept": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_connect": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_recv": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_recv_into": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_recvfrom": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_recvfrom_into": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_sendall": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_sendfile": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.sock_sendto": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.start_tls": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.stop": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.subprocess_exec": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.subprocess_shell": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoop.time": [
+    "asyncio.base_events.BaseEventLoop"
+  ],
+  "asyncio.events.AbstractEventLoopPolicy.get_child_watcher": [
+    "asyncio.unix_events._UnixDefaultEventLoopPolicy"
+  ],
+  "asyncio.events.AbstractEventLoopPolicy.get_event_loop": [
+    "asyncio.events.BaseDefaultEventLoopPolicy"
+  ],
+  "asyncio.events.AbstractEventLoopPolicy.new_event_loop": [
+    "asyncio.events.BaseDefaultEventLoopPolicy"
+  ],
+  "asyncio.events.AbstractEventLoopPolicy.set_child_watcher": [
+    "asyncio.unix_events._UnixDefaultEventLoopPolicy"
+  ],
+  "asyncio.events.AbstractEventLoopPolicy.set_event_loop": [
+    "asyncio.events.BaseDefaultEventLoopPolicy"
+  ],
+  "asyncio.events.AbstractServer.abort_clients": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.close": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.close_clients": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.get_loop": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.is_serving": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.serve_forever": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.start_serving": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.AbstractServer.wait_closed": [
+    "asyncio.base_events.Server"
+  ],
+  "asyncio.events.Handle.__init__": [
+    "asyncio.events.TimerHandle"
+  ],
+  "asyncio.futures.Future.__class_getitem__": [
+    "asyncio.tasks.Task"
+  ],
+  "asyncio.futures.Future.__init__": [
+    "asyncio.tasks.Task"
+  ],
+  "asyncio.proactor_events._ProactorBasePipeTransport.__init__": [
+    "asyncio.proactor_events._ProactorReadPipeTransport"
+  ],
+  "asyncio.proactor_events._ProactorReadPipeTransport.__init__": [
+    "asyncio.proactor_events._ProactorSocketTransport"
+  ],
+  "asyncio.protocols.BaseProtocol.connection_lost": [
+    "asyncio.sslproto.SSLProtocol"
+  ],
+  "asyncio.protocols.BaseProtocol.connection_made": [
+    "asyncio.protocols.DatagramProtocol"
+  ],
+  "asyncio.protocols.BufferedProtocol.eof_received": [
+    "asyncio.sslproto.SSLProtocol"
+  ],
+  "asyncio.protocols.BufferedProtocol.get_buffer": [
+    "asyncio.sslproto.SSLProtocol"
+  ],
+  "asyncio.protocols.SubprocessProtocol.pipe_data_received": [
+    "asyncio.subprocess.SubprocessStreamProtocol"
+  ],
+  "asyncio.streams.FlowControlMixin.__init__": [
+    "asyncio.streams.StreamReaderProtocol",
+    "asyncio.subprocess.SubprocessStreamProtocol"
+  ],
+  "asyncio.transports.BaseTransport.get_extra_info": [
+    "asyncio.sslproto._SSLProtocolTransport"
+  ],
+  "asyncio.transports.SubprocessTransport.get_pid": [
+    "asyncio.base_subprocess.BaseSubprocessTransport"
+  ],
+  "asyncio.transports.SubprocessTransport.get_pipe_transport": [
+    "asyncio.base_subprocess.BaseSubprocessTransport"
+  ],
+  "asyncio.transports.SubprocessTransport.send_signal": [
+    "asyncio.base_subprocess.BaseSubprocessTransport"
+  ],
+  "asyncio.transports.WriteTransport.can_write_eof": [
+    "asyncio.proactor_events._ProactorSocketTransport",
+    "asyncio.sslproto._SSLProtocolTransport"
+  ],
+  "asyncio.transports.WriteTransport.get_write_buffer_limits": [
+    "asyncio.sslproto._SSLProtocolTransport"
+  ],
+  "asyncio.transports.WriteTransport.write": [
+    "asyncio.sslproto._SSLProtocolTransport"
+  ],
+  "asyncio.transports._FlowControlMixin.__init__": [
+    "asyncio.proactor_events._ProactorBasePipeTransport",
+    "asyncio.sslproto._SSLProtocolTransport"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.__enter__": [
+    "asyncio.unix_events.FastChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.SafeChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.__exit__": [
+    "asyncio.unix_events.FastChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.SafeChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.add_child_handler": [
+    "asyncio.unix_events.FastChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.SafeChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.attach_loop": [
+    "asyncio.unix_events.BaseChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.close": [
+    "asyncio.unix_events.BaseChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.is_active": [
+    "asyncio.unix_events.BaseChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncio.unix_events.AbstractChildWatcher.remove_child_handler": [
+    "asyncio.unix_events.FastChildWatcher",
+    "asyncio.unix_events.MultiLoopChildWatcher",
+    "asyncio.unix_events.PidfdChildWatcher",
+    "asyncio.unix_events.SafeChildWatcher",
+    "asyncio.unix_events.ThreadedChildWatcher"
+  ],
+  "asyncore.dispatcher.__init__": [
+    "asyncore.file_dispatcher",
+    "smtpd.SMTPServer"
+  ],
+  "bdb.Bdb.__init__": [
+    "pdb.Pdb"
+  ],
+  "bdb.Bdb.do_clear": [
+    "pdb.Pdb"
+  ],
+  "boto.auth.HmacAuthV4Handler.__init__": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.add_auth": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.canonical_query_string": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.canonical_uri": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.determine_region_name": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.determine_service_name": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.headers_to_sign": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.host_header": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacAuthV4Handler.payload": [
+    "boto.auth.S3HmacAuthV4Handler"
+  ],
+  "boto.auth.HmacKeys.update_provider": [
+    "boto.auth.HmacAuthV1Handler",
+    "boto.auth.HmacAuthV2Handler"
+  ],
+  "boto.auth.QuerySignatureHelper.add_auth": [
+    "boto.auth.POSTPathQSV2AuthHandler"
+  ],
+  "boto.auth_handler.AuthHandler.__init__": [
+    "boto.auth.AnonAuthHandler",
+    "boto.auth.HmacAuthV1Handler",
+    "boto.auth.HmacAuthV2Handler",
+    "boto.auth.HmacAuthV3HTTPHandler",
+    "boto.auth.HmacAuthV3Handler",
+    "boto.auth.HmacAuthV4Handler"
+  ],
+  "boto.auth_handler.AuthHandler.add_auth": [
+    "boto.auth.AnonAuthHandler",
+    "boto.auth.HmacAuthV1Handler",
+    "boto.auth.HmacAuthV2Handler",
+    "boto.auth.HmacAuthV3HTTPHandler",
+    "boto.auth.HmacAuthV3Handler",
+    "boto.auth.HmacAuthV4Handler",
+    "boto.auth.STSAnonHandler"
+  ],
+  "boto.connection.AWSAuthConnection.__init__": [
+    "boto.connection.AWSQueryConnection",
+    "boto.s3.connection.S3Connection"
+  ],
+  "boto.connection.AWSAuthConnection.make_request": [
+    "boto.connection.AWSQueryConnection",
+    "boto.s3.connection.S3Connection"
+  ],
+  "boto.connection.AWSQueryConnection.__init__": [
+    "boto.elb.ELBConnection",
+    "boto.kms.layer1.KMSConnection"
+  ],
+  "boto.connection.AWSQueryConnection.build_list_params": [
+    "boto.elb.ELBConnection"
+  ],
+  "boto.exception.BotoClientError.__init__": [
+    "boto.exception.SQSDecodeError"
+  ],
+  "boto.exception.BotoServerError.__init__": [
+    "boto.exception.EC2ResponseError",
+    "boto.exception.JSONResponseError",
+    "boto.exception.SQSError",
+    "boto.exception.StorageCreateError",
+    "boto.exception.StorageResponseError"
+  ],
+  "boto.exception.BotoServerError.endElement": [
+    "boto.exception.EC2ResponseError",
+    "boto.exception.SQSError",
+    "boto.exception.StorageCreateError",
+    "boto.exception.StorageResponseError"
+  ],
+  "boto.exception.BotoServerError.startElement": [
+    "boto.exception.EC2ResponseError",
+    "boto.exception.SQSError",
+    "boto.exception.StorageResponseError"
+  ],
+  "boto.regioninfo.RegionInfo.connect": [
+    "boto.s3.S3RegionInfo"
+  ],
+  "boto.s3.connection._CallingFormat.build_path_base": [
+    "boto.s3.connection.OrdinaryCallingFormat"
+  ],
+  "boto.s3.connection._CallingFormat.build_url_base": [
+    "boto.s3.connection.ProtocolIndependentOrdinaryCallingFormat"
+  ],
+  "boto.s3.connection._CallingFormat.get_bucket_server": [
+    "boto.s3.connection.OrdinaryCallingFormat",
+    "boto.s3.connection.SubdomainCallingFormat",
+    "boto.s3.connection.VHostCallingFormat"
+  ],
+  "boto.s3.website._XMLKeyValue.__init__": [
+    "boto.s3.website.Condition",
+    "boto.s3.website.Redirect",
+    "boto.s3.website.RedirectLocation"
+  ],
+  "boto.s3.website._XMLKeyValue.to_xml": [
+    "boto.s3.website.Condition",
+    "boto.s3.website.Redirect",
+    "boto.s3.website.RedirectLocation"
+  ],
+  "calendar.HTMLCalendar.formatmonthname": [
+    "calendar.LocaleHTMLCalendar"
+  ],
+  "calendar.HTMLCalendar.formatweekday": [
+    "calendar.LocaleHTMLCalendar"
+  ],
+  "classmethod.__init__": [
+    "abc.abstractclassmethod"
+  ],
+  "cmd.Cmd.completedefault": [
+    "pdb.Pdb"
+  ],
+  "cmd.Cmd.completenames": [
+    "pdb.Pdb"
+  ],
+  "cmd.Cmd.do_help": [
+    "pdb.Pdb"
+  ],
+  "code.InteractiveInterpreter.__init__": [
+    "code.InteractiveConsole"
+  ],
+  "codecs.BufferedIncrementalDecoder.__init__": [
+    "encodings.utf_8_sig.IncrementalDecoder"
+  ],
+  "codecs.BufferedIncrementalDecoder._buffer_decode": [
+    "encodings.utf_8.IncrementalDecoder",
+    "encodings.utf_8_sig.IncrementalDecoder"
+  ],
+  "codecs.Codec.decode": [
+    "encodings.utf_8.StreamReader",
+    "encodings.utf_8_sig.StreamReader"
+  ],
+  "codecs.Codec.encode": [
+    "encodings.utf_8.StreamWriter",
+    "encodings.utf_8_sig.StreamWriter"
+  ],
+  "codecs.IncrementalDecoder.__init__": [
+    "codecs.BufferedIncrementalDecoder",
+    "io.IncrementalNewlineDecoder"
+  ],
+  "codecs.IncrementalDecoder.decode": [
+    "codecs.BufferedIncrementalDecoder",
+    "io.IncrementalNewlineDecoder"
+  ],
+  "codecs.IncrementalDecoder.setstate": [
+    "io.IncrementalNewlineDecoder"
+  ],
+  "codecs.IncrementalEncoder.__init__": [
+    "codecs.BufferedIncrementalEncoder",
+    "encodings.utf_8_sig.IncrementalEncoder"
+  ],
+  "codecs.IncrementalEncoder.encode": [
+    "codecs.BufferedIncrementalEncoder",
+    "encodings.utf_8.IncrementalEncoder",
+    "encodings.utf_8_sig.IncrementalEncoder"
+  ],
+  "codecs.IncrementalEncoder.getstate": [
+    "encodings.utf_8_sig.IncrementalEncoder"
+  ],
+  "codecs.IncrementalEncoder.setstate": [
+    "encodings.utf_8_sig.IncrementalEncoder"
+  ],
+  "complex.__abs__": [
+    "float"
+  ],
+  "complex.__add__": [
+    "float"
+  ],
+  "complex.__bool__": [
+    "float"
+  ],
+  "complex.__eq__": [
+    "float"
+  ],
+  "complex.__hash__": [
+    "float"
+  ],
+  "complex.__mul__": [
+    "float"
+  ],
+  "complex.__ne__": [
+    "float"
+  ],
+  "complex.__neg__": [
+    "float"
+  ],
+  "complex.__new__": [
+    "float"
+  ],
+  "complex.__pos__": [
+    "float"
+  ],
+  "complex.__pow__": [
+    "float"
+  ],
+  "complex.__radd__": [
+    "float"
+  ],
+  "complex.__rmul__": [
+    "float"
+  ],
+  "complex.__rpow__": [
+    "float"
+  ],
+  "complex.__rsub__": [
+    "float"
+  ],
+  "complex.__rtruediv__": [
+    "float"
+  ],
+  "complex.__sub__": [
+    "float"
+  ],
+  "complex.__truediv__": [
+    "float"
+  ],
+  "complex.conjugate": [
+    "float"
+  ],
+  "complex.imag": [
+    "float"
+  ],
+  "complex.real": [
+    "float"
+  ],
+  "configparser.Error.__init__": [
+    "configparser.DuplicateOptionError",
+    "configparser.DuplicateSectionError",
+    "configparser.InterpolationError",
+    "configparser.NoOptionError",
+    "configparser.NoSectionError",
+    "configparser.ParsingError"
+  ],
+  "configparser.InterpolationError.__init__": [
+    "configparser.InterpolationDepthError",
+    "configparser.InterpolationMissingOptionError"
+  ],
+  "configparser.ParsingError.__init__": [
+    "configparser.MissingSectionHeaderError",
+    "configparser.MultilineContinuationError"
+  ],
+  "configparser.RawConfigParser.get": [
+    "configparser.ConfigParser"
+  ],
+  "contextlib.AbstractAsyncContextManager.__aenter__": [
+    "aiofiles.base.AiofilesContextManager",
+    "contextlib.nullcontext"
+  ],
+  "contextlib.AbstractAsyncContextManager.__aexit__": [
+    "aiofiles.base.AiofilesContextManager",
+    "contextlib._AsyncGeneratorContextManager",
+    "contextlib.aclosing",
+    "contextlib.nullcontext"
+  ],
+  "contextlib.AbstractContextManager.__enter__": [
+    "contextlib.chdir",
+    "contextlib.nullcontext"
+  ],
+  "contextlib.AbstractContextManager.__exit__": [
+    "contextlib._GeneratorContextManager",
+    "contextlib._RedirectStream",
+    "contextlib.chdir",
+    "contextlib.closing",
+    "contextlib.nullcontext",
+    "contextlib.suppress",
+    "multiprocessing.synchronize.Condition",
+    "multiprocessing.synchronize.SemLock",
+    "os._ScandirIterator"
+  ],
+  "datetime.date.__eq__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__ge__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__gt__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__hash__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__le__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__lt__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__new__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__replace__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.__sub__": [
+    "datetime.datetime"
+  ],
+  "datetime.date.fromtimestamp": [
+    "datetime.datetime"
+  ],
+  "datetime.date.isoformat": [
+    "datetime.datetime"
+  ],
+  "datetime.date.replace": [
+    "datetime.datetime"
+  ],
+  "datetime.datetime.fold": [
+    "dateutil.tz._common._DatetimeWithFold"
+  ],
+  "datetime.tzinfo.dst": [
+    "datetime.timezone",
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzutc",
+    "ldap3.core.timezone.OffsetTzInfo",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "psycopg2.tz.LocalTimezone",
+    "pytz._FixedOffset",
+    "pytz.reference.FixedOffset",
+    "pytz.reference.LocalTimezone",
+    "pytz.reference.USTimeZone",
+    "pytz.tzinfo.BaseTzInfo",
+    "zoneinfo.ZoneInfo"
+  ],
+  "datetime.tzinfo.fromutc": [
+    "dateutil.tz._common._tzinfo",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzutc",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "datetime.tzinfo.tzname": [
+    "datetime.timezone",
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzutc",
+    "ldap3.core.timezone.OffsetTzInfo",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "psycopg2.tz.LocalTimezone",
+    "pytz._FixedOffset",
+    "pytz.reference.FixedOffset",
+    "pytz.reference.LocalTimezone",
+    "pytz.reference.USTimeZone",
+    "pytz.tzinfo.BaseTzInfo",
+    "zoneinfo.ZoneInfo"
+  ],
+  "datetime.tzinfo.utcoffset": [
+    "datetime.timezone",
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzutc",
+    "ldap3.core.timezone.OffsetTzInfo",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "psycopg2.tz.LocalTimezone",
+    "pytz._FixedOffset",
+    "pytz.reference.FixedOffset",
+    "pytz.reference.LocalTimezone",
+    "pytz.reference.USTimeZone",
+    "pytz.tzinfo.BaseTzInfo",
+    "zoneinfo.ZoneInfo"
+  ],
+  "dateutil.rrule.rrulebase.__init__": [
+    "dateutil.rrule.rrule",
+    "dateutil.rrule.rruleset"
+  ],
+  "dateutil.tz._common._tzinfo.fromutc": [
+    "dateutil.tz._common.tzrangebase"
+  ],
+  "dateutil.tz._common._tzinfo.is_ambiguous": [
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal"
+  ],
+  "dateutil.tz._common.tzrangebase.__init__": [
+    "dateutil.tz.tz.tzrange"
+  ],
+  "dateutil.tz.tz.tzrange.__init__": [
+    "dateutil.tz.tz.tzstr"
+  ],
+  "dict.__class_getitem__": [
+    "http.cookies.Morsel"
+  ],
+  "dict.__delitem__": [
+    "collections.Counter"
+  ],
+  "dict.__eq__": [
+    "collections.Counter",
+    "collections.OrderedDict",
+    "http.cookies.Morsel"
+  ],
+  "dict.__getitem__": [
+    "logging.config.ConvertingDict",
+    "requests.structures.LookupDict"
+  ],
+  "dict.__init__": [
+    "boto.utils.LRUCache",
+    "boto.utils.LazyLoadMetadata",
+    "collections.Counter",
+    "collections.defaultdict",
+    "enum._EnumDict",
+    "http.cookies.BaseCookie",
+    "http.cookies.Morsel",
+    "requests.structures.LookupDict"
+  ],
+  "dict.__ior__": [
+    "collections.Counter"
+  ],
+  "dict.__or__": [
+    "collections.Counter",
+    "collections.OrderedDict",
+    "collections.defaultdict"
+  ],
+  "dict.__reversed__": [
+    "collections.OrderedDict"
+  ],
+  "dict.__ror__": [
+    "collections.OrderedDict",
+    "collections.defaultdict"
+  ],
+  "dict.__setitem__": [
+    "enum._EnumDict",
+    "http.cookies.BaseCookie",
+    "http.cookies.Morsel",
+    "psycopg2.extras.RealDictRow"
+  ],
+  "dict.copy": [
+    "collections.Counter",
+    "collections.OrderedDict",
+    "collections.defaultdict"
+  ],
+  "dict.fromkeys": [
+    "collections.Counter",
+    "collections.OrderedDict"
+  ],
+  "dict.get": [
+    "logging.config.ConvertingDict",
+    "requests.structures.LookupDict"
+  ],
+  "dict.items": [
+    "collections.OrderedDict"
+  ],
+  "dict.keys": [
+    "collections.OrderedDict"
+  ],
+  "dict.pop": [
+    "collections.OrderedDict",
+    "logging.config.ConvertingDict"
+  ],
+  "dict.values": [
+    "collections.OrderedDict"
+  ],
+  "distutils.cmd.Command.finalize_options": [
+    "distutils.command.bdist.bdist",
+    "distutils.command.bdist_dumb.bdist_dumb",
+    "distutils.command.bdist_rpm.bdist_rpm",
+    "distutils.command.bdist_wininst.bdist_wininst",
+    "distutils.command.build.build",
+    "distutils.command.build_clib.build_clib",
+    "distutils.command.build_ext.build_ext",
+    "distutils.command.build_py.build_py",
+    "distutils.command.build_scripts.build_scripts",
+    "distutils.command.check.check",
+    "distutils.command.clean.clean",
+    "distutils.command.config.config",
+    "distutils.command.install.install",
+    "distutils.command.install_data.install_data",
+    "distutils.command.install_egg_info.install_egg_info",
+    "distutils.command.install_headers.install_headers",
+    "distutils.command.install_lib.install_lib",
+    "distutils.command.install_scripts.install_scripts",
+    "distutils.command.sdist.sdist",
+    "distutils.config.PyPIRCCommand"
+  ],
+  "distutils.cmd.Command.initialize_options": [
+    "distutils.command.bdist.bdist",
+    "distutils.command.bdist_dumb.bdist_dumb",
+    "distutils.command.bdist_rpm.bdist_rpm",
+    "distutils.command.bdist_wininst.bdist_wininst",
+    "distutils.command.build.build",
+    "distutils.command.build_clib.build_clib",
+    "distutils.command.build_ext.build_ext",
+    "distutils.command.build_py.build_py",
+    "distutils.command.build_scripts.build_scripts",
+    "distutils.command.check.check",
+    "distutils.command.clean.clean",
+    "distutils.command.config.config",
+    "distutils.command.install.install",
+    "distutils.command.install_data.install_data",
+    "distutils.command.install_egg_info.install_egg_info",
+    "distutils.command.install_headers.install_headers",
+    "distutils.command.install_lib.install_lib",
+    "distutils.command.install_scripts.install_scripts",
+    "distutils.command.sdist.sdist",
+    "distutils.config.PyPIRCCommand"
+  ],
+  "distutils.cmd.Command.run": [
+    "distutils.command.bdist.bdist",
+    "distutils.command.bdist_dumb.bdist_dumb",
+    "distutils.command.bdist_rpm.bdist_rpm",
+    "distutils.command.bdist_wininst.bdist_wininst",
+    "distutils.command.build.build",
+    "distutils.command.build_clib.build_clib",
+    "distutils.command.build_ext.build_ext",
+    "distutils.command.build_py.build_py",
+    "distutils.command.build_scripts.build_scripts",
+    "distutils.command.check.check",
+    "distutils.command.clean.clean",
+    "distutils.command.config.config",
+    "distutils.command.install.install",
+    "distutils.command.install_data.install_data",
+    "distutils.command.install_egg_info.install_egg_info",
+    "distutils.command.install_headers.install_headers",
+    "distutils.command.install_lib.install_lib",
+    "distutils.command.install_scripts.install_scripts",
+    "distutils.command.sdist.sdist",
+    "distutils.config.PyPIRCCommand"
+  ],
+  "distutils.cmd.Command.warn": [
+    "distutils.command.check.check"
+  ],
+  "distutils.command.build_py.build_py.build_module": [
+    "distutils.command.build_py.build_py_2to3"
+  ],
+  "distutils.command.build_py.build_py.run": [
+    "distutils.command.build_py.build_py_2to3"
+  ],
+  "distutils.command.build_scripts.build_scripts.copy_scripts": [
+    "distutils.command.build_scripts.build_scripts_2to3"
+  ],
+  "distutils.config.PyPIRCCommand.finalize_options": [
+    "distutils.command.register.register",
+    "distutils.command.upload.upload"
+  ],
+  "distutils.config.PyPIRCCommand.initialize_options": [
+    "distutils.command.register.register",
+    "distutils.command.upload.upload"
+  ],
+  "distutils.config.PyPIRCCommand.run": [
+    "distutils.command.register.register",
+    "distutils.command.upload.upload"
+  ],
+  "distutils.version.Version.__init__": [
+    "distutils.version.LooseVersion",
+    "distutils.version.StrictVersion"
+  ],
+  "distutils.version.Version.__str__": [
+    "distutils.version.LooseVersion",
+    "distutils.version.StrictVersion"
+  ],
+  "distutils.version.Version._cmp": [
+    "distutils.version.LooseVersion",
+    "distutils.version.StrictVersion"
+  ],
+  "distutils.version.Version.parse": [
+    "distutils.version.LooseVersion",
+    "distutils.version.StrictVersion"
+  ],
+  "email._header_value_parser.TokenList.fold": [
+    "email._header_value_parser.MsgID"
+  ],
+  "email._policybase.Policy.fold": [
+    "email._policybase.Compat32",
+    "email.policy.EmailPolicy"
+  ],
+  "email._policybase.Policy.fold_binary": [
+    "email._policybase.Compat32",
+    "email.policy.EmailPolicy"
+  ],
+  "email._policybase.Policy.header_fetch_parse": [
+    "email._policybase.Compat32",
+    "email.policy.EmailPolicy"
+  ],
+  "email._policybase.Policy.header_source_parse": [
+    "email._policybase.Compat32",
+    "email.policy.EmailPolicy"
+  ],
+  "email._policybase.Policy.header_store_parse": [
+    "email._policybase.Compat32",
+    "email.policy.EmailPolicy"
+  ],
+  "email.feedparser.FeedParser.__init__": [
+    "email.feedparser.BytesFeedParser"
+  ],
+  "email.feedparser.FeedParser.feed": [
+    "email.feedparser.BytesFeedParser"
+  ],
+  "email.generator.Generator.__init__": [
+    "email.generator.BytesGenerator",
+    "email.generator.DecodedGenerator"
+  ],
+  "email.message.Message.__init__": [
+    "email.message.MIMEPart",
+    "email.mime.base.MIMEBase",
+    "mailbox.Message"
+  ],
+  "email.message.Message.as_string": [
+    "email.message.MIMEPart"
+  ],
+  "email.message.Message.attach": [
+    "email.message.MIMEPart"
+  ],
+  "email.mime.base.MIMEBase.__init__": [
+    "email.mime.multipart.MIMEMultipart"
+  ],
+  "email.parser.BytesParser.parse": [
+    "email.parser.BytesHeaderParser"
+  ],
+  "email.parser.BytesParser.parsebytes": [
+    "email.parser.BytesHeaderParser"
+  ],
+  "email.parser.Parser.parse": [
+    "email.parser.HeaderParser"
+  ],
+  "email.parser.Parser.parsestr": [
+    "email.parser.HeaderParser"
+  ],
+  "enum.Enum._generate_next_value_": [
+    "enum.StrEnum"
+  ],
+  "enum.Enum.name": [
+    "enum.Flag"
+  ],
+  "enum.Enum.value": [
+    "enum.Flag",
+    "enum.IntEnum",
+    "enum.StrEnum"
+  ],
+  "enum.EnumMeta.__bool__": [
+    "enum.Flag"
+  ],
+  "enum.EnumMeta.__contains__": [
+    "enum.Flag"
+  ],
+  "enum.EnumMeta.__iter__": [
+    "enum.Flag"
+  ],
+  "enum.EnumMeta.__len__": [
+    "enum.Flag"
+  ],
+  "enum.Flag.value": [
+    "enum.auto"
+  ],
+  "enum.IntFlag.__new__": [
+    "enum.auto"
+  ],
+  "float.__abs__": [
+    "int"
+  ],
+  "float.__add__": [
+    "int"
+  ],
+  "float.__bool__": [
+    "int"
+  ],
+  "float.__ceil__": [
+    "int"
+  ],
+  "float.__divmod__": [
+    "int"
+  ],
+  "float.__eq__": [
+    "int"
+  ],
+  "float.__float__": [
+    "int"
+  ],
+  "float.__floor__": [
+    "int"
+  ],
+  "float.__floordiv__": [
+    "int"
+  ],
+  "float.__ge__": [
+    "int"
+  ],
+  "float.__getnewargs__": [
+    "int"
+  ],
+  "float.__gt__": [
+    "int"
+  ],
+  "float.__hash__": [
+    "int"
+  ],
+  "float.__int__": [
+    "int"
+  ],
+  "float.__le__": [
+    "int"
+  ],
+  "float.__lt__": [
+    "int"
+  ],
+  "float.__mod__": [
+    "int"
+  ],
+  "float.__mul__": [
+    "int"
+  ],
+  "float.__ne__": [
+    "int"
+  ],
+  "float.__neg__": [
+    "int"
+  ],
+  "float.__new__": [
+    "int"
+  ],
+  "float.__pos__": [
+    "int"
+  ],
+  "float.__pow__": [
+    "int"
+  ],
+  "float.__radd__": [
+    "int"
+  ],
+  "float.__rdivmod__": [
+    "int"
+  ],
+  "float.__rfloordiv__": [
+    "int"
+  ],
+  "float.__rmod__": [
+    "int"
+  ],
+  "float.__rmul__": [
+    "int"
+  ],
+  "float.__round__": [
+    "int"
+  ],
+  "float.__rpow__": [
+    "int"
+  ],
+  "float.__rsub__": [
+    "int"
+  ],
+  "float.__rtruediv__": [
+    "int"
+  ],
+  "float.__sub__": [
+    "int"
+  ],
+  "float.__truediv__": [
+    "int"
+  ],
+  "float.__trunc__": [
+    "int"
+  ],
+  "float.as_integer_ratio": [
+    "int"
+  ],
+  "float.conjugate": [
+    "int"
+  ],
+  "float.imag": [
+    "int"
+  ],
+  "float.is_integer": [
+    "int"
+  ],
+  "float.real": [
+    "int"
+  ],
+  "fractions.Fraction.__new__": [
+    "exifread.utils.Ratio"
+  ],
+  "frozenset.__eq__": [
+    "MySQLdb.DBAPISet",
+    "pymysql.DBAPISet"
+  ],
+  "frozenset.__hash__": [
+    "pymysql.DBAPISet"
+  ],
+  "ftplib.FTP.__init__": [
+    "ftplib.FTP_TLS"
+  ],
+  "ftplib.FTP.login": [
+    "ftplib.FTP_TLS"
+  ],
+  "gzip.GzipFile.__init__": [
+    "xmlrpc.client.GzipDecodedResponse"
+  ],
+  "hashlib._Hash.__init__": [
+    "hashlib._BlakeHash"
+  ],
+  "http.client.HTTPConnection.__init__": [
+    "http.client.HTTPSConnection"
+  ],
+  "http.client.HTTPResponse.__init__": [
+    "boto.connection.HTTPResponse"
+  ],
+  "http.client.HTTPResponse.read": [
+    "boto.connection.HTTPResponse"
+  ],
+  "http.cookiejar.CookieJar.__init__": [
+    "http.cookiejar.FileCookieJar"
+  ],
+  "http.cookiejar.CookieJar.set_cookie": [
+    "requests.cookies.RequestsCookieJar"
+  ],
+  "imaplib.IMAP4.__init__": [
+    "imaplib.IMAP4_SSL",
+    "imaplib.IMAP4_stream"
+  ],
+  "imaplib.IMAP4.open": [
+    "imaplib.IMAP4_SSL",
+    "imaplib.IMAP4_stream"
+  ],
+  "importlib._abc.Loader.create_module": [
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib._abc.Loader.exec_module": [
+    "importlib.abc.InspectLoader",
+    "importlib.util.LazyLoader"
+  ],
+  "importlib._abc.Loader.load_module": [
+    "importlib.abc.FileLoader",
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib.abc.ExecutionLoader.get_filename": [
+    "importlib.abc.FileLoader",
+    "importlib.machinery.ExtensionFileLoader"
+  ],
+  "importlib.abc.InspectLoader.exec_module": [
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib.abc.InspectLoader.get_code": [
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib.abc.InspectLoader.get_source": [
+    "importlib.abc.SourceLoader",
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib.abc.InspectLoader.is_package": [
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.NamespaceLoader"
+  ],
+  "importlib.abc.MetaPathFinder.find_spec": [
+    "importlib.machinery.BuiltinImporter",
+    "importlib.machinery.FrozenImporter",
+    "importlib.machinery.WindowsRegistryFinder"
+  ],
+  "importlib.abc.MetaPathFinder.invalidate_caches": [
+    "importlib.metadata.MetadataPathFinder"
+  ],
+  "importlib.abc.ResourceLoader.get_data": [
+    "importlib.abc.FileLoader"
+  ],
+  "importlib.abc.ResourceReader.contents": [
+    "importlib.abc.TraversableResources"
+  ],
+  "importlib.abc.ResourceReader.is_resource": [
+    "importlib.abc.TraversableResources"
+  ],
+  "importlib.abc.ResourceReader.open_resource": [
+    "importlib.abc.TraversableResources"
+  ],
+  "importlib.abc.ResourceReader.resource_path": [
+    "importlib.abc.TraversableResources"
+  ],
+  "importlib.abc.SourceLoader.set_data": [
+    "importlib.machinery.SourceFileLoader"
+  ],
+  "importlib.abc.Traversable.is_dir": [
+    "importlib.readers.MultiplexedPath",
+    "importlib.resources.simple.ResourceContainer",
+    "importlib.resources.simple.ResourceHandle"
+  ],
+  "importlib.abc.Traversable.is_file": [
+    "importlib.readers.MultiplexedPath",
+    "importlib.resources.simple.ResourceContainer",
+    "importlib.resources.simple.ResourceHandle"
+  ],
+  "importlib.abc.Traversable.iterdir": [
+    "importlib.readers.MultiplexedPath",
+    "importlib.resources.simple.ResourceContainer"
+  ],
+  "importlib.abc.Traversable.joinpath": [
+    "importlib.readers.MultiplexedPath",
+    "importlib.resources.simple.ResourceHandle"
+  ],
+  "importlib.abc.Traversable.name": [
+    "importlib.readers.MultiplexedPath"
+  ],
+  "importlib.abc.Traversable.open": [
+    "importlib.readers.MultiplexedPath",
+    "importlib.resources.simple.ResourceContainer",
+    "importlib.resources.simple.ResourceHandle"
+  ],
+  "importlib.abc.Traversable.read_bytes": [
+    "importlib.readers.MultiplexedPath"
+  ],
+  "importlib.abc.Traversable.read_text": [
+    "importlib.readers.MultiplexedPath"
+  ],
+  "importlib.abc.TraversableResources.files": [
+    "importlib.readers.FileReader",
+    "importlib.readers.NamespaceReader",
+    "importlib.readers.ZipReader",
+    "importlib.resources.simple.TraversableReader"
+  ],
+  "importlib.abc.TraversableResources.is_resource": [
+    "importlib.readers.ZipReader"
+  ],
+  "importlib.abc.TraversableResources.open_resource": [
+    "importlib.readers.ZipReader"
+  ],
+  "importlib.abc.TraversableResources.resource_path": [
+    "importlib.readers.FileReader",
+    "importlib.readers.NamespaceReader"
+  ],
+  "importlib.metadata.Distribution.locate_file": [
+    "importlib.metadata.PathDistribution"
+  ],
+  "importlib.metadata.Distribution.read_text": [
+    "importlib.metadata.PathDistribution"
+  ],
+  "importlib.metadata.DistributionFinder.find_distributions": [
+    "importlib.metadata.MetadataPathFinder"
+  ],
+  "inspect._FrameInfo.__new__": [
+    "inspect.FrameInfo"
+  ],
+  "inspect._Traceback.__new__": [
+    "inspect.Traceback"
+  ],
+  "int.__and__": [
+    "bool",
+    "enum.IntFlag"
+  ],
+  "int.__getnewargs__": [
+    "bool"
+  ],
+  "int.__invert__": [
+    "bool"
+  ],
+  "int.__new__": [
+    "bool",
+    "enum.IntEnum",
+    "enum.IntFlag",
+    "sre_constants._NamedIntConstant"
+  ],
+  "int.__or__": [
+    "bool",
+    "enum.IntFlag"
+  ],
+  "int.__rand__": [
+    "bool"
+  ],
+  "int.__ror__": [
+    "bool"
+  ],
+  "int.__rxor__": [
+    "bool"
+  ],
+  "int.__xor__": [
+    "bool",
+    "enum.IntFlag"
+  ],
+  "io.BufferedIOBase.read": [
+    "bz2.BZ2File",
+    "gzip.GzipFile",
+    "http.client.HTTPResponse",
+    "lzma.LZMAFile",
+    "zipfile.ZipExtFile"
+  ],
+  "io.BufferedIOBase.read1": [
+    "bz2.BZ2File",
+    "gzip.GzipFile",
+    "http.client.HTTPResponse",
+    "io.BytesIO",
+    "lzma.LZMAFile",
+    "zipfile.ZipExtFile"
+  ],
+  "io.BufferedIOBase.readinto": [
+    "bz2.BZ2File",
+    "http.client.HTTPResponse"
+  ],
+  "io.BufferedIOBase.write": [
+    "bz2.BZ2File",
+    "gzip.GzipFile",
+    "io.BufferedWriter",
+    "lzma.LZMAFile"
+  ],
+  "io.BufferedReader.__enter__": [
+    "io.BufferedRandom"
+  ],
+  "io.BufferedReader.__init__": [
+    "tarfile.ExFileObject"
+  ],
+  "io.IOBase.__enter__": [
+    "bz2.BZ2File",
+    "http.client.HTTPResponse",
+    "io.BufferedReader",
+    "io.BufferedWriter",
+    "io.BytesIO",
+    "io.FileIO",
+    "io.TextIOWrapper",
+    "lzma.LZMAFile"
+  ],
+  "io.IOBase.__exit__": [
+    "http.client.HTTPResponse"
+  ],
+  "io.IOBase.__iter__": [
+    "http.client.HTTPResponse",
+    "io.TextIOBase"
+  ],
+  "io.IOBase.__next__": [
+    "io.TextIOBase"
+  ],
+  "io.IOBase.close": [
+    "gzip.GzipFile",
+    "os._wrap_close"
+  ],
+  "io.IOBase.closed": [
+    "io.TextIOWrapper"
+  ],
+  "io.IOBase.fileno": [
+    "gzip.GzipFile"
+  ],
+  "io.IOBase.flush": [
+    "gzip.GzipFile"
+  ],
+  "io.IOBase.read": [
+    "io.BufferedIOBase",
+    "io.RawIOBase",
+    "io.TextIOBase"
+  ],
+  "io.IOBase.readline": [
+    "bz2.BZ2File",
+    "gzip.GzipFile",
+    "http.client.HTTPResponse",
+    "io.TextIOBase",
+    "lzma.LZMAFile",
+    "zipfile.ZipExtFile"
+  ],
+  "io.IOBase.readlines": [
+    "bz2.BZ2File",
+    "io.TextIOBase"
+  ],
+  "io.IOBase.seek": [
+    "_compression.DecompressReader",
+    "bz2.BZ2File",
+    "gzip.GzipFile",
+    "io.BufferedRandom",
+    "io.TextIOWrapper",
+    "lzma.LZMAFile",
+    "zipfile.ZipExtFile"
+  ],
+  "io.IOBase.write": [
+    "io.BufferedIOBase",
+    "io.RawIOBase",
+    "io.TextIOBase"
+  ],
+  "io.IOBase.writelines": [
+    "bz2.BZ2File",
+    "io.TextIOBase"
+  ],
+  "io.RawIOBase.read": [
+    "_compression.DecompressReader"
+  ],
+  "io.RawIOBase.readinto": [
+    "_compression.DecompressReader",
+    "socket.SocketIO"
+  ],
+  "io.RawIOBase.write": [
+    "socket.SocketIO"
+  ],
+  "io.TextIOBase.__iter__": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOBase.__next__": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOBase.detach": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOBase.readline": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOBase.readlines": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOBase.writelines": [
+    "io.TextIOWrapper"
+  ],
+  "io.TextIOWrapper.__init__": [
+    "io.StringIO",
+    "os._wrap_close"
+  ],
+  "ipaddress.IPv6Address.__eq__": [
+    "ipaddress.IPv6Interface"
+  ],
+  "ipaddress.IPv6Address.__hash__": [
+    "ipaddress.IPv6Interface"
+  ],
+  "ldap3.abstract.cursor.Cursor.__init__": [
+    "ldap3.abstract.cursor.Reader",
+    "ldap3.abstract.cursor.Writer"
+  ],
+  "ldap3.abstract.entry.EntryBase.__getattr__": [
+    "ldap3.abstract.entry.WritableEntry"
+  ],
+  "ldap3.abstract.entry.EntryBase.__setattr__": [
+    "ldap3.abstract.entry.WritableEntry"
+  ],
+  "ldap3.extend.ExtendedOperationContainer.__init__": [
+    "ldap3.extend.ExtendedOperationsRoot"
+  ],
+  "ldap3.extend.operation.ExtendedOperation.__init__": [
+    "ldap3.extend.novell.endTransaction.EndTransaction",
+    "ldap3.extend.novell.listReplicas.ListReplicas",
+    "ldap3.extend.novell.nmasGetUniversalPassword.NmasGetUniversalPassword",
+    "ldap3.extend.novell.nmasSetUniversalPassword.NmasSetUniversalPassword",
+    "ldap3.extend.novell.partition_entry_count.PartitionEntryCount",
+    "ldap3.extend.novell.replicaInfo.ReplicaInfo",
+    "ldap3.extend.novell.startTransaction.StartTransaction",
+    "ldap3.extend.standard.modifyPassword.ModifyPassword"
+  ],
+  "ldap3.extend.operation.ExtendedOperation.config": [
+    "ldap3.extend.novell.endTransaction.EndTransaction",
+    "ldap3.extend.novell.getBindDn.GetBindDn",
+    "ldap3.extend.novell.listReplicas.ListReplicas",
+    "ldap3.extend.novell.nmasGetUniversalPassword.NmasGetUniversalPassword",
+    "ldap3.extend.novell.nmasSetUniversalPassword.NmasSetUniversalPassword",
+    "ldap3.extend.novell.partition_entry_count.PartitionEntryCount",
+    "ldap3.extend.novell.replicaInfo.ReplicaInfo",
+    "ldap3.extend.novell.startTransaction.StartTransaction",
+    "ldap3.extend.standard.modifyPassword.ModifyPassword",
+    "ldap3.extend.standard.whoAmI.WhoAmI"
+  ],
+  "ldap3.extend.operation.ExtendedOperation.populate_result": [
+    "ldap3.extend.novell.endTransaction.EndTransaction",
+    "ldap3.extend.novell.getBindDn.GetBindDn",
+    "ldap3.extend.novell.listReplicas.ListReplicas",
+    "ldap3.extend.novell.nmasGetUniversalPassword.NmasGetUniversalPassword",
+    "ldap3.extend.novell.nmasSetUniversalPassword.NmasSetUniversalPassword",
+    "ldap3.extend.novell.partition_entry_count.PartitionEntryCount",
+    "ldap3.extend.novell.replicaInfo.ReplicaInfo",
+    "ldap3.extend.novell.startTransaction.StartTransaction",
+    "ldap3.extend.standard.modifyPassword.ModifyPassword",
+    "ldap3.extend.standard.whoAmI.WhoAmI"
+  ],
+  "ldap3.extend.operation.ExtendedOperation.set_response": [
+    "ldap3.extend.novell.endTransaction.EndTransaction",
+    "ldap3.extend.novell.startTransaction.StartTransaction"
+  ],
+  "ldap3.protocol.rfc4512.BaseObjectInfo.__init__": [
+    "ldap3.protocol.rfc4512.AttributeTypeInfo",
+    "ldap3.protocol.rfc4512.DitContentRuleInfo",
+    "ldap3.protocol.rfc4512.DitStructureRuleInfo",
+    "ldap3.protocol.rfc4512.LdapSyntaxInfo",
+    "ldap3.protocol.rfc4512.MatchingRuleInfo",
+    "ldap3.protocol.rfc4512.MatchingRuleUseInfo",
+    "ldap3.protocol.rfc4512.NameFormInfo",
+    "ldap3.protocol.rfc4512.ObjectClassInfo"
+  ],
+  "ldap3.protocol.rfc4512.BaseServerInfo.__init__": [
+    "ldap3.protocol.rfc4512.DsaInfo",
+    "ldap3.protocol.rfc4512.SchemaInfo"
+  ],
+  "ldap3.strategy.asynchronous.AsyncStrategy.__init__": [
+    "ldap3.strategy.asyncStream.AsyncStreamStrategy"
+  ],
+  "ldap3.strategy.asynchronous.AsyncStrategy.get_stream": [
+    "ldap3.strategy.asyncStream.AsyncStreamStrategy"
+  ],
+  "ldap3.strategy.asynchronous.AsyncStrategy.post_send_search": [
+    "ldap3.strategy.mockAsync.MockAsyncStrategy"
+  ],
+  "ldap3.strategy.asynchronous.AsyncStrategy.post_send_single_response": [
+    "ldap3.strategy.mockAsync.MockAsyncStrategy"
+  ],
+  "ldap3.strategy.asynchronous.AsyncStrategy.set_stream": [
+    "ldap3.strategy.asyncStream.AsyncStreamStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.__init__": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.close": [
+    "ldap3.strategy.asynchronous.AsyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.get_response": [
+    "ldap3.strategy.mockAsync.MockAsyncStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.get_stream": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.open": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.post_send_search": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.post_send_single_response": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.receiving": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.send": [
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.restartable.RestartableStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy"
+  ],
+  "ldap3.strategy.base.BaseStrategy.set_stream": [
+    "ldap3.strategy.asynchronous.AsyncStrategy",
+    "ldap3.strategy.ldifProducer.LdifProducerStrategy",
+    "ldap3.strategy.reusable.ReusableStrategy",
+    "ldap3.strategy.sync.SyncStrategy"
+  ],
+  "ldap3.strategy.mockBase.MockBaseStrategy.__init__": [
+    "ldap3.strategy.mockAsync.MockAsyncStrategy",
+    "ldap3.strategy.mockSync.MockSyncStrategy"
+  ],
+  "ldap3.strategy.restartable.RestartableStrategy.__init__": [
+    "ldap3.strategy.safeRestartable.SafeRestartableStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.__init__": [
+    "ldap3.strategy.restartable.RestartableStrategy",
+    "ldap3.strategy.safeSync.SafeSyncStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.get_stream": [
+    "ldap3.strategy.restartable.RestartableStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.open": [
+    "ldap3.strategy.restartable.RestartableStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.post_send_search": [
+    "ldap3.strategy.mockSync.MockSyncStrategy",
+    "ldap3.strategy.restartable.RestartableStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.post_send_single_response": [
+    "ldap3.strategy.mockSync.MockSyncStrategy",
+    "ldap3.strategy.restartable.RestartableStrategy"
+  ],
+  "ldap3.strategy.sync.SyncStrategy.set_stream": [
+    "ldap3.strategy.restartable.RestartableStrategy"
+  ],
+  "ldap3.utils.ciDict.CaseInsensitiveDict.__delitem__": [
+    "ldap3.utils.ciDict.CaseInsensitiveWithAliasDict"
+  ],
+  "ldap3.utils.ciDict.CaseInsensitiveDict.__getitem__": [
+    "ldap3.utils.ciDict.CaseInsensitiveWithAliasDict"
+  ],
+  "ldap3.utils.ciDict.CaseInsensitiveDict.__init__": [
+    "ldap3.utils.ciDict.CaseInsensitiveWithAliasDict"
+  ],
+  "ldap3.utils.ciDict.CaseInsensitiveDict.__setitem__": [
+    "ldap3.utils.ciDict.CaseInsensitiveWithAliasDict"
+  ],
+  "ldap3.utils.ciDict.CaseInsensitiveDict.copy": [
+    "ldap3.utils.ciDict.CaseInsensitiveWithAliasDict"
+  ],
+  "lib2to3.fixer_base.BaseFix.__init__": [
+    "lib2to3.fixes.fix_exitfunc.FixExitfunc"
+  ],
+  "lib2to3.fixer_base.BaseFix.compile_pattern": [
+    "lib2to3.fixes.fix_imports.FixImports"
+  ],
+  "lib2to3.fixer_base.BaseFix.finish_tree": [
+    "lib2to3.fixes.fix_xrange.FixXrange"
+  ],
+  "lib2to3.fixer_base.BaseFix.match": [
+    "lib2to3.fixes.fix_idioms.FixIdioms",
+    "lib2to3.fixes.fix_imports.FixImports",
+    "lib2to3.fixes.fix_ne.FixNe",
+    "lib2to3.fixes.fix_numliterals.FixNumliterals",
+    "lib2to3.fixes.fix_renames.FixRenames"
+  ],
+  "lib2to3.fixer_base.BaseFix.start_tree": [
+    "lib2to3.fixer_base.ConditionalFix",
+    "lib2to3.fixes.fix_exitfunc.FixExitfunc",
+    "lib2to3.fixes.fix_import.FixImport",
+    "lib2to3.fixes.fix_imports.FixImports",
+    "lib2to3.fixes.fix_next.FixNext",
+    "lib2to3.fixes.fix_unicode.FixUnicode",
+    "lib2to3.fixes.fix_xrange.FixXrange"
+  ],
+  "lib2to3.fixer_base.BaseFix.transform": [
+    "lib2to3.fixes.fix_apply.FixApply",
+    "lib2to3.fixes.fix_asserts.FixAsserts",
+    "lib2to3.fixes.fix_basestring.FixBasestring",
+    "lib2to3.fixes.fix_buffer.FixBuffer",
+    "lib2to3.fixes.fix_dict.FixDict",
+    "lib2to3.fixes.fix_except.FixExcept",
+    "lib2to3.fixes.fix_exec.FixExec",
+    "lib2to3.fixes.fix_execfile.FixExecfile",
+    "lib2to3.fixes.fix_exitfunc.FixExitfunc",
+    "lib2to3.fixes.fix_filter.FixFilter",
+    "lib2to3.fixes.fix_funcattrs.FixFuncattrs",
+    "lib2to3.fixes.fix_future.FixFuture",
+    "lib2to3.fixes.fix_getcwdu.FixGetcwdu",
+    "lib2to3.fixes.fix_has_key.FixHasKey",
+    "lib2to3.fixes.fix_idioms.FixIdioms",
+    "lib2to3.fixes.fix_import.FixImport",
+    "lib2to3.fixes.fix_imports.FixImports",
+    "lib2to3.fixes.fix_input.FixInput",
+    "lib2to3.fixes.fix_intern.FixIntern",
+    "lib2to3.fixes.fix_isinstance.FixIsinstance",
+    "lib2to3.fixes.fix_itertools.FixItertools",
+    "lib2to3.fixes.fix_itertools_imports.FixItertoolsImports",
+    "lib2to3.fixes.fix_long.FixLong",
+    "lib2to3.fixes.fix_map.FixMap",
+    "lib2to3.fixes.fix_metaclass.FixMetaclass",
+    "lib2to3.fixes.fix_methodattrs.FixMethodattrs",
+    "lib2to3.fixes.fix_ne.FixNe",
+    "lib2to3.fixes.fix_next.FixNext",
+    "lib2to3.fixes.fix_nonzero.FixNonzero",
+    "lib2to3.fixes.fix_numliterals.FixNumliterals",
+    "lib2to3.fixes.fix_operator.FixOperator",
+    "lib2to3.fixes.fix_paren.FixParen",
+    "lib2to3.fixes.fix_print.FixPrint",
+    "lib2to3.fixes.fix_raise.FixRaise",
+    "lib2to3.fixes.fix_raw_input.FixRawInput",
+    "lib2to3.fixes.fix_reduce.FixReduce",
+    "lib2to3.fixes.fix_reload.FixReload",
+    "lib2to3.fixes.fix_renames.FixRenames",
+    "lib2to3.fixes.fix_repr.FixRepr",
+    "lib2to3.fixes.fix_set_literal.FixSetLiteral",
+    "lib2to3.fixes.fix_standarderror.FixStandarderror",
+    "lib2to3.fixes.fix_sys_exc.FixSysExc",
+    "lib2to3.fixes.fix_throw.FixThrow",
+    "lib2to3.fixes.fix_tuple_params.FixTupleParams",
+    "lib2to3.fixes.fix_types.FixTypes",
+    "lib2to3.fixes.fix_unicode.FixUnicode",
+    "lib2to3.fixes.fix_ws_comma.FixWsComma",
+    "lib2to3.fixes.fix_xrange.FixXrange",
+    "lib2to3.fixes.fix_xreadlines.FixXreadlines",
+    "lib2to3.fixes.fix_zip.FixZip"
+  ],
+  "lib2to3.fixes.fix_imports.FixImports.build_pattern": [
+    "lib2to3.fixes.fix_urllib.FixUrllib"
+  ],
+  "lib2to3.fixes.fix_imports.FixImports.transform": [
+    "lib2to3.fixes.fix_urllib.FixUrllib"
+  ],
+  "lib2to3.pytree.Base._eq": [
+    "lib2to3.pytree.Leaf",
+    "lib2to3.pytree.Node"
+  ],
+  "lib2to3.pytree.Base.clone": [
+    "lib2to3.pytree.Leaf",
+    "lib2to3.pytree.Node"
+  ],
+  "lib2to3.pytree.Base.post_order": [
+    "lib2to3.pytree.Leaf",
+    "lib2to3.pytree.Node"
+  ],
+  "lib2to3.pytree.Base.pre_order": [
+    "lib2to3.pytree.Leaf",
+    "lib2to3.pytree.Node"
+  ],
+  "lib2to3.refactor.RefactoringTool.log_error": [
+    "lib2to3.main.StdoutRefactoringTool"
+  ],
+  "lib2to3.refactor.RefactoringTool.print_output": [
+    "lib2to3.main.StdoutRefactoringTool"
+  ],
+  "lib2to3.refactor.RefactoringTool.refactor": [
+    "lib2to3.refactor.MultiprocessRefactoringTool"
+  ],
+  "lib2to3.refactor.RefactoringTool.write_file": [
+    "lib2to3.main.StdoutRefactoringTool"
+  ],
+  "list.__contains__": [
+    "psycopg2.extras.DictRow",
+    "unittest.mock._CallList"
+  ],
+  "list.__getitem__": [
+    "logging.config.ConvertingList",
+    "psycopg2.extras.DictRow"
+  ],
+  "list.__init__": [
+    "boto.s3.lifecycle.Transitions",
+    "email._header_value_parser.TokenList",
+    "paramiko.auth_strategy.AuthResult",
+    "psycopg2.extras.DictRow"
+  ],
+  "list.__setitem__": [
+    "psycopg2.extras.DictRow"
+  ],
+  "list.copy": [
+    "psycopg2.extras.DictRow"
+  ],
+  "list.pop": [
+    "logging.config.ConvertingList"
+  ],
+  "logging.FileHandler.__init__": [
+    "logging.handlers.BaseRotatingHandler",
+    "logging.handlers.WatchedFileHandler"
+  ],
+  "logging.Formatter.__init__": [
+    "exifread.exif_log.Formatter"
+  ],
+  "logging.Handler.__init__": [
+    "logging.StreamHandler",
+    "logging.handlers.BufferingHandler",
+    "logging.handlers.HTTPHandler",
+    "logging.handlers.NTEventLogHandler",
+    "logging.handlers.QueueHandler",
+    "logging.handlers.SMTPHandler",
+    "logging.handlers.SocketHandler",
+    "logging.handlers.SysLogHandler"
+  ],
+  "logging.Handler.emit": [
+    "boto.NullHandler"
+  ],
+  "logging.Logger.__init__": [
+    "logging.RootLogger"
+  ],
+  "logging.StreamHandler.__init__": [
+    "exifread.exif_log.Handler",
+    "logging.FileHandler"
+  ],
+  "logging.handlers.BaseRotatingHandler.__init__": [
+    "logging.handlers.RotatingFileHandler",
+    "logging.handlers.TimedRotatingFileHandler"
+  ],
+  "logging.handlers.BufferingHandler.__init__": [
+    "logging.handlers.MemoryHandler"
+  ],
+  "logging.handlers.SMTPHandler.__init__": [
+    "boto.utils.AuthSMTPHandler"
+  ],
+  "logging.handlers.SocketHandler.makeSocket": [
+    "logging.handlers.DatagramHandler"
+  ],
+  "mailbox.Mailbox.__contains__": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.__init__": [
+    "mailbox.MH",
+    "mailbox.Maildir"
+  ],
+  "mailbox.Mailbox.__len__": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.__setitem__": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.add": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.close": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.flush": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.get_bytes": [
+    "mailbox.Babyl",
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._mboxMMDF"
+  ],
+  "mailbox.Mailbox.get_file": [
+    "mailbox.Babyl",
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._mboxMMDF"
+  ],
+  "mailbox.Mailbox.get_message": [
+    "mailbox.Babyl",
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._mboxMMDF"
+  ],
+  "mailbox.Mailbox.get_string": [
+    "mailbox._mboxMMDF"
+  ],
+  "mailbox.Mailbox.iterkeys": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.lock": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.remove": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox.Mailbox.unlock": [
+    "mailbox.MH",
+    "mailbox.Maildir",
+    "mailbox._singlefileMailbox"
+  ],
+  "mailbox._ProxyFile.__init__": [
+    "mailbox._PartialFile"
+  ],
+  "multiprocessing.context.BaseContext.get_start_method": [
+    "multiprocessing.context.DefaultContext"
+  ],
+  "multiprocessing.managers.BaseManager.get_server": [
+    "multiprocessing.managers.SharedMemoryManager"
+  ],
+  "multiprocessing.pool.ApplyResult.__init__": [
+    "multiprocessing.pool.MapResult"
+  ],
+  "multiprocessing.pool.Pool.__init__": [
+    "multiprocessing.pool.ThreadPool"
+  ],
+  "multiprocessing.queues.Queue.__init__": [
+    "concurrent.futures.process._SafeQueue"
+  ],
+  "multiprocessing.sharedctypes.SynchronizedArray.__getitem__": [
+    "multiprocessing.sharedctypes.SynchronizedString"
+  ],
+  "multiprocessing.sharedctypes.SynchronizedArray.__getslice__": [
+    "multiprocessing.sharedctypes.SynchronizedString"
+  ],
+  "multiprocessing.sharedctypes.SynchronizedArray.__setitem__": [
+    "multiprocessing.sharedctypes.SynchronizedString"
+  ],
+  "multiprocessing.sharedctypes.SynchronizedArray.__setslice__": [
+    "multiprocessing.sharedctypes.SynchronizedString"
+  ],
+  "multiprocessing.synchronize.Semaphore.__init__": [
+    "multiprocessing.synchronize.BoundedSemaphore"
+  ],
+  "nntplib.NNTP.__init__": [
+    "nntplib.NNTP_SSL"
+  ],
+  "numbers.Complex.__abs__": [
+    "complex",
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Complex.__add__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__bool__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__complex__": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Complex.__eq__": [
+    "complex"
+  ],
+  "numbers.Complex.__mul__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__neg__": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Complex.__pos__": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Complex.__pow__": [
+    "complex",
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Complex.__radd__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__rmul__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__rpow__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__rsub__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__rtruediv__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__sub__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.__truediv__": [
+    "complex",
+    "fractions.Fraction"
+  ],
+  "numbers.Complex.conjugate": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Complex.imag": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Complex.real": [
+    "complex",
+    "numbers.Real"
+  ],
+  "numbers.Integral.__and__": [
+    "int"
+  ],
+  "numbers.Integral.__index__": [
+    "int"
+  ],
+  "numbers.Integral.__invert__": [
+    "int"
+  ],
+  "numbers.Integral.__lshift__": [
+    "int"
+  ],
+  "numbers.Integral.__rand__": [
+    "int"
+  ],
+  "numbers.Integral.__rlshift__": [
+    "int"
+  ],
+  "numbers.Integral.__rrshift__": [
+    "int"
+  ],
+  "numbers.Integral.__rshift__": [
+    "int"
+  ],
+  "numbers.Integral.__rxor__": [
+    "int"
+  ],
+  "numbers.Integral.__xor__": [
+    "int"
+  ],
+  "numbers.Integral.denominator": [
+    "int"
+  ],
+  "numbers.Integral.numerator": [
+    "int"
+  ],
+  "numbers.Rational.__float__": [
+    "float",
+    "numbers.Integral"
+  ],
+  "numbers.Rational.denominator": [
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Rational.numerator": [
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Real.__ceil__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__divmod__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__float__": [
+    "numbers.Rational"
+  ],
+  "numbers.Real.__floor__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__floordiv__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__le__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__lt__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__mod__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__neg__": [
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Real.__pos__": [
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Real.__rdivmod__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__rfloordiv__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__rmod__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.__round__": [
+    "float",
+    "fractions.Fraction",
+    "numbers.Integral"
+  ],
+  "numbers.Real.__trunc__": [
+    "float",
+    "fractions.Fraction"
+  ],
+  "numbers.Real.conjugate": [
+    "fractions.Fraction"
+  ],
+  "numbers.Real.imag": [
+    "fractions.Fraction"
+  ],
+  "numbers.Real.real": [
+    "fractions.Fraction"
+  ],
+  "numbers._ComplexLike.__abs__": [
+    "numbers._IntegralLike"
+  ],
+  "numbers._ComplexLike.__neg__": [
+    "numbers._RealLike"
+  ],
+  "numbers._ComplexLike.__pos__": [
+    "numbers._RealLike"
+  ],
+  "numbers._IntegralLike.__index__": [
+    "numbers.Integral"
+  ],
+  "numbers._IntegralLike.__int__": [
+    "numbers.Integral"
+  ],
+  "numbers._IntegralLike.__invert__": [
+    "numbers.Integral"
+  ],
+  "numbers._RealLike.__ceil__": [
+    "numbers.Real"
+  ],
+  "numbers._RealLike.__float__": [
+    "numbers.Real"
+  ],
+  "numbers._RealLike.__floor__": [
+    "numbers.Real"
+  ],
+  "numbers._RealLike.__neg__": [
+    "numbers._IntegralLike"
+  ],
+  "numbers._RealLike.__pos__": [
+    "numbers._IntegralLike"
+  ],
+  "numbers._RealLike.__trunc__": [
+    "numbers.Real"
+  ],
+  "object.__delattr__": [
+    "MySQLdb._mysql.connection",
+    "MySQLdb._mysql.result",
+    "_dummy_threading.local",
+    "_thread._local",
+    "_threading_local.local",
+    "types.SimpleNamespace",
+    "unittest.mock.NonCallableMock"
+  ],
+  "object.__dict__": [
+    "types.ModuleType"
+  ],
+  "object.__dir__": [
+    "enum.Enum",
+    "enum.EnumMeta",
+    "unittest.mock.NonCallableMock"
+  ],
+  "object.__eq__": [
+    "_collections_abc.dict_items",
+    "_collections_abc.dict_keys",
+    "_decimal.Decimal",
+    "_interpchannels.ChannelID",
+    "_tkinter.Tcl_Obj",
+    "_weakrefset.WeakSet",
+    "argparse.Namespace",
+    "array.array",
+    "asyncio.events.TimerHandle",
+    "boto.s3.tagging.Tag",
+    "boto.utils.Password",
+    "bytearray",
+    "bytes",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "datetime.date",
+    "datetime.time",
+    "datetime.timedelta",
+    "datetime.timezone",
+    "dateutil._common.weekday",
+    "dateutil.relativedelta.relativedelta",
+    "dateutil.rrule.rruleset._genitem",
+    "dateutil.tz.tz._ttinfo",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzrange",
+    "dateutil.tz.tz.tzutc",
+    "dict",
+    "distutils.version.Version",
+    "email.charset.Charset",
+    "email.header.Header",
+    "email.headerregistry.Address",
+    "email.headerregistry.Group",
+    "fractions.Fraction",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.ModuleSpec",
+    "importlib.metadata.EntryPoint",
+    "inspect.BoundArguments",
+    "inspect.Parameter",
+    "inspect.Signature",
+    "ipaddress.IPv4Interface",
+    "ipaddress.IPv6Address",
+    "ipaddress._BaseAddress",
+    "ipaddress._BaseNetwork",
+    "ldap3.abstract.attrDef.AttrDef",
+    "ldap3.abstract.attribute.Attribute",
+    "ldap3.abstract.entry.EntryBase",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "lib2to3.pgen2.pgen.DFAState",
+    "lib2to3.pytree.Base",
+    "list",
+    "memoryview",
+    "numbers.Complex",
+    "optparse.Values",
+    "paramiko.pkey.PKey",
+    "paramiko.pkey.PublicBlob",
+    "plistlib.UID",
+    "psycopg2._psycopg.Column",
+    "psycopg2._psycopg.Notify",
+    "psycopg2._range.Range",
+    "psycopg2.sql.Composable",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "range",
+    "re.Pattern",
+    "set",
+    "slice",
+    "sqlite3.dbapi2.Row",
+    "statistics.NormalDist",
+    "str",
+    "tkinter.Variable",
+    "tkinter.font.Font",
+    "tqdm.utils.Comparable",
+    "tqdm.utils.DisableOnWriteError",
+    "tqdm.utils.SimpleTextIOWrapper",
+    "traceback.FrameSummary",
+    "traceback.TracebackException",
+    "tracemalloc.Frame",
+    "tracemalloc.Statistic",
+    "tracemalloc.StatisticDiff",
+    "tracemalloc.Trace",
+    "tracemalloc.Traceback",
+    "tuple",
+    "types.BuiltinFunctionType",
+    "types.CodeType",
+    "types.GenericAlias",
+    "types.MethodType",
+    "types.MethodWrapperType",
+    "types.SimpleNamespace",
+    "types.UnionType",
+    "typing.AbstractSet",
+    "typing.ForwardRef",
+    "typing.Mapping",
+    "typing.ParamSpecArgs",
+    "typing.ParamSpecKwargs",
+    "typing_extensions.Doc",
+    "unittest.mock._ANY",
+    "unittest.suite.BaseTestSuite",
+    "uuid.UUID",
+    "weakref.CallableProxyType",
+    "weakref.ProxyType",
+    "weakref.ReferenceType",
+    "xml.dom.minidom.NamedNodeMap",
+    "xml.etree.ElementTree.QName",
+    "xmlrpc.client.Binary",
+    "xmlrpc.client.DateTime",
+    "zipfile._path.Path"
+  ],
+  "object.__format__": [
+    "_decimal.Decimal",
+    "datetime.date",
+    "datetime.time",
+    "enum.Enum",
+    "ipaddress._BaseAddress",
+    "tqdm.utils.FormatReplace"
+  ],
+  "object.__getattribute__": [
+    "_dummy_threading.local",
+    "_thread._local",
+    "_threading_local.local",
+    "types.SimpleNamespace",
+    "unittest.mock._Call"
+  ],
+  "object.__getstate__": [
+    "asyncio.trsock.TransportSocket",
+    "multiprocessing.managers.Token",
+    "psycopg2._psycopg.Column",
+    "zipfile._path.InitializedState"
+  ],
+  "object.__hash__": [
+    "_decimal.Decimal",
+    "_interpchannels.ChannelID",
+    "asyncio.events.TimerHandle",
+    "bytes",
+    "collections.UserString",
+    "complex",
+    "contextvars.ContextVar",
+    "datetime.date",
+    "datetime.time",
+    "datetime.timedelta",
+    "datetime.timezone",
+    "dateutil._common.weekday",
+    "dateutil.relativedelta.relativedelta",
+    "enum.Enum",
+    "fractions.Fraction",
+    "frozenset",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.metadata.EntryPoint",
+    "inspect.Parameter",
+    "inspect.Signature",
+    "ipaddress.IPv4Interface",
+    "ipaddress.IPv6Address",
+    "ipaddress._BaseAddress",
+    "ipaddress._BaseNetwork",
+    "ldap3.abstract.attrDef.AttrDef",
+    "memoryview",
+    "numbers.Number",
+    "paramiko.pkey.PKey",
+    "pathlib.PurePath",
+    "plistlib.UID",
+    "psycopg2._psycopg.Notify",
+    "psycopg2._range.Range",
+    "range",
+    "re.Pattern",
+    "sqlite3.dbapi2.Row",
+    "statistics.NormalDist",
+    "str",
+    "tqdm.std.tqdm",
+    "tracemalloc.Frame",
+    "tracemalloc.Statistic",
+    "tracemalloc.StatisticDiff",
+    "tracemalloc.Trace",
+    "tracemalloc.Traceback",
+    "tuple",
+    "types.BuiltinFunctionType",
+    "types.CodeType",
+    "types.GenericAlias",
+    "types.MethodType",
+    "types.MethodWrapperType",
+    "types.UnionType",
+    "typing.ForwardRef",
+    "typing.Hashable",
+    "typing_extensions.Doc",
+    "uuid.UUID",
+    "weakref.ReferenceType",
+    "xml.etree.ElementTree.QName",
+    "zipfile._path.Path"
+  ],
+  "object.__init__": [
+    "BaseException",
+    "MySQLdb._mysql.connection",
+    "MySQLdb._mysql.result",
+    "MySQLdb.cursors.BaseCursor",
+    "__future__._Feature",
+    "_csv.Dialect",
+    "_decimal.Context",
+    "_decimal._ContextManager",
+    "_dummy_threading.Barrier",
+    "_dummy_threading.Condition",
+    "_dummy_threading.Semaphore",
+    "_dummy_threading.Thread",
+    "_json.make_encoder",
+    "_json.make_scanner",
+    "_lsprof.Profiler",
+    "_operator.methodcaller",
+    "_random.Random",
+    "_sitebuiltins.Quitter",
+    "_sitebuiltins._Printer",
+    "_socket.socket",
+    "aifc.Aifc_read",
+    "aifc.Aifc_write",
+    "aiofiles.tempfile.temptypes.AsyncTemporaryDirectory",
+    "argparse.FileType",
+    "argparse.HelpFormatter",
+    "argparse.HelpFormatter._Section",
+    "argparse._ActionsContainer",
+    "asynchat.simple_producer",
+    "asyncio.events.Handle",
+    "asyncio.runners.Runner",
+    "asyncio.streams.StreamWriter",
+    "asyncio.subprocess.Process",
+    "asyncio.timeouts.Timeout",
+    "asyncio.transports.BaseTransport",
+    "asyncio.trsock.TransportSocket",
+    "asyncore.dispatcher",
+    "asyncore.file_wrapper",
+    "bdb.Bdb",
+    "bdb.Breakpoint",
+    "binhex.BinHex",
+    "binhex.HexBin",
+    "binhex.openrsrc",
+    "boto.auth.HmacKeys",
+    "boto.connection.AWSAuthConnection",
+    "boto.connection.ConnectionPool",
+    "boto.connection.HTTPRequest",
+    "boto.connection.HostConnectionPool",
+    "boto.exception.ConsoleOutput",
+    "boto.exception._EC2Error",
+    "boto.regioninfo.RegionInfo",
+    "boto.s3.acl.ACL",
+    "boto.s3.acl.Grant",
+    "boto.s3.acl.Policy",
+    "boto.s3.bucket.Bucket",
+    "boto.s3.bucketlistresultset.MultiPartUploadListResultSet",
+    "boto.s3.bucketlistresultset.VersionedBucketListResultSet",
+    "boto.s3.bucketlogging.BucketLogging",
+    "boto.s3.cors.CORSRule",
+    "boto.s3.deletemarker.DeleteMarker",
+    "boto.s3.key.Key",
+    "boto.s3.keyfile.KeyFile",
+    "boto.s3.lifecycle.Expiration",
+    "boto.s3.lifecycle.Rule",
+    "boto.s3.lifecycle.Transition",
+    "boto.s3.multidelete.Deleted",
+    "boto.s3.multidelete.Error",
+    "boto.s3.multidelete.MultiDeleteResult",
+    "boto.s3.multipart.CompleteMultiPartUpload",
+    "boto.s3.multipart.MultiPartUpload",
+    "boto.s3.multipart.Part",
+    "boto.s3.prefix.Prefix",
+    "boto.s3.tagging.Tag",
+    "boto.s3.user.User",
+    "boto.s3.website.RoutingRule",
+    "boto.s3.website.WebsiteConfiguration",
+    "boto.s3.website._XMLKeyValue",
+    "boto.utils.LRUCache._Item",
+    "boto.utils.Password",
+    "boto.utils.ShellCommand",
+    "bz2.BZ2Compressor",
+    "calendar.Calendar",
+    "calendar.different_locale",
+    "cgi.FieldStorage",
+    "cgi.MiniFieldStorage",
+    "cgitb.Hook",
+    "chunk.Chunk",
+    "cmd.Cmd",
+    "code.InteractiveInterpreter",
+    "codecs.IncrementalDecoder",
+    "codecs.IncrementalEncoder",
+    "colorama.ansi.AnsiCodes",
+    "colorama.ansitowin32.AnsiToWin32",
+    "colorama.ansitowin32.StreamWrapper",
+    "concurrent.futures._base._AcquireFutures",
+    "concurrent.futures.process._CallItem",
+    "concurrent.futures.process._ExceptionWithTraceback",
+    "concurrent.futures.process._ResultItem",
+    "ctypes.CDLL",
+    "curses.textpad.Textbox",
+    "dateutil._common.weekday",
+    "dateutil.parser.isoparser.isoparser",
+    "dateutil.parser.parser",
+    "dateutil.parser.parserinfo",
+    "dateutil.relativedelta.relativedelta",
+    "dateutil.rrule._iterinfo",
+    "dateutil.rrule.rrulebase",
+    "dateutil.rrule.rruleset._genitem",
+    "dateutil.tz.tz._ttinfo",
+    "dateutil.tz.tz.tzical",
+    "dateutil.zoneinfo.ZoneInfoFile",
+    "difflib.Differ",
+    "difflib.HtmlDiff",
+    "dis.Bytecode",
+    "distutils.ccompiler.CCompiler",
+    "distutils.cmd.Command",
+    "distutils.dist.Distribution",
+    "distutils.dist.DistributionMetadata",
+    "distutils.extension.Extension",
+    "distutils.fancy_getopt.FancyGetopt",
+    "distutils.fancy_getopt.OptionDummy",
+    "distutils.filelist.FileList",
+    "distutils.log.Log",
+    "distutils.text_file.TextFile",
+    "distutils.version.Version",
+    "email.charset.Charset",
+    "email.header.Header",
+    "email.headerregistry.Address",
+    "email.headerregistry.Group",
+    "email.headerregistry.HeaderRegistry",
+    "enum.verify",
+    "exifread.classes.ExifHeader",
+    "exifread.classes.IfdTag",
+    "exifread.heic.Box",
+    "exifread.heic.HEICExifFinder",
+    "formatter.AbstractFormatter",
+    "formatter.NullFormatter",
+    "ftplib.FTP",
+    "gettext.NullTranslations",
+    "gzip._PaddedFile",
+    "hashlib._Hash",
+    "hashlib._VarLenHash",
+    "hmac.HMAC",
+    "http.client.HTTPConnection",
+    "http.cookiejar.Cookie",
+    "imaplib.IMAP4",
+    "imaplib._Authenticator",
+    "imp.NullImporter",
+    "importlib.machinery.ModuleSpec",
+    "importlib.metadata.DistributionFinder.Context",
+    "importlib.metadata.EntryPoint",
+    "importlib.metadata.FileHash",
+    "inspect.BoundArguments",
+    "inspect.Parameter",
+    "inspect.Signature",
+    "json.decoder.JSONDecoder",
+    "json.encoder.JSONEncoder",
+    "ldap3.abstract.attrDef.AttrDef",
+    "ldap3.abstract.attribute.Attribute",
+    "ldap3.abstract.cursor.Cursor",
+    "ldap3.abstract.entry.EntryBase",
+    "ldap3.abstract.entry.EntryState",
+    "ldap3.abstract.objectDef.ObjectDef",
+    "ldap3.core.connection.Connection",
+    "ldap3.core.pooling.ServerPool",
+    "ldap3.core.pooling.ServerPoolState",
+    "ldap3.core.pooling.ServerState",
+    "ldap3.core.server.Server",
+    "ldap3.core.tls.Tls",
+    "ldap3.core.usage.ConnectionUsage",
+    "ldap3.extend.ExtendedOperationContainer",
+    "ldap3.extend.microsoft.dirSync.DirSync",
+    "ldap3.extend.microsoft.persistentSearch.ADPersistentSearch",
+    "ldap3.extend.operation.ExtendedOperation",
+    "ldap3.extend.standard.PersistentSearch.PersistentSearch",
+    "ldap3.operation.search.FilterNode",
+    "ldap3.protocol.rfc4512.BaseObjectInfo",
+    "ldap3.protocol.rfc4512.BaseServerInfo",
+    "ldap3.strategy.base.BaseStrategy",
+    "ldap3.strategy.mockBase.MockBaseStrategy",
+    "ldap3.strategy.mockBase.PagedSearchSet",
+    "ldap3.strategy.reusable.ReusableStrategy.ConnectionPool",
+    "ldap3.strategy.reusable.ReusableStrategy.PooledConnectionWorker",
+    "ldap3.utils.ntlm.NtlmClient",
+    "lib2to3.btm_matcher.BMNode",
+    "lib2to3.btm_matcher.BottomMatcher",
+    "lib2to3.fixer_base.BaseFix",
+    "lib2to3.pgen2.driver.Driver",
+    "lib2to3.pgen2.parse.Parser",
+    "lib2to3.pgen2.pgen.DFAState",
+    "lib2to3.pgen2.pgen.ParserGenerator",
+    "lib2to3.pygram.Symbols",
+    "lib2to3.refactor.RefactoringTool",
+    "logging.BufferingFormatter",
+    "logging.Filter",
+    "logging.Formatter",
+    "logging.LogRecord",
+    "logging.Manager",
+    "logging.PercentStyle",
+    "logging.PlaceHolder",
+    "logging.config.BaseConfigurator",
+    "logging.handlers.QueueListener",
+    "lzma.LZMACompressor",
+    "lzma.LZMADecompressor",
+    "mimetypes.MimeTypes",
+    "modulefinder.Module",
+    "modulefinder.ModuleFinder",
+    "multiprocessing.connection.Listener",
+    "multiprocessing.dummy.Namespace",
+    "multiprocessing.dummy.Value",
+    "multiprocessing.dummy.connection.Connection",
+    "multiprocessing.dummy.connection.Listener",
+    "multiprocessing.heap.Arena",
+    "multiprocessing.heap.BufferWrapper",
+    "multiprocessing.heap.Heap",
+    "multiprocessing.managers.BaseManager",
+    "multiprocessing.managers.BaseProxy",
+    "multiprocessing.managers.Namespace",
+    "multiprocessing.managers.Server",
+    "multiprocessing.managers.Token",
+    "multiprocessing.pool.Pool",
+    "multiprocessing.popen_fork.Popen",
+    "multiprocessing.popen_forkserver._DupFd",
+    "multiprocessing.popen_spawn_posix._DupFd",
+    "multiprocessing.process.BaseProcess",
+    "multiprocessing.reduction.AbstractReducer",
+    "multiprocessing.resource_sharer.DupFd",
+    "multiprocessing.shared_memory.SharedMemory",
+    "multiprocessing.synchronize.Event",
+    "netrc.netrc",
+    "nntplib.NNTP",
+    "optparse.HelpFormatter",
+    "optparse.Option",
+    "optparse.OptionContainer",
+    "optparse.Values",
+    "paramiko.agent.AgentClientProxy",
+    "paramiko.agent.AgentRequestHandler",
+    "paramiko.agent.AgentSSH",
+    "paramiko.auth_handler.AuthHandler",
+    "paramiko.auth_handler.GssapiWithMicAuthHandler",
+    "paramiko.auth_strategy.AuthSource",
+    "paramiko.auth_strategy.AuthStrategy",
+    "paramiko.ber.BER",
+    "paramiko.compress.ZlibCompressor",
+    "paramiko.compress.ZlibDecompressor",
+    "paramiko.config.LazyFqdn",
+    "paramiko.config.SSHConfig",
+    "paramiko.ecdsakey._ECDSACurve",
+    "paramiko.ecdsakey._ECDSACurveSet",
+    "paramiko.hostkeys.HostKeyEntry",
+    "paramiko.kex_curve25519.KexCurve25519",
+    "paramiko.kex_ecdh_nist.KexNistp256",
+    "paramiko.kex_gex.KexGex",
+    "paramiko.kex_group1.KexGroup1",
+    "paramiko.kex_gss.KexGSSGex",
+    "paramiko.kex_gss.KexGSSGroup1",
+    "paramiko.kex_gss.NullHostKey",
+    "paramiko.message.Message",
+    "paramiko.packet.Packetizer",
+    "paramiko.pipe.OrPipe",
+    "paramiko.pipe.PosixPipe",
+    "paramiko.pipe.WindowsPipe",
+    "paramiko.pkey.PKey",
+    "paramiko.pkey.PublicBlob",
+    "paramiko.primes.ModulusPack",
+    "paramiko.server.InteractiveQuery",
+    "paramiko.sftp.BaseSFTP",
+    "paramiko.sftp_attr.SFTPAttributes",
+    "paramiko.sftp_si.SFTPServerInterface",
+    "paramiko.ssh_gss._SSH_GSSAuth",
+    "paramiko.transport.ChannelMap",
+    "paramiko.transport.SecurityOptions",
+    "pickle.PickleBuffer",
+    "pickle.Pickler",
+    "pickle.Unpickler",
+    "pickletools.ArgumentDescriptor",
+    "pickletools.OpcodeInfo",
+    "pickletools.StackObject",
+    "plistlib.UID",
+    "poplib.POP3",
+    "pprint.PrettyPrinter",
+    "profile.Profile",
+    "property",
+    "pstats.Stats",
+    "psycopg2._json.Json",
+    "psycopg2._psycopg.AsIs",
+    "psycopg2._psycopg.Binary",
+    "psycopg2._psycopg.Boolean",
+    "psycopg2._psycopg.Column",
+    "psycopg2._psycopg.ConnectionInfo",
+    "psycopg2._psycopg.Decimal",
+    "psycopg2._psycopg.Diagnostics",
+    "psycopg2._psycopg.Float",
+    "psycopg2._psycopg.ISQLQuote",
+    "psycopg2._psycopg.Int",
+    "psycopg2._psycopg.List",
+    "psycopg2._psycopg.Notify",
+    "psycopg2._psycopg.QuotedString",
+    "psycopg2._psycopg.ReplicationMessage",
+    "psycopg2._psycopg.Xid",
+    "psycopg2._psycopg._datetime",
+    "psycopg2._psycopg.connection",
+    "psycopg2._psycopg.cursor",
+    "psycopg2._psycopg.lobject",
+    "psycopg2._range.RangeAdapter",
+    "psycopg2._range.RangeCaster",
+    "psycopg2.extensions.NoneAdapter",
+    "psycopg2.extensions.SQL_IN",
+    "psycopg2.extras.CompositeCaster",
+    "psycopg2.extras.HstoreAdapter",
+    "psycopg2.extras.Inet",
+    "psycopg2.extras.UUID_adapter",
+    "psycopg2.pool.AbstractConnectionPool",
+    "psycopg2.sql.Composable",
+    "pyclbr._Object",
+    "pydoc.Helper",
+    "pymysql.charset.Charset",
+    "pymysql.connections.LoadLocalFile",
+    "pymysql.connections.MySQLResult",
+    "pymysql.connections.MysqlPacket",
+    "pymysql.cursors.Cursor",
+    "reprlib.Repr",
+    "requests.adapters.BaseAdapter",
+    "requests.cookies.MockRequest",
+    "requests.cookies.MockResponse",
+    "requests.models.Response",
+    "rlcompleter.Completer",
+    "runpy._ModifiedArgv0",
+    "runpy._TempModule",
+    "sched.scheduler",
+    "select.epoll",
+    "select.kevent",
+    "select.kqueue",
+    "smtplib.SMTP",
+    "socketserver.BaseRequestHandler",
+    "socketserver.BaseServer",
+    "sqlite3.dbapi2.Connection",
+    "sqlite3.dbapi2.PrepareProtocol",
+    "sqlite3.dbapi2.Row",
+    "sre_parse.SubPattern",
+    "sre_parse.Tokenizer",
+    "ssl.SSLObject",
+    "statistics.NormalDist",
+    "string.Template",
+    "struct.Struct",
+    "sunau.Au_read",
+    "sunau.Au_write",
+    "super",
+    "symtable.Symbol",
+    "symtable.SymbolTable",
+    "tarfile.TarFile",
+    "tarfile.TarInfo",
+    "telnetlib.Telnet",
+    "textwrap.TextWrapper",
+    "threading.Barrier",
+    "threading.Condition",
+    "threading.Semaphore",
+    "threading.Thread",
+    "timeit.Timer",
+    "tkinter.CallWrapper",
+    "tkinter.Variable",
+    "tkinter._setit",
+    "tkinter.commondialog.Dialog",
+    "tkinter.dnd.DndHandler",
+    "tkinter.filedialog.FileDialog",
+    "tkinter.font.Font",
+    "tkinter.simpledialog.SimpleDialog",
+    "tkinter.tix.DisplayStyle",
+    "tkinter.ttk.Style",
+    "tqdm.dask._Callback",
+    "tqdm.keras._Callback",
+    "tqdm.utils.FormatReplace",
+    "tqdm.utils.ObjectWrapper",
+    "trace.CoverageResults",
+    "trace.Trace",
+    "trace._Ignore",
+    "traceback.TracebackException",
+    "tracemalloc.BaseFilter",
+    "tracemalloc.Frame",
+    "tracemalloc.Snapshot",
+    "tracemalloc.Statistic",
+    "tracemalloc.StatisticDiff",
+    "tracemalloc.Trace",
+    "try.A",
+    "turtle.Shape",
+    "turtle.TNavigator",
+    "turtle.TPen",
+    "turtle.TurtleScreenBase",
+    "types.ModuleType",
+    "types.SimpleNamespace",
+    "typing.ForwardRef",
+    "typing.NewType",
+    "typing.ParamSpec",
+    "typing.ParamSpecArgs",
+    "typing.ParamSpecKwargs",
+    "typing.TypeAliasType",
+    "typing.TypeVar",
+    "typing.TypeVarTuple",
+    "typing_extensions.Doc",
+    "unittest.main.TestProgram",
+    "unittest.mock.Base",
+    "unittest.mock.MagicMixin",
+    "unittest.mock.MagicProxy",
+    "unittest.mock._SentinelObject",
+    "unittest.mock._SpecState",
+    "unittest.mock._patch_dict",
+    "unittest.result.TestResult",
+    "unittest.runner.TextTestRunner",
+    "urllib.request.AbstractBasicAuthHandler",
+    "urllib.request.AbstractDigestAuthHandler",
+    "urllib.request.Request",
+    "urllib.request.URLopener",
+    "urllib.request.ftpwrapper",
+    "urllib.robotparser.RobotFileParser",
+    "uuid.UUID",
+    "warnings.WarningMessage",
+    "warnings.deprecated",
+    "wave.Wave_read",
+    "wave.Wave_write",
+    "weakref.finalize",
+    "webbrowser.BaseBrowser",
+    "wsgiref.headers.Headers",
+    "wsgiref.util.FileWrapper",
+    "wsgiref.validate.ErrorWrapper",
+    "wsgiref.validate.InputWrapper",
+    "wsgiref.validate.IteratorWrapper",
+    "wsgiref.validate.PartialIteratorWrapper",
+    "wsgiref.validate.WriteWrapper",
+    "xdrlib.Unpacker",
+    "xml.dom.expatbuilder.ElementInfo",
+    "xml.dom.expatbuilder.ExpatBuilder",
+    "xml.dom.expatbuilder.FilterCrutch",
+    "xml.dom.expatbuilder.FilterVisibilityController",
+    "xml.dom.minidom.ElementInfo",
+    "xml.dom.minidom.NamedNodeMap",
+    "xml.dom.minidom.ReadOnlySequentialNamedNodeMap",
+    "xml.dom.minidom.TypeInfo",
+    "xml.dom.pulldom.DOMEventStream",
+    "xml.etree.ElementPath._SelectorContext",
+    "xml.etree.ElementTree.C14NWriterTarget",
+    "xml.etree.ElementTree.Element",
+    "xml.etree.ElementTree.ElementTree",
+    "xml.etree.ElementTree.QName",
+    "xml.etree.ElementTree.TreeBuilder",
+    "xml.etree.ElementTree.XMLParser",
+    "xml.etree.ElementTree.XMLPullParser",
+    "xml.sax.xmlreader.AttributesImpl",
+    "xml.sax.xmlreader.InputSource",
+    "xmlrpc.client.Binary",
+    "xmlrpc.client.DateTime",
+    "xmlrpc.client.ExpatParser",
+    "xmlrpc.client.Marshaller",
+    "xmlrpc.client.MultiCall",
+    "xmlrpc.client.MultiCallIterator",
+    "xmlrpc.client.ServerProxy",
+    "xmlrpc.client.Transport",
+    "xmlrpc.client.Unmarshaller",
+    "xmlrpc.client._Method",
+    "xmlrpc.client._MultiCallMethod",
+    "xmlrpc.server.SimpleXMLRPCDispatcher",
+    "yaml._yaml.CEmitter",
+    "yaml._yaml.CParser",
+    "yaml._yaml.Mark",
+    "yaml.composer.Composer",
+    "yaml.constructor.BaseConstructor",
+    "yaml.emitter.Emitter",
+    "yaml.emitter.ScalarAnalysis",
+    "yaml.error.Mark",
+    "yaml.events.Event",
+    "yaml.nodes.Node",
+    "yaml.parser.Parser",
+    "yaml.reader.Reader",
+    "yaml.representer.BaseRepresenter",
+    "yaml.resolver.BaseResolver",
+    "yaml.scanner.Scanner",
+    "yaml.scanner.SimpleKey",
+    "yaml.serializer.Serializer",
+    "yaml.tokens.Token",
+    "zipfile.ZipFile",
+    "zipfile.ZipInfo",
+    "zipfile._path.InitializedState",
+    "zipfile._path.Path",
+    "zipimport.zipimporter"
+  ],
+  "object.__module__": [
+    "typing.TypeAliasType"
+  ],
+  "object.__ne__": [
+    "_interpchannels.ChannelID",
+    "_tkinter.Tcl_Obj",
+    "bytearray",
+    "bytes",
+    "collections.Counter",
+    "complex",
+    "dateutil.relativedelta.relativedelta",
+    "dateutil.rrule.rruleset._genitem",
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz._ttinfo",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dateutil.tz.tz.tzutc",
+    "email.charset.Charset",
+    "email.header.Header",
+    "ldap3.abstract.attribute.Attribute",
+    "paramiko.pkey.PublicBlob",
+    "psycopg2._psycopg.Column",
+    "psycopg2._psycopg.Notify",
+    "psycopg2._range.Range",
+    "psycopg2.sql.Composable",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "pymysql.DBAPISet",
+    "sqlite3.dbapi2.Row",
+    "str",
+    "tqdm.utils.Comparable",
+    "types.MethodWrapperType",
+    "unittest.mock._ANY",
+    "unittest.mock._Call",
+    "weakref.WeakMethod"
+  ],
+  "object.__new__": [
+    "BaseException",
+    "_decimal.Decimal",
+    "_ssl.MemoryBIO",
+    "_ssl._SSLContext",
+    "datetime.date",
+    "datetime.time",
+    "datetime.timedelta",
+    "enum.Enum",
+    "ldap3.strategy.reusable.ReusableStrategy.ConnectionPool",
+    "slice",
+    "types.CellType",
+    "types.CodeType",
+    "types.FunctionType",
+    "types.GenericAlias",
+    "types.MethodType",
+    "types.TracebackType"
+  ],
+  "object.__reduce__": [
+    "_decimal.Context",
+    "_decimal.Decimal",
+    "collections.deque",
+    "concurrent.futures.process._ExceptionWithTraceback",
+    "dateutil.tz.tz.tzfile",
+    "multiprocessing.managers.BaseProxy",
+    "multiprocessing.shared_memory.ShareableList",
+    "multiprocessing.sharedctypes.SynchronizedBase",
+    "paramiko.ssh_exception.NoValidConnectionsError",
+    "plistlib.UID",
+    "psycopg2._psycopg.Error",
+    "psycopg2.extras.DictRow"
+  ],
+  "object.__reduce_ex__": [
+    "dateutil.tz.tz.tzfile",
+    "enum.Enum"
+  ],
+  "object.__repr__": [
+    "BaseException",
+    "ldap3.operation.search.FilterNode",
+    "pdb._rstr"
+  ],
+  "object.__setattr__": [
+    "MySQLdb._mysql.connection",
+    "MySQLdb._mysql.result",
+    "_ctypes._StructUnionBase",
+    "_dummy_threading.local",
+    "_thread._local",
+    "_threading_local.local",
+    "argparse.Namespace",
+    "boto.exception.BotoServerError",
+    "ldap3.abstract.attrDef.AttrDef",
+    "ldap3.abstract.entry.EntryBase",
+    "ldap3.abstract.objectDef.ObjectDef",
+    "logging.LogRecord",
+    "multiprocessing.dummy.Namespace",
+    "multiprocessing.managers.Namespace",
+    "optparse.Values",
+    "requests.structures.LookupDict",
+    "tqdm.utils.ObjectWrapper",
+    "types.SimpleNamespace",
+    "unittest.mock.NonCallableMock"
+  ],
+  "object.__str__": [
+    "BaseException",
+    "distutils.version.Version",
+    "ldap3.operation.search.FilterNode"
+  ],
+  "optparse.BadOptionError.__init__": [
+    "optparse.AmbiguousOptionError"
+  ],
+  "optparse.HelpFormatter.__init__": [
+    "optparse.IndentedHelpFormatter",
+    "optparse.TitledHelpFormatter"
+  ],
+  "optparse.HelpFormatter.format_heading": [
+    "optparse.IndentedHelpFormatter",
+    "optparse.TitledHelpFormatter"
+  ],
+  "optparse.HelpFormatter.format_usage": [
+    "optparse.IndentedHelpFormatter",
+    "optparse.TitledHelpFormatter"
+  ],
+  "optparse.OptParseError.__init__": [
+    "optparse.BadOptionError",
+    "optparse.OptionError"
+  ],
+  "optparse.OptionContainer.__init__": [
+    "optparse.OptionGroup",
+    "optparse.OptionParser"
+  ],
+  "optparse.OptionContainer.format_help": [
+    "optparse.OptionParser"
+  ],
+  "optparse.OptionContainer.format_option_help": [
+    "optparse.OptionParser"
+  ],
+  "os.PathLike.__fspath__": [
+    "pathlib.PurePath"
+  ],
+  "paramiko.agent.AgentProxyThread.__init__": [
+    "paramiko.agent.AgentLocalProxy",
+    "paramiko.agent.AgentRemoteProxy"
+  ],
+  "paramiko.agent.AgentSSH.__init__": [
+    "paramiko.agent.Agent",
+    "paramiko.agent.AgentServerProxy"
+  ],
+  "paramiko.auth_strategy.AuthSource.__init__": [
+    "paramiko.auth_strategy.Password"
+  ],
+  "paramiko.auth_strategy.AuthSource.authenticate": [
+    "paramiko.auth_strategy.NoneAuth",
+    "paramiko.auth_strategy.Password",
+    "paramiko.auth_strategy.PrivateKey"
+  ],
+  "paramiko.client.MissingHostKeyPolicy.missing_host_key": [
+    "paramiko.client.AutoAddPolicy",
+    "paramiko.client.RejectPolicy",
+    "paramiko.client.WarningPolicy"
+  ],
+  "paramiko.file.BufferedFile.__del__": [
+    "paramiko.sftp_file.SFTPFile"
+  ],
+  "paramiko.file.BufferedFile.__init__": [
+    "paramiko.channel.ChannelFile",
+    "paramiko.sftp_file.SFTPFile"
+  ],
+  "paramiko.file.BufferedFile.close": [
+    "paramiko.channel.ChannelStdinFile",
+    "paramiko.sftp_file.SFTPFile"
+  ],
+  "paramiko.file.BufferedFile.seek": [
+    "paramiko.sftp_file.SFTPFile"
+  ],
+  "paramiko.file.BufferedFile.seekable": [
+    "paramiko.sftp_file.SFTPFile"
+  ],
+  "paramiko.pkey.PKey.__hash__": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.__init__": [
+    "paramiko.agent.AgentKey",
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.asbytes": [
+    "paramiko.agent.AgentKey",
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.can_sign": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.get_bits": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.get_name": [
+    "paramiko.agent.AgentKey",
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.sign_ssh_data": [
+    "paramiko.agent.AgentKey",
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.verify_ssh_sig": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.ed25519key.Ed25519Key",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.write_private_key": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.pkey.PKey.write_private_key_file": [
+    "paramiko.dsskey.DSSKey",
+    "paramiko.ecdsakey.ECDSAKey",
+    "paramiko.rsakey.RSAKey"
+  ],
+  "paramiko.server.SubsystemHandler.finish_subsystem": [
+    "paramiko.sftp_server.SFTPServer"
+  ],
+  "paramiko.server.SubsystemHandler.start_subsystem": [
+    "paramiko.sftp_server.SFTPServer"
+  ],
+  "paramiko.sftp.BaseSFTP.__init__": [
+    "paramiko.sftp_client.SFTPClient",
+    "paramiko.sftp_server.SFTPServer"
+  ],
+  "paramiko.ssh_gss._SSH_GSSAuth.__init__": [
+    "paramiko.ssh_gss._SSH_GSSAPI_NEW",
+    "paramiko.ssh_gss._SSH_GSSAPI_OLD",
+    "paramiko.ssh_gss._SSH_SSPI"
+  ],
+  "pathlib.PurePath.__new__": [
+    "pathlib.Path"
+  ],
+  "pickle.Pickler.__init__": [
+    "multiprocessing.reduction.ForkingPickler"
+  ],
+  "poplib.POP3.__init__": [
+    "poplib.POP3_SSL"
+  ],
+  "poplib.POP3.stls": [
+    "poplib.POP3_SSL"
+  ],
+  "psycopg2._psycopg.ReplicationConnection.__init__": [
+    "psycopg2.extras.LogicalReplicationConnection",
+    "psycopg2.extras.PhysicalReplicationConnection"
+  ],
+  "psycopg2._psycopg.ReplicationCursor.consume_stream": [
+    "psycopg2.extras.ReplicationCursor"
+  ],
+  "psycopg2._psycopg.connection.__init__": [
+    "psycopg2._psycopg.ReplicationConnection"
+  ],
+  "psycopg2._psycopg.connection.cursor": [
+    "psycopg2._psycopg.ReplicationConnection",
+    "psycopg2.extras.DictConnection",
+    "psycopg2.extras.LoggingConnection",
+    "psycopg2.extras.NamedTupleConnection",
+    "psycopg2.extras.RealDictConnection"
+  ],
+  "psycopg2._psycopg.cursor.__init__": [
+    "psycopg2._psycopg.ReplicationCursor",
+    "psycopg2.extras.DictCursorBase"
+  ],
+  "psycopg2._psycopg.cursor.__next__": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._psycopg.cursor.callproc": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.LoggingCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._psycopg.cursor.execute": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.LoggingCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._psycopg.cursor.executemany": [
+    "psycopg2.extras.NamedTupleCursor"
+  ],
+  "psycopg2._psycopg.cursor.fetchall": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._psycopg.cursor.fetchmany": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._psycopg.cursor.fetchone": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.NamedTupleCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2._range.RangeAdapter.getquoted": [
+    "psycopg2._range.NumberRangeAdapter"
+  ],
+  "psycopg2.extras.DictCursorBase.__init__": [
+    "psycopg2.extras.DictCursor",
+    "psycopg2.extras.RealDictCursor"
+  ],
+  "psycopg2.extras.LoggingConnection.cursor": [
+    "psycopg2.extras.MinTimeLoggingConnection"
+  ],
+  "psycopg2.extras.LoggingConnection.filter": [
+    "psycopg2.extras.MinTimeLoggingConnection"
+  ],
+  "psycopg2.extras.LoggingConnection.initialize": [
+    "psycopg2.extras.MinTimeLoggingConnection"
+  ],
+  "psycopg2.extras.LoggingCursor.callproc": [
+    "psycopg2.extras.MinTimeLoggingCursor"
+  ],
+  "psycopg2.extras.LoggingCursor.execute": [
+    "psycopg2.extras.MinTimeLoggingCursor"
+  ],
+  "psycopg2.pool.AbstractConnectionPool.putconn": [
+    "psycopg2.pool.ThreadedConnectionPool"
+  ],
+  "psycopg2.sql.Composable.__add__": [
+    "psycopg2.sql.Composed"
+  ],
+  "psycopg2.sql.Composable.__init__": [
+    "psycopg2.sql.Composed",
+    "psycopg2.sql.Identifier",
+    "psycopg2.sql.Literal",
+    "psycopg2.sql.Placeholder",
+    "psycopg2.sql.SQL"
+  ],
+  "pyclbr._Object.__init__": [
+    "pyclbr.Class",
+    "pyclbr.Function"
+  ],
+  "pydoc.Doc.docclass": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.Doc.docdata": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.Doc.docmodule": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.Doc.docother": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.Doc.docproperty": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.Doc.docroutine": [
+    "pydoc.HTMLDoc",
+    "pydoc.TextDoc"
+  ],
+  "pydoc.HTMLDoc.docroutine": [
+    "xmlrpc.server.ServerHTMLDoc"
+  ],
+  "pymysql.connections.MysqlPacket.__init__": [
+    "pymysql.connections.FieldDescriptorPacket"
+  ],
+  "pymysql.cursors.Cursor.fetchall": [
+    "pymysql.cursors.SSCursor"
+  ],
+  "pymysql.cursors.Cursor.scroll": [
+    "pymysql.cursors.SSCursor"
+  ],
+  "pymysql.cursors.SSCursor.fetchall_unbuffered": [
+    "pymysql.cursors.SSDictCursor"
+  ],
+  "pytz.tzinfo.BaseTzInfo.dst": [
+    "pytz._UTCclass",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "pytz.tzinfo.BaseTzInfo.localize": [
+    "pytz._UTCclass",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "pytz.tzinfo.BaseTzInfo.normalize": [
+    "pytz._UTCclass",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "pytz.tzinfo.BaseTzInfo.tzname": [
+    "pytz._UTCclass",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "pytz.tzinfo.BaseTzInfo.utcoffset": [
+    "pytz._UTCclass",
+    "pytz.tzinfo.DstTzInfo",
+    "pytz.tzinfo.StaticTzInfo"
+  ],
+  "random.Random.getstate": [
+    "random.SystemRandom"
+  ],
+  "random.Random.setstate": [
+    "random.SystemRandom"
+  ],
+  "reprlib.Repr.__init__": [
+    "pydoc.HTMLRepr",
+    "pydoc.TextRepr"
+  ],
+  "reprlib.Repr.repr": [
+    "pydoc.HTMLRepr"
+  ],
+  "reprlib.Repr.repr1": [
+    "pydoc.HTMLRepr",
+    "pydoc.TextRepr"
+  ],
+  "reprlib.Repr.repr_instance": [
+    "pydoc.HTMLRepr",
+    "pydoc.TextRepr"
+  ],
+  "reprlib.Repr.repr_str": [
+    "pydoc.HTMLRepr",
+    "pydoc.TextRepr"
+  ],
+  "requests.adapters.BaseAdapter.__init__": [
+    "requests.adapters.HTTPAdapter"
+  ],
+  "requests.adapters.BaseAdapter.close": [
+    "requests.adapters.HTTPAdapter"
+  ],
+  "requests.adapters.BaseAdapter.send": [
+    "requests.adapters.HTTPAdapter"
+  ],
+  "requests.auth.AuthBase.__call__": [
+    "requests.auth.HTTPBasicAuth",
+    "requests.auth.HTTPDigestAuth"
+  ],
+  "requests.auth.HTTPBasicAuth.__call__": [
+    "requests.auth.HTTPProxyAuth"
+  ],
+  "selectors.BaseSelector.get_map": [
+    "selectors._BaseSelectorImpl"
+  ],
+  "selectors.BaseSelector.modify": [
+    "selectors._BaseSelectorImpl"
+  ],
+  "selectors.BaseSelector.register": [
+    "selectors._BaseSelectorImpl"
+  ],
+  "selectors.BaseSelector.select": [
+    "selectors.DefaultSelector",
+    "selectors.KqueueSelector",
+    "selectors.SelectSelector",
+    "selectors._PollLikeSelector"
+  ],
+  "selectors.BaseSelector.unregister": [
+    "selectors._BaseSelectorImpl"
+  ],
+  "shelve.Shelf.__init__": [
+    "shelve.DbfilenameShelf"
+  ],
+  "smtpd.SMTPServer.process_message": [
+    "smtpd.PureProxy"
+  ],
+  "smtplib.SMTP.__init__": [
+    "smtplib.LMTP",
+    "smtplib.SMTP_SSL"
+  ],
+  "smtplib.SMTPResponseException.__init__": [
+    "smtplib.SMTPSenderRefused"
+  ],
+  "socket.socket.__init__": [
+    "ssl.SSLSocket"
+  ],
+  "socket.socket.accept": [
+    "ssl.SSLSocket"
+  ],
+  "socketserver.BaseServer.__init__": [
+    "socketserver.TCPServer"
+  ],
+  "socketserver.BaseServer.get_request": [
+    "socketserver.TCPServer"
+  ],
+  "socketserver.TCPServer.__init__": [
+    "socketserver.UnixStreamServer",
+    "xmlrpc.server.SimpleXMLRPCServer"
+  ],
+  "socketserver.TCPServer.get_request": [
+    "socketserver.UDPServer"
+  ],
+  "ssl._ASN1ObjectBase.__new__": [
+    "ssl._ASN1Object"
+  ],
+  "staticmethod.__init__": [
+    "abc.abstractstaticmethod"
+  ],
+  "str.__getnewargs__": [
+    "email._header_value_parser.Terminal"
+  ],
+  "str.__new__": [
+    "email._header_value_parser.Terminal",
+    "email.headerregistry.BaseHeader",
+    "enum.StrEnum"
+  ],
+  "tempfile._TemporaryFileWrapper.__exit__": [
+    "urllib.response.addbase"
+  ],
+  "tempfile._TemporaryFileWrapper.__init__": [
+    "urllib.response.addbase"
+  ],
+  "tempfile._TemporaryFileWrapper.write": [
+    "urllib.response.addbase"
+  ],
+  "tempfile._TemporaryFileWrapper.writelines": [
+    "urllib.response.addbase"
+  ],
+  "threading.Barrier.__init__": [
+    "multiprocessing.synchronize.Barrier"
+  ],
+  "threading.Thread.__init__": [
+    "concurrent.futures.process._ExecutorManagerThread",
+    "ldap3.strategy.asynchronous.AsyncStrategy.ReceiverSocketThread",
+    "ldap3.strategy.reusable.ReusableStrategy.PooledConnectionThread",
+    "multiprocessing.dummy.DummyProcess",
+    "paramiko.agent.AgentProxyThread",
+    "paramiko.server.SubsystemHandler",
+    "paramiko.transport.Transport",
+    "threading.Timer",
+    "threading._DummyThread",
+    "tqdm._monitor.TMonitor"
+  ],
+  "threading.Thread.run": [
+    "concurrent.futures.process._ExecutorManagerThread",
+    "ldap3.strategy.asynchronous.AsyncStrategy.ReceiverSocketThread",
+    "ldap3.strategy.reusable.ReusableStrategy.PooledConnectionThread",
+    "paramiko.agent.AgentProxyThread",
+    "paramiko.transport.Transport",
+    "tqdm._monitor.TMonitor"
+  ],
+  "tkinter.BaseWidget.__init__": [
+    "tkinter.Toplevel"
+  ],
+  "tkinter.BaseWidget.destroy": [
+    "tkinter.dialog.Dialog"
+  ],
+  "tkinter.Canvas.__init__": [
+    "turtle.ScrolledCanvas"
+  ],
+  "tkinter.Entry.config": [
+    "tkinter.ttk.Entry"
+  ],
+  "tkinter.Entry.configure": [
+    "tkinter.ttk.Entry"
+  ],
+  "tkinter.Image.__getitem__": [
+    "tkinter.PhotoImage"
+  ],
+  "tkinter.Image.__init__": [
+    "tkinter.BitmapImage",
+    "tkinter.PhotoImage"
+  ],
+  "tkinter.Image.configure": [
+    "tkinter.PhotoImage"
+  ],
+  "tkinter.Menubutton.__init__": [
+    "tkinter.OptionMenu"
+  ],
+  "tkinter.Misc.bbox": [
+    "tkinter.Canvas",
+    "tkinter.Listbox",
+    "tkinter.Spinbox",
+    "tkinter.Text",
+    "tkinter.ttk.Entry",
+    "tkinter.ttk.Treeview"
+  ],
+  "tkinter.Misc.bind": [
+    "tkinter.Widget"
+  ],
+  "tkinter.Misc.configure": [
+    "tkinter.Button",
+    "tkinter.Canvas",
+    "tkinter.Checkbutton",
+    "tkinter.Entry",
+    "tkinter.Frame",
+    "tkinter.Label",
+    "tkinter.LabelFrame",
+    "tkinter.Listbox",
+    "tkinter.Menu",
+    "tkinter.Menubutton",
+    "tkinter.Message",
+    "tkinter.PanedWindow",
+    "tkinter.Radiobutton",
+    "tkinter.Scale",
+    "tkinter.Scrollbar",
+    "tkinter.Spinbox",
+    "tkinter.Text",
+    "tkinter.Tk",
+    "tkinter.Toplevel",
+    "tkinter.ttk.Button",
+    "tkinter.ttk.Checkbutton",
+    "tkinter.ttk.Frame",
+    "tkinter.ttk.Label",
+    "tkinter.ttk.Labelframe",
+    "tkinter.ttk.Menubutton",
+    "tkinter.ttk.Notebook",
+    "tkinter.ttk.Progressbar",
+    "tkinter.ttk.Radiobutton",
+    "tkinter.ttk.Separator",
+    "tkinter.ttk.Sizegrip",
+    "tkinter.ttk.Treeview"
+  ],
+  "tkinter.Misc.destroy": [
+    "tkinter.BaseWidget",
+    "tkinter.Tk"
+  ],
+  "tkinter.Misc.focus": [
+    "tkinter.Canvas",
+    "tkinter.ttk.Treeview"
+  ],
+  "tkinter.Misc.image_names": [
+    "tkinter.Text"
+  ],
+  "tkinter.Misc.lift": [
+    "tkinter.Canvas"
+  ],
+  "tkinter.Misc.lower": [
+    "tkinter.Canvas"
+  ],
+  "tkinter.Misc.selection_clear": [
+    "tkinter.Entry",
+    "tkinter.Listbox",
+    "tkinter.Spinbox",
+    "tkinter.tix.HList",
+    "tkinter.tix.TList"
+  ],
+  "tkinter.Misc.size": [
+    "tkinter.Listbox"
+  ],
+  "tkinter.Misc.tkraise": [
+    "tkinter.Canvas"
+  ],
+  "tkinter.Pack.forget": [
+    "tkinter.tix.PanedWindow",
+    "tkinter.ttk.Notebook"
+  ],
+  "tkinter.PanedWindow.add": [
+    "tkinter.ttk.Panedwindow"
+  ],
+  "tkinter.PanedWindow.config": [
+    "tkinter.ttk.Panedwindow"
+  ],
+  "tkinter.PanedWindow.configure": [
+    "tkinter.ttk.Panedwindow"
+  ],
+  "tkinter.Scale.config": [
+    "tkinter.ttk.Scale"
+  ],
+  "tkinter.Scale.configure": [
+    "tkinter.ttk.Scale"
+  ],
+  "tkinter.Scale.get": [
+    "tkinter.ttk.Scale"
+  ],
+  "tkinter.Scrollbar.config": [
+    "tkinter.ttk.Scrollbar"
+  ],
+  "tkinter.Scrollbar.configure": [
+    "tkinter.ttk.Scrollbar"
+  ],
+  "tkinter.Text.__init__": [
+    "tkinter.scrolledtext.ScrolledText"
+  ],
+  "tkinter.Tk.__init__": [
+    "tkinter.tix.Tk"
+  ],
+  "tkinter.Toplevel.__init__": [
+    "tkinter.simpledialog.Dialog"
+  ],
+  "tkinter.Variable.__init__": [
+    "tkinter.BooleanVar",
+    "tkinter.DoubleVar",
+    "tkinter.IntVar",
+    "tkinter.StringVar"
+  ],
+  "tkinter.Variable.get": [
+    "tkinter.BooleanVar",
+    "tkinter.DoubleVar",
+    "tkinter.IntVar",
+    "tkinter.StringVar"
+  ],
+  "tkinter.Variable.set": [
+    "tkinter.BooleanVar",
+    "tkinter.DoubleVar",
+    "tkinter.IntVar",
+    "tkinter.StringVar"
+  ],
+  "tkinter.filedialog.FileDialog.ok_command": [
+    "tkinter.filedialog.LoadFileDialog",
+    "tkinter.filedialog.SaveFileDialog"
+  ],
+  "tkinter.tix.TixWidget.__init__": [
+    "tkinter.tix.Balloon",
+    "tkinter.tix.ButtonBox",
+    "tkinter.tix.CheckList",
+    "tkinter.tix.ComboBox",
+    "tkinter.tix.Control",
+    "tkinter.tix.DirList",
+    "tkinter.tix.DirSelectBox",
+    "tkinter.tix.DirSelectDialog",
+    "tkinter.tix.DirTree",
+    "tkinter.tix.ExFileSelectBox",
+    "tkinter.tix.FileEntry",
+    "tkinter.tix.FileSelectBox",
+    "tkinter.tix.HList",
+    "tkinter.tix.InputOnly",
+    "tkinter.tix.LabelEntry",
+    "tkinter.tix.LabelFrame",
+    "tkinter.tix.ListNoteBook",
+    "tkinter.tix.Meter",
+    "tkinter.tix.NoteBook",
+    "tkinter.tix.OptionMenu",
+    "tkinter.tix.PanedWindow",
+    "tkinter.tix.PopupMenu",
+    "tkinter.tix.Select",
+    "tkinter.tix.StdButtonBox",
+    "tkinter.tix.TList",
+    "tkinter.tix.TixSubWidget",
+    "tkinter.tix.Tree"
+  ],
+  "tkinter.ttk.Entry.__init__": [
+    "tkinter.ttk.Combobox",
+    "tkinter.ttk.Spinbox"
+  ],
+  "tkinter.ttk.Entry.config": [
+    "tkinter.ttk.Combobox"
+  ],
+  "tkinter.ttk.Entry.configure": [
+    "tkinter.ttk.Combobox",
+    "tkinter.ttk.Spinbox"
+  ],
+  "tkinter.ttk.Frame.__init__": [
+    "tkinter.ttk.LabeledScale"
+  ],
+  "tkinter.ttk.Menubutton.__init__": [
+    "tkinter.ttk.OptionMenu"
+  ],
+  "tkinter.ttk.Widget.__init__": [
+    "tkinter.ttk.Button",
+    "tkinter.ttk.Checkbutton",
+    "tkinter.ttk.Entry",
+    "tkinter.ttk.Frame",
+    "tkinter.ttk.Label",
+    "tkinter.ttk.Labelframe",
+    "tkinter.ttk.Menubutton",
+    "tkinter.ttk.Notebook",
+    "tkinter.ttk.Panedwindow",
+    "tkinter.ttk.Progressbar",
+    "tkinter.ttk.Radiobutton",
+    "tkinter.ttk.Scale",
+    "tkinter.ttk.Scrollbar",
+    "tkinter.ttk.Separator",
+    "tkinter.ttk.Sizegrip",
+    "tkinter.ttk.Treeview"
+  ],
+  "tkinter.ttk.Widget.identify": [
+    "tkinter.ttk.Entry",
+    "tkinter.ttk.Notebook",
+    "tkinter.ttk.Treeview"
+  ],
+  "tqdm.asyncio.tqdm_asyncio.__init__": [
+    "tqdm.contrib.discord.tqdm_discord",
+    "tqdm.contrib.slack.tqdm_slack",
+    "tqdm.contrib.telegram.tqdm_telegram"
+  ],
+  "tqdm.dask._Callback.__init__": [
+    "tqdm.dask.TqdmCallback"
+  ],
+  "tqdm.keras._Callback.__init__": [
+    "tqdm.keras.TqdmCallback"
+  ],
+  "tqdm.keras._Callback.on_epoch_begin": [
+    "tqdm.keras.TqdmCallback"
+  ],
+  "tqdm.keras._Callback.on_train_begin": [
+    "tqdm.keras.TqdmCallback"
+  ],
+  "tqdm.keras._Callback.on_train_end": [
+    "tqdm.keras.TqdmCallback"
+  ],
+  "tqdm.rich._ProgressColumn.__init__": [
+    "tqdm.rich.FractionColumn",
+    "tqdm.rich.RateColumn"
+  ],
+  "tqdm.rich._ProgressColumn.render": [
+    "tqdm.rich.FractionColumn",
+    "tqdm.rich.RateColumn"
+  ],
+  "tqdm.std.tqdm.__init__": [
+    "tqdm.asyncio.tqdm_asyncio",
+    "tqdm.gui.tqdm_gui",
+    "tqdm.notebook.tqdm_notebook",
+    "tqdm.rich.tqdm_rich",
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.__iter__": [
+    "tqdm.notebook.tqdm_notebook"
+  ],
+  "tqdm.std.tqdm.clear": [
+    "tqdm.contrib.discord.tqdm_discord",
+    "tqdm.contrib.slack.tqdm_slack",
+    "tqdm.contrib.telegram.tqdm_telegram",
+    "tqdm.gui.tqdm_gui",
+    "tqdm.notebook.tqdm_notebook",
+    "tqdm.rich.tqdm_rich",
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.close": [
+    "tqdm.contrib.telegram.tqdm_telegram",
+    "tqdm.gui.tqdm_gui",
+    "tqdm.notebook.tqdm_notebook",
+    "tqdm.rich.tqdm_rich",
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.colour": [
+    "tqdm.notebook.tqdm_notebook"
+  ],
+  "tqdm.std.tqdm.colour@setter": [
+    "tqdm.notebook.tqdm_notebook"
+  ],
+  "tqdm.std.tqdm.display": [
+    "tqdm.contrib.discord.tqdm_discord",
+    "tqdm.contrib.slack.tqdm_slack",
+    "tqdm.contrib.telegram.tqdm_telegram",
+    "tqdm.gui.tqdm_gui",
+    "tqdm.notebook.tqdm_notebook",
+    "tqdm.rich.tqdm_rich",
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.reset": [
+    "tqdm.notebook.tqdm_notebook",
+    "tqdm.rich.tqdm_rich",
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.set_description": [
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.set_description_str": [
+    "tqdm.tk.tqdm_tk"
+  ],
+  "tqdm.std.tqdm.status_printer": [
+    "tqdm.notebook.tqdm_notebook"
+  ],
+  "tqdm.std.tqdm.update": [
+    "tqdm.notebook.tqdm_notebook"
+  ],
+  "tqdm.utils.ObjectWrapper.__init__": [
+    "tqdm.contrib.DummyTqdmFile",
+    "tqdm.utils.CallbackIOWrapper",
+    "tqdm.utils.DisableOnWriteError",
+    "tqdm.utils.SimpleTextIOWrapper"
+  ],
+  "tracemalloc.BaseFilter.__init__": [
+    "tracemalloc.DomainFilter",
+    "tracemalloc.Filter"
+  ],
+  "tuple.__add__": [
+    "turtle.Vec2D",
+    "xml.dom.minicompat.EmptyNodeList"
+  ],
+  "tuple.__eq__": [
+    "unittest.mock._Call"
+  ],
+  "tuple.__getitem__": [
+    "importlib.metadata.EntryPoints",
+    "logging.config.ConvertingTuple"
+  ],
+  "tuple.__mul__": [
+    "turtle.Vec2D"
+  ],
+  "tuple.__new__": [
+    "codecs.CodecInfo",
+    "turtle.Vec2D",
+    "unittest.mock._Call"
+  ],
+  "tuple.__rmul__": [
+    "turtle.Vec2D"
+  ],
+  "tuple.count": [
+    "_interpchannels.ChannelInfo"
+  ],
+  "turtle.RawTurtle.__init__": [
+    "turtle.Turtle"
+  ],
+  "turtle.TNavigator.reset": [
+    "turtle.RawTurtle"
+  ],
+  "turtle.TPen.__init__": [
+    "turtle.RawTurtle"
+  ],
+  "turtle.TurtleScreen.__init__": [
+    "turtle._Screen"
+  ],
+  "turtle.TurtleScreenBase.__init__": [
+    "turtle.TurtleScreen"
+  ],
+  "type.__call__": [
+    "_ctypes.CFuncPtr",
+    "_json.make_encoder",
+    "_json.make_scanner",
+    "_operator.attrgetter",
+    "_operator.itemgetter",
+    "_operator.methodcaller",
+    "_sitebuiltins.Quitter",
+    "_sitebuiltins._Helper",
+    "_sitebuiltins._Printer",
+    "_typeshed.IdentityFunction",
+    "argparse.Action",
+    "argparse.FileType",
+    "argparse._FormatterClass",
+    "asyncio.events._TaskFactory",
+    "asyncio.tasks._CustomTaskConstructor",
+    "asyncio.tasks._EagerTaskFactoryType",
+    "cgitb.Hook",
+    "codecs._Decoder",
+    "codecs._Encoder",
+    "codecs._IncrementalDecoder",
+    "codecs._IncrementalEncoder",
+    "codecs._StreamReader",
+    "codecs._StreamWriter",
+    "codeop.CommandCompiler",
+    "codeop.Compile",
+    "contextlib.AsyncContextDecorator",
+    "contextlib.ContextDecorator",
+    "dataclasses._DefaultFactory",
+    "dateutil._common.weekday",
+    "dateutil.rrule._rrulestr",
+    "dateutil.tz.tz._GetTZ",
+    "email._policybase._MessageFactory",
+    "email.headerregistry.HeaderRegistry",
+    "enum.verify",
+    "functools._SingleDispatchCallable",
+    "functools._Wrapped",
+    "functools._Wrapper",
+    "functools._lru_cache_wrapper",
+    "functools.partial",
+    "multiprocessing.sharedctypes._AcquireFunc",
+    "multiprocessing.util.Finalize",
+    "paramiko.client._TransportFactory",
+    "paramiko.compress.ZlibCompressor",
+    "paramiko.compress.ZlibDecompressor",
+    "psycopg2._psycopg._type",
+    "pydoc.Helper",
+    "pydoc._Pager",
+    "requests.auth.AuthBase",
+    "shutil._RmtreeType",
+    "smtplib._AuthObject",
+    "sqlite3.dbapi2.Connection",
+    "staticmethod",
+    "symtable.SymbolTableFactory",
+    "tkinter.CallWrapper",
+    "tkinter._setit",
+    "tqdm.rich._ProgressColumn",
+    "types.BuiltinFunctionType",
+    "types.ClassMethodDescriptorType",
+    "types.FunctionType",
+    "types.MethodDescriptorType",
+    "types.MethodType",
+    "types.MethodWrapperType",
+    "types.WrapperDescriptorType",
+    "typing.NewType",
+    "unittest.mock.CallableMixin",
+    "unittest.mock._Call",
+    "unittest.mock._patch",
+    "unittest.mock._patch_dict",
+    "unittest.mock._patcher",
+    "unittest.suite.BaseTestSuite",
+    "urllib.request._HTTPConnectionProtocol",
+    "warnings.deprecated",
+    "weakref.ReferenceType",
+    "weakref.finalize",
+    "wsgiref.types.FileWrapper",
+    "wsgiref.types.StartResponse",
+    "wsgiref.validate.WriteWrapper",
+    "xmlrpc.client.MultiCall",
+    "xmlrpc.client.ServerProxy",
+    "xmlrpc.client._Method",
+    "xmlrpc.client._MultiCallMethod",
+    "xmlrpc.server._DispatchArity0",
+    "xmlrpc.server._DispatchArity1",
+    "xmlrpc.server._DispatchArity2",
+    "xmlrpc.server._DispatchArity3",
+    "xmlrpc.server._DispatchArity4",
+    "xmlrpc.server._DispatchArityN"
+  ],
+  "type.__init__": [
+    "AttributeError",
+    "ImportError",
+    "NameError",
+    "UnicodeDecodeError",
+    "UnicodeEncodeError",
+    "UnicodeTranslateError",
+    "_ast.Expression",
+    "_ast.FunctionType",
+    "_ast.Interactive",
+    "_ast.Module",
+    "_ast.TypeIgnore",
+    "_ast.alias",
+    "_ast.arg",
+    "_ast.arguments",
+    "_ast.comprehension",
+    "_ast.excepthandler",
+    "_ast.expr",
+    "_ast.keyword",
+    "_ast.match_case",
+    "_ast.pattern",
+    "_ast.stmt",
+    "_ast.type_param",
+    "_ast.withitem",
+    "_compression.DecompressReader",
+    "_ctypes.Array",
+    "_ctypes.CFuncPtr",
+    "_ctypes._Pointer",
+    "_ctypes._SimpleCData",
+    "_ctypes._StructUnionBase",
+    "_py_abc._CacheToken",
+    "_weakrefset.WeakSet",
+    "aiofiles.base.AiofilesContextManager",
+    "aiofiles.base.AsyncBase",
+    "argparse.Action",
+    "argparse.ArgumentError",
+    "argparse.ArgumentParser",
+    "argparse.Namespace",
+    "argparse._SUPPRESS_T",
+    "array.array",
+    "ast._ABC",
+    "asyncio.base_events.Server",
+    "asyncio.base_subprocess.BaseSubprocessTransport",
+    "asyncio.base_subprocess.WriteSubprocessPipeProto",
+    "asyncio.exceptions.IncompleteReadError",
+    "asyncio.exceptions.LimitOverrunError",
+    "asyncio.futures.Future",
+    "asyncio.locks.Barrier",
+    "asyncio.locks.Condition",
+    "asyncio.locks.Event",
+    "asyncio.locks.Lock",
+    "asyncio.locks.Semaphore",
+    "asyncio.proactor_events.BaseProactorEventLoop",
+    "asyncio.queues.Queue",
+    "asyncio.selector_events.BaseSelectorEventLoop",
+    "asyncio.sslproto.SSLProtocol",
+    "asyncio.streams.FlowControlMixin",
+    "asyncio.streams.StreamReader",
+    "asyncio.transports._FlowControlMixin",
+    "boto.auth.QuerySignatureV1AuthHandler",
+    "boto.auth_handler.AuthHandler",
+    "boto.exception.BotoClientError",
+    "boto.exception.BotoServerError",
+    "boto.exception.InvalidAclError",
+    "boto.exception.InvalidCorsError",
+    "boto.exception.InvalidInstanceMetadataError",
+    "boto.exception.InvalidLifecycleConfigError",
+    "boto.exception.InvalidUriError",
+    "boto.exception.PleaseRetryException",
+    "boto.exception.ResumableDownloadException",
+    "boto.exception.ResumableUploadException",
+    "boto.exception.TooManyRecordsException",
+    "boto.s3.bucketlistresultset.BucketListResultSet",
+    "bytearray",
+    "bz2.BZ2File",
+    "calendar.IllegalMonthError",
+    "calendar.IllegalWeekdayError",
+    "calendar.LocaleHTMLCalendar",
+    "calendar.LocaleTextCalendar",
+    "classmethod",
+    "codecs.StreamReader",
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "codecs.StreamWriter",
+    "collections.ChainMap",
+    "collections.UserDict",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "concurrent.futures._base._AllCompletedWaiter",
+    "concurrent.futures.process.ProcessPoolExecutor",
+    "concurrent.futures.process._RemoteTraceback",
+    "concurrent.futures.process._WorkItem",
+    "concurrent.futures.thread.ThreadPoolExecutor",
+    "concurrent.futures.thread._WorkItem",
+    "configparser.ConverterMapping",
+    "configparser.Error",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "contextlib._AsyncGeneratorContextManager",
+    "contextlib._GeneratorContextManager",
+    "contextlib._RedirectStream",
+    "contextlib.aclosing",
+    "contextlib.chdir",
+    "contextlib.closing",
+    "contextlib.nullcontext",
+    "contextlib.suppress",
+    "contextvars.Context",
+    "contextvars.ContextVar",
+    "csv.DictReader",
+    "csv.DictWriter",
+    "ctypes.LibraryLoader",
+    "ctypes.c_char_p",
+    "ctypes.c_wchar_p",
+    "dataclasses.Field",
+    "dataclasses.InitVar",
+    "datetime.timezone",
+    "dateutil.tz._common.tzrangebase",
+    "dateutil.tz.tz.tzfile",
+    "dateutil.tz.tz.tzlocal",
+    "dateutil.tz.tz.tzoffset",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "difflib.SequenceMatcher",
+    "distutils.command.check.SilentReporter",
+    "email._policybase._PolicyBase",
+    "email.errors.MessageDefect",
+    "email.errors.NonPrintableDefect",
+    "email.feedparser.FeedParser",
+    "email.generator.Generator",
+    "email.message.Message",
+    "email.mime.application.MIMEApplication",
+    "email.mime.audio.MIMEAudio",
+    "email.mime.image.MIMEImage",
+    "email.mime.message.MIMEMessage",
+    "email.mime.text.MIMEText",
+    "email.parser.BytesParser",
+    "email.parser.Parser",
+    "email.policy.EmailPolicy",
+    "enum.member",
+    "enum.nonmember",
+    "filecmp.dircmp",
+    "fileinput.FileInput",
+    "formatter.DumbWriter",
+    "functools.cached_property",
+    "functools.partialmethod",
+    "functools.singledispatchmethod",
+    "getopt.GetoptError",
+    "graphlib.TopologicalSorter",
+    "gzip.GzipFile",
+    "html.parser.HTMLParser",
+    "http.client.BadStatusLine",
+    "http.client.HTTPResponse",
+    "http.client.IncompleteRead",
+    "http.client.LineTooLong",
+    "http.client.UnknownProtocol",
+    "http.cookiejar.CookieJar",
+    "http.cookiejar.DefaultCookiePolicy",
+    "http.server.SimpleHTTPRequestHandler",
+    "importlib.abc.FileLoader",
+    "importlib.machinery.ExtensionFileLoader",
+    "importlib.machinery.FileFinder",
+    "importlib.machinery.NamespaceLoader",
+    "importlib.metadata.PathDistribution",
+    "importlib.readers.FileReader",
+    "importlib.readers.MultiplexedPath",
+    "importlib.readers.NamespaceReader",
+    "importlib.readers.ZipReader",
+    "importlib.resources.simple.ResourceContainer",
+    "importlib.resources.simple.ResourceHandle",
+    "importlib.util.LazyLoader",
+    "io.BufferedRWPair",
+    "io.BufferedReader",
+    "io.BufferedWriter",
+    "io.BytesIO",
+    "io.FileIO",
+    "io.TextIOWrapper",
+    "ipaddress._BaseAddress",
+    "ipaddress._BaseNetwork",
+    "itertools.accumulate",
+    "itertools.chain",
+    "itertools.compress",
+    "itertools.cycle",
+    "itertools.dropwhile",
+    "itertools.filterfalse",
+    "itertools.islice",
+    "itertools.repeat",
+    "itertools.takewhile",
+    "json.decoder.JSONDecodeError",
+    "ldap3.core.exceptions.LDAPOperationResult",
+    "ldap3.core.timezone.OffsetTzInfo",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "lib2to3.main.StdoutRefactoringTool",
+    "lib2to3.pgen2.parse.ParseError",
+    "lib2to3.pytree.Leaf",
+    "lib2to3.pytree.LeafPattern",
+    "lib2to3.pytree.NegatedPattern",
+    "lib2to3.pytree.Node",
+    "lib2to3.pytree.NodePattern",
+    "lib2to3.pytree.WildcardPattern",
+    "list",
+    "logging.Handler",
+    "logging.Logger",
+    "logging.LoggerAdapter",
+    "lzma.LZMAFile",
+    "mailbox.Babyl",
+    "mailbox.MMDF",
+    "mailbox.Mailbox",
+    "mailbox._ProxyFile",
+    "mailbox.mbox",
+    "mmap.mmap",
+    "multiprocessing.connection._ConnectionBase",
+    "multiprocessing.context.DefaultContext",
+    "multiprocessing.pool.ApplyResult",
+    "multiprocessing.pool.IMapIterator",
+    "multiprocessing.queues.Queue",
+    "multiprocessing.queues.SimpleQueue",
+    "multiprocessing.shared_memory.ShareableList",
+    "multiprocessing.sharedctypes.SynchronizedBase",
+    "multiprocessing.synchronize.Condition",
+    "multiprocessing.synchronize.Lock",
+    "multiprocessing.synchronize.RLock",
+    "multiprocessing.synchronize.Semaphore",
+    "multiprocessing.util.Finalize",
+    "netrc.NetrcParseError",
+    "optparse.OptParseError",
+    "os._Environ",
+    "paramiko.auth_strategy.AuthFailure",
+    "paramiko.auth_strategy.InMemoryPrivateKey",
+    "paramiko.auth_strategy.OnDiskPrivateKey",
+    "paramiko.buffered_pipe.BufferedPipe",
+    "paramiko.channel.Channel",
+    "paramiko.client.SSHClient",
+    "paramiko.file.BufferedFile",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys.InvalidHostKey",
+    "paramiko.hostkeys._SubDict",
+    "paramiko.proxy.ProxyCommand",
+    "paramiko.sftp_handle.SFTPHandle",
+    "paramiko.ssh_exception.BadAuthenticationType",
+    "paramiko.ssh_exception.BadHostKeyException",
+    "paramiko.ssh_exception.ChannelException",
+    "paramiko.ssh_exception.NoValidConnectionsError",
+    "paramiko.ssh_exception.PartialAuthentication",
+    "paramiko.ssh_exception.ProxyCommandFailure",
+    "pathlib.PurePath",
+    "plistlib.InvalidFileException",
+    "psycopg2._psycopg.Error",
+    "psycopg2._range.Range",
+    "psycopg2.extras.RealDictRow",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "py_compile.PyCompileError",
+    "pydoc.ErrorDuringImport",
+    "pymysql.connections.Connection",
+    "pytz._FixedOffset",
+    "pytz.reference.FixedOffset",
+    "pytz.reference.USTimeZone",
+    "pytz.tzinfo.DstTzInfo",
+    "queue.Queue",
+    "queue.SimpleQueue",
+    "re.error",
+    "regex._regex_core.Scanner",
+    "regex._regex_core.error",
+    "requests.auth.HTTPBasicAuth",
+    "requests.auth.HTTPDigestAuth",
+    "requests.exceptions.RequestException",
+    "requests.models.PreparedRequest",
+    "requests.models.Request",
+    "requests.sessions.Session",
+    "requests.structures.CaseInsensitiveDict",
+    "set",
+    "shelve.Shelf",
+    "shlex.shlex",
+    "smtpd.SMTPChannel",
+    "smtplib.SMTPRecipientsRefused",
+    "smtplib.SMTPResponseException",
+    "socket.SocketIO",
+    "socketserver.UnixDatagramServer",
+    "sqlite3.dbapi2.Cursor",
+    "staticmethod",
+    "subprocess.CalledProcessError",
+    "subprocess.CompletedProcess",
+    "subprocess.Popen",
+    "subprocess.TimeoutExpired",
+    "tabnanny.NannyNag",
+    "tarfile.AbsoluteLinkError",
+    "tarfile.AbsolutePathError",
+    "tarfile.LinkOutsideDestinationError",
+    "tarfile.OutsideDestinationError",
+    "tarfile.SpecialFileError",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile.TemporaryDirectory",
+    "tempfile._TemporaryFileWrapper",
+    "tkinter.BaseWidget",
+    "tkinter.Button",
+    "tkinter.Canvas",
+    "tkinter.Checkbutton",
+    "tkinter.Entry",
+    "tkinter.Frame",
+    "tkinter.Image",
+    "tkinter.Label",
+    "tkinter.LabelFrame",
+    "tkinter.Listbox",
+    "tkinter.Menu",
+    "tkinter.Menubutton",
+    "tkinter.Message",
+    "tkinter.PanedWindow",
+    "tkinter.Radiobutton",
+    "tkinter.Scale",
+    "tkinter.Scrollbar",
+    "tkinter.Spinbox",
+    "tkinter.Text",
+    "tkinter.Tk",
+    "tkinter.dialog.Dialog",
+    "tkinter.tix.TixWidget",
+    "tkinter.ttk.Widget",
+    "tqdm.contrib.discord.DiscordIO",
+    "tqdm.contrib.slack.SlackIO",
+    "tqdm.contrib.telegram.TelegramIO",
+    "tqdm.rich._ProgressColumn",
+    "tqdm.std.TqdmWarning",
+    "tqdm.std.tqdm",
+    "traceback.FrameSummary",
+    "tracemalloc.Traceback",
+    "typing.MappingView",
+    "typing.NamedTuple",
+    "typing._ProtocolMeta",
+    "unittest.mock._Call",
+    "unittest.mock._patch",
+    "unittest.runner._WritelnDecorator",
+    "unittest.suite.BaseTestSuite",
+    "urllib.error.URLError",
+    "urllib.request.AbstractHTTPHandler",
+    "urllib.request.HTTPCookieProcessor",
+    "urllib.request.ProxyHandler",
+    "warnings.catch_warnings",
+    "weakref.KeyedRef",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary",
+    "wsgiref.handlers.CGIHandler",
+    "wsgiref.handlers.IISCGIHandler",
+    "wsgiref.handlers.SimpleHandler",
+    "xdrlib.Error",
+    "xml.dom.DOMException",
+    "xml.dom.minidom.Attr",
+    "xml.dom.minidom.CharacterData",
+    "xml.dom.minidom.Document",
+    "xml.dom.minidom.DocumentFragment",
+    "xml.dom.minidom.DocumentType",
+    "xml.dom.minidom.Element",
+    "xml.dom.minidom.Entity",
+    "xml.dom.minidom.Notation",
+    "xml.dom.minidom.ProcessingInstruction",
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax._exceptions.SAXException",
+    "xml.sax.saxutils.XMLFilterBase",
+    "xml.sax.saxutils.XMLGenerator",
+    "xml.sax.xmlreader.IncrementalParser",
+    "xmlrpc.client.Fault",
+    "xmlrpc.client.ProtocolError",
+    "yaml.YAMLObjectMetaclass",
+    "yaml.error.MarkedYAMLError",
+    "yaml.reader.ReaderError",
+    "zipfile.ZipExtFile",
+    "zoneinfo.ZoneInfo"
+  ],
+  "type.__instancecheck__": [
+    "abc.ABCMeta"
+  ],
+  "type.__name__": [
+    "types.BuiltinFunctionType",
+    "types.ClassMethodDescriptorType",
+    "types.GetSetDescriptorType",
+    "types.MemberDescriptorType",
+    "types.MethodDescriptorType",
+    "types.MethodType",
+    "types.MethodWrapperType",
+    "types.WrapperDescriptorType",
+    "typing.ParamSpec",
+    "typing.TypeAliasType",
+    "typing.TypeVar",
+    "typing.TypeVarTuple"
+  ],
+  "type.__new__": [
+    "_curses._ncurses_version",
+    "_decimal.DecimalTuple",
+    "_operator.attrgetter",
+    "_operator.itemgetter",
+    "_py_abc.ABCMeta",
+    "_typeshed.structseq",
+    "abc.ABCMeta",
+    "aifc._aifc_params",
+    "bytes",
+    "concurrent.futures._base.DoneAndNotDoneFutures",
+    "datetime._IsoCalendarDate",
+    "dict",
+    "difflib.Match",
+    "dis.Positions",
+    "dis._Instruction",
+    "enum.EnumMeta",
+    "enumerate",
+    "filter",
+    "frozenset",
+    "functools._CacheInfo",
+    "functools.partial",
+    "inspect.ArgInfo",
+    "inspect.Arguments",
+    "inspect.Attribute",
+    "inspect.ClosureVars",
+    "inspect.FullArgSpec",
+    "inspect._FrameInfo",
+    "inspect._Traceback",
+    "itertools.batched",
+    "itertools.combinations",
+    "itertools.combinations_with_replacement",
+    "itertools.count",
+    "itertools.groupby",
+    "itertools.pairwise",
+    "itertools.permutations",
+    "itertools.product",
+    "itertools.starmap",
+    "itertools.zip_longest",
+    "ldap3.abstract.cursor.Operation",
+    "ldap3.core.exceptions.LDAPOperationResult",
+    "map",
+    "memoryview",
+    "nntplib.ArticleInfo",
+    "nntplib.GroupInfo",
+    "paramiko.auth_strategy.SourceResult",
+    "pathlib.PurePath",
+    "pkgutil.ModuleInfo",
+    "platform.AndroidVer",
+    "platform.IOSVersionInfo",
+    "platform.uname_result",
+    "psycopg2.tz.FixedOffsetTimezone",
+    "pytz.lazy.LazyList",
+    "pytz.lazy.LazySet",
+    "range",
+    "reversed",
+    "sched.Event",
+    "selectors.SelectorKey",
+    "shutil._ntuple_diskusage",
+    "sndhdr.SndHeaders",
+    "ssl.DefaultVerifyPaths",
+    "ssl._ASN1ObjectBase",
+    "statistics.LinearRegression",
+    "str",
+    "sunau._sunau_params",
+    "tkinter._VersionInfoType",
+    "tokenize._TokenInfo",
+    "tqdm.std.tqdm",
+    "tuple",
+    "types.MappingProxyType",
+    "unittest._log._LoggingWatcher",
+    "unittest.mock.NonCallableMock",
+    "urllib.parse._DefragResultBase",
+    "urllib.parse._ParseResultBase",
+    "urllib.parse._SplitResultBase",
+    "urllib.robotparser.RequestRate",
+    "wave._wave_params",
+    "weakref.ReferenceType",
+    "zip"
+  ],
+  "type.__or__": [
+    "_weakrefset.WeakSet",
+    "collections.ChainMap",
+    "collections.UserDict",
+    "dict",
+    "enum.Flag",
+    "int",
+    "numbers.Integral",
+    "os._Environ",
+    "set",
+    "types.GenericAlias",
+    "types.MappingProxyType",
+    "types.UnionType",
+    "typing.AbstractSet",
+    "typing.ForwardRef",
+    "typing.ItemsView",
+    "typing.KeysView",
+    "typing.NewType",
+    "typing.ParamSpec",
+    "typing.TypeAliasType",
+    "typing.TypeVar",
+    "typing._SpecialForm",
+    "typing._TypedDict",
+    "typing_extensions._SpecialForm",
+    "typing_extensions._TypedDict",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "type.__prepare__": [
+    "enum.EnumMeta"
+  ],
+  "type.__qualname__": [
+    "types.BuiltinFunctionType",
+    "types.ClassMethodDescriptorType",
+    "types.GetSetDescriptorType",
+    "types.MemberDescriptorType",
+    "types.MethodDescriptorType",
+    "types.MethodType",
+    "types.MethodWrapperType",
+    "types.WrapperDescriptorType"
+  ],
+  "type.__ror__": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "dict",
+    "int",
+    "numbers.Integral",
+    "os._Environ",
+    "types.GenericAlias",
+    "types.MappingProxyType",
+    "types.UnionType",
+    "typing.ForwardRef",
+    "typing.ItemsView",
+    "typing.KeysView",
+    "typing.NewType",
+    "typing.ParamSpec",
+    "typing.TypeAliasType",
+    "typing.TypeVar",
+    "typing._SpecialForm",
+    "typing._TypedDict",
+    "typing_extensions._SpecialForm",
+    "typing_extensions._TypedDict",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "type.__subclasscheck__": [
+    "abc.ABCMeta"
+  ],
+  "type.__type_params__": [
+    "typing.TypeAliasType"
+  ],
+  "typing.AbstractSet.__and__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set",
+    "typing.ItemsView",
+    "typing.KeysView"
+  ],
+  "typing.AbstractSet.__contains__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set",
+    "typing.ItemsView",
+    "typing.KeysView"
+  ],
+  "typing.AbstractSet.__eq__": [
+    "frozenset"
+  ],
+  "typing.AbstractSet.__ge__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set"
+  ],
+  "typing.AbstractSet.__gt__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set"
+  ],
+  "typing.AbstractSet.__le__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set"
+  ],
+  "typing.AbstractSet.__lt__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set"
+  ],
+  "typing.AbstractSet.__or__": [
+    "frozenset"
+  ],
+  "typing.AbstractSet.__sub__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set",
+    "typing.ItemsView",
+    "typing.KeysView"
+  ],
+  "typing.AbstractSet.__xor__": [
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set",
+    "typing.ItemsView",
+    "typing.KeysView"
+  ],
+  "typing.AbstractSet.isdisjoint": [
+    "_collections_abc.dict_items",
+    "_collections_abc.dict_keys",
+    "_weakrefset.WeakSet",
+    "frozenset",
+    "set"
+  ],
+  "typing.AsyncGenerator.__anext__": [
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncGenerator.aclose": [
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncGenerator.ag_await": [
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncGenerator.asend": [
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncGenerator.athrow": [
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncIterable.__aiter__": [
+    "typing.AsyncIterator"
+  ],
+  "typing.AsyncIterator.__aiter__": [
+    "asyncio.streams.StreamReader",
+    "types.AsyncGeneratorType"
+  ],
+  "typing.AsyncIterator.__anext__": [
+    "asyncio.streams.StreamReader",
+    "typing.AsyncGenerator"
+  ],
+  "typing.Awaitable.__await__": [
+    "aiofiles.base.AiofilesContextManager",
+    "asyncio.futures.Future",
+    "types.CoroutineType"
+  ],
+  "typing.BinaryIO.__enter__": [
+    "codecs.StreamRecoder"
+  ],
+  "typing.Collection.__len__": [
+    "_weakrefset.WeakSet",
+    "array.array",
+    "bytearray",
+    "bytes",
+    "collections.ChainMap",
+    "collections.UserDict",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "configparser.ConverterMapping",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "contextvars.Context",
+    "dbm._Database",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "frozenset",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "list",
+    "memoryview",
+    "multiprocessing.managers.BaseListProxy",
+    "multiprocessing.managers.DictProxy",
+    "os._Environ",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "pytz.lazy.LazyDict",
+    "range",
+    "requests.structures.CaseInsensitiveDict",
+    "set",
+    "shelve.Shelf",
+    "str",
+    "tracemalloc.Traceback",
+    "tuple",
+    "types.MappingProxyType",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Container.__contains__": [
+    "typing.AbstractSet",
+    "typing.Mapping",
+    "typing.Sequence",
+    "typing.ValuesView"
+  ],
+  "typing.Coroutine.close": [
+    "types.CoroutineType"
+  ],
+  "typing.Coroutine.send": [
+    "types.CoroutineType"
+  ],
+  "typing.Coroutine.throw": [
+    "types.CoroutineType"
+  ],
+  "typing.Generator.__iter__": [
+    "types.GeneratorType"
+  ],
+  "typing.Generator.__next__": [
+    "types.GeneratorType"
+  ],
+  "typing.Generator.gi_yieldfrom": [
+    "types.GeneratorType"
+  ],
+  "typing.Generator.send": [
+    "types.GeneratorType"
+  ],
+  "typing.Generator.throw": [
+    "types.GeneratorType"
+  ],
+  "typing.GenericMeta.__getitem__": [
+    "_FormatMapMapping",
+    "_GetItemIterable",
+    "_TranslateTable",
+    "_ctypes.Array",
+    "_ctypes._Pointer",
+    "_typeshed.IndexableBuffer",
+    "_typeshed.SliceableBuffer",
+    "_typeshed.SupportsContainsAndGetItem",
+    "_typeshed.SupportsGetItem",
+    "_typeshed.SupportsItemAccess",
+    "_typeshed.SupportsKeysAndGetItem",
+    "_typeshed.SupportsLenAndGetItem",
+    "cgi._Environ",
+    "ctypes.LibraryLoader",
+    "email.message.Message",
+    "enum.EnumMeta",
+    "importlib.metadata.Deprecated",
+    "importlib.metadata._meta.PackageMetadata",
+    "ipaddress._BaseNetwork",
+    "mailbox.Mailbox",
+    "mmap.mmap",
+    "multiprocessing.shared_memory.ShareableList",
+    "multiprocessing.sharedctypes.SynchronizedArray",
+    "re.Match",
+    "regex.regex.Match",
+    "traceback.FrameSummary",
+    "typing.Mapping",
+    "typing.Sequence"
+  ],
+  "typing.IO.__enter__": [
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper",
+    "typing.BinaryIO",
+    "typing.TextIO"
+  ],
+  "typing.IO.__exit__": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.__iter__": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.__next__": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.close": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.closed": [
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.fileno": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.flush": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.isatty": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.read": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.readable": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.readline": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.readlines": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.seek": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.seekable": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.tell": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.truncate": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.writable": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.write": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.IO.writelines": [
+    "codecs.StreamReaderWriter",
+    "codecs.StreamRecoder",
+    "tempfile.SpooledTemporaryFile",
+    "tempfile._TemporaryFileWrapper"
+  ],
+  "typing.ItemsView.__reversed__": [
+    "collections._OrderedDictItemsView",
+    "collections._odict_items"
+  ],
+  "typing.Iterable.__iter__": [
+    "_weakrefset.WeakSet",
+    "asyncio.futures.Future",
+    "boto.s3.bucketlistresultset.BucketListResultSet",
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.ConverterMapping",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "contextvars.Context",
+    "dbm._Database",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "frozenset",
+    "http.cookiejar.CookieJar",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "mmap.mmap",
+    "multiprocessing.managers.DictProxy",
+    "os._Environ",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "pytz.lazy.LazyDict",
+    "requests.structures.CaseInsensitiveDict",
+    "set",
+    "shelve.Shelf",
+    "shlex.shlex",
+    "traceback.FrameSummary",
+    "types.MappingProxyType",
+    "typing.ItemsView",
+    "typing.Iterator",
+    "typing.KeysView",
+    "typing.Sequence",
+    "typing.ValuesView",
+    "unittest.suite.BaseTestSuite",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Iterator.__iter__": [
+    "csv.DictReader",
+    "enumerate",
+    "fileinput.FileInput",
+    "filter",
+    "itertools.accumulate",
+    "itertools.batched",
+    "itertools.chain",
+    "itertools.combinations",
+    "itertools.combinations_with_replacement",
+    "itertools.compress",
+    "itertools.count",
+    "itertools.cycle",
+    "itertools.dropwhile",
+    "itertools.filterfalse",
+    "itertools.groupby",
+    "itertools.islice",
+    "itertools.pairwise",
+    "itertools.permutations",
+    "itertools.product",
+    "itertools.repeat",
+    "itertools.starmap",
+    "itertools.takewhile",
+    "itertools.zip_longest",
+    "map",
+    "multiprocessing.pool.IMapIterator",
+    "reversed",
+    "sqlite3.dbapi2.Cursor",
+    "typing.Generator",
+    "typing.IO",
+    "zip"
+  ],
+  "typing.Iterator.__next__": [
+    "_csv._reader",
+    "csv.DictReader",
+    "enumerate",
+    "fileinput.FileInput",
+    "filter",
+    "itertools.accumulate",
+    "itertools.batched",
+    "itertools.chain",
+    "itertools.combinations",
+    "itertools.combinations_with_replacement",
+    "itertools.compress",
+    "itertools.count",
+    "itertools.cycle",
+    "itertools.dropwhile",
+    "itertools.filterfalse",
+    "itertools.groupby",
+    "itertools.islice",
+    "itertools.pairwise",
+    "itertools.permutations",
+    "itertools.product",
+    "itertools.repeat",
+    "itertools.starmap",
+    "itertools.takewhile",
+    "itertools.zip_longest",
+    "map",
+    "multiprocessing.pool.IMapIterator",
+    "os._ScandirIterator",
+    "reversed",
+    "sqlite3.dbapi2.Cursor",
+    "typing.Generator",
+    "typing.IO",
+    "xml.etree.ElementTree._IterParseIterator",
+    "zip"
+  ],
+  "typing.KeysView.__reversed__": [
+    "collections._OrderedDictKeysView",
+    "collections._odict_keys"
+  ],
+  "typing.Mapping.__contains__": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "pytz.lazy.LazyDict",
+    "shelve.Shelf",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Mapping.__eq__": [
+    "contextvars.Context",
+    "types.MappingProxyType"
+  ],
+  "typing.Mapping.__getitem__": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.ConverterMapping",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "contextvars.Context",
+    "dbm._Database",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "os._Environ",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "pytz.lazy.LazyDict",
+    "requests.cookies.RequestsCookieJar",
+    "requests.structures.CaseInsensitiveDict",
+    "shelve.Shelf",
+    "types.MappingProxyType",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Mapping.get": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "contextvars.Context",
+    "dict",
+    "multiprocessing.managers.DictProxy",
+    "requests.cookies.RequestsCookieJar",
+    "shelve.Shelf",
+    "types.MappingProxyType",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Mapping.items": [
+    "configparser.RawConfigParser",
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "requests.cookies.RequestsCookieJar",
+    "types.MappingProxyType",
+    "typing._TypedDict",
+    "typing_extensions._TypedDict",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Mapping.keys": [
+    "dbm.sqlite3._Database",
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "requests.cookies.RequestsCookieJar",
+    "types.MappingProxyType",
+    "typing._TypedDict",
+    "typing_extensions._TypedDict",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.Mapping.values": [
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "paramiko.hostkeys.HostKeys",
+    "requests.cookies.RequestsCookieJar",
+    "types.MappingProxyType",
+    "typing._TypedDict",
+    "typing_extensions._TypedDict",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.MappingView.__init__": [
+    "typing.ItemsView",
+    "typing.KeysView",
+    "typing.ValuesView"
+  ],
+  "typing.MutableMapping.__delitem__": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.ConverterMapping",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "dbm._Database",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "os._Environ",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "requests.cookies.RequestsCookieJar",
+    "requests.structures.CaseInsensitiveDict",
+    "shelve.Shelf",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.MutableMapping.__setitem__": [
+    "collections.ChainMap",
+    "collections.UserDict",
+    "configparser.ConverterMapping",
+    "configparser.RawConfigParser",
+    "configparser.SectionProxy",
+    "dbm._Database",
+    "dbm.dumb._Database",
+    "dbm.sqlite3._Database",
+    "dict",
+    "ldap3.utils.ciDict.CaseInsensitiveDict",
+    "multiprocessing.managers.DictProxy",
+    "os._Environ",
+    "paramiko.hostkeys.HostKeys",
+    "paramiko.hostkeys._SubDict",
+    "requests.cookies.RequestsCookieJar",
+    "requests.structures.CaseInsensitiveDict",
+    "shelve.Shelf",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.MutableMapping.clear": [
+    "paramiko.hostkeys.HostKeys"
+  ],
+  "typing.MutableMapping.pop": [
+    "collections.ChainMap",
+    "dict",
+    "multiprocessing.managers.DictProxy",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.MutableMapping.popitem": [
+    "collections.OrderedDict"
+  ],
+  "typing.MutableMapping.setdefault": [
+    "collections.ChainMap",
+    "collections.OrderedDict",
+    "http.cookies.Morsel",
+    "os._Environ",
+    "weakref.WeakKeyDictionary",
+    "weakref.WeakValueDictionary"
+  ],
+  "typing.MutableMapping.update": [
+    "collections.Counter",
+    "enum._EnumDict",
+    "http.cookies.Morsel",
+    "requests.cookies.RequestsCookieJar"
+  ],
+  "typing.MutableSequence.__delitem__": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.__getitem__": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.__iadd__": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.ListProxy"
+  ],
+  "typing.MutableSequence.__setitem__": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.append": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.extend": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.insert": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.pop": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSequence.remove": [
+    "array.array",
+    "bytearray",
+    "collections.UserList",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy"
+  ],
+  "typing.MutableSet.__iand__": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.__ior__": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.__isub__": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.__ixor__": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.add": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.discard": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.MutableSet.remove": [
+    "_weakrefset.WeakSet",
+    "set"
+  ],
+  "typing.NamedTuple.__init__": [
+    "_curses._ncurses_version",
+    "_decimal.DecimalTuple",
+    "aifc._aifc_params",
+    "concurrent.futures._base.DoneAndNotDoneFutures",
+    "datetime._IsoCalendarDate",
+    "difflib.Match",
+    "dis.Positions",
+    "dis._Instruction",
+    "functools._CacheInfo",
+    "inspect.ArgInfo",
+    "inspect.Arguments",
+    "inspect.Attribute",
+    "inspect.ClosureVars",
+    "inspect.FullArgSpec",
+    "inspect._FrameInfo",
+    "inspect._Traceback",
+    "ldap3.abstract.cursor.Operation",
+    "nntplib.ArticleInfo",
+    "nntplib.GroupInfo",
+    "paramiko.auth_strategy.SourceResult",
+    "pkgutil.ModuleInfo",
+    "platform.AndroidVer",
+    "platform.IOSVersionInfo",
+    "platform.uname_result",
+    "sched.Event",
+    "selectors.SelectorKey",
+    "shutil._ntuple_diskusage",
+    "sndhdr.SndHeaders",
+    "ssl.DefaultVerifyPaths",
+    "ssl._ASN1ObjectBase",
+    "statistics.LinearRegression",
+    "sunau._sunau_params",
+    "tkinter._VersionInfoType",
+    "tokenize._TokenInfo",
+    "unittest._log._LoggingWatcher",
+    "urllib.parse._DefragResultBase",
+    "urllib.parse._ParseResultBase",
+    "urllib.parse._SplitResultBase",
+    "urllib.robotparser.RequestRate",
+    "wave._wave_params"
+  ],
+  "typing.Reversible.__reversed__": [
+    "typing.Sequence"
+  ],
+  "typing.Sequence.__contains__": [
+    "bytearray",
+    "bytes",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "list",
+    "memoryview",
+    "range",
+    "str",
+    "tracemalloc.Traceback",
+    "tuple"
+  ],
+  "typing.Sequence.__getitem__": [
+    "bytes",
+    "collections.UserString",
+    "memoryview",
+    "range",
+    "str",
+    "tracemalloc.Traceback",
+    "tuple",
+    "typing.MutableSequence"
+  ],
+  "typing.Sequence.__iter__": [
+    "bytearray",
+    "bytes",
+    "collections.UserString",
+    "list",
+    "memoryview",
+    "range",
+    "str",
+    "tuple"
+  ],
+  "typing.Sequence.__reversed__": [
+    "collections.UserString",
+    "list",
+    "multiprocessing.managers.BaseListProxy",
+    "range"
+  ],
+  "typing.Sequence.count": [
+    "array.array",
+    "bytearray",
+    "bytes",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy",
+    "range",
+    "str",
+    "tuple"
+  ],
+  "typing.Sequence.index": [
+    "array.array",
+    "bytearray",
+    "bytes",
+    "collections.UserList",
+    "collections.UserString",
+    "collections.deque",
+    "list",
+    "multiprocessing.managers.BaseListProxy",
+    "range",
+    "str",
+    "tuple"
+  ],
+  "typing.Sized.__len__": [
+    "mmap.mmap",
+    "typing.MappingView"
+  ],
+  "typing.SupportsInt.__int__": [
+    "ipaddress._BaseAddress"
+  ],
+  "typing.TextIO.__enter__": [
+    "codecs.StreamReaderWriter"
+  ],
+  "typing.TextIO.buffer": [
+    "io.TextIOWrapper"
+  ],
+  "typing.TextIO.line_buffering": [
+    "io.TextIOWrapper"
+  ],
+  "typing.ValuesView.__reversed__": [
+    "collections._OrderedDictValuesView",
+    "collections._odict_values"
+  ],
+  "unittest.case._BaseTestCaseContext.__init__": [
+    "unittest._log._AssertLogsContext"
+  ],
+  "unittest.mock.AsyncMockMixin.reset_mock": [
+    "unittest.mock.AsyncMock"
+  ],
+  "unittest.mock.Base.__init__": [
+    "unittest.mock.AsyncMockMixin",
+    "unittest.mock.CallableMixin",
+    "unittest.mock.NonCallableMock",
+    "unittest.mock.ThreadingMixin"
+  ],
+  "unittest.mock.MagicMixin.__init__": [
+    "unittest.mock.AsyncMagicMixin"
+  ],
+  "unittest.mock._patch.__call__": [
+    "unittest.mock._patch_default_new"
+  ],
+  "unittest.result.TestResult.__init__": [
+    "unittest.runner.TextTestResult"
+  ],
+  "unittest.suite.BaseTestSuite.run": [
+    "unittest.suite.TestSuite"
+  ],
+  "urllib.error.URLError.__init__": [
+    "urllib.error.ContentTooShortError",
+    "urllib.error.HTTPError"
+  ],
+  "urllib.error.URLError.reason": [
+    "urllib.error.HTTPError"
+  ],
+  "urllib.request.AbstractHTTPHandler.__init__": [
+    "urllib.request.HTTPSHandler"
+  ],
+  "urllib.request.HTTPPasswordMgr.add_password": [
+    "urllib.request.HTTPPasswordMgrWithDefaultRealm"
+  ],
+  "urllib.request.HTTPPasswordMgr.find_user_password": [
+    "urllib.request.HTTPPasswordMgrWithDefaultRealm"
+  ],
+  "urllib.request.HTTPPasswordMgrWithDefaultRealm.add_password": [
+    "urllib.request.HTTPPasswordMgrWithPriorAuth"
+  ],
+  "urllib.request.URLopener.http_error_default": [
+    "urllib.request.FancyURLopener"
+  ],
+  "urllib.response.addbase.__init__": [
+    "urllib.response.addclosehook",
+    "urllib.response.addinfo"
+  ],
+  "urllib.response.addinfo.__init__": [
+    "urllib.response.addinfourl"
+  ],
+  "urllib.response.addinfo.headers": [
+    "urllib.error.HTTPError"
+  ],
+  "urllib.response.addinfo.headers@setter": [
+    "urllib.error.HTTPError"
+  ],
+  "weakref.ReferenceType.__call__": [
+    "weakref.WeakMethod"
+  ],
+  "weakref.ReferenceType.__eq__": [
+    "weakref.WeakMethod"
+  ],
+  "weakref.ReferenceType.__hash__": [
+    "weakref.WeakMethod"
+  ],
+  "weakref.ReferenceType.__new__": [
+    "weakref.KeyedRef",
+    "weakref.WeakMethod"
+  ],
+  "webbrowser.BaseBrowser.__init__": [
+    "webbrowser.GenericBrowser"
+  ],
+  "webbrowser.BaseBrowser.open": [
+    "webbrowser.GenericBrowser",
+    "webbrowser.Konqueror",
+    "webbrowser.UnixBrowser"
+  ],
+  "wsgiref.handlers.BaseHandler._flush": [
+    "wsgiref.handlers.SimpleHandler"
+  ],
+  "wsgiref.handlers.BaseHandler._write": [
+    "wsgiref.handlers.SimpleHandler"
+  ],
+  "wsgiref.handlers.BaseHandler.add_cgi_vars": [
+    "wsgiref.handlers.SimpleHandler"
+  ],
+  "wsgiref.handlers.BaseHandler.get_stderr": [
+    "wsgiref.handlers.SimpleHandler"
+  ],
+  "wsgiref.handlers.BaseHandler.get_stdin": [
+    "wsgiref.handlers.SimpleHandler"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.__init__": [
+    "xml.dom.expatbuilder.FragmentBuilder"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.end_doctype_decl_handler": [
+    "xml.dom.expatbuilder.InternalSubsetExtractor"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.parseFile": [
+    "xml.dom.expatbuilder.InternalSubsetExtractor"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.parseString": [
+    "xml.dom.expatbuilder.InternalSubsetExtractor"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.start_doctype_decl_handler": [
+    "xml.dom.expatbuilder.InternalSubsetExtractor"
+  ],
+  "xml.dom.expatbuilder.ExpatBuilder.start_element_handler": [
+    "xml.dom.expatbuilder.InternalSubsetExtractor"
+  ],
+  "xml.dom.minidom.CharacterData.__init__": [
+    "xml.dom.minidom.Comment"
+  ],
+  "xml.dom.minidom.Node.appendChild": [
+    "xml.dom.minidom.Document",
+    "xml.dom.minidom.Entity"
+  ],
+  "xml.dom.minidom.Node.cloneNode": [
+    "xml.dom.minidom.Document",
+    "xml.dom.minidom.DocumentType"
+  ],
+  "xml.dom.minidom.Node.insertBefore": [
+    "xml.dom.minidom.Entity"
+  ],
+  "xml.dom.minidom.Node.isSupported": [
+    "xml.dom.minidom.Document"
+  ],
+  "xml.dom.minidom.Node.removeChild": [
+    "xml.dom.minidom.Document",
+    "xml.dom.minidom.Entity"
+  ],
+  "xml.dom.minidom.Node.replaceChild": [
+    "xml.dom.minidom.Entity"
+  ],
+  "xml.dom.minidom.Node.unlink": [
+    "xml.dom.minidom.Attr",
+    "xml.dom.minidom.Document",
+    "xml.dom.minidom.Element"
+  ],
+  "xml.dom.minidom.Text.writexml": [
+    "xml.dom.minidom.CDATASection"
+  ],
+  "xml.dom.pulldom.PullDOM.characters": [
+    "xml.dom.pulldom.SAX2DOM"
+  ],
+  "xml.dom.pulldom.PullDOM.ignorableWhitespace": [
+    "xml.dom.pulldom.SAX2DOM"
+  ],
+  "xml.dom.pulldom.PullDOM.processingInstruction": [
+    "xml.dom.pulldom.SAX2DOM"
+  ],
+  "xml.dom.pulldom.PullDOM.startElement": [
+    "xml.dom.pulldom.SAX2DOM"
+  ],
+  "xml.dom.pulldom.PullDOM.startElementNS": [
+    "xml.dom.pulldom.SAX2DOM"
+  ],
+  "xml.sax._exceptions.SAXException.__init__": [
+    "xml.sax._exceptions.SAXParseException"
+  ],
+  "xml.sax.handler.ContentHandler.characters": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.endDocument": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.endElement": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.endElementNS": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.endPrefixMapping": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.ignorableWhitespace": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.processingInstruction": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.setDocumentLocator": [
+    "xml.dom.pulldom.PullDOM"
+  ],
+  "xml.sax.handler.ContentHandler.startDocument": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.startElement": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.startElementNS": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.handler.ContentHandler.startPrefixMapping": [
+    "xml.dom.pulldom.PullDOM",
+    "xml.sax.saxutils.XMLGenerator"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.__contains__": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.__getitem__": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.__init__": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.get": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.getNameByQName": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.getNames": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.getQNameByName": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.getType": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.getValue": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.items": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.AttributesImpl.keys": [
+    "xml.sax.xmlreader.AttributesNSImpl"
+  ],
+  "xml.sax.xmlreader.XMLReader.getFeature": [
+    "xml.sax.saxutils.XMLFilterBase"
+  ],
+  "xml.sax.xmlreader.XMLReader.getProperty": [
+    "xml.sax.saxutils.XMLFilterBase"
+  ],
+  "xml.sax.xmlreader.XMLReader.parse": [
+    "xml.sax.saxutils.XMLFilterBase",
+    "xml.sax.xmlreader.IncrementalParser"
+  ],
+  "xml.sax.xmlreader.XMLReader.setFeature": [
+    "xml.sax.saxutils.XMLFilterBase"
+  ],
+  "xml.sax.xmlreader.XMLReader.setLocale": [
+    "xml.sax.saxutils.XMLFilterBase"
+  ],
+  "xml.sax.xmlreader.XMLReader.setProperty": [
+    "xml.sax.saxutils.XMLFilterBase"
+  ],
+  "xmlrpc.client.Transport.__init__": [
+    "xmlrpc.client.SafeTransport"
+  ],
+  "xmlrpc.client.Transport.make_connection": [
+    "xmlrpc.client.SafeTransport"
+  ],
+  "xmlrpc.server.CGIXMLRPCRequestHandler.__init__": [
+    "xmlrpc.server.DocCGIXMLRPCRequestHandler"
+  ],
+  "xmlrpc.server.SimpleXMLRPCDispatcher.__init__": [
+    "xmlrpc.server.CGIXMLRPCRequestHandler"
+  ],
+  "xmlrpc.server.SimpleXMLRPCServer.__init__": [
+    "xmlrpc.server.DocXMLRPCServer",
+    "xmlrpc.server.MultiPathXMLRPCServer"
+  ],
+  "yaml._yaml.CEmitter.__init__": [
+    "yaml.cyaml.CBaseDumper",
+    "yaml.cyaml.CDumper"
+  ],
+  "yaml._yaml.CParser.__init__": [
+    "yaml.cyaml.CBaseLoader",
+    "yaml.cyaml.CFullLoader",
+    "yaml.cyaml.CLoader",
+    "yaml.cyaml.CSafeLoader",
+    "yaml.cyaml.CUnsafeLoader"
+  ],
+  "yaml.constructor.BaseConstructor.construct_mapping": [
+    "yaml.constructor.SafeConstructor"
+  ],
+  "yaml.constructor.BaseConstructor.construct_scalar": [
+    "yaml.constructor.SafeConstructor"
+  ],
+  "yaml.constructor.FullConstructor.find_python_module": [
+    "yaml.constructor.UnsafeConstructor"
+  ],
+  "yaml.constructor.FullConstructor.find_python_name": [
+    "yaml.constructor.UnsafeConstructor"
+  ],
+  "yaml.constructor.FullConstructor.make_python_instance": [
+    "yaml.constructor.UnsafeConstructor"
+  ],
+  "yaml.constructor.FullConstructor.set_python_instance_state": [
+    "yaml.constructor.UnsafeConstructor"
+  ],
+  "yaml.emitter.Emitter.__init__": [
+    "yaml.dumper.BaseDumper",
+    "yaml.dumper.Dumper",
+    "yaml.dumper.SafeDumper"
+  ],
+  "yaml.events.Event.__init__": [
+    "yaml.events.DocumentEndEvent",
+    "yaml.events.DocumentStartEvent",
+    "yaml.events.NodeEvent",
+    "yaml.events.StreamStartEvent"
+  ],
+  "yaml.events.NodeEvent.__init__": [
+    "yaml.events.CollectionStartEvent",
+    "yaml.events.ScalarEvent"
+  ],
+  "yaml.nodes.Node.__init__": [
+    "yaml.nodes.CollectionNode",
+    "yaml.nodes.ScalarNode"
+  ],
+  "yaml.reader.Reader.__init__": [
+    "yaml.loader.BaseLoader",
+    "yaml.loader.FullLoader",
+    "yaml.loader.Loader",
+    "yaml.loader.SafeLoader",
+    "yaml.loader.UnsafeLoader"
+  ],
+  "yaml.representer.BaseRepresenter.ignore_aliases": [
+    "yaml.representer.SafeRepresenter"
+  ],
+  "yaml.tokens.Token.__init__": [
+    "yaml.tokens.AliasToken",
+    "yaml.tokens.AnchorToken",
+    "yaml.tokens.DirectiveToken",
+    "yaml.tokens.ScalarToken",
+    "yaml.tokens.StreamStartToken",
+    "yaml.tokens.TagToken"
+  ],
+  "zipfile.ZipFile.__init__": [
+    "zipfile.PyZipFile"
+  ]
+}
