@@ -1,4 +1,0 @@
-{
-  "source_directories": ["./testbed/code_repos/try", "./taint_models"],
-  "taint_models_path": "taint_models"
-}
