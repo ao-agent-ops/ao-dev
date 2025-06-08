@@ -178,4 +178,7 @@ cython_debug/
 *.key
 *secret*
 configs/keys
+
+# Pyre
 _results/
+.pyre_configuration

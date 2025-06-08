@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import sys
 import json
@@ -26,6 +27,11 @@ class StaticRepoGraph:
         self.results_folder = os.path.join(self.pyre_folder, "_results", path_to_id(repo_root))
         self.jsonl_path = os.path.join(self.results_folder, "taint-output.json")
         
+        # Copy over models and stubs if not in repo.
+        # HACK: This is because I couldn't figure out how to do this properly.
+        if not os.path.exists(os.path.join(self.pyre_folder, "models_and_stubs", "taint")):
+            shutil.copy(os.path.join(self.pyre_folder, "models_and_stubs"), self.repo_root)
+
         # Build graph directly upon construction.
         self.graph = nx.DiGraph()
         self.models = {}  # callable -> filename mapping
@@ -219,14 +225,14 @@ class StaticRepoGraph:
                 self.repo_root
             ],
             "taint_models_path": [
-                os.path.join(self.pyre_folder, "taint")
+                os.path.join(self.repo_root, "taint")
             ],
             "exclude": [
                 ".*/build/.*",
                 ".*/venv/.*",
                 "*miniconda*"
             ],
-            "strict": False
+            "strict": True
         }
 
         with open(os.path.join(self.pyre_folder, ".pyre_configuration"), "w") as f:
