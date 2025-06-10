@@ -175,15 +175,14 @@ def main():
         listener_thread = threading.Thread(target=listen_for_server_messages, args=(server_conn,), daemon=True)
         listener_thread.start()
 
-        # Detect if running under VS Code debugger (debugpy)
+        # Detect if running under VS Code debugger (NOTE: we assume debugpy)
         debug_mode = False
         try:
             import debugpy
             if debugpy.is_client_connected():  # Debugger attached
                 debug_mode = True
-        except ImportError:
-            if sys.gettrace():
-                debug_mode = True
+        except Exception:
+            debug_mode = True
         if debug_mode:
             # **Debug mode**: Run user script in-process so breakpoints & debug session remain active
             monkey_patch_llm_call(server_conn)  # patch LLM calls for logging
@@ -193,31 +192,58 @@ def main():
             finally:
                 if restart_event.is_set():
                     # If an edit was requested during debugging, advise using VS Code API to restart
+                    # TODO: Send to server. Ultimately, we need to restart in extension typescript (vscode.debug.restartDebugging() --- see OAI parse-copilot/VS Code LLM Extension).
                     print("Edit request received. Please use VS Code to restart the debugging session.")
                 server_conn.close()
         else:
             # **Normal mode**: Loop to run and restart the script on demand
-            while True:
-                # Launch the user script in a subprocess (child mode)
-                proc = subprocess.Popen([sys.executable, __file__, "--child", script_path] + script_args)
-                proc.wait()  # wait for script to finish or be killed
-                if restart_event.is_set():
-                    # A restart was requested during this run
+            global proc
+
+            while not shutdown_flag:
+                # Launch the child runner
+                proc = subprocess.Popen(
+                    [sys.executable, __file__, "--child", script_path] + script_args
+                )
+
+                # Now watch both the process and our restart/shutdown events
+                while True:
+                    # 1) If the server told us to shut down entirely, stop everything.
+                    if shutdown_flag:
+                        if proc.poll() is None:
+                            proc.kill()
+                        break
+
+                    # 2) If user edited an LLM call, kill & restart immediately.
+                    if restart_event.is_set():
+                        restart_event.clear()
+                        if proc.poll() is None:
+                            proc.kill()
+                        break
+
+                    # 3) Otherwise, check if the child has exited on its own.
+                    if proc.poll() is not None:
+                        # child has finished normally
+                        break
+
+                    # 4) Sleep a short time before polling again.
+                    time.sleep(0.1)
+
+                # If we were told to shut down, break out of the outer loop too
+                if shutdown_flag:
+                    break
+
+                # Otherwise, either restart_event was set (we just cleared it) → restart immediately,
+                # or the script exited normally → now wait for the next edit command.
+                if proc.returncode is not None and not restart_event.is_set():
+                    # Wait indefinitely for a future edit before restarting
+                    restart_event.wait()
                     restart_event.clear()
                     if shutdown_flag:
-                        break  # if shutting down, exit loop
-                    # Otherwise, restart the loop (re-run the script)
-                    continue
-                else:
-                    # No restart during execution – wait for a future edit command
-                    if shutdown_flag:
                         break
-                    restart_event.wait()  # block until an edit request arrives
-                    if shutdown_flag:
-                        break
-                    restart_event.clear()
-                    # Loop continues to restart with new input (if any)
+                    # Loop will restart the script now
                     continue
+
+            # Cleanup
             server_conn.close()
 
 if __name__ == "__main__":

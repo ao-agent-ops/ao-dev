@@ -180,19 +180,10 @@ def main():
             return
         except Exception:
             pass
-        # Launch the server as a detached background process
-        if os.name == 'nt':
-            # On Windows, use DETACHED_PROCESS and CREATE_NEW_PROCESS_GROUP flags to detach
-            DETACHED_PROCESS = 0x00000008
-            CREATE_NEW_PROCESS_GROUP = 0x00000200
-            subprocess.Popen([sys.executable, __file__, "--serve"],
-                             creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-                             close_fds=True)
-        else:
-            # On POSIX, use start_new_session to run in a new session (similar to setsid)
-            subprocess.Popen([sys.executable, __file__, "--serve"],
-                             close_fds=True, start_new_session=True)
-            # Using start_new_session=True will call setsid() in the child process:contentReference[oaicite:0]{index=0}.
+        # Launch the server as a detached background process (POSIX)
+        subprocess.Popen([sys.executable, __file__, "--serve"],
+                            close_fds=True, start_new_session=True)
+        # Using start_new_session=True will call setsid() in the child process:contentReference[oaicite:0]{index=0}.
         print("Develop server started.")
     elif args.command == 'stop':
         # Connect to the server and send a shutdown command
@@ -207,6 +198,11 @@ def main():
     elif args.command == '--serve':
         # Internal: run the server loop (not meant to be called by users directly)
         run_server()
+
+    # DEBUG: Call from VS Code extension in the future.
+    elif args.command == 'edit':
+        user_edit(llm_call_id=42, new_input="hello 42")
+        
 
 if __name__ == "__main__":
     # Support internal "--serve" invocation to actually run the server loop

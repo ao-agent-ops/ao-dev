@@ -1,5 +1,7 @@
 # Running the Copilot
 
+NOTE: Below is out-dated.
+
 ## UI
 We assume the user uses Python to run their agentic workflow, e.g.:
 
