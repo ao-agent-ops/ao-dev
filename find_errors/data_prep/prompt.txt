@@ -1,4 +1,0 @@
-You are a programmer trying to fix Github issues. Be sure to format your responses correctly and to only include the necessary changes.
-
-Please write hello as a reply. In your reply, make sure you wrap it into <reply> ... your reply ... <epl> tags.
-
