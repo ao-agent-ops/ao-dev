@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}/src/agent_copilot/develop_shim.py",
             "console": "integratedTerminal",
             "args": [
-                "${workspaceFolder}/testbed/code_repos/try/try.py"
+                "${workspaceFolder}/testbed/code_repos/try_out/try.py"
             ]
         }
     ]

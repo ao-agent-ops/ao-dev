@@ -1,0 +1,12 @@
+# Example:
+# - foo.bar # <-- If you added `import foo.bar` to your python script, it must succeed.
+- external_functions.openai_call
+
+# Database calls.
+
+# Testing tools.
+
+# LLM APIs.
+# - openai.resources.response.response.create
+
+# Random number generators.
