@@ -182,3 +182,6 @@ configs/keys
 # Pyre
 _results/
 .pyre_configuration
+
+# DiskCache
+cache.db

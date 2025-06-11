@@ -1,12 +1,17 @@
-# Example:
-# - foo.bar # <-- If you added `import foo.bar` to your python script, it must succeed.
-- external_functions.openai_call
+cached_functions:
+  # Example:
+  # - foo.bar # <-- If you added `import foo.bar` to your python script, it must succeed.
+  - external_functions.openai_call
 
-# Database calls.
+  # Database calls.
 
-# Testing tools.
+  # Testing tools.
 
-# LLM APIs.
-# - openai.resources.response.response.create
+  # LLM APIs.
+  # - openai.resources.response.response.create
 
-# Random number generators.
+  # Random number generators.
+
+cache_config:
+  cache_location: "/Users/ferdi/Documents/agent-copilot/testbed/code_repos/try_out/.user_config/" # TODO
+  size_limit: 2_000_000_000 # ~ 2GB max
