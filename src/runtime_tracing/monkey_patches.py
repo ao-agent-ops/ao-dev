@@ -3,9 +3,8 @@ import inspect
 import json
 import threading
 import functools
-import pickle
-import hashlib
-from runtime_tracing.function_cache import CACHE, TIME_TO_LIVE
+from runtime_tracing.cache_manager import CACHE
+
 
 
 # ===========================================================
@@ -30,24 +29,15 @@ def notify_server_patch(fn, server_conn):
         file_name = caller.f_code.co_filename
         line_no = caller.f_lineno
 
-        # 2. Build hash key.
-        context = (
-            file_name,
-            line_no,
-            args,
-            tuple(sorted(kwargs.items())),
-        )
-        raw = pickle.dumps(context)
-        key = hashlib.sha256(raw).hexdigest()
-
-        # 3. Get result
-        if key in CACHE:
-            result = CACHE[key]
+        # 2. Compute output.
+        cached_out = CACHE.get_output(file_name, line_no, fn, args, kwargs)
+        if cached_out is not None:
+            result = cached_out
         else:
             result = fn(*args, **kwargs)
-            CACHE.set(key, result, expire=TIME_TO_LIVE, tag=f"{file_name}:{line_no}")
+            CACHE.cache_output(result, file_name, line_no, fn, args, kwargs)
 
-        # 4. Notify server.
+        # 3. Notify server.
         thread_id = threading.get_ident()
         try:
             task_id = id(asyncio.current_task())
@@ -89,24 +79,16 @@ def no_notify_patch(fn):
         file_name = caller.f_code.co_filename
         line_no = caller.f_lineno
 
-        # 2. Build hash key.
-        context = (
-            file_name,
-            line_no,
-            args,
-            tuple(sorted(kwargs.items())),
-        )
-        raw = pickle.dumps(context)
-        key = hashlib.sha256(raw).hexdigest()
-
-        # 3. Get result
-        if key in CACHE:
-            return CACHE[key]
-
+        # 2. Return cached output.
+        cached_out = CACHE.get_output(file_name, line_no, fn, args, kwargs)
+        if cached_out is not None:
+            return cached_out
+        
+        # 3. Run function and cache result.
         result = fn(*args, **kwargs)
-        CACHE.set(key, result, expire=TIME_TO_LIVE, tag=f"{file_name}:{line_no}")
+        CACHE.cache_output(result, file_name, line_no, fn, args, kwargs)
         return result
-
+    
     return wrapper
 
 

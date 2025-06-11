@@ -4,5 +4,5 @@ import time
 
 
 def openai_call(input):
-    time.sleep(5)
+    time.sleep(4)
     return f"GPT response to {input}"

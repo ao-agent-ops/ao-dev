@@ -4,7 +4,8 @@ from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 apply_all_monkey_patches()
 
 from external_functions import openai_call
-print(openai_call("bye bye"))
+
+print(openai_call("hello"))
 
 
 
