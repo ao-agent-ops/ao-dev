@@ -28,6 +28,15 @@ https://docs.google.com/document/d/1B0YCZXxEa1St744XfLSZR2Yzt_zihRdUB-d_c1wFw3Q/
 
 ## Dev
 
+### Architecture
+
+These are the processes running. Since the user runs their `develop` process from the debugger or command line, it communicates with the server over a TCP socket. 
+
+![Processes overview](./media/processes.png)
+
+The python server gets torn down by the VS Code extension if there's a clean exit. VS Code extension and python server also exchange a heart beat so the python server can destroy itself or be restarted by the VS Code extension.
+
+
 ### Keep dependencies up to date
 
 Keep dependencies in pyproject.toml up to date:
@@ -39,3 +48,4 @@ Keep dependencies in pyproject.toml up to date:
 
 pyre is hacky (static analysis):
  - We want to set llm calls as source and sink but somehow I couldn't figure out how. We now define other functions as sources and sinks and make stubs for the LLM calls (e.g., we create folder structure to exactly reflect `openai.resources.responses.responses.create` and add a the create function to contain sources and sinks for taint). However, these stubs don't work if they're just in our code base (e.g., `pyre_static_analysis`) but only worked when I placed them directly into the user repo. That sucks ...
+
