@@ -17,7 +17,6 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
   sourcePosition,
   targetPosition,
   data,
-  markerEnd,
 }) => {
   let d: string;
 
@@ -67,12 +66,33 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
   }
 
   return (
-    <path
-      id={id}
-      className="react-flow__edge-path"
-      d={d}
-      markerEnd={markerEnd}
-      style={{ stroke: '#e0e0e0', strokeWidth: 2, fill: 'none' }}
-    />
+    <svg style={{ overflow: 'visible', position: 'absolute' }}>
+      <defs>
+        <marker
+          id="chevron-arrowhead"
+          markerWidth="10"
+          markerHeight="10"
+          refX="5"
+          refY="5"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <polyline
+            points="0,0 5,5 0,10"
+            fill="none"
+            stroke="#e0e0e0"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+        </marker>
+      </defs>
+      <path
+        id={id}
+        className="react-flow__edge-path"
+        d={d}
+        markerEnd="url(#chevron-arrowhead)"
+        style={{ stroke: '#e0e0e0', strokeWidth: 2, fill: 'none' }}
+      />
+    </svg>
   );
 };

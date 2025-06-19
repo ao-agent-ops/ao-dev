@@ -1,9 +1,10 @@
 import { GraphNode, GraphEdge } from '../types';
 
 const NODE_WIDTH = 150;
-const NODE_HEIGHT = 100;
+const NODE_HEIGHT = 70;
 const NODE_SPACING_H = 30;
-const NODE_SPACING_V = 80; // Increased for better edge routing
+const NODE_SPACING_V = 45; // Increased for better edge routing
+const FIRST_LEVEL_EXTRA_SPACING = 20; // Extra vertical spacing after the first level (tune this value)
 
 interface NodeInfo {
     id: string;
@@ -75,7 +76,7 @@ export function calculateNodePositions(
     // Sort levels
     const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b);
     
-    sortedLevels.forEach(level => {
+    sortedLevels.forEach((level, idx) => {
         const nodesInLevel = levelGroups.get(level)!;
         
         // Group nodes by their first parent to keep families together
@@ -138,7 +139,12 @@ export function calculateNodePositions(
         });
         
         // Update Y position for next level
-        currentY += rowsNeeded * (NODE_HEIGHT + NODE_SPACING_V) + NODE_SPACING_V;
+        if (idx === 0) {
+            // After the first level, add extra spacing
+            currentY += rowsNeeded * (NODE_HEIGHT + NODE_SPACING_V) + NODE_SPACING_V + FIRST_LEVEL_EXTRA_SPACING;
+        } else {
+            currentY += rowsNeeded * (NODE_HEIGHT + NODE_SPACING_V) + NODE_SPACING_V;
+        }
     });
     
     // Handle any unconnected nodes

@@ -42,7 +42,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
   const [containerHeight, setContainerHeight] = useState(1500);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [title, setTitle] = React.useState("Graph Title Placeholder");
-  const [isEditing, setIsEditing] = React.useState(false);
   
   const handleNodeUpdate = useCallback(
     (nodeId: string, field: string, value: string) => {
@@ -66,19 +65,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
     const routedEdges = routeEdges(initialEdges, positions);
 
-    const childNodeIds = new Set<string>();
-    if (hoveredNodeId) {
-      initialEdges.forEach((edge) => {
-        if (edge.source === hoveredNodeId) {
-          childNodeIds.add(edge.target);
-        }
-      });
-    }
-
     const flowNodes: Node[] = initialNodes.map((node) => {
-      const isHovered = node.id === hoveredNodeId;
-      const isChild = childNodeIds.has(node.id);
-      const isDimmed = hoveredNodeId !== null && !isHovered && !isChild;
       return {
         id: node.id,
         type: "custom",
@@ -86,10 +73,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
         data: {
           ...node,
           onUpdate: handleNodeUpdate,
-          isHovered,
-          isChild,
-          isDimmed,
-          setHoveredNodeId,
         },
       };
     });
@@ -103,12 +86,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
       type: "custom",
       data: { points: edge.points },
       animated: false,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        width: 20,
-        height: 20,
-        color: "#e0e0e0",
-      },
     }));
 
     setNodes(flowNodes);
@@ -120,7 +97,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
     handleNodeUpdate,
     setNodes,
     setEdges,
-    hoveredNodeId,
   ]);
 
   useEffect(() => {
@@ -167,25 +143,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
             textAlign: "center",
             width: "100%",
           }}
-          onClick={() => setIsEditing(true)}
         >
-          {isEditing ? (
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => setIsEditing(false)}
-              autoFocus
-              style={{
-                fontWeight: "bold",
-                fontSize: 18,
-                textAlign: "center",
-                width: "100%",
-              }}
-            />
-          ) : (
-            <span>{title}</span>
-          )}
+          <span>{title}</span>
         </div>
         {title && title.trim() !== "" && (
           <div
@@ -207,7 +166,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
               position: "relative",
             }}
           >
-            <Controls />
             <ReactFlow
               nodes={nodes}
               edges={edges}

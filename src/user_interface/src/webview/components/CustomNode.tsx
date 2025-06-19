@@ -18,10 +18,6 @@ const HANDLE_SOURCE_POSITION = 50 + SIDE_HANDLE_OFFSET; // 65% from top
 
 interface CustomNodeData extends GraphNode {
   onUpdate: (nodeId: string, field: string, value: string) => void;
-  isHovered: boolean;
-  isChild: boolean;
-  isDimmed: boolean;
-  setHoveredNodeId: (id: string | null) => void;
 }
 
 export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
@@ -31,7 +27,6 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
 }) => {
   const [showPopover, setShowPopover] = useState(false);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
-  const opacity = data.isDimmed ? 0.3 : 1;
   const enterTimeoutRef = useRef<number | null>(null);
   const leaveTimeoutRef = useRef<number | null>(null);
 
@@ -111,12 +106,10 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
         background: isDarkTheme ? "#3c3c3c" : "#F5F5F5",
-        border: `${NODE_BORDER_WIDTH}px solid ${data.border_color}`, // Border color based on data.border_color
+        border: `${NODE_BORDER_WIDTH}px solid ${data.border_color}`,
         borderRadius: 8,
         padding: 2,
         position: "relative",
-        opacity: opacity,
-        transition: "opacity 0.3s ease",
       }}
       onMouseEnter={() => {
         if (leaveTimeoutRef.current) {
@@ -124,9 +117,8 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           leaveTimeoutRef.current = null;
         }
         enterTimeoutRef.current = window.setTimeout(() => {
-          data.setHoveredNodeId(id);
           setShowPopover(true);
-        }, 150); // 150ms delay before showing the popover
+        }, 150);
       }}
       onMouseLeave={() => {
         if (enterTimeoutRef.current) {
@@ -134,9 +126,8 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           enterTimeoutRef.current = null;
         }
         leaveTimeoutRef.current = window.setTimeout(() => {
-          data.setHoveredNodeId(null);
           setShowPopover(false);
-        }, 150); // 150ms delay for hiding the popover
+        }, 150);
       }}
     >
       {showPopover && !isEditingLabel && (
@@ -203,7 +194,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           justifyContent: "center",
           height: "100%",
           opacity: isEditingLabel ? 0 : 1,
-          color: data.isDimmed ? "#999999" : isDarkTheme ? "#fff" : "#303030",
+          color: isDarkTheme ? "#fff" : "#303030",
           textAlign: "center",
           padding: "0 4px",
           wordBreak: "break-word",

@@ -16,12 +16,15 @@ body {
 }
 
 /* React Flow styles */
+.react-flow__node, .react-flow__renderer {
+    cursor: default !important;
+}
+
 .react-flow__node {
     background-color: var(--vscode-editor-background);
     border-color: var(--vscode-editor-foreground);
     color: var(--vscode-editor-foreground);
 }
-
 
 .react-flow__edge {
     stroke: var(--vscode-editor-foreground);
@@ -35,6 +38,10 @@ body {
     background-color: var(--vscode-editor-background);
     border-color: var(--vscode-editor-foreground);
     color: var(--vscode-editor-foreground);
+}
+
+.react-flow__pane, .react-flow, .react-flow__container {
+    cursor: default !important;
 }
 
 /* Tab styles */
@@ -53,6 +60,7 @@ body {
 
 /* Node styles */
 .custom-node {
+    aspect-ratio: 5 / 1;
     background-color: var(--vscode-editor-background);
     border: 1px solid var(--vscode-editor-foreground);
     border-radius: 3px;
