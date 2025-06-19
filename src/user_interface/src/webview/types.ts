@@ -5,6 +5,7 @@ export interface GraphNode {
     codeLocation: string;
     label: string;
     position?: { x: number; y: number };
+    border_color?: string;
 }
 
 export interface GraphEdge {

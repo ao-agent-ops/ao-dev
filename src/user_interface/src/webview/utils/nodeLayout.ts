@@ -125,16 +125,13 @@ export function calculateNodePositions(
             const row = Math.floor(index / nodesPerRow);
             const col = index % nodesPerRow;
             
-            // Center the last row if it's not full
-            let xOffset = 0;
-            if (row === rowsNeeded - 1) {
-                const nodesInLastRow = orderedNodes.length - (row * nodesPerRow);
-                if (nodesInLastRow < nodesPerRow) {
-                    xOffset = ((nodesPerRow - nodesInLastRow) * (NODE_WIDTH + NODE_SPACING_H)) / 2;
-                }
-            }
-            
-            const x = NODE_SPACING_H + col * (NODE_WIDTH + NODE_SPACING_H) + xOffset;
+            // Center nodes horizontally within their row
+            const startIndex = row * nodesPerRow;
+            const nodesInThisRow = Math.min(nodesPerRow, orderedNodes.length - startIndex);
+            const rowWidth = nodesInThisRow * NODE_WIDTH + (nodesInThisRow - 1) * NODE_SPACING_H;
+            const xOffset = Math.max(0, (containerWidth - rowWidth) / 2);
+
+            const x = xOffset + col * (NODE_WIDTH + NODE_SPACING_H);
             const y = currentY + row * (NODE_HEIGHT + NODE_SPACING_V);
             
             positions.set(node.id, { x, y });

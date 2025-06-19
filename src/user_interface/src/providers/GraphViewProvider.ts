@@ -43,6 +43,10 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+        this._sendCurrentTheme();
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            this._sendCurrentTheme();
+        });
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
@@ -92,6 +96,16 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private _sendCurrentTheme() {
+        const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+        this._view?.webview.postMessage({
+            type: 'vscode-theme-change',
+            payload: {
+                theme: isDark ? 'vscode-dark' : 'vscode-light',
+            },
+        });
+    }
+
     private _sendInitialData() {
         // Send initial graph data to webview
         if (this._view) {
@@ -104,49 +118,56 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     input: 'User input data',
                     output: 'Processed user data',
                     codeLocation: `${baseFilePath}:15`,
-                    label: 'User Input Handler'
+                    label: 'User Input Handler',
+                    border_color: '#ff3232' // Red border color
                 },
                 {
                     id: '2',
                     input: 'Processed user data',
                     output: 'Validated data',
                     codeLocation: `${baseFilePath}:42`,
-                    label: 'Data Validator'
+                    label: 'Data Validator',
+                    border_color: '#00c542'
                 },
                 {
                     id: '3',
                     input: 'Validated data',
                     output: 'Database query',
                     codeLocation: `${baseFilePath}:78`,
-                    label: 'Query Builder'
+                    label: 'Query Builder',
+                    border_color: '#ffba0c'
                 },
                 {
                     id: '4',
                     input: 'Database query',
                     output: 'Query results',
                     codeLocation: `${baseFilePath}:23`,
-                    label: 'Query Executor'
+                    label: 'Query Executor',
+                    border_color: '#ffba0c'
                 },
                 {
                     id: '5',
                     input: 'Query results',
                     output: 'Formatted response',
                     codeLocation: `${baseFilePath}:56`,
-                    label: 'Response Formatter'
+                    label: 'Response Formatter',
+                    border_color: '#00c542'
                 },
                 {
                     id: '6',
                     input: 'Validated data',
                     output: 'Cache key',
                     codeLocation: `${baseFilePath}:12`,
-                    label: 'Cache Key Generator'
+                    label: 'Cache Key Generator',
+                    border_color: '#ff3232'
                 },
                 {
                     id: '7',
                     input: 'Cache key',
                     output: 'Cache status',
                     codeLocation: `${baseFilePath}:34`,
-                    label: 'Cache Manager'
+                    label: 'Cache Manager',
+                    border_color: '#00c542'
                 }
             ];
 

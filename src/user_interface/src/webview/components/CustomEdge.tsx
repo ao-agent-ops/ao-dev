@@ -2,6 +2,7 @@
 import React from 'react';
 import { EdgeProps, getSmoothStepPath } from 'reactflow';
 import { Point } from '../types';
+import { NODE_BORDER_WIDTH } from '../utils/layoutConstants';
 
 interface CustomEdgeData {
   points?: Point[];
@@ -23,11 +24,29 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
   if (data?.points && data.points.length >= 2) {
     // force‐snap endpoints to the real handle centers
     const pts = [
-      { x: sourceX, y: sourceY },
+      { x: data.points[0].x, y: data.points[0].y },
       ...data.points.slice(1, -1),
-      { x: targetX, y: targetY },
+      {
+        x: data.points[data.points.length - 1].x,
+        y: data.points[data.points.length - 1].y,
+      },
     ];
 
+    const len = pts.length;
+    const p1 = pts[len - 2];
+    const p2 = pts[len - 1];
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 0) {
+      const factor = (dist - NODE_BORDER_WIDTH) / dist;
+      pts[len - 1] = {
+        x: p1.x + dx * factor,
+        y: p1.y + dy * factor,
+      };
+    }
+    
     d = pts.reduce((acc, p, i) =>
       i === 0
         ? `M ${p.x},${p.y}`
