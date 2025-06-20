@@ -16,15 +16,18 @@ pip install -e .
 ### Launch front end
 Then see [here](/src/user_interface/README.md) to launch exporer window with extension installed.
 
+
 ## Env vars
 TODO (I should automate some of that)
 
 `export PYRE_VERSION=client_and_binary`
 
+## Further resources
 
-## Running brainstorming doc
+ - [Google drive folder](https://drive.google.com/drive/folders/1Syc77Cko6PFlr_wnxBMa6PB-_aXCOt1v?usp=sharing)
+ - [Project description](https://docs.google.com/document/d/13L2eVu8jAGZwmgp49OoXigCrmA7CUExQOpSmC5HhDls/edit?usp=sharing)
+ - [Initial brainstorming doc](https://docs.google.com/document/d/1B0YCZXxEa1St744XfLSZR2Yzt_zihRdUB-d_c1wFw3Q/edit?tab=t.0#heading=h.ltj5f1i4sgpz)
 
-https://docs.google.com/document/d/1B0YCZXxEa1St744XfLSZR2Yzt_zihRdUB-d_c1wFw3Q/edit?tab=t.0#heading=h.ltj5f1i4sgpz
 
 ## Dev
 
