@@ -5,6 +5,9 @@ import argparse
 import json
 import threading
 import subprocess
+import select
+import uuid
+from typing import Dict, Any, Optional
 
 # Default host/port for the server socket
 HOST = '127.0.0.1'
@@ -18,6 +21,55 @@ clients = {
 }
 calls = []              # list of recorded LLM call details (with assigned IDs)
 call_id_counter = 1     # incremental ID generator for calls
+
+# --- Data Structures ---
+
+# Each session represents a running develop process and its associated UI clients
+class Session:
+    def __init__(self, session_id: str, script_name: str):
+        self.session_id = session_id
+        self.script_name = script_name
+        self.shim_conn: Optional[socket.socket] = None
+        self.ui_conns: set[socket.socket] = set()
+        self.lock = threading.Lock()  # To protect concurrent access
+
+# Map session_id to Session
+sessions: Dict[str, Session] = {}
+
+# Map socket to (role, session_id)
+conn_info: Dict[socket.socket, Dict[str, Any]] = {}
+
+# --- Helper Functions ---
+def send_json(conn: socket.socket, msg: dict):
+    try:
+        conn.sendall((json.dumps(msg) + "\n").encode("utf-8"))
+    except Exception:
+        pass
+
+def broadcast_to_uis(session: Session, msg: dict):
+    for ui_conn in list(session.ui_conns):
+        try:
+            send_json(ui_conn, msg)
+        except Exception:
+            session.ui_conns.discard(ui_conn)
+
+def route_message(sender: socket.socket, msg: dict):
+    info = conn_info.get(sender)
+    if not info:
+        return
+    role = info["role"]
+    session_id = info["session_id"]
+    session = sessions.get(session_id)
+    if not session:
+        return
+    # Route based on sender role
+    if role == "ui":
+        # UI → Shim
+        if session.shim_conn:
+            send_json(session.shim_conn, msg)
+    elif role == "shim":
+        # Shim → all UIs
+        broadcast_to_uis(session, msg)
 
 # Dummy user_edit function that the extension can invoke (via a socket message).
 # It notifies the shim (via its control connection) that the user edited a prompt.
@@ -41,106 +93,67 @@ def user_edit(llm_call_id: int, new_input: str) -> None:
 
 # Helper: handle a new client connection in a separate thread
 def handle_client(conn: socket.socket, addr):
-    global call_id_counter
-    role = None
+    print(f"New client connection from {addr}")
+    file_obj = conn.makefile(mode='r')
+    session: Optional[Session] = None
     try:
-        # Expect a handshake message from the client identifying its role.
-        file_obj = conn.makefile(mode='r')
+        # Expect handshake first
         handshake_line = file_obj.readline()
         if not handshake_line:
-            conn.close()
             return
-        # Parse the handshake JSON (e.g., {"type": "hello", "role": "shim-control"}).
         handshake = json.loads(handshake_line.strip())
         role = handshake.get("role")
-        # Register the connection under its role
-        if role == "shim-control":
-            clients["shim_control"].append(conn)
-        elif role == "shim-runner":
-            clients["shim_runner"].append(conn)
-        elif role == "extension":
-            clients["extension"].append(conn)
-        # If an extension client just connected, send over any past call records for context
-        if role == "extension":
-            with threading.Lock():
-                for record in calls:
-                    try:
-                        # Prefix the record with type "call" when sending to extension
-                        ext_msg = {"type": "call", **record}
-                        conn.sendall((json.dumps(ext_msg) + "\n").encode('utf-8'))
-                    except Exception:
-                        break  # stop if extension disconnects
-
-        # Listen for incoming messages from this client
-        for line in file_obj:
-            msg = json.loads(line.strip())
-            mtype = msg.get("type")
-            if mtype == "call":
-                # Shim runner is reporting an LLM call occurrence
-                call_input = msg.get("input")
-                call_output = msg.get("output")
-                file_name = msg.get("file")
-                line_no = msg.get("line")
-                thread_id = msg.get("thread")
-                task_id = msg.get("task")
-                # Assign a unique ID to this call and record it
-                with threading.Lock():
-                    cid = call_id_counter
-                    call_id_counter += 1
-                    call_record = {
-                        "id": cid,
-                        "input": call_input,
-                        "output": call_output,
-                        "file": file_name,
-                        "line": line_no,
-                        "thread": thread_id,
-                        "task": task_id
-                    }
-                    calls.append(call_record)
-                # Forward the call record to any connected extension clients for visualization
-                ext_data = json.dumps({"type": "call", **call_record}) + "\n"
-                ext_data = ext_data.encode('utf-8')
-                with threading.Lock():
-                    for ext_conn in list(clients.get("extension", [])):
+        script = handshake.get("script")
+        session_id = handshake.get("session_id")
+        if not session_id:
+            session_id = str(uuid.uuid4())
+        with threading.Lock():
+            if session_id not in sessions:
+                sessions[session_id] = Session(session_id, script or "")
+            session = sessions[session_id]
+        if role == "shim-runner" or role == "shim-control":
+            with session.lock:
+                session.shim_conn = conn
+        elif role == "ui":
+            with session.lock:
+                session.ui_conns.add(conn)
+        conn_info[conn] = {"role": role, "session_id": session_id}
+        send_json(conn, {"type": "session_id", "session_id": session_id, "script": session.script_name})
+        # Main message loop
+        try:
+            for line in file_obj:
+                try:
+                    msg = json.loads(line.strip())
+                except Exception:
+                    continue
+                if "session_id" not in msg:
+                    msg["session_id"] = session_id
+                # If this is a shutdown message, close all sockets and exit process
+                if msg.get("type") == "shutdown":
+                    print("[develop_server] Shutdown command received. Closing all connections.")
+                    # Close all client sockets
+                    for s in list(conn_info.keys()):
+                        print(f"Closing socket: {s}")
                         try:
-                            ext_conn.sendall(ext_data)
-                        except Exception:
-                            clients["extension"].remove(ext_conn)
-            elif mtype == "user_edit":
-                # Extension is requesting an edit (LLM prompt modification)
-                llm_id = msg.get("id")
-                new_input = msg.get("new_input", "")
-                user_edit(llm_id, new_input)  # signal the shim to restart with the new prompt
-            elif mtype == "shutdown":
-                # Gracefully shut down the server
-                # Inform all clients and close their connections
-                for conns in clients.values():
-                    for c in conns:
-                        try:
-                            c.sendall((json.dumps({"type": "shutdown"}) + "\n").encode('utf-8'))
-                        except Exception:
+                            s.close()
+                        except Exception as e:
+                            print(f"Error closing socket: {e}")
                             pass
-                        try:
-                            c.close()
-                        except Exception:
-                            pass
-                clients["shim_control"].clear()
-                clients["shim_runner"].clear()
-                clients["extension"].clear()
-                # Close server socket to break the accept loop and stop
-                server_sock.close()
-                break
-    except Exception:
-        # On error or disconnect, just proceed to cleanup
-        pass
+                    # Close the main server socket if accessible
+                    os._exit(0)  # Immediately exit the process
+                route_message(conn, msg)
+        except (ConnectionResetError, OSError):
+            # Socket closed, exit thread quietly
+            pass
     finally:
-        # Remove this connection from the appropriate list and close it
-        if role == "shim-control" and conn in clients["shim_control"]:
-            clients["shim_control"].remove(conn)
-        if role == "shim-runner" and conn in clients["shim_runner"]:
-            clients["shim_runner"].remove(conn)
-        if role == "extension" and conn in clients["extension"]:
-            clients["extension"].remove(conn)
+        info = conn_info.pop(conn, None)
+        if info and session:
+            if info["role"] == "shim":
+                with session.lock:
+                    session.shim_conn = None
+            elif info["role"] == "ui":
+                with session.lock:
+                    session.ui_conns.discard(conn)
         try:
             conn.close()
         except Exception:
@@ -157,9 +170,7 @@ def run_server():
     try:
         while True:
             conn, addr = server_sock.accept()
-            # Handle each connection in a new daemon thread
-            t = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
-            t.start()
+            threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
     except OSError:
         # This will be triggered when server_sock is closed (on shutdown)
         pass
@@ -190,6 +201,10 @@ def main():
         # Connect to the server and send a shutdown command
         try:
             sock = socket.create_connection((HOST, PORT), timeout=3)
+            # Send handshake
+            handshake = {"type": "hello", "role": "ui", "script": "stopper"}
+            sock.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
+            # Send shutdown message
             sock.sendall((json.dumps({"type": "shutdown"}) + "\n").encode('utf-8'))
             sock.close()
             print("Develop server stop signal sent.")
@@ -210,4 +225,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--serve":
         run_server()
     else:
+        print(f"[develop_server] Starting server on {HOST}:{PORT}, PID={os.getpid()}")
         main()

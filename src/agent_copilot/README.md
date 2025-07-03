@@ -24,3 +24,18 @@ When the user runs `develop script.py`, he just runs a little CLI shim that (1) 
 
 We have a supervisor server running in the background. This server (1) communicates with the VS Code extension, (2) restarts Python (shim) processes if the user wants to re-run due to an LLM input edit (it kills the Python (shim) process and then restart the shim), (4) communicates with the Pyre server (our static analysis tool), (5) keeps some state. (server code)
 
+
+## Develop
+
+### Server
+
+Manually starting and stoping server:
+
+ - `python src/agent_copilot/develop_server.py start` 
+ - `python src/agent_copilot/develop_server.py stop`
+
+Some basics: 
+
+ - To check if the server process is still running: `ps aux | grep develop_server.py` 
+
+ - To check if the socket is still in use (and which process is holding it): `lsof -i :5959`
