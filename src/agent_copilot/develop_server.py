@@ -211,6 +211,7 @@ class DevelopServer:
             # Main message loop
             try:
                 for line in file_obj:
+                    print(f"[develop_server] Raw line received: {line!r}")
                     try:
                         msg = json.loads(line.strip())
                     except Exception:
@@ -218,6 +219,10 @@ class DevelopServer:
                     
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
+                    
+                    # Print when a 'restart' message is received (for verification)
+                    if msg.get("type") == "restart":
+                        print(f"[develop_server] Received restart message: {msg}")
                     
                     # Handle special message types
                     if msg.get("type") == "shutdown":

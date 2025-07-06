@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { EditDialogProvider } from './EditDialogProvider';
 import { relative } from 'path';
+import { PythonServerClient } from './PythonServerClient';
 
 export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
@@ -38,6 +39,16 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     ) {
         this._view = webviewView;
 
+        // Start/connect to the Python server and set up message forwarding
+        const pythonClient = PythonServerClient.getInstance();
+        pythonClient.startServerIfNeeded();
+        pythonClient.onMessage((msg) => {
+            // Forward all messages from the Python server to the webview
+            if (this._view) {
+                this._view.webview.postMessage(msg);
+            }
+        });
+
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [this._extensionUri]
@@ -51,6 +62,10 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
+            console.log("Extension received message from webview:", data);
+            if (data.type === 'restart') {
+                pythonClient.sendMessage({ type: 'restart', id: data.id });
+            }
             switch (data.type) {
                 case 'nodeUpdated':
                     // Handle node update - forward to backend

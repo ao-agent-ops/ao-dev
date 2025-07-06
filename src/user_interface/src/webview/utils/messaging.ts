@@ -3,6 +3,7 @@ import { NodeUpdateMessage } from '../types';
 declare const vscode: any;
 
 export function sendMessage(message: any) {
+    console.log("sendMessage called with:", message);
     vscode.postMessage(message);
 }
 

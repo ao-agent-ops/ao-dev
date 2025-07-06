@@ -14,7 +14,7 @@ import { CustomEdge } from './CustomEdge';
 import { GraphNode, GraphEdge } from '../types';
 import { calculateNodePositions } from '../utils/nodeLayout';
 import { routeEdges } from '../utils/edgeRouting';
-import { sendNodeUpdate } from '../utils/messaging';
+import { sendNodeUpdate, sendMessage } from '../utils/messaging';
 
 interface GraphViewProps {
   nodes: GraphNode[];
@@ -140,11 +140,63 @@ export const GraphView: React.FC<GraphViewProps> = ({
             marginBottom: 8,
             fontWeight: "bold",
             fontSize: 18,
-            textAlign: "center",
             width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          <span>{title}</span>
+          <div style={{ width: 52, minWidth: 32, marginLeft: 1 }} />
+          <span style={{ flex: 1, textAlign: "center" }}>{title}</span>
+          <button
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "#27c93f",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              cursor: "pointer",
+              outline: "none",
+              padding: 0,
+              marginLeft: 12,
+              marginRight: 20,
+            }}
+            title="Restart"
+            onClick={() => {
+              alert("Green button clicked!");
+              console.log("Green button clicked: sending restart");
+              sendMessage({ type: 'restart', id: Math.floor(Math.random() * 100000) });
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 3a7 7 0 1 1-6.32 4"
+                stroke="#fff"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <polyline
+                points="3 3 7 3 7 7"
+                stroke="#fff"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
         {title && title.trim() !== "" && (
           <div
