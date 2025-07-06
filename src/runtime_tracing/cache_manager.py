@@ -3,6 +3,8 @@ import pickle
 import diskcache as dc
 import yaml
 
+from common.utils import rel_path_to_abs
+
 
 def cache_key(fn, args, kwargs):
     context = (
@@ -23,16 +25,15 @@ class CacheManager:
     get_input, get_output return None if no special inputs/outputs should be used
     """
     def __init__(self):
-        # TODO: Figure out absolute paths!!
-        config_path = "/Users/ferdi/Documents/agent-copilot/testbed/try_out_repo/.user_config/cache.yaml"
+        config_path = rel_path_to_abs(__file__, "agent-copilot/configs/cache.yaml")
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)["cache_config"]
 
-        cache_dir = config["cache_location"]
+        # cache_dir = rel_path_to_abs(__file__, config["cache_location"])
         size_limit = config["size_limit"]
         ttl = config["time_to_live"]
         self.ttl = None if ttl == -1 else ttl
-        self.cache = dc.Cache(cache_dir, size_limit=size_limit)
+        self.cache = dc.Cache(size_limit=size_limit)
 
         self.input_overwrites = {} # "file:line_no" -> string
         self.output_overwrites = {} # "file:line_no" -> string

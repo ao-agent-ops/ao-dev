@@ -1,8 +1,10 @@
 import importlib
+import os
 
 import yaml
 
 from common.logging_config import setup_logging
+from common.utils import rel_path_to_abs
 from runtime_tracing.monkey_patches import no_notify_patch, notify_server_patch
 logger = setup_logging()
 
@@ -27,7 +29,8 @@ def patch_by_path(dotted_path, *, notify=False, server_conn=None):
 
 def apply_all_monkey_patches(yaml_path=None):
     # TODO: For debugging:
-    yaml_path = "/Users/ferdi/Documents/agent-copilot/testbed/try_out_repo/.user_config/cache.yaml"
+    dir = os.path.dirname(__file__)
+    yaml_path = "agent-copilot/testbed/try_out_repo/.user_config/cache.yaml"
 
     # Read functions that should be patched.
     with open(yaml_path, 'r') as f:
@@ -51,5 +54,5 @@ def apply_all_monkey_patches(yaml_path=None):
 
 
 if __name__ == "__main__":
-    yaml_path = "/Users/ferdi/Documents/agent-copilot/testbed/code_repos/try_out/.user_config/cache.yaml"
+    yaml_path = rel_path_to_abs(__file__,"agent-copilot/configs/cache.yaml")
     apply_all_monkey_patches(yaml_path)

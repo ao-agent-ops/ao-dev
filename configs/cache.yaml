@@ -13,6 +13,5 @@ cached_functions:
   # Random number generators.
 
 cache_config:
-  cache_location: "/Users/ferdi/Documents/agent-copilot/testbed/try_out_repo/.user_config/" # TODO
   size_limit: 2_000_000_000 # ~ 2GB max
   time_to_live: -1 # sec until cache record invalidated. -1 = Never

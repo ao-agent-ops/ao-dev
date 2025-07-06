@@ -7,11 +7,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-copilot"
 version = "0.1.0"
-description = "A short description of your agent-copilot tool"
+description = "A development tool for LLM call visualization and debugging"
 readme = "README.md"
 requires-python = ">=3.7"
 
-# your runtime dependencies; keep this in sync with requirements.txt
+# Runtime dependencies - keep this in sync with requirements.txt
 dependencies = [
     # Should all be in full-environment.yml
 ]
@@ -29,6 +29,7 @@ static_analysis = ["pyre_static_analysis/**/*"]
 # agent_copilot = ["*.yaml", "*.json"]
 
 [project.scripts]
-# Console command that calls main function in the agent_copilot package
-# agent-copilot = "agent_copilot.main:main" TODO
-develop = "agent_copilot.develop_shim:main"
+# Console commands for the agent-copilot package
+develop = "agent_copilot.develop:run"           # Main development command
+debug = "agent_copilot.develop_shim:main"       # Alternative name for develop
+server = "agent_copilot.develop_server:main"    # Server management command

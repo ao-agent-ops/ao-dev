@@ -2,6 +2,23 @@
 
 See README's in src dirs for more details.
 
+## User workflow
+
+We assume the user coded their workflow in Python, i.e., runs it with something like:
+
+ - `python -m foo.bar`
+ - `ENV_VAR=5 python script.py --some-flag`
+
+All they change is the Python command. Whenever they want to develop their script with us, they run:
+
+ - `develop -m foo.bar`
+ - `ENV_VAR=5 develop script.py --some-flag`
+
+This will feel *exactly* the same as running Python but also analyzes their code, populates our VS Code extension, etc. Specfically:
+
+ - Programn prints to terminal and crashes the same
+ - User can use VS Code debugger
+
 ## Launch VS Code extension
 
 ### Dependencies
@@ -16,11 +33,14 @@ pip install -e .
 ### Launch front end
 Then see [here](/src/user_interface/README.md) to launch exporer window with extension installed.
 
+### Start and stop server
+Currently, you need to manually start and stop our server. Just do:
 
-## Env vars
-TODO (I should automate some of that)
+ - `server start`
+ - `server stop`
 
-`export PYRE_VERSION=client_and_binary`
+If you make changes to the server code, you can also do `server restart` so the changes are reflected in the running server.
+
 
 ## Further resources
 
@@ -52,8 +72,11 @@ Keep dependencies up to date:
 Go to `testing` dir to just try things out. See READMEs there.
 
 
-### TODOs
+### Static analysis
 
-pyre is hacky (static analysis):
+This is not really working as of now. It works on simple scripts but not on Amadou's code-gen (super complicated repo). We're taing different approaches right now:
+
+pyre (TODO document and pull in):
  - We want to set llm calls as source and sink but somehow I couldn't figure out how. We now define other functions as sources and sinks and make stubs for the LLM calls (e.g., we create folder structure to exactly reflect `openai.resources.responses.responses.create` and add a the create function to contain sources and sinks for taint). However, these stubs don't work if they're just in our code base (e.g., `pyre_static_analysis`) but only worked when I placed them directly into the user repo. That sucks ...
+ - Env vars: `export PYRE_VERSION=client_and_binary`
 

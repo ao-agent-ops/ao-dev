@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { EditDialogProvider } from './EditDialogProvider';
+import { relative } from 'path';
 
 export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';

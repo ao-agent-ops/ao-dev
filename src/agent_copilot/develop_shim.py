@@ -3,197 +3,350 @@ import os
 import socket
 import json
 import threading
-import runpy
 import subprocess
 import time
+import signal
+import select
+from typing import Optional, List
 
-from runtime_tracing.monkey_patches import monkey_patch_llm_call
-
+# Configuration constants
 HOST = '127.0.0.1'
 PORT = 5959
+CONNECTION_TIMEOUT = 5
+SERVER_START_TIMEOUT = 2
+PROCESS_TERMINATE_TIMEOUT = 5
+MESSAGE_POLL_INTERVAL = 0.1
+SERVER_START_WAIT = 1
 
-# Globals for coordinating restart and shutdown signals
-restart_event = threading.Event()
-shutdown_flag = False
-proc = None  # will hold the subprocess running the user script in non-debug mode
-
-def listen_for_server_messages(sock):
-    """Background thread: listen for 'restart' or 'shutdown' messages from the server."""
-    global proc, shutdown_flag
-    file_obj = sock.makefile(mode='r')
-    for line in file_obj:
+class DevelopShim:
+    """Manages the development shim that runs user scripts with debugging support."""
+    
+    def __init__(self, script_path: str, script_args: List[str]):
+        self.script_path = script_path
+        self.script_args = script_args
+        self.script_name = os.path.basename(script_path)
+        self.role = "shim-control"
+        
+        # State management
+        self.restart_event = threading.Event()
+        self.shutdown_flag = False
+        self.socket_closed = False
+        self.proc: Optional[subprocess.Popen] = None
+        
+        # Server communication
+        self.session_id: Optional[str] = None
+        self.server_conn: Optional[socket.socket] = None
+        
+        # Threading
+        self.listener_thread: Optional[threading.Thread] = None
+        
+        # Register signal handlers
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+    
+    def _send_message(self, msg_type: str, **kwargs) -> None:
+        """Send a message to the develop server."""
+        if not self.server_conn:
+            return
+            
+        message = {
+            "type": msg_type,
+            "process_id": os.getpid(),
+            "role": self.role,
+            "script": self.script_name,
+            **kwargs
+        }
+        
+        if self.session_id:
+            message["session_id"] = self.session_id
+            
         try:
-            msg = json.loads(line.strip())
-        except json.JSONDecodeError:
-            continue
-        mtype = msg.get("type")
-        if mtype == "restart":
-            # Extension requested a restart (user edited an LLM prompt)
-            # (new_input could be used here to modify the prompt on next run if implemented)
-            restart_event.set()
-            # If a user script process is currently running, terminate it so we can restart
-            if proc and proc.poll() is None:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
-        elif mtype == "shutdown":
-            # Server is shutting down – set flag and break out
-            shutdown_flag = True
-            restart_event.set()  # wake up main thread if waiting
-            break
-    # If the server connection is closed or thread exits, mark shutdown
-    shutdown_flag = True
-    restart_event.set()
-    try:
-        sock.close()
-    except Exception:
-        pass
-
-def main():
-    # Check if this is a child process invocation
-    is_child = (len(sys.argv) > 1 and sys.argv[1] == "--child")
-    if is_child:
-        # Remove the "--child" flag and prepare to run the user script
-        sys.argv.pop(1)  # pop the flag
-    if len(sys.argv) < 2:
-        print("Usage: develop_shim.py [--child] <script.py> [script args...]")
-        sys.exit(1)
-    script_path = sys.argv[1]
-    script_args = sys.argv[2:]
-
-    if is_child:
-        # **Child mode**: Run the target script with LLM call monkey-patching
-        server_conn = None
-        try:
-            server_conn = socket.create_connection((HOST, PORT), timeout=5)
+            self.server_conn.sendall((json.dumps(message) + "\n").encode('utf-8'))
         except Exception:
-            print("Warning: Could not connect to develop server for logging.")
-        if server_conn:
-            # Handshake to register as a shim runner
-            handshake = {"type": "hello", "role": "shim-runner", "script": os.path.basename(script_path)}
+            pass  # Best effort only
+    
+    def send_deregister(self) -> None:
+        """Send deregistration message to the develop server."""
+        self._send_message("deregister")
+    
+    def send_restart_notification(self) -> None:
+        """Send restart notification to the develop server."""
+        self._send_message("debugger_restart")
+    
+    def _signal_handler(self, signum, frame) -> None:
+        """Handle termination signals gracefully."""
+        self.send_deregister()
+        if self.server_conn:
             try:
-                server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
+                self.server_conn.close()
             except Exception:
                 pass
-            # Apply monkey patch to intercept LLM calls
-            monkey_patch_llm_call(server_conn)
-        # Set up sys.argv for the script and run it
-        sys.argv = [script_path] + script_args
+        sys.exit(0)
+    
+    def _listen_for_server_messages(self, sock: socket.socket) -> None:
+        """Background thread: listen for 'restart' or 'shutdown' messages from the server."""
         try:
-            runpy.run_path(script_path, run_name="__main__")
-        finally:
-            if server_conn:
-                server_conn.close()
-    else:
-        # **Parent (orchestrator) mode**: Manage script execution and handle restarts
-        # Ensure the develop server is running (start it if not)
-        try:
-            socket.create_connection((HOST, PORT), timeout=2).close()
+            sock.setblocking(False)
+            buffer = b''
+            while not self.shutdown_flag and not self.socket_closed:
+                try:
+                    rlist, _, _ = select.select([sock], [], [], 1.0)
+                    if rlist:
+                        try:
+                            data = sock.recv(4096)
+                            if not data:
+                                break  # Socket closed
+                            buffer += data
+                            while b'\n' in buffer:
+                                line, buffer = buffer.split(b'\n', 1)
+                                try:
+                                    msg = json.loads(line.decode('utf-8').strip())
+                                except json.JSONDecodeError:
+                                    continue
+                                self._handle_server_message(msg)
+                        except Exception:
+                            break  # Any error, exit thread
+                except Exception:
+                    break
         except Exception:
-            # Server not running; attempt to start it
+            pass
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+    
+    def _handle_server_message(self, msg: dict) -> None:
+        """Handle incoming server messages."""
+        msg_type = msg.get("type")
+        if msg_type == "restart":
+            print(f"[DEBUG] Received restart message: {msg}")
+            self.restart_event.set()
+        elif msg_type == "shutdown":
+            print(f"[DEBUG] Received shutdown message: {msg}")
+            self.shutdown_flag = True
+    
+    def _setup_monkey_patching_env(self) -> dict:
+        """Set up environment variables to enable monkey patching in the user's script."""
+        env = os.environ.copy()
+        
+        # Add the runtime_tracing directory to PYTHONPATH so sitecustomize.py can be found
+        runtime_tracing_dir = os.path.join(os.path.dirname(__file__), "..", "runtime_tracing")
+        runtime_tracing_dir = os.path.abspath(runtime_tracing_dir)
+        
+        # Add to PYTHONPATH
+        if 'PYTHONPATH' in env:
+            env['PYTHONPATH'] = runtime_tracing_dir + os.pathsep + env['PYTHONPATH']
+        else:
+            env['PYTHONPATH'] = runtime_tracing_dir
+        
+        # Set environment variables to enable monkey patching
+        env['AGENT_COPILOT_ENABLE_TRACING'] = '1'
+        env['AGENT_COPILOT_SERVER_HOST'] = HOST
+        env['AGENT_COPILOT_SERVER_PORT'] = str(PORT)
+        
+        return env
+    
+    def _ensure_server_running(self) -> None:
+        """Ensure the develop server is running, start it if necessary."""
+        try:
+            socket.create_connection((HOST, PORT), timeout=SERVER_START_TIMEOUT).close()
+        except Exception:
             server_py = os.path.join(os.path.dirname(__file__), "develop_server.py")
             try:
                 subprocess.Popen([sys.executable, server_py, "start"])
             except Exception as e:
                 print(f"Error: Failed to start develop server ({e})")
                 sys.exit(1)
-            # Wait briefly for the server to come up
-            time.sleep(1)
-            # Verify server is up
+            time.sleep(SERVER_START_WAIT)
             try:
-                socket.create_connection((HOST, PORT), timeout=5).close()
+                socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT).close()
             except Exception:
                 print("Error: Develop server did not start.")
                 sys.exit(1)
-        # Connect to the server for control messages
+    
+    def _connect_to_server(self) -> None:
+        """Connect to the develop server and perform handshake."""
         try:
-            server_conn = socket.create_connection((HOST, PORT), timeout=5)
+            self.server_conn = socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT)
         except Exception as e:
             print(f"Error: Cannot connect to develop server ({e})")
             sys.exit(1)
-        # Handshake as shim controller
-        handshake = {"type": "hello", "role": "shim-control", "script": os.path.basename(script_path)}
+        
+        # Send handshake to server
+        handshake = {
+            "type": "hello", 
+            "role": self.role, 
+            "script": self.script_name, 
+            "process_id": os.getpid()
+        }
         try:
-            server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
+            self.server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
+            # Read session_id from server
+            file_obj = self.server_conn.makefile(mode='r')
+            session_line = file_obj.readline()
+            if session_line:
+                try:
+                    session_msg = json.loads(session_line.strip())
+                    self.session_id = session_msg.get("session_id")
+                except Exception:
+                    pass
         except Exception:
             pass
-        # Start a background thread to listen for 'restart' or 'shutdown' signals
-        # TODO: Commented out for debugging
-        # listener_thread = threading.Thread(target=listen_for_server_messages, args=(server_conn,), daemon=True)
-        # listener_thread.start()
-
-        # Detect if running under VS Code debugger (NOTE: we assume debugpy)
-        debug_mode = False
+    
+    def _run_user_script_subprocess(self) -> Optional[int]:
+        """Run the user's script as a subprocess with proper environment setup."""
+        env = self._setup_monkey_patching_env()
+        self.proc = subprocess.Popen([sys.executable, self.script_path] + self.script_args, env=env)
+        try:
+            # Monitor the process and check for restart requests
+            while self.proc.poll() is None:
+                if self.restart_event.is_set():
+                    # Restart requested, kill the current process
+                    self.proc.terminate()
+                    try:
+                        self.proc.wait(timeout=PROCESS_TERMINATE_TIMEOUT)
+                    except subprocess.TimeoutExpired:
+                        self.proc.kill()
+                        self.proc.wait()
+                    return None  # Signal that restart was requested
+                time.sleep(MESSAGE_POLL_INTERVAL)
+            self.proc.wait()
+        except KeyboardInterrupt:
+            self.proc.terminate()
+            self.proc.wait()
+        return self.proc.returncode
+    
+    def _run_user_script_debug_mode(self) -> int:
+        """Run the user's script in debug mode with restart detection."""
+        import importlib.util
+        
+        # Load the script as a module
+        spec = importlib.util.spec_from_file_location("user_script", self.script_path)
+        module = importlib.util.module_from_spec(spec)
+        
+        # Add script args to sys.argv for the script
+        original_argv = sys.argv.copy()
+        sys.argv = [self.script_path] + self.script_args
+        
+        try:
+            # Execute the script
+            spec.loader.exec_module(module)
+            return 0
+        except SystemExit as e:
+            return e.code if e.code is not None else 0
+        except Exception as e:
+            print(f"Error running script: {e}")
+            return 1
+        finally:
+            # Restore original argv
+            sys.argv = original_argv
+    
+    def _kill_current_process(self) -> None:
+        """Kill the current subprocess if it's still running."""
+        if self.proc and self.proc.poll() is None:
+            try:
+                self.proc.terminate()
+                self.proc.wait(timeout=PROCESS_TERMINATE_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait()
+            except Exception:
+                pass
+    
+    def _is_debug_mode(self) -> bool:
+        """Check if we're running in debug mode."""
         try:
             import debugpy
-            if debugpy.is_client_connected():  # Debugger attached
-                debug_mode = True
+            return debugpy.is_client_connected()
         except Exception:
-            debug_mode = False
-        if debug_mode:
-            # **Debug mode**: Run user script in-process so breakpoints & debug session remain active
-            monkey_patch_llm_call(server_conn)  # patch LLM calls for logging
-            sys.argv = [script_path] + script_args
-            try:
-                runpy.run_path(script_path, run_name="__main__")
-            finally:
-                if restart_event.is_set():
-                    # If an edit was requested during debugging, advise using VS Code API to restart
-                    # TODO: Send to server. Ultimately, we need to restart in extension typescript (vscode.debug.restartDebugging() --- see OAI parse-copilot/VS Code LLM Extension).
-                    print("Edit request received. Please use VS Code to restart the debugging session.")
-                server_conn.close()
-        else:
-            # **Normal mode**: Loop to run and restart the script on demand
-            global proc
+            return False
+    
+    def _run_debug_mode(self) -> None:
+        """Run the script in debug mode."""
+        print("Debug mode detected. Running script in debug context.")
+        print("Running script in debug mode...")
+        
+        returncode = self._run_user_script_debug_mode()
+        
+        # If restart was requested during execution, handle it
+        if returncode is None:
+            print("Restart requested during execution, restarting script...")
+            self.restart_event.clear()
+            # Run the script again
+            self._run_user_script_debug_mode()
+    
+    def _run_normal_mode(self) -> None:
+        """Run the script in normal mode with restart handling."""
+        while not self.shutdown_flag:
+            returncode = self._run_user_script_subprocess()
+            
+            if self.shutdown_flag:
+                break
+            
+            # Check if restart was requested during execution
+            if returncode is None:
+                print("Restart requested, restarting script...")
+                self.restart_event.clear()
+                continue
+            
+            # Check if restart was requested after completion
+            if returncode is not None and self.restart_event.is_set():
+                print("Restart requested, restarting script...")
+                self.restart_event.clear()
+                continue
+            
+            # No restart requested, exit
+            break
+    
+    def run(self) -> None:
+        """Main entry point to run the develop shim."""
+        # Ensure server is running and connect to it
+        self._ensure_server_running()
+        self._connect_to_server()
+        
+        # Start background thread to listen for server messages
+        self.listener_thread = threading.Thread(
+            target=self._listen_for_server_messages, 
+            args=(self.server_conn,)
+        )
+        self.listener_thread.start()
 
-            while not shutdown_flag:
-                # Launch the child runner
-                proc = subprocess.Popen(
-                    [sys.executable, __file__, "--child", script_path] + script_args
-                )
+        try:
+            if self._is_debug_mode():
+                self._run_debug_mode()
+            else:
+                self._run_normal_mode()
+        finally:
+            # Kill any remaining subprocess before cleanup
+            self._kill_current_process()
+            
+            # Clean up
+            self.send_deregister()
+            if self.server_conn:
+                try:
+                    self.socket_closed = True  # Signal background thread to exit
+                    self.server_conn.close()
+                except Exception:
+                    pass
+            
+            # Wait for background thread to finish
+            if self.listener_thread:
+                self.listener_thread.join(timeout=2)
+        
+        sys.exit(0)
 
-                # Now watch both the process and our restart/shutdown events
-                while True:
-                    # 1) If the server told us to shut down entirely, stop everything.
-                    if shutdown_flag:
-                        if proc.poll() is None:
-                            proc.kill()
-                        break
-
-                    # 2) If user edited an LLM call, kill & restart immediately.
-                    if restart_event.is_set():
-                        restart_event.clear()
-                        if proc.poll() is None:
-                            proc.kill()
-                        break
-
-                    # 3) Otherwise, check if the child has exited on its own.
-                    if proc.poll() is not None:
-                        # child has finished normally
-                        server_conn.close()
-                        return
-
-                    # 4) Sleep a short time before polling again.
-                    time.sleep(0.1)
-
-                # If we were told to shut down, break out of the outer loop too
-                if shutdown_flag:
-                    break
-
-                # Otherwise, either restart_event was set (we just cleared it) → restart immediately,
-                # or the script exited normally → now wait for the next edit command.
-                if proc.returncode is not None and not restart_event.is_set():
-                    # Wait indefinitely for a future edit before restarting
-                    restart_event.wait()
-                    restart_event.clear()
-                    if shutdown_flag:
-                        break
-                    # Loop will restart the script now
-                    continue
-
-            # Cleanup
-            server_conn.close()
+def main():
+    """Entry point for the develop command."""
+    if len(sys.argv) < 2:
+        print("Usage: develop <script.py> [script args...]")
+        sys.exit(1)
+    
+    script_path = sys.argv[1]
+    script_args = sys.argv[2:]
+    
+    shim = DevelopShim(script_path, script_args)
+    shim.run()
 
 if __name__ == "__main__":
     main()

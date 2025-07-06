@@ -1,44 +1,40 @@
-# Running the Copilot
+# Core functionalities
 
-NOTE: Below is out-dated.
+## Server
 
-## UI
-We assume the user uses Python to run their agentic workflow, e.g.:
+This is basically the core of the tool. All analysis happens here. It receives messages from the user's shim processes and controls the UI. I.e., communication goes shim <-> server <-> UI.
 
- - `python -m foo.bar`
- - `ENV_VAR=5 python script.py --some-flag`
+### Dev
 
-All they change is the Python command. Whenever they want to develop their script with us, they run:
+Manually start, stop, restart server:
 
- - `develop -m foo.bar`
- - `ENV_VAR=5 develop script.py --some-flag`
-
-This will feel *exactly* the same as running Python but also analyzes their code, populates our VS Code extension, etc. Specfically:
-
- - Programn prints to terminal and crashes the same
- - User can use VS Code debugger
-
-## Architecture
-
-When the user runs `develop script.py`, he just runs a little CLI shim that (1) monkey patches the user's code, (2) installs a `sys.setprofile` hook which records function calls and returns and send them back to a supervisor server, (3) runs the user's Python command exactly as the user wanted to (debugger works, same dir, env vars, if the user does weird stuff like relative imports, that will also work). (shim code)
-
-We have a supervisor server running in the background. This server (1) communicates with the VS Code extension, (2) restarts Python (shim) processes if the user wants to re-run due to an LLM input edit (it kills the Python (shim) process and then restart the shim), (4) communicates with the Pyre server (our static analysis tool), (5) keeps some state. (server code)
-
-
-## Develop
-
-### Server
-
-Manually starting, stoping, restarting server:
-
- - `python src/agent_copilot/develop_server.py start` 
- - `python src/agent_copilot/develop_server.py stop`
- - `python src/agent_copilot/develop_server.py restart`
+ - `python develop_server.py start` 
+ - `python develop_server.py stop`
+ - `python develop_server.py restart`
 
 Some basics: 
 
- - To check if the server process is still running: `ps aux | grep develop_server.py` 
-
- - Check which processes are holding the port: `lsof -i :5959`
+ - To check if the server process is still running: `ps aux | grep develop_server.py` or check which processes are holding the port: `lsof -i :5959`
 
  - When you make changes to `develop_server.py`, remember to restart the server to see them take effect.
+
+
+## develop_shim.py
+
+This is the wrapper arond the user's python command. It works like this:
+
+1. User types `develop script.py` (instead of `develop script.py`)
+2. This drops into an "orchestrator". It registers to the develop_server as "shim-control". It's needed for restarting (i.e., managing the lifecycle of the actual process running the user's code) It's communication with develop_server is about things like receiving "restart" or "shutdown" commands. Orchestrator spawns a child with `Popen` that will run the monkey-patched user code. 
+3. Child installs monkey patches. It registers to the develop_server as "shim-runner". It runs the actual python code from the user. It communicates with the server about inputs and outputs to LLM calls (etc). Its stdin, stdout, stderr, etc. will be forwarded to the user's terminal as is.
+
+ALTERNATIVELY: If the user doesn't run `develop script.py` from terminal but from a debugger, things work similarly but there's small changes into how the child process is started and restarted by the orchestrator.
+
+### Dev
+
+...
+
+
+
+# TODO (for me, how to coninue)
+
+Need to install things. sqlite install not working so maybe do new conda env.
