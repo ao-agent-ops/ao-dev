@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 
 interface ProcessInfo {
@@ -7,6 +7,7 @@ interface ProcessInfo {
   session_id: string;
   status: string;
   role?: string;
+  timestamp?: string;
 }
 
 interface ExperimentsViewProps {
@@ -17,11 +18,14 @@ interface ExperimentsViewProps {
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick }) => {
   const isDarkTheme = useIsVsCodeDarkTheme();
+  const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   
   const containerStyle: React.CSSProperties = {
-    padding: '20px',
+    padding: '20px 20px 40px 20px',
     height: '100%',
+    maxHeight: '100%',
     overflowY: 'auto',
+    boxSizing: 'border-box',
     backgroundColor: isDarkTheme ? '#252525' : '#F0F0F0',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
   };
@@ -41,12 +45,19 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
     marginBottom: '12px',
     boxShadow: isDarkTheme ? '0 2px 4px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
     cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  };
+
+  const processCardHoverStyle: React.CSSProperties = {
+    backgroundColor: isDarkTheme ? 'rgba(42, 99, 164, 1)' : 'rgba(42, 99, 164, 1)',
+    border: `1px solid rgb(42, 99, 164)`,
+    boxShadow: isDarkTheme ? '0 4px 8px rgba(0,0,0,0.4)' : '0 4px 8px rgba(0,0,0,0.15)',
   };
 
   const processTitleStyle: React.CSSProperties = {
     fontSize: '14px',
     fontWeight: 'bold',
-    marginBottom: '8px',
+    marginBottom: '0px',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
   };
 
@@ -106,44 +117,54 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
     <div style={containerStyle}>
       {runningProcesses.length > 0 && (
         <>
-          <div style={titleStyle}>Running ({runningProcesses.length})</div>
-          {runningProcesses.map((process) => (
-            <div key={process.pid} style={processCardStyle} onClick={() => onCardClick && onCardClick(process)}>
-              <div style={processTitleStyle}>
-                {process.script_name}
-                <span style={getStatusStyle(process.status)}>
-                  {process.status}
-                </span>
+          <div style={titleStyle}>Running</div>
+          {runningProcesses.map((process) => {
+            const cardId = `running-${process.pid}`;
+            const isHovered = hoveredCards.has(cardId);
+            return (
+              <div 
+                key={process.pid} 
+                style={{ ...processCardStyle, ...(isHovered ? processCardHoverStyle : {}) }} 
+                onClick={() => onCardClick && onCardClick(process)}
+                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
+                onMouseLeave={() => setHoveredCards(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(cardId);
+                  return newSet;
+                })}
+              >
+                <div style={processTitleStyle}>
+                  {process.timestamp ? `${process.timestamp} (${process.session_id.substring(0, 8)}...)` : process.script_name}
+                </div>
               </div>
-              <div style={processDetailStyle}>
-                <strong>PID:</strong> {process.pid}
-              </div>
-              <div style={processDetailStyle}>
-                <strong>Session:</strong> {process.session_id.substring(0, 8)}...
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
       {finishedProcesses.length > 0 && (
         <>
-          <div style={{ ...titleStyle, marginTop: runningProcesses.length > 0 ? 32 : 0 }}>Finished ({finishedProcesses.length})</div>
-          {finishedProcesses.map((process) => (
-            <div key={process.pid} style={processCardStyle} onClick={() => onCardClick && onCardClick(process)}>
-              <div style={processTitleStyle}>
-                {process.script_name}
-                <span style={getStatusStyle(process.status)}>
-                  {process.status}
-                </span>
+          <div style={{ ...titleStyle, marginTop: runningProcesses.length > 0 ? 32 : 0 }}>Finished</div>
+          {finishedProcesses.map((process) => {
+            const cardId = `finished-${process.pid}`;
+            const isHovered = hoveredCards.has(cardId);
+            return (
+              <div 
+                key={process.pid} 
+                style={{ ...processCardStyle, ...(isHovered ? processCardHoverStyle : {}) }} 
+                onClick={() => onCardClick && onCardClick(process)}
+                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
+                onMouseLeave={() => setHoveredCards(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(cardId);
+                  return newSet;
+                })}
+              >
+                <div style={processTitleStyle}>
+                  {process.timestamp ? `${process.timestamp} (${process.session_id.substring(0, 8)}...)` : process.script_name}
+                </div>
               </div>
-              <div style={processDetailStyle}>
-                <strong>PID:</strong> {process.pid}
-              </div>
-              <div style={processDetailStyle}>
-                <strong>Session:</strong> {process.session_id.substring(0, 8)}...
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
     </div>

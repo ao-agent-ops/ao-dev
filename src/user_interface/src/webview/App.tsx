@@ -39,6 +39,7 @@ export const App: React.FC = () => {
         status: string;
         role?: string;
         graph?: GraphData;
+        timestamp?: string;
     }
 
     const [processes, setProcesses] = useState<ProcessInfo[]>([]);

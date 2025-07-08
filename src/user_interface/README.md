@@ -53,15 +53,13 @@ Message format:
 
 ## Dev
 
+Some basics:
+
+ - If you want to see the logs in the extension: `Cmd+P` and then type `> Developer: Toggle Developer Tools`. 
+
 ### Architecture
 
-There are three components that communicate with each other:
-
- - Python bridge: Executes the python code. Code in `src/user_interface/python_bridge`.
- - VS Code extension: Hosts the VS Code extension (UI). Code in `src/extension.ts` and helpers in `src/providers`.
- - Webview: Visualizes the graph (in React). Code in `src/webview`
-
-Communication goes: python bridge <-> vs code extension <-> webview.
+See README at project root for architecture diagram. Below might be outdated.
 
 #### Extension <-> Webview
 
@@ -73,15 +71,3 @@ Communication goes: python bridge <-> vs code extension <-> webview.
 #### Extension <-> Python bridge
 
  - Extension receives and sends messages in `GraphViewProvider.ts` (see `_sendToPython` and `_handlePythonMessage`)
- - Python
-
-There's a python bridge () which
-
-
-Message receiving handler: `src/webview/App.tsx`
-
-Utilities for sending messages: `src/webview/utils/messaging.ts`
-
-
-
-

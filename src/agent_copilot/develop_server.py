@@ -9,6 +9,7 @@ import select
 import uuid
 import time
 import copy
+from datetime import datetime
 from typing import Dict, Any, Optional, Set, Tuple
 
 # Configuration constants
@@ -88,7 +89,8 @@ class DevelopServer:
                 "session_id": info.get("session_id", ""),
                 "status": info.get("status", "running"),
                 "role": info.get("role", "shim-control"),
-                "graph": info.get("graph")
+                "graph": info.get("graph"),
+                "timestamp": info.get("timestamp", "")
             }
             for pid, info in self.process_info.items() if info.get("role") == "shim-control"
         ]
@@ -195,12 +197,15 @@ class DevelopServer:
     
     def _track_process(self, role: str, process_id: int, script: str, session_id: str) -> None:
         if role == "shim-control":
+            # Create timestamp in DD/MM HH:MM format
+            timestamp = datetime.now().strftime("%d/%m %H:%M")
             self.process_info[process_id] = {
                 "script_name": script or "unknown",
                 "session_id": session_id,
                 "status": "running",
                 "role": role,
-                "graph": copy.deepcopy(EXAMPLE_GRAPH)
+                "graph": copy.deepcopy(EXAMPLE_GRAPH),
+                "timestamp": timestamp
             }
             self.broadcast_process_list_to_all_uis()
 

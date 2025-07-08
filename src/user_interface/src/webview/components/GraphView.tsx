@@ -15,6 +15,7 @@ import { GraphNode, GraphEdge } from '../types';
 import { calculateNodePositions } from '../utils/nodeLayout';
 import { routeEdges } from '../utils/edgeRouting';
 import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
+import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
 
 interface GraphViewProps {
@@ -125,19 +126,48 @@ export const GraphView: React.FC<GraphViewProps & { session_id?: string }> = ({
     };
   }, []);
 
+  const isDarkTheme = useIsVsCodeDarkTheme();
+  
+  const titleContainerStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '0px',
+    padding: '15px 20px 0 20px',
+  };
+
+  const titleStyle: React.CSSProperties = {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: isDarkTheme ? '#FFFFFF' : '#000000',
+  };
+
+  const restartButtonStyle: React.CSSProperties = {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    background: '#27c93f',
+    border: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+    cursor: 'pointer',
+    outline: 'none',
+    padding: 0,
+  };
+
   return (
     <div
       ref={containerRef}
       className={styles.container}
     >
-      <div className={styles.header}>
-        <div className={styles.headerSpacer} />
-        <span className={styles.title}>Graph Title Placeholder</span>
+      <div style={titleContainerStyle}>
+        <div style={titleStyle}>Graph</div>
         <button
-          className={styles.restartButton}
+          style={restartButtonStyle}
           title="Restart"
           onClick={() => {
-            // Remove alert for production
             sendMessage({ type: 'restart', id: Math.floor(Math.random() * 100000) });
           }}
         >
@@ -167,11 +197,10 @@ export const GraphView: React.FC<GraphViewProps & { session_id?: string }> = ({
           )}
         </button>
       </div>
-      <div className={styles.divider} />
       <ReactFlowProvider>
         <div
           className={styles.flowContainer}
-          style={{ height: `${containerHeight}px` }}
+          style={{ height: `${containerHeight}px`, marginTop: '0px', paddingTop: '0px' }}
         >
           <ReactFlow
             nodes={nodes}
@@ -194,7 +223,12 @@ export const GraphView: React.FC<GraphViewProps & { session_id?: string }> = ({
             zoomOnDoubleClick={false}
             panOnScroll={false}
             preventScrolling={false}
-            style={{ width: "100%", height: "auto" }}
+            style={{ 
+              width: "100%", 
+              height: "auto",
+              padding: "0",
+              margin: "0"
+            }}
           />
         </div>
       </ReactFlowProvider>
