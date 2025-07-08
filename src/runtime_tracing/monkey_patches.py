@@ -7,6 +7,7 @@ from runtime_tracing.cache_manager import CACHE
 from common.logging_config import setup_logging
 logger = setup_logging()
 from common.utils import extract_key_args
+from runtime_tracing.taint_wrappers import taint_wrap, is_tainted, get_taint_origin, TaintedOpenAIResponse
 
 
 # ===========================================================
@@ -157,11 +158,44 @@ def monkey_patch_llm_call(server_conn):
     ac_mock.call = patched_call
 
 
-def monkey_patch_openai_create(server_conn):
+def _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint):
     """
-    Monkey-patch openai.ChatCompletion.create to intercept LLM calls.
-    Sends call details (input, output, file, line, thread, task, from_cache) to the server.
-    Uses CACHE for caching.
+    Shared logic for tainting, warning, and sending server message for OpenAI LLM calls.
+    """
+    if any_input_tainted:
+        print("[TAINT WARNING] OpenAI called with tainted input!")
+    # Always wrap the output as a new, independent taint source
+    result = TaintedOpenAIResponse(result)
+
+    thread_id = threading.get_ident()
+    try:
+        task_id = id(asyncio.current_task())
+    except Exception:
+        task_id = None
+
+    message = {
+        "type": "call",
+        "input": input_obj,
+        "output": str(result),
+        "file": file_name,
+        "line": line_no,
+        "thread": thread_id,
+        "task": task_id,
+        "from_cache": from_cache,
+        "tainted": any_input_tainted,
+        "taint_label": None,  # Output is always a new source
+    }
+    try:
+        server_conn.sendall((json.dumps(message) + "\n").encode("utf-8"))
+    except Exception:
+        pass  # best-effort only
+    return result
+
+
+def v1_openai_patch(server_conn):
+    """
+    Patch openai.ChatCompletion.create (v1/classic API) to always taint the output as a new source.
+    Warn if any input is tainted. Send call details to the server.
     """
     try:
         import openai
@@ -173,7 +207,6 @@ def monkey_patch_openai_create(server_conn):
         return
 
     def patched_create(*args, **kwargs):
-        # Use all args/kwargs as cache key, plus call site
         frame = inspect.currentframe()
         caller = frame.f_back if frame else None
         file_name = caller.f_code.co_filename if caller else "<unknown>"
@@ -187,34 +220,27 @@ def monkey_patch_openai_create(server_conn):
             result = original_create(*args, **kwargs)
             CACHE.cache_output(result, file_name, line_no, original_create, args, kwargs)
 
-        thread_id = threading.get_ident()
-        try:
-            task_id = id(asyncio.current_task())
-        except Exception:
-            task_id = None
+        # Taint logic
+        def check_taint(val):
+            if is_tainted(val):
+                return get_taint_origin(val)
+            if isinstance(val, (list, tuple)):
+                return [check_taint(v) for v in val]
+            if isinstance(val, dict):
+                return {k: check_taint(v) for k, v in val.items()}
+            return None
+        input_obj = kwargs.get("messages", args[0] if args else None)
+        input_taint = check_taint(input_obj)
+        any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
+        return _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint)
 
-        message = {
-            "type": "call",
-            "input": kwargs.get("messages", args[0] if args else None),
-            "output": str(result),
-            "file": file_name,
-            "line": line_no,
-            "thread": thread_id,
-            "task": task_id,
-            "from_cache": from_cache,
-        }
-        try:
-            server_conn.sendall((json.dumps(message) + "\n").encode("utf-8"))
-        except Exception:
-            pass  # best-effort only
-
-        return result
+    openai.ChatCompletion.create = patched_create
 
 
-def monkey_patch_openai_responses_create(server_conn):
+def v2_openai_patch(server_conn):
     """
-    Monkey-patch OpenAI so that every new client instance has its responses.create method patched.
-    Caches and traces LLM calls using only 'model' and 'input' as the cache key.
+    Patch OpenAI().responses.create (v2/client API) to always taint the output as a new source.
+    Warn if any input is tainted. Send call details to the server.
     """
     try:
         from openai import OpenAI
@@ -234,7 +260,6 @@ def monkey_patch_openai_responses_create(server_conn):
             file_name = caller.f_code.co_filename if caller else "<unknown>"
             line_no = caller.f_lineno if caller else -1
 
-            # Use inspect to robustly extract model and input for cache key
             cache_key_args = extract_key_args(original_create, args, kwargs, ["model", "input"])
             model, input_text = cache_key_args
 
@@ -243,40 +268,30 @@ def monkey_patch_openai_responses_create(server_conn):
             if from_cache:
                 result = cached_out
             else:
-                # Handle OpenAI's strict keyword-only argument enforcement
                 if len(args) == 1 and isinstance(args[0], Responses):
                     result = original_create(**kwargs)
                 else:
                     result = original_create(*args, **kwargs)
                 CACHE.cache_output(result, file_name, line_no, original_create, cache_key_args, {})
 
-            thread_id = threading.get_ident()
-            try:
-                task_id = id(asyncio.current_task())
-            except Exception:
-                task_id = None
-
-            message = {
-                "type": "call",
-                "input": input_text,
-                "output": str(result),
-                "file": file_name,
-                "line": line_no,
-                "thread": thread_id,
-                "task": task_id,
-                "from_cache": from_cache,
-            }
-            try:
-                server_conn.sendall((json.dumps(message) + "\n").encode("utf-8"))
-            except Exception as e:
-                logger.warning(f"Failed to send LLM call message to server: {e}")
-
-            return result
+            # Taint logic
+            def check_taint(val):
+                if is_tainted(val):
+                    return get_taint_origin(val)
+                if isinstance(val, (list, tuple)):
+                    return [check_taint(v) for v in val]
+                if isinstance(val, dict):
+                    return {k: check_taint(v) for k, v in val.items()}
+                return None
+            input_obj = kwargs.get("input", args[1] if len(args) > 1 else None)
+            input_taint = check_taint(input_obj)
+            any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
+            return _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint)
         self.responses.create = patched_create.__get__(self.responses, Responses)
     OpenAI.__init__ = new_init
 
 
-# Ensure CUSTOM_PATCH_FUNCTIONS is always a list and append patch functions
+# Update patch function list
 CUSTOM_PATCH_FUNCTIONS = []
-CUSTOM_PATCH_FUNCTIONS.append(monkey_patch_openai_create)
-CUSTOM_PATCH_FUNCTIONS.append(monkey_patch_openai_responses_create)
+CUSTOM_PATCH_FUNCTIONS.append(v1_openai_patch)
+CUSTOM_PATCH_FUNCTIONS.append(v2_openai_patch)

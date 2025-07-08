@@ -16,8 +16,8 @@ All they change is the Python command. Whenever they want to develop their scrip
 
 This will feel *exactly* the same as running Python but also analyzes their code, populates our VS Code extension, etc. Specfically:
 
- - Programn prints to terminal and crashes the same
- - User can use VS Code debugger
+ - Program prints/reads to/from same terminal, crashes the same, etc
+ - [User can use VS Code debugger](https://github.com/ferdiko/agent-copilot/blob/9af2cbc27fef1e6a0a6bb63c7ad678cf04cdb205/.vscode/launch.json#L11)
 
 ## Launch VS Code extension
 
@@ -31,7 +31,7 @@ pip install -e .
 ```
 
 ### Launch front end
-Then see [here](/src/user_interface/README.md) to launch exporer window with extension installed.
+Then see [here](/src/user_interface/README.md) to launch explorer window with extension installed.
 
 ### Start and stop server
 Currently, you need to manually start and stop our server. Just do:
@@ -56,7 +56,7 @@ If you make changes to the server code, you can also do `server restart` so the 
 These are the processes running. 
 
 1. Run user program (green): The users launch processes of their program by running `devlop their_script.py` which feels exactly like running their script normally with `python their_script.py` --- they can also use the debugger to run their script, which also feels completely normal. Under the hood the `develop` command monkey patches certain functions and logs runtime events to the `develop server`. The `develop runner` runs the actual python program of the user. The `develop orchestrator` manages the life cycle of the runner. For example, when the user presses the restart button in the UI, the orchestrator with kill the current runner and re-launch it.
-2. Develop server (blue): The `develop server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `develop server` happens over TCP socket 5959. 
+2. Develop server (blue): The `develop server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `develop server` happens over a TCP socket (default: 5959). 
 3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `develop server`. TODO: The VS Code extension spawn the `develop server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits.
 
 ![Processes overview](./media/processes.png)
