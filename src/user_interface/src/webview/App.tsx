@@ -222,6 +222,7 @@ export const App: React.FC = () => {
               edges={experimentGraphs[selectedExperiment.session_id]?.edges || []}
               onNodeUpdate={handleNodeUpdate}
               session_id={selectedExperiment.session_id}
+              experiment={selectedExperiment}
             />
           ) : null}
         </div>

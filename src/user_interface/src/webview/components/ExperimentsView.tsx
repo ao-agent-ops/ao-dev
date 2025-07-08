@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
+import { ProcessCard } from './ProcessCard';
 
-interface ProcessInfo {
+export interface ProcessInfo {
   pid: number;
   script_name: string;
   session_id: string;
@@ -37,62 +38,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
     color: isDarkTheme ? '#FFFFFF' : '#000000',
   };
 
-  const processCardStyle: React.CSSProperties = {
-    backgroundColor: isDarkTheme ? '#3C3C3C' : '#FFFFFF',
-    border: `1px solid ${isDarkTheme ? '#6B6B6B' : '#CCCCCC'}`,
-    borderRadius: '8px',
-    padding: '16px',
-    marginBottom: '12px',
-    boxShadow: isDarkTheme ? '0 2px 4px rgba(0,0,0,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-  };
-
-  const processCardHoverStyle: React.CSSProperties = {
-    backgroundColor: isDarkTheme ? 'rgba(42, 99, 164, 1)' : 'rgba(42, 99, 164, 1)',
-    border: `1px solid rgb(42, 99, 164)`,
-    boxShadow: isDarkTheme ? '0 4px 8px rgba(0,0,0,0.4)' : '0 4px 8px rgba(0,0,0,0.15)',
-  };
-
-  const processTitleStyle: React.CSSProperties = {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    marginBottom: '0px',
-    color: isDarkTheme ? '#FFFFFF' : '#000000',
-  };
-
-  const processDetailStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: isDarkTheme ? '#CCCCCC' : '#666666',
-    marginBottom: '4px',
-  };
-
-  const statusStyle: React.CSSProperties = {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: '12px',
-    fontSize: '10px',
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  };
-
-  const getStatusStyle = (status: string): React.CSSProperties => {
-    const baseStyle = { ...statusStyle };
-    if (status === 'running') {
-      return {
-        ...baseStyle,
-        backgroundColor: '#27C93F',
-        color: '#FFFFFF',
-      };
-    } else {
-      return {
-        ...baseStyle,
-        backgroundColor: '#FF6B6B',
-        color: '#FFFFFF',
-      };
-    }
-  };
-
   const emptyStateStyle: React.CSSProperties = {
     textAlign: 'center',
     padding: '40px 20px',
@@ -122,9 +67,11 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
             const cardId = `running-${process.pid}`;
             const isHovered = hoveredCards.has(cardId);
             return (
-              <div 
-                key={process.pid} 
-                style={{ ...processCardStyle, ...(isHovered ? processCardHoverStyle : {}) }} 
+              <ProcessCard
+                key={process.pid}
+                process={process}
+                isHovered={isHovered}
+                isDarkTheme={isDarkTheme}
                 onClick={() => onCardClick && onCardClick(process)}
                 onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
                 onMouseLeave={() => setHoveredCards(prev => {
@@ -132,11 +79,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
                   newSet.delete(cardId);
                   return newSet;
                 })}
-              >
-                <div style={processTitleStyle}>
-                  {process.timestamp ? `${process.timestamp} (${process.session_id.substring(0, 8)}...)` : process.script_name}
-                </div>
-              </div>
+              />
             );
           })}
         </>
@@ -148,9 +91,11 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
             const cardId = `finished-${process.pid}`;
             const isHovered = hoveredCards.has(cardId);
             return (
-              <div 
-                key={process.pid} 
-                style={{ ...processCardStyle, ...(isHovered ? processCardHoverStyle : {}) }} 
+              <ProcessCard
+                key={process.pid}
+                process={process}
+                isHovered={isHovered}
+                isDarkTheme={isDarkTheme}
                 onClick={() => onCardClick && onCardClick(process)}
                 onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
                 onMouseLeave={() => setHoveredCards(prev => {
@@ -158,11 +103,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
                   newSet.delete(cardId);
                   return newSet;
                 })}
-              >
-                <div style={processTitleStyle}>
-                  {process.timestamp ? `${process.timestamp} (${process.session_id.substring(0, 8)}...)` : process.script_name}
-                </div>
-              </div>
+              />
             );
           })}
         </>

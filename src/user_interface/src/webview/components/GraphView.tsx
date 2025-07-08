@@ -17,11 +17,14 @@ import { routeEdges } from '../utils/edgeRouting';
 import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
+import { ProcessInfo } from './ExperimentsView';
 
 interface GraphViewProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   onNodeUpdate: (nodeId: string, field: keyof GraphNode, value: string) => void;
+  experiment?: ProcessInfo;
+  session_id?: string;
 }
 
 const nodeTypes = {
@@ -32,10 +35,11 @@ const edgeTypes = {
   custom: CustomEdge,
 };
 
-export const GraphView: React.FC<GraphViewProps & { session_id?: string }> = ({
+export const GraphView: React.FC<GraphViewProps> = ({
   nodes: initialNodes,
   edges: initialEdges,
   onNodeUpdate,
+  experiment,
   session_id,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,7 +167,11 @@ export const GraphView: React.FC<GraphViewProps & { session_id?: string }> = ({
       className={styles.container}
     >
       <div style={titleContainerStyle}>
-        <div style={titleStyle}>Graph</div>
+        <div style={titleStyle}>
+          {experiment
+            ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : experiment.script_name)
+            : 'Graph'}
+        </div>
         <button
           style={restartButtonStyle}
           title="Restart"
