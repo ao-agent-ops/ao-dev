@@ -57,6 +57,7 @@ export const App: React.FC = () => {
                 case 'graph_update': {
                     const sid = message.session_id;
                     const payload = message.payload;
+                    console.log('[App] Received graph_update for', sid, payload);
                     setExperimentGraphs(prev => ({
                         ...prev,
                         [sid]: payload

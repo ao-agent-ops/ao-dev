@@ -59,30 +59,26 @@ export const GraphView: React.FC<GraphViewProps> = ({
   );
 
   const updateLayout = useCallback(() => {
-    if (initialNodes.length === 0) return;
-
     const positions = calculateNodePositions(
       initialNodes,
       initialEdges,
       containerWidth
     );
     const maxY =
-      Math.max(...Array.from(positions.values()).map((pos) => pos.y)) + 300;
+      Math.max(0, ...Array.from(positions.values()).map((pos) => pos.y)) + 300;
     setContainerHeight(maxY);
 
     const routedEdges = routeEdges(initialEdges, positions);
 
-    const flowNodes: Node[] = initialNodes.map((node) => {
-      return {
-        id: node.id,
-        type: "custom",
-        position: positions.get(node.id) || { x: 0, y: 0 },
-        data: {
-          ...node,
-          onUpdate: handleNodeUpdate,
-        },
-      };
-    });
+    const flowNodes: Node[] = initialNodes.map((node) => ({
+      id: node.id,
+      type: "custom",
+      position: positions.get(node.id) || { x: 0, y: 0 },
+      data: {
+        ...node,
+        onUpdate: handleNodeUpdate,
+      },
+    }));
 
     const flowEdges: Edge[] = routedEdges.map((edge) => ({
       id: edge.id,
@@ -169,14 +165,18 @@ export const GraphView: React.FC<GraphViewProps> = ({
       <div style={titleContainerStyle}>
         <div style={titleStyle}>
           {experiment
-            ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : experiment.script_name)
+            ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : 'Graph')
             : 'Graph'}
         </div>
         <button
           style={restartButtonStyle}
           title="Restart"
           onClick={() => {
-            sendMessage({ type: 'restart', id: Math.floor(Math.random() * 100000) });
+            if (!session_id) {
+              alert("No session_id available for restart! This is a bug.");
+              throw new Error("No session_id available for restart!");
+            }
+            sendMessage({ type: 'restart', session_id });
           }}
         >
           {React.createElement('svg', {

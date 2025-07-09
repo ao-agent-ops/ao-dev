@@ -62,7 +62,11 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
             if (data.type === 'restart') {
-                pythonClient.sendMessage({ type: 'restart', id: data.id });
+                if (!data.session_id) {
+                    console.error('Restart message missing session_id! Not forwarding to Python server.');
+                    return;
+                }
+                pythonClient.sendMessage({ type: 'restart', session_id: data.session_id });
             }
             switch (data.type) {
                 case 'updateNode':

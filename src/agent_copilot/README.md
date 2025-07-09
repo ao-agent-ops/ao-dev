@@ -1,10 +1,12 @@
 # Core functionalities
 
+![Running develop command](/media/develop_spawn.png)
+
+
 ## Server
 
 This is basically the core of the tool. All analysis happens here. It receives messages from the user's shim processes and controls the UI. I.e., communication goes shim <-> server <-> UI.
 
-### Dev
 
 Manually start, stop, restart server:
 
@@ -28,19 +30,3 @@ This is the wrapper arond the user's python command. It works like this:
 3. Child installs monkey patches. It registers to the develop_server as "shim-runner". It runs the actual python code from the user. It communicates with the server about inputs and outputs to LLM calls (etc). Its stdin, stdout, stderr, etc. will be forwarded to the user's terminal as is.
 
 ALTERNATIVELY: If the user doesn't run `develop script.py` from terminal but from a debugger, things work similarly but there's small changes into how the child process is started and restarted by the orchestrator.
-
-Below is an overview:
-
-![Running develop command](/media/develop_spawn.png)
-
-
-## Develop server
-
-
-...
-
-
-
-# TODO (for me, how to coninue)
-
-Need to install things. sqlite install not working so maybe do new conda env.

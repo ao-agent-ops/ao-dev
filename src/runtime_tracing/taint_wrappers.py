@@ -190,12 +190,10 @@ class TaintedOpenAIResponse:
 
     def __getattr__(self, name):
         value = getattr(self._wrapped, name)
-        print(f"[TaintedOpenAIResponse] Accessing attribute '{name}', taint-wrapping value: {repr(value)} with origin {self._taint_origin}")
         return taint_wrap(value, taint_origin=self._taint_origin)
 
     def __getitem__(self, key):
         value = self._wrapped[key]
-        print(f"[TaintedOpenAIResponse] Accessing item '{key}', taint-wrapping value: {repr(value)} with origin {self._taint_origin}")
         return taint_wrap(value, taint_origin=self._taint_origin)
 
     def __repr__(self):
@@ -222,28 +220,20 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
     _seen.add(obj_id)
 
     if is_tainted(obj):
-        print(f"[taint_wrap] Already tainted: {repr(obj)} with origin {get_taint_origin(obj)}")
         return obj
     if isinstance(obj, str):
-        print(f"[taint_wrap] Wrapping str: {repr(obj)} with origin {taint_origin}")
         return TaintStr(obj, taint_origin=taint_origin)
     if isinstance(obj, int):
-        print(f"[taint_wrap] Wrapping int: {repr(obj)} with origin {taint_origin}")
         return TaintInt(obj, taint_origin=taint_origin)
     if isinstance(obj, float):
-        print(f"[taint_wrap] Wrapping float: {repr(obj)} with origin {taint_origin}")
         return TaintFloat(obj, taint_origin=taint_origin)
     if is_openai_response(obj):
-        print(f"[taint_wrap] Wrapping OpenAI response: {repr(obj)} with origin {taint_origin}")
         return TaintedOpenAIResponse(obj, taint_origin=taint_origin)
     if isinstance(obj, collections.abc.Mapping):
-        print(f"[taint_wrap] Wrapping dict-like: {repr(obj)} with origin {taint_origin}")
         return TaintDict({k: taint_wrap(v, taint_origin=taint_origin, _seen=_seen) for k, v in obj.items()}, taint_origin=taint_origin)
     if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, (str, bytes, bytearray)):
-        print(f"[taint_wrap] Wrapping list-like: {repr(obj)} with origin {taint_origin}")
         return TaintList([taint_wrap(x, taint_origin=taint_origin, _seen=_seen) for x in obj], taint_origin=taint_origin)
     if hasattr(obj, "__dict__") and not isinstance(obj, type):
-        print(f"[taint_wrap] Wrapping object with __dict__: {repr(obj)} with origin {taint_origin}")
         for attr in list(vars(obj)):
             try:
                 setattr(obj, attr, taint_wrap(getattr(obj, attr), taint_origin=taint_origin, _seen=_seen))
@@ -251,7 +241,6 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
                 pass
         return obj
     if hasattr(obj, "__slots__"):
-        print(f"[taint_wrap] Wrapping object with __slots__: {repr(obj)} with origin {taint_origin}")
         for slot in obj.__slots__:
             try:
                 val = getattr(obj, slot)

@@ -49,18 +49,14 @@ class DevelopShim:
         """Send a message to the develop server."""
         if not self.server_conn:
             return
-            
         message = {
             "type": msg_type,
-            "process_id": os.getpid(),
             "role": self.role,
             "script": self.script_name,
             **kwargs
         }
-        
         if self.session_id:
             message["session_id"] = self.session_id
-            
         try:
             self.server_conn.sendall((json.dumps(message) + "\n").encode('utf-8'))
         except Exception:
@@ -119,12 +115,13 @@ class DevelopShim:
     
     def _handle_server_message(self, msg: dict) -> None:
         """Handle incoming server messages."""
+        print(f"[shim-control] Received message from server: {msg}")
         msg_type = msg.get("type")
         if msg_type == "restart":
-            print(f"[DEBUG] Received restart message: {msg}")
+            print(f"[shim-control] Received restart message: {msg}")
             self.restart_event.set()
         elif msg_type == "shutdown":
-            print(f"[DEBUG] Received shutdown message: {msg}")
+            print(f"[shim-control] Received shutdown message: {msg}")
             self.shutdown_flag = True
     
     def _setup_monkey_patching_env(self) -> dict:
@@ -177,13 +174,11 @@ class DevelopShim:
         except Exception as e:
             print(f"Error: Cannot connect to develop server ({e})")
             sys.exit(1)
-        
         # Send handshake to server
         handshake = {
             "type": "hello", 
             "role": self.role, 
-            "script": self.script_name, 
-            "process_id": os.getpid()
+            "script": self.script_name
         }
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
@@ -194,6 +189,7 @@ class DevelopShim:
                 try:
                     session_msg = json.loads(session_line.strip())
                     self.session_id = session_msg.get("session_id")
+                    print(f"[shim-control] Registered with session_id: {self.session_id}")
                 except Exception:
                     pass
         except Exception:
@@ -207,6 +203,7 @@ class DevelopShim:
             # Monitor the process and check for restart requests
             while self.proc.poll() is None:
                 if self.restart_event.is_set():
+                    print("[shim-control] Restart event detected. Terminating user process.")
                     # Restart requested, kill the current process
                     self.proc.terminate()
                     try:
@@ -214,6 +211,7 @@ class DevelopShim:
                     except subprocess.TimeoutExpired:
                         self.proc.kill()
                         self.proc.wait()
+                    print("[shim-control] User process terminated. Will restart.")
                     return None  # Signal that restart was requested
                 time.sleep(MESSAGE_POLL_INTERVAL)
             self.proc.wait()
@@ -284,23 +282,20 @@ class DevelopShim:
     def _run_normal_mode(self) -> None:
         """Run the script in normal mode with restart handling."""
         while not self.shutdown_flag:
+            print("[shim-control] Starting user script subprocess.")
             returncode = self._run_user_script_subprocess()
-            
             if self.shutdown_flag:
                 break
-            
             # Check if restart was requested during execution
             if returncode is None:
-                print("Restart requested, restarting script...")
+                print("[shim-control] Restart requested, restarting script...")
                 self.restart_event.clear()
                 continue
-            
             # Check if restart was requested after completion
             if returncode is not None and self.restart_event.is_set():
-                print("Restart requested, restarting script...")
+                print("[shim-control] Restart requested, restarting script...")
                 self.restart_event.clear()
                 continue
-            
             # No restart requested, exit
             break
     

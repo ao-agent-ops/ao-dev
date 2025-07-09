@@ -22,6 +22,8 @@ class Session:
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.shim_conn: Optional[socket.socket] = None
+        self.status = "running"
+        self.timestamp = datetime.now().strftime("%d/%m %H:%M")
         self.lock = threading.Lock()
 
 class DevelopServer:
@@ -30,9 +32,7 @@ class DevelopServer:
     def __init__(self):
         self.server_sock = None
         self.lock = threading.Lock()
-        self.conn_info = {}  # conn -> {role, session_id, process_id}
-        self.process_info = {}  # process_id -> info
-        self.dashim_pid_map = {}  # process_id -> (session_id, conn)
+        self.conn_info = {}  # conn -> {role, session_id}
         self.session_graphs = {}  # session_id -> graph_data
         self.ui_connections = set()  # All UI connections (simplified)
         self.sessions = {}  # session_id -> Session (only for shim connections)
@@ -55,11 +55,11 @@ class DevelopServer:
     def broadcast_experiment_list_to_all_uis(self) -> None:
         experiment_list = [
             {
-                "session_id": info.get("session_id", ""),
-                "status": info.get("status", "running"),
-                "timestamp": info.get("timestamp", "")
+                "session_id": session.session_id,
+                "status": session.status,
+                "timestamp": session.timestamp
             }
-            for pid, info in self.process_info.items() if info.get("role") == "shim-control"
+            for session in self.sessions.values()
         ]
         msg = {"type": "experiment_list", "experiments": experiment_list}
         self.broadcast_to_all_uis(msg)
@@ -97,64 +97,60 @@ class DevelopServer:
         os._exit(0)
     
     def handle_restart_message(self, msg: dict) -> bool:
-        """Handle restart message with process_id, route to correct shim."""
-        if msg.get("type") == "restart" and "process_id" in msg:
-            pid = msg["process_id"]
-            target = self.dashim_pid_map.get(pid)
-            if target:
-                _, shim_conn = target
-                self.send_json(shim_conn, msg)
-                return True  # Message handled
+        if msg.get("type") == "restart":
+            session_id = msg.get("session_id")
+            if not session_id:
+                print("[develop_server] ERROR: Restart message missing session_id. Ignoring.")
+                return False
+            print(f"[develop_server] Received restart request for session_id: {session_id}")
+            session = self.sessions.get(session_id)
+            if session:
+                print(f"[develop_server] session.shim_conn: {session.shim_conn}")
+                # Immediately broadcast an empty graph to all UIs for fast clearing
+                self.session_graphs[session_id] = {"nodes": [], "edges": []}
+                print(f"[develop_server] (pre-restart) Graph reset for session_id: {session_id}")
+                self.broadcast_to_all_uis({
+                    "type": "graph_update",
+                    "session_id": session_id,
+                    "payload": {"nodes": [], "edges": []}
+                })
+                if session.shim_conn:
+                    restart_msg = {"type": "restart", "session_id": session_id}
+                    print(f"[develop_server] Sending restart to shim-control for session_id: {session_id} with message: {restart_msg}")
+                    try:
+                        self.send_json(session.shim_conn, restart_msg)
+                    except Exception as e:
+                        print(f"[develop_server] Error sending restart: {e}")
+                    return True
+                else:
+                    print(f"[develop_server] No shim_conn for session_id: {session_id}")
+            else:
+                print(f"[develop_server] No session found for session_id: {session_id}")
         return False
     
     def handle_deregister_message(self, msg: dict) -> bool:
-        if msg.get("type") == "deregister" and "process_id" in msg:
-            pid = msg["process_id"]
-            role = None
-            for conn, info in list(self.conn_info.items()):
-                if info.get("process_id") == pid:
-                    role = info.get("role")
-                    break
-            if pid in self.dashim_pid_map:
-                del self.dashim_pid_map[pid]
-                self._mark_process_finished(role, pid)
+        if msg.get("type") == "deregister" and "session_id" in msg:
+            session_id = msg["session_id"]
+            session = self.sessions.get(session_id)
+            if session:
+                session.status = "finished"
+                self.broadcast_experiment_list_to_all_uis()
                 return True
         return False
     
     def handle_debugger_restart_message(self, msg: dict) -> bool:
         """Handle debugger restart notification, update session info."""
-        if msg.get("type") == "debugger_restart" and "process_id" in msg:
-            pid = msg["process_id"]
-            if pid in self.dashim_pid_map:
-                session_id, shim_conn = self.dashim_pid_map[pid]
-                if session_id in self.sessions:
-                    if pid in self.process_info:
-                        self.broadcast_experiment_list_to_all_uis()
+        if msg.get("type") == "debugger_restart" and "session_id" in msg:
+            session_id = msg["session_id"]
+            if session_id in self.sessions:
+                self.broadcast_experiment_list_to_all_uis()
             return True
         return False
-    
-    def _track_process(self, role: str, process_id: int, session_id: str) -> None:
-        if role == "shim-control":
-            # Create timestamp in DD/MM HH:MM format
-            timestamp = datetime.now().strftime("%d/%m %H:%M")
-            self.process_info[process_id] = {
-                "session_id": session_id,
-                "status": "running",
-                "role": role,
-                "timestamp": timestamp
-            }
-            self.broadcast_experiment_list_to_all_uis()
-
-    def _mark_process_finished(self, role: str, process_id: int) -> None:
-        if role == "shim-control" and process_id in self.process_info:
-            self.process_info[process_id]["status"] = "finished"
-            self.broadcast_experiment_list_to_all_uis()
     
     def handle_client(self, conn: socket.socket) -> None:
         """Handle a new client connection in a separate thread."""
         file_obj = conn.makefile(mode='r')
         session: Optional[Session] = None
-        process_id = None
         role = None
         
         try:
@@ -166,22 +162,24 @@ class DevelopServer:
             role = handshake.get("role")
             script = handshake.get("script")
             session_id = handshake.get("session_id")
-            process_id = handshake.get("process_id")
             
-            if not session_id:
+            # Only generate a new session_id for shim-control, not for UI
+            if not session_id and role == "shim-control":
                 session_id = str(uuid.uuid4())
             
-            with self.lock:
-                if session_id not in self.sessions:
-                    self.sessions[session_id] = Session(session_id)
-                session = self.sessions[session_id]
-            
+            # Only create/update sessions for shim-control
             if role == "shim-control":
+                with self.lock:
+                    if session_id not in self.sessions:
+                        self.sessions[session_id] = Session(session_id)
+                        print(f"[develop_server] Added session: {session_id}")
+                        print(f"[develop_server] All sessions now: {list(self.sessions.keys())}")
+                    session = self.sessions[session_id]
                 with session.lock:
                     session.shim_conn = conn
-                if process_id is not None:
-                    self.dashim_pid_map[process_id] = (session_id, conn)
-                    self._track_process(role, process_id, session_id)
+                session.status = "running"
+                session.timestamp = datetime.now().strftime("%d/%m %H:%M")
+                self.broadcast_experiment_list_to_all_uis()
             elif role == "ui":
                 # Add UI to global connections list
                 self.ui_connections.add(conn)
@@ -196,8 +194,9 @@ class DevelopServer:
                             "payload": graph_data
                         })
             
-            self.conn_info[conn] = {"role": role, "session_id": session_id, "process_id": process_id}
+            self.conn_info[conn] = {"role": role, "session_id": session_id}
             self.send_json(conn, {"type": "session_id", "session_id": session_id})
+            print(f"[develop_server] Sent session_id {session_id} to conn {conn}")
             
             # Main message loop
             try:
@@ -269,19 +268,17 @@ class DevelopServer:
         finally:
             # Clean up connection
             info = self.conn_info.pop(conn, None)
-            if info and session:
-                if info["role"] == "shim":
+            # Only mark session finished for shim-control disconnects
+            if info and role == "shim-control":
+                session = self.sessions.get(info["session_id"])
+                if session:
                     with session.lock:
                         session.shim_conn = None
-                    # Remove from pid map if present
-                    for pid, (sess_id, c) in list(self.dashim_pid_map.items()):
-                        if c == conn:
-                            del self.dashim_pid_map[pid]
-                            # Only remove from process info if shim-runner
-                            self._mark_process_finished(info.get("role"), pid)
-                elif info["role"] == "ui":
-                    # Remove from global UI connections list
-                    self.ui_connections.discard(conn)
+                    session.status = "finished"
+                    self.broadcast_experiment_list_to_all_uis()
+            elif info and role == "ui":
+                # Remove from global UI connections list
+                self.ui_connections.discard(conn)
             try:
                 conn.close()
             except Exception as e:
