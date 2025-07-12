@@ -318,6 +318,7 @@ def v2_openai_patch(server_conn):
         original_create = self.responses.create
 
         def patched_create(*args, **kwargs):
+            print("="*20)
             # Get model and input_text.
             model = kwargs.get("model", args[0] if args else None)
             input = kwargs.get("input", args[1] if len(args) > 1 else None)

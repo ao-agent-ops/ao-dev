@@ -67,6 +67,11 @@ class TaintStr(str):
         nodes = set(get_origin_nodes(self)) | set(get_origin_nodes(other))
         return TaintStr(result, {'origin_nodes': list(nodes)})
 
+    def __format__(self, format_spec):
+        # Handle f-string interpolation by preserving taint information
+        result = str.__format__(self, format_spec)
+        return TaintStr(result, self._taint_origin)
+
     def __getitem__(self, key):
         result = str.__getitem__(self, key)
         return TaintStr(result, self._taint_origin)
@@ -278,4 +283,84 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
             except Exception:
                 pass
         return obj
-    return obj 
+    return obj
+
+class TaintStringContext:
+    """
+    Context manager for taint-aware string operations.
+    This provides a way to temporarily intercept string operations to preserve taint.
+    """
+    def __init__(self):
+        self.original_str = str
+        self.original_format = str.format
+        self._taint_stack = []
+    
+    def __enter__(self):
+        # Store current taint context
+        self._taint_stack.append(set())
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Restore previous taint context
+        if self._taint_stack:
+            self._taint_stack.pop()
+    
+    def add_taint(self, taint_origin):
+        """Add taint origin to current context."""
+        if self._taint_stack:
+            if isinstance(taint_origin, dict) and 'origin_nodes' in taint_origin:
+                self._taint_stack[-1].update(taint_origin['origin_nodes'])
+            elif isinstance(taint_origin, (list, tuple)):
+                self._taint_stack[-1].update(taint_origin)
+            elif isinstance(taint_origin, (str, int)):
+                self._taint_stack[-1].add(taint_origin)
+    
+    def get_current_taint(self):
+        """Get current taint origins."""
+        if self._taint_stack:
+            return list(self._taint_stack[-1])
+        return []
+
+def taint_format(template, *args, **kwargs):
+    """
+    Taint-aware string formatting that preserves taint information.
+    
+    Usage:
+        tainted = TaintStr("42", {'origin_nodes': ['node1']})
+        result = taint_format("The answer is {}", tainted)
+        # result is a TaintStr with taint from 'node1'
+    """
+    # Collect all taint origins from args and kwargs
+    all_origins = set()
+    
+    for arg in args:
+        origins = get_origin_nodes(arg)
+        all_origins.update(origins)
+    
+    for value in kwargs.values():
+        origins = get_origin_nodes(value)
+        all_origins.update(origins)
+    
+    # Format the string normally
+    formatted = template.format(*args, **kwargs)
+    
+    # Return as TaintStr with combined origins
+    return TaintStr(formatted, {'origin_nodes': list(all_origins)}) 
+
+def taint_format_advanced(template, *args, **kwargs):
+    """
+    Advanced taint-aware formatting that can handle complex cases.
+    """
+    with TaintStringContext() as ctx:
+        # Add taint from all arguments
+        for arg in args:
+            ctx.add_taint(get_origin_nodes(arg))
+        
+        for value in kwargs.values():
+            ctx.add_taint(get_origin_nodes(value))
+        
+        # Format the string
+        result = template.format(*args, **kwargs)
+        
+        # Return with combined taint
+        return TaintStr(result, {'origin_nodes': ctx.get_current_taint()}) 
