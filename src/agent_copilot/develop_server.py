@@ -67,6 +67,10 @@ class DevelopServer:
         msg = {"type": "experiment_list", "experiments": experiment_list}
         self.broadcast_to_all_uis(msg)
     
+    # ============================================================
+    # Functions for handling different message types
+    # ============================================================
+
     def route_message(self, sender: socket.socket, msg: dict) -> None:
         """Route a message based on sender role."""
         info = self.conn_info.get(sender)
@@ -218,7 +222,8 @@ class DevelopServer:
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
                     
-                    # Handle special message types
+                    # Handle message types
+                    # TODO: Refactor this, I don't like the "elif self.handle_restart" etc.
                     if msg.get("type") == "shutdown":
                         self.handle_shutdown()
                     elif self.handle_restart_message(msg):
@@ -231,6 +236,7 @@ class DevelopServer:
                         sid = msg["session_id"]
                         node = msg["node"]
                         # Ensure model, node_id, and api_type are present in node dict
+                        # TODO: I think we should just crash here.
                         if "model" not in node:
                             node["model"] = None
                         if "id" not in node:
@@ -272,46 +278,80 @@ class DevelopServer:
                     elif msg.get("type") == "edit_input":
                         print(f"[SERVER] Received edit_input: {msg}")
                         session_id = msg["session_id"]
-                        node_id = msg["node_id"]
+                        node_id = msg["node_id"]  # Use this directly
                         new_input = msg["value"]
-                        print(f"[SERVER] Looking up node in DB: session_id={session_id}, node_id={node_id}")
-                        row = db.query_one(
-                            "SELECT model, input FROM nodes WHERE session_id=? AND node_id=?",
-                            (session_id, node_id)
-                        )
-                        print(f"[SERVER] DB lookup for (session_id={session_id}, node_id={node_id}): {row}")
-                        if row:
-                            model = row["model"]
-                            input_val = row["input"]
-                            print(f"[SERVER] Calling EDIT.set_input_overwrite({session_id}, {model}, {input_val}, {new_input})")
-                            EDIT.set_input_overwrite(session_id, model, input_val, new_input)
-                            print(f"[SERVER] Input overwrite completed")
-                        else:
-                            print(f"[SERVER] No DB row found for node_id={node_id}")
+                        
+                        # Get model and input from the message or derive from existing node data
+                        if session_id in self.session_graphs:
+                            # Find the node in memory to get model and input
+                            for node in self.session_graphs[session_id]["nodes"]:
+                                if node["id"] == node_id:
+                                    model = node.get("model")
+                                    input_val = node.get("input")
+                                    break
+                            else:
+                                # Node not found in memory, skip
+                                continue
+                        
+                        print(f"[SERVER] Calling EDIT.set_input_overwrite({session_id}, {model}, {input_val}, {new_input})")
+                        EDIT.set_input_overwrite(session_id, model, input_val, new_input)
+                        
+                        # Update in-memory graph data
+                        if session_id in self.session_graphs:
+                            for node in self.session_graphs[session_id]["nodes"]:
+                                if node["id"] == node_id:
+                                    node["input"] = new_input
+                                    break
+                            
+                            # Broadcast updated graph to all UIs
+                            self.broadcast_to_all_uis({
+                                "type": "graph_update",
+                                "session_id": session_id,
+                                "payload": self.session_graphs[session_id]
+                            })
+                        
+                        print(f"[SERVER] Input overwrite completed")
                         continue
                     elif msg.get("type") == "edit_output":
                         print(f"[SERVER] Received edit_output: {msg}")
                         session_id = msg["session_id"]
-                        node_id = msg["node_id"]
+                        node_id = msg["node_id"]  # Use this directly
                         new_output = msg["value"]
-                        print(f"[SERVER] Looking up node in DB: session_id={session_id}, node_id={node_id}")
-                        row = db.query_one(
-                            "SELECT model, input, api_type FROM nodes WHERE session_id=? AND node_id=?",
-                            (session_id, node_id)
-                        )
-                        print(f"[SERVER] DB lookup for (session_id={session_id}, node_id={node_id}): {row}")
-                        if row:
-                            model = row["model"]
-                            input_val = row["input"]
-                            api_type = row["api_type"]
-                            print(f"[SERVER] Calling EDIT.set_output_overwrite({session_id}, {model}, {input_val}, {new_output}, api_type={api_type})")
-                            # Pass api_type to EditManager (for now, just pass it through)
-                            EDIT.set_output_overwrite(session_id, model, input_val, new_output, api_type=api_type)
-                            print(f"[SERVER] Output overwrite completed")
-                        else:
-                            print(f"[SERVER] No DB row found for node_id={node_id}")
+                        
+                        # Get model and input from the message or derive from existing node data
+                        if session_id in self.session_graphs:
+                            # Find the node in memory to get model and input
+                            for node in self.session_graphs[session_id]["nodes"]:
+                                if node["id"] == node_id:
+                                    model = node.get("model")
+                                    input_val = node.get("input")
+                                    api_type = node.get("api_type")
+                                    break
+                            else:
+                                # Node not found in memory, skip
+                                continue
+                        
+                        print(f"[SERVER] Calling EDIT.set_output_overwrite({session_id}, {model}, {input_val}, {new_output}, api_type={api_type})")
+                        EDIT.set_output_overwrite(session_id, model, input_val, new_output, api_type=api_type)
+                        
+                        # Update in-memory graph data
+                        if session_id in self.session_graphs:
+                            for node in self.session_graphs[session_id]["nodes"]:
+                                if node["id"] == node_id:
+                                    node["output"] = new_output
+                                    break
+                            
+                            # Broadcast updated graph to all UIs
+                            self.broadcast_to_all_uis({
+                                "type": "graph_update",
+                                "session_id": session_id,
+                                "payload": self.session_graphs[session_id]
+                            })
+                        
+                        print(f"[SERVER] Output overwrite completed")
                         continue
                     elif msg.get("type") == "remove_input_edit":
+                        # TODO: Haven't checked.
                         session_id = msg["session_id"]
                         node_id = msg["node_id"]
                         row = db.query_one(
@@ -324,6 +364,7 @@ class DevelopServer:
                             EDIT.remove_input_overwrite(session_id, model, input_val)
                         continue
                     elif msg.get("type") == "remove_output_edit":
+                        # TODO: Haven't checked.
                         session_id = msg["session_id"]
                         node_id = msg["node_id"]
                         row = db.query_one(
@@ -336,6 +377,7 @@ class DevelopServer:
                             EDIT.remove_output_overwrite(session_id, model, input_val)
                         continue
                     else:
+                        # TODO: I think we should throw an error here?
                         self.route_message(conn, msg)
                         
             except (ConnectionResetError, OSError) as e:

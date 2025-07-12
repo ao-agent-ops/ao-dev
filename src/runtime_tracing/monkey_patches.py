@@ -7,11 +7,11 @@ import uuid
 import logging
 from workflow_edits.cache_manager import CACHE
 from common.logging_config import setup_logging
+from workflow_edits.utils import extract_output_text
 logger = setup_logging()
 from common.utils import extract_key_args
 from runtime_tracing.taint_wrappers import check_taint, taint_wrap, get_origin_nodes
 from openai.types.responses.response import Response
-from workflow_edits import db
 
 
 # ===========================================================
@@ -112,7 +112,7 @@ def set_session_id(sid):
 # Graph tracking utilities
 # ===========================================================
 
-def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_node_ids, model=None, api_type=None):
+def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_node_ids, model, api_type):
     """Send graph node and edge updates to the server."""
     # Send node
     node_msg = {
@@ -121,7 +121,7 @@ def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_n
         "node": {
             "id": node_id,
             "input": input_obj,
-            "output": db.extract_output_text(output),
+            "output": extract_output_text(output, api_type),
             "border_color": "#00c542",
             "label": "Label",
             "model": model,
@@ -131,7 +131,7 @@ def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_n
     try:
         server_conn.sendall((json.dumps(node_msg) + "\n").encode("utf-8"))
     except Exception as e:
-        logger.warning(f"Failed to send addNode: {e}")
+        logger.error(f"Failed to send addNode: {e}")
 
     # Send edges for each source
     for src in source_node_ids:
@@ -170,10 +170,12 @@ def _extract_source_node_ids(taint):
     return []
 
 
-def _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint, model, api_type, cached_node_id=None):
+def _taint_and_log_openai_result(result, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint, model, api_type, cached_node_id=None, input_to_use=None):
     """
     Shared logic for tainting, logging, and sending server messages for OpenAI LLM calls.
     Also constructs and sends LLM call graph updates.
+
+    TODO: Refactor. This does too much. Also should be more general than OAI.
     """
     print("in taint")
     # Use cached node ID if available, otherwise generate new one
@@ -198,8 +200,8 @@ def _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cac
     # Send call message to server (now includes model and node_id)
     message = {
         "type": "call",
-        "input": input_obj,
-        "output": db.extract_output_text(result),
+        "input": input_to_use,
+        "output": extract_output_text(result, api_type),
         "model": model,
         "file": file_name,
         "line": line_no,
@@ -219,7 +221,7 @@ def _taint_and_log_openai_result(result, input_obj, file_name, line_no, from_cac
         pass  # best-effort only
 
     # Send graph updates (addNode/addEdge) with model
-    _send_graph_node_and_edges(server_conn, node_id, input_obj, result, source_node_ids, model, api_type)
+    _send_graph_node_and_edges(server_conn, node_id, input_to_use, result, source_node_ids, model, api_type)
 
     return result
 
@@ -276,7 +278,7 @@ def v1_openai_patch(server_conn):
         any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
         # Use new_node_id for new results, cached_node_id for cached results
         node_id_to_use = new_node_id if not from_cache else cached_node_id
-        return _taint_and_log_openai_result(result, input_obj, '<cache>', 0, from_cache, server_conn, any_input_tainted, input_taint, model, 'openai_v1', node_id_to_use)
+        return _taint_and_log_openai_result(result, input_obj, '<cache>', 0, from_cache, server_conn, any_input_tainted, input_taint, model, 'openai_v1', node_id_to_use, input_to_use=input_to_use)
 
     openai.ChatCompletion.create = patched_create
 
@@ -372,10 +374,21 @@ def v2_openai_patch(server_conn):
             input_taint = check_taint(input)
             any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
             print("any input tainted:", any_input_tainted)
-            # TODO: This function takes a lot of stuff.
+            # TODO: Refactor taint_and_log_openai_result -- too much at once.
+            # TODO: Remove the None defaults in that function.
             # Use new_node_id for new results, cached_node_id for cached results
             node_id_to_use = new_node_id if not from_cache else cached_node_id
-            return _taint_and_log_openai_result(result, input_text, '<cache>', 0, from_cache, server_conn, any_input_tainted, input_taint, model, 'openai_v2', node_id_to_use)
+            return _taint_and_log_openai_result(result=result, 
+                                                file_name="filename.py", 
+                                                line_no=-1,
+                                                from_cache=from_cache, 
+                                                server_conn=server_conn,
+                                                any_input_tainted=any_input_tainted,
+                                                input_taint=input_taint,
+                                                model=model,
+                                                api_type='openai_v2',
+                                                cached_node_id=node_id_to_use,
+                                                input_to_use=input_to_use)
         
         self.responses.create = patched_create.__get__(self.responses, Responses)
     OpenAI.__init__ = new_init

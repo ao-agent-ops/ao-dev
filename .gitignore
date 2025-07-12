@@ -189,3 +189,7 @@ cache.db
 # VS Code extension
 src/user_interface/node_modules
 src/user_interface/dist
+
+# Our DB
+*.sqlite3
+*.sqlite

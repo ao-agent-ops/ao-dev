@@ -5,6 +5,7 @@ import yaml
 import uuid
 
 from common.utils import rel_path_to_abs
+from workflow_edits.utils import oai_v2_response_to_json
 from . import db
 from openai.types.responses.response import Response
 
@@ -74,7 +75,7 @@ class CacheManager:
         input_hash = db.hash_input(input)
         # If v2, serialize Response object to JSON
         if api_type == 'openai_v2' and isinstance(output, Response):
-            output_to_store = db.v2_response_to_json(output)
+            output_to_store = oai_v2_response_to_json(output)
         else:
             output_to_store = output
         

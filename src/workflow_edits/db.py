@@ -2,10 +2,10 @@ import sqlite3
 import os
 import threading
 import hashlib
-import json
-from openai.types.responses.response import Response
 
-DB_PATH = os.path.expanduser("~/.agent_copilot_workflow.sqlite")
+from common.utils import rel_path_to_abs
+
+DB_PATH = rel_path_to_abs(__file__, "agent-copilot/experiments.sqlite")
 
 # Thread-safe singleton connection
 def get_conn():
@@ -38,6 +38,7 @@ def _init_db(conn):
             input TEXT,
             input_hash TEXT,
             input_overwrite TEXT,
+            input_overwrite_hash TEXT,
             output TEXT,
             color TEXT,
             label TEXT,
@@ -47,7 +48,10 @@ def _init_db(conn):
         )
     ''')
     c.execute('''
-        CREATE INDEX IF NOT EXISTS idx_nodes_lookup ON nodes(session_id, model, input_hash)
+        CREATE INDEX IF NOT EXISTS original_input_lookup ON nodes(session_id, model, input_hash)
+    ''')
+    c.execute('''
+        CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON nodes(session_id, model, input_overwrite_hash)
     ''')
     conn.commit()
 
@@ -72,27 +76,3 @@ def execute(sql, params=()):
 
 def hash_input(input_str):
     return hashlib.sha256(input_str.encode('utf-8')).hexdigest()
-
-# === OpenAI v2 Response helpers ===
-def v2_response_to_json(response: Response) -> str:
-    """Serialize an OpenAI v2 Response object to a JSON string for storage."""
-    return json.dumps(response.model_dump())
-
-def v2_json_to_response(json_str: str) -> Response:
-    """Deserialize a JSON string from the DB to an OpenAI v2 Response object."""
-    data = json.loads(json_str)
-    return Response(**data)
-
-def extract_output_text(response):
-    """Extract the output string from a Response object or dict."""
-    if hasattr(response, 'get_raw'):
-        response = response.get_raw()
-    try:
-        # v2 OpenAI Response object or dict
-        return response.output[0].content[0].text
-    except Exception:
-        try:
-            # If dict
-            return response['output'][0]['content'][0]['text']
-        except Exception:
-            return str(response) 
