@@ -324,10 +324,13 @@ def v2_openai_patch(server_conn):
             input = kwargs.get("input", args[1] if len(args) > 1 else None)
             
             # Get raw values if input is wrapped.
+            print("INPUT TYPE", type(input))
             if hasattr(model, 'get_raw'):
                 model = model.get_raw()
+                print("MODEL IS OBJECT")
             if hasattr(input, 'get_raw'):
                 input_text = input.get_raw()
+                print("INPUT IS OBJECT")
             else:
                 input_text = input
 
