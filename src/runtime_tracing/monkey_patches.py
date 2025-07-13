@@ -106,14 +106,20 @@ session_id = None
 def set_session_id(sid):
     global session_id
     session_id = sid
+    print(f"[DEBUG] set_session_id called with: {sid}")
 
 
 # ===========================================================
 # Graph tracking utilities
 # ===========================================================
 
-def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_node_ids, model, api_type):
+def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_node_ids, model, api_type, file_name=None, line_no=None):
     """Send graph node and edge updates to the server."""
+    # Construct codeLocation from file_name and line_no
+    codeLocation = f"{file_name}:{line_no}" if file_name and line_no else "unknown:0"
+    
+    # Debug print for session_id and node info
+    print(f"[DEBUG] _send_graph_node_and_edges: session_id={session_id}, node_id={node_id}, model={model}, file={file_name}, line={line_no}")
     # Send node
     node_msg = {
         "type": "addNode",
@@ -123,11 +129,13 @@ def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_n
             "input": input_obj,
             "output": extract_output_text(output, api_type),
             "border_color": "#00c542",
-            "label": "Label",
+            "label": f"{model} Call",
+            "codeLocation": codeLocation,
             "model": model,
             "api_type": api_type,
         }
     }
+    print(f"[DEBUG] Sending node_msg: {json.dumps(node_msg)[:200]}...")
     try:
         server_conn.sendall((json.dumps(node_msg) + "\n").encode("utf-8"))
     except Exception as e:
@@ -141,6 +149,7 @@ def _send_graph_node_and_edges(server_conn, node_id, input_obj, output, source_n
                 "session_id": session_id,
                 "edge": {"source": src, "target": node_id}
             }
+            print(f"[DEBUG] Sending edge_msg: {json.dumps(edge_msg)}")
             try:
                 server_conn.sendall((json.dumps(edge_msg) + "\n").encode("utf-8"))
             except Exception as e:
@@ -221,7 +230,7 @@ def _taint_and_log_openai_result(result, file_name, line_no, from_cache, server_
         pass  # best-effort only
 
     # Send graph updates (addNode/addEdge) with model
-    _send_graph_node_and_edges(server_conn, node_id, input_to_use, result, source_node_ids, model, api_type)
+    _send_graph_node_and_edges(server_conn, node_id, input_to_use, result, source_node_ids, model, api_type, file_name, line_no)
 
     return result
 
@@ -276,9 +285,15 @@ def v1_openai_patch(server_conn):
         input_obj = messages
         input_taint = check_taint(input_obj)
         any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
+        # Get caller location
+        frame = inspect.currentframe()
+        caller = frame and frame.f_back
+        file_name = caller.f_code.co_filename if caller else "unknown"
+        line_no = caller.f_lineno if caller else 0
+        
         # Use new_node_id for new results, cached_node_id for cached results
         node_id_to_use = new_node_id if not from_cache else cached_node_id
-        return _taint_and_log_openai_result(result, input_obj, '<cache>', 0, from_cache, server_conn, any_input_tainted, input_taint, model, 'openai_v1', node_id_to_use, input_to_use=input_to_use)
+        return _taint_and_log_openai_result(result, file_name, line_no, from_cache, server_conn, any_input_tainted, input_taint, model, 'openai_v1', node_id_to_use, input_to_use=input_to_use)
 
     openai.ChatCompletion.create = patched_create
 
@@ -378,13 +393,19 @@ def v2_openai_patch(server_conn):
             input_taint = check_taint(input)
             any_input_tainted = input_taint is not None and input_taint != {} and input_taint != []
             print("any input tainted:", any_input_tainted)
+            # Get caller location
+            frame = inspect.currentframe()
+            caller = frame and frame.f_back
+            file_name = caller.f_code.co_filename if caller else "unknown"
+            line_no = caller.f_lineno if caller else 0
+            
             # TODO: Refactor taint_and_log_openai_result -- too much at once.
             # TODO: Remove the None defaults in that function.
             # Use new_node_id for new results, cached_node_id for cached results
             node_id_to_use = new_node_id if not from_cache else cached_node_id
             return _taint_and_log_openai_result(result=result, 
-                                                file_name="filename.py", 
-                                                line_no=-1,
+                                                file_name=file_name, 
+                                                line_no=line_no,
                                                 from_cache=from_cache, 
                                                 server_conn=server_conn,
                                                 any_input_tainted=any_input_tainted,

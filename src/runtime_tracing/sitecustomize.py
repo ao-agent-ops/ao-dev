@@ -25,7 +25,11 @@ def scan_user_py_files_and_modules(root_dir):
     return user_py_files, file_to_module
 
 # Scan for all .py files in the current working directory (workspace root)
-user_py_files, file_to_module = scan_user_py_files_and_modules(os.getcwd())
+user_py_files, file_to_module = scan_user_py_files_and_modules("/Users/ferdi/Documents/agent-copilot")
+print(f"[DEBUG] Found {len(user_py_files)} Python files")
+print(f"[DEBUG] File to module mapping:")
+for file_path, mod_name in file_to_module.items():
+    print(f"  {mod_name}: {file_path}")
 set_user_py_files(user_py_files, file_to_module)
 
 install_fstring_rewriter()
@@ -66,8 +70,12 @@ def setup_tracing():
         try:
             from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
             from runtime_tracing.monkey_patches import set_session_id
+            print(f"[DEBUG] sitecustomize: session_id from env = {session_id}")
             if session_id:
                 set_session_id(session_id)
+                print(f"[DEBUG] sitecustomize: set_session_id called with {session_id}")
+            else:
+                print(f"[DEBUG] sitecustomize: No session_id in environment, not setting")
             apply_all_monkey_patches(server_conn)
         except Exception as e:
             logger.error(f"Exception in sitecustomize.py patching: {e}")
