@@ -36,6 +36,7 @@ class DevelopShim:
         self.shutdown_flag = False
         self.socket_closed = False
         self.proc: Optional[subprocess.Popen] = None
+        self.wrapper_path: Optional[str] = None
         
         # Server communication
         self.session_id: Optional[str] = None
@@ -377,7 +378,7 @@ sys.argv = [{repr(module_name)}] + {repr(script_args)}
 runpy.run_module({repr(module_name)}, run_name='__main__')
 """
         fd, temp_path = tempfile.mkstemp(suffix='.py', prefix='develop_runpy_wrapper_')
-        with os.fdopen(fd, 'w') as f:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(wrapper_code)
         print(f"[DEBUG] Created wrapper script: {temp_path}")
         return temp_path
@@ -401,18 +402,89 @@ runpy.run_module({repr(module_name)}, run_name='__main__')
         print(f"[DEBUG] Project root for wrapper: {project_root}")
         
         if self.is_module_execution:
-            # For module execution, use the module name directly
-            module_name = self.script_path
-            print(f"[DEBUG] Will run module: {module_name}")
+            # For module execution, create a wrapper that sets up AST rewriting and resolves module names
+            print(f"[DEBUG] Running module with hook installation wrapper")
+            wrapper_code = f"""
+import sys
+import os
+import subprocess
+import runpy
+
+# Force load sitecustomize.py for AST patching
+runtime_tracing_dir = {repr(os.path.join(os.path.dirname(__file__), "..", "runtime_tracing"))}
+if runtime_tracing_dir not in sys.path:
+    sys.path.insert(0, runtime_tracing_dir)
+
+# Add project root to path
+project_root = {repr(project_root)}
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Set up AST rewriting
+from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
+
+def scan_user_py_files_and_modules(root_dir):
+    user_py_files = set()
+    file_to_module = dict()
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if filename.endswith('.py'):
+                abs_path = os.path.abspath(os.path.join(dirpath, filename))
+                user_py_files.add(abs_path)
+                # Compute module name relative to root_dir
+                rel_path = os.path.relpath(abs_path, root_dir)
+                mod_name = rel_path[:-3].replace(os.sep, '.')  # strip .py, convert / to .
+                if mod_name.endswith(".__init__"):
+                    mod_name = mod_name[:-9]  # remove .__init__
+                file_to_module[abs_path] = mod_name
+    return user_py_files, file_to_module
+
+# Scan and set up file mapping
+user_py_files, file_to_module = scan_user_py_files_and_modules(project_root)
+set_user_py_files(user_py_files, file_to_module)
+install_fstring_rewriter()
+
+# Now run the module with proper resolution
+module_name = {repr(self.script_path)}
+sys.argv = [module_name] + {repr(self.script_args)}
+
+# Find the correct module name from the file mapping
+correct_module_name = None
+for file_path, mapped_name in file_to_module.items():
+    if mapped_name == module_name:
+        correct_module_name = mapped_name
+        break
+    # Also check if the module name is a suffix of the mapped name
+    elif mapped_name.endswith('.' + module_name):
+        correct_module_name = mapped_name
+        break
+
+if correct_module_name:
+    print(f"[DEBUG] Resolved {{module_name}} to {{correct_module_name}}")
+    runpy.run_module(correct_module_name, run_name='__main__')
+else:
+    print(f"[DEBUG] Could not resolve {{module_name}}, trying as-is")
+    runpy.run_module(module_name, run_name='__main__')
+"""
+            fd, temp_path = tempfile.mkstemp(suffix='.py', prefix='develop_module_wrapper_')
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(wrapper_code)
+            print(f"[DEBUG] Created module wrapper: {temp_path}")
+            
+            self.proc = subprocess.Popen([sys.executable, temp_path], env=env)
+            # Store the wrapper path for cleanup later
+            self.wrapper_path = temp_path
         else:
-            # For file execution, convert to module name
+            # For file execution, convert to module name and use wrapper
             module_name = self._convert_file_to_module_name(self.script_path)
             print(f"[DEBUG] Will run file as module: {module_name}")
-        
-        wrapper_path = self._create_runpy_wrapper(module_name, self.script_args, project_root)
-        try:
+            wrapper_path = self._create_runpy_wrapper(module_name, self.script_args, project_root)
             self.proc = subprocess.Popen([sys.executable, wrapper_path], env=env)
-            # Monitor the process and check for restart requests
+            # Store the wrapper path for cleanup later
+            self.wrapper_path = wrapper_path
+        
+        # Monitor the process and check for restart requests
+        try:
             while self.proc.poll() is None:
                 if self.restart_event.is_set():
                     print("[shim-control] Restart event detected. Terminating user process.")
@@ -426,11 +498,18 @@ runpy.run_module({repr(module_name)}, run_name='__main__')
                     return None
                 time.sleep(MESSAGE_POLL_INTERVAL)
             self.proc.wait()
+        except KeyboardInterrupt:
+            self.proc.terminate()
+            self.proc.wait()
         finally:
-            try:
-                os.unlink(wrapper_path)
-            except Exception:
-                pass
+            # Clean up wrapper file
+            if self.wrapper_path:
+                try:
+                    os.unlink(self.wrapper_path)
+                    self.wrapper_path = None
+                except Exception:
+                    pass
+        
         return self.proc.returncode
     
     def _run_user_script_debug_mode(self) -> int:
