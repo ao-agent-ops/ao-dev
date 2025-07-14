@@ -1,1 +1,1 @@
-from .client import Client
+from static_analysis.pyre_static_analysis.models_and_stubs.openai.client import Client

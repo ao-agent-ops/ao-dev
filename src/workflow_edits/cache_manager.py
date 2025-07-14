@@ -6,7 +6,7 @@ import uuid
 
 from common.utils import rel_path_to_abs
 from workflow_edits.utils import oai_v2_response_to_json
-from . import db
+from workflow_edits import db
 from openai.types.responses.response import Response
 
 

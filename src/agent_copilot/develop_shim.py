@@ -10,10 +10,11 @@ import select
 import tempfile
 import runpy
 from typing import Optional, List
+from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
 from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 from common.logging_config import setup_logging
 from common.utils import ensure_project_root_in_copilot_yaml
-from .launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
+from agent_copilot.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 
 logger = setup_logging()
 
@@ -172,7 +173,6 @@ class DevelopShim:
         # Pass the session id to the child process
         if self.session_id:
             env['AGENT_COPILOT_SESSION_ID'] = self.session_id
-            # print(f"[DEBUG] Set AGENT_COPILOT_SESSION_ID={self.session_id} in subprocess env")
         
         return env
     
@@ -224,21 +224,12 @@ class DevelopShim:
     
     def _convert_and_run_as_module(self, script_path: str, script_args: List[str]) -> Optional[int]:
         """Convert script execution to module import for AST rewriting."""
-        # print(f"[DEBUG] _convert_and_run_as_module called with script_path: {script_path}")
         abs_path = os.path.abspath(script_path)
         script_dir = os.path.dirname(abs_path)
         
-        # print(f"[DEBUG] abs_path: {abs_path}")
-        # print(f"[DEBUG] script_dir: {script_dir}")
-        
-        # Install the f-string rewriter in the current process
-        # print("[DEBUG] Installing f-string rewriter in current process")
-        
         # Set up file scanning and mapping in current process
-        from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
         
         # Load project_root from copilot.yaml
-        config_path = get_config_path()
         project_root = get_project_root()
         
         def scan_user_py_files_and_modules(root_dir):
@@ -256,26 +247,14 @@ class DevelopShim:
                             mod_name = mod_name[:-9]  # remove .__init__
                         file_to_module[abs_path] = mod_name
             return user_py_files, file_to_module
-        
-        # Find project root dynamically
-        # project_root = find_project_root(script_path) # This line is removed as per edit hint
-        # print(f"[DEBUG] Detected project root: {project_root}")
-        
+                
         # Scan for all .py files in the user's project root
         # This ensures AST rewriting works for the user's code
         user_py_files, file_to_module = scan_user_py_files_and_modules(project_root)
-        
-        # print(f"[DEBUG] Found {len(user_py_files)} Python files total")
-        # print(f"[DEBUG] File to module mapping:")
-        # for file_path, mod_name in file_to_module.items():
-        #     print(f"  {mod_name}: {file_path}")
         set_user_py_files(user_py_files, file_to_module)
-        
         install_fstring_rewriter()
         
         # Apply monkey patches in the current process
-        # print("[DEBUG] Applying monkey patches in current process")
-        from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
         apply_all_monkey_patches(self.server_conn)
         
         # Save original state
@@ -295,14 +274,11 @@ class DevelopShim:
             if rel_path.startswith('..'):
                 # If the file is outside the project root, use the filename as module name
                 module_name = os.path.splitext(os.path.basename(abs_path))[0]
-                # print(f"[DEBUG] File outside project root, using filename: {module_name}")
             else:
                 # Convert relative path to module name
                 module_name = rel_path[:-3].replace(os.sep, '.')  # strip .py, convert / to .
-                # print(f"[DEBUG] computed module_name: {module_name}")
             
             # Import and run as module (this triggers AST rewriting)
-            # print(f"[DEBUG] Calling runpy.run_module with module_name: {module_name}")
             runpy.run_module(module_name, run_name='__main__')
             return 0
         except SystemExit as e:
@@ -322,17 +298,10 @@ class DevelopShim:
             abs_path = script_path
         else:
             abs_path = os.path.abspath(script_path)
-        
-        # print(f"[DEBUG] Converting file path: {script_path} -> {abs_path}")
-        
+                
         # Load project_root from copilot.yaml
-        config_path = get_config_path()
         project_root = get_project_root()
-        
-        # Find the project root that contains this file
-        # project_root = find_project_root(abs_path) # This line is removed as per edit hint
-        # print(f"[DEBUG] Detected project root: {project_root}")
-        
+                
         # Compute module name, handling files outside the project root
         try:
             rel_path = os.path.relpath(abs_path, project_root)
@@ -340,7 +309,6 @@ class DevelopShim:
             if rel_path.startswith('..'):
                 # If the file is outside the project root, use the filename as module name
                 module_name = os.path.splitext(os.path.basename(abs_path))[0]
-                # print(f"[DEBUG] File outside project root, using filename: {module_name}")
                 return module_name
             
             # Remove .py extension
@@ -358,12 +326,10 @@ class DevelopShim:
             if not module_name:
                 module_name = os.path.splitext(os.path.basename(abs_path))[0]
             
-            # print(f"[DEBUG] Converted {script_path} to module name: {module_name}")
             return module_name
             
         except ValueError as e:
             # If the file is not relative to the project root, use filename
-            # print(f"[DEBUG] File not relative to project root, using filename")
             base_name = os.path.splitext(os.path.basename(abs_path))[0]
             return base_name
 

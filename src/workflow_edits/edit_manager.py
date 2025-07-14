@@ -1,4 +1,4 @@
-from . import db
+from workflow_edits import db
 import json
 from openai.types.responses.response import Response
 

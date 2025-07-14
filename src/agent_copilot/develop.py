@@ -6,7 +6,7 @@ This module provides the 'develop' command functionality by importing
 and running the main function from develop_shim.py.
 """
 
-from .develop_shim import main
+from agent_copilot.develop_shim import main
 from common.utils import ensure_project_root_in_copilot_yaml
 import os
 
