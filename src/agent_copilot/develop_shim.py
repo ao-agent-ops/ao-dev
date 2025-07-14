@@ -13,6 +13,7 @@ from typing import Optional, List
 from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 from common.logging_config import setup_logging
 from common.utils import ensure_project_root_in_copilot_yaml
+from .launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 
 logger = setup_logging()
 
@@ -24,6 +25,20 @@ SERVER_START_TIMEOUT = 2
 PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
 SERVER_START_WAIT = 1
+
+# Utility functions for path computation
+def get_runtime_tracing_dir():
+    """Return the absolute path to the runtime_tracing directory."""
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "runtime_tracing"))
+
+def get_config_path():
+    """Return the absolute path to configs/copilot.yaml."""
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
+
+def get_project_root():
+    """Return the project root as set in copilot.yaml (ensuring it is set)."""
+    config_path = get_config_path()
+    return ensure_project_root_in_copilot_yaml(config_path)
 
 class DevelopShim:
     """Manages the development shim that runs user scripts with debugging support."""
@@ -137,12 +152,11 @@ class DevelopShim:
         env = os.environ.copy()
         
         # Add the runtime_tracing directory to PYTHONPATH so sitecustomize.py can be found
-        runtime_tracing_dir = os.path.join(os.path.dirname(__file__), "..", "runtime_tracing")
-        runtime_tracing_dir = os.path.abspath(runtime_tracing_dir)
+        runtime_tracing_dir = get_runtime_tracing_dir()
         
         # Load project_root from copilot.yaml
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
-        project_root = ensure_project_root_in_copilot_yaml(config_path)
+        config_path = get_config_path()
+        project_root = get_project_root()
         
         # Add to PYTHONPATH: project_root first, then runtime_tracing_dir
         if 'PYTHONPATH' in env:
@@ -224,8 +238,8 @@ class DevelopShim:
         from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
         
         # Load project_root from copilot.yaml
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
-        project_root = ensure_project_root_in_copilot_yaml(config_path)
+        config_path = get_config_path()
+        project_root = get_project_root()
         
         def scan_user_py_files_and_modules(root_dir):
             user_py_files = set()
@@ -312,8 +326,8 @@ class DevelopShim:
         # print(f"[DEBUG] Converting file path: {script_path} -> {abs_path}")
         
         # Load project_root from copilot.yaml
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
-        project_root = ensure_project_root_in_copilot_yaml(config_path)
+        config_path = get_config_path()
+        project_root = get_project_root()
         
         # Find the project root that contains this file
         # project_root = find_project_root(abs_path) # This line is removed as per edit hint
@@ -354,155 +368,51 @@ class DevelopShim:
             return base_name
 
     def _create_runpy_wrapper(self, module_name: str, script_args: List[str], project_root: str) -> str:
-        """Create a temporary wrapper script that runs the module with runpy.run_module."""
-        wrapper_code = f"""
-import sys
-import os
-import runpy
-
-# Force load sitecustomize.py for AST patching
-runtime_tracing_dir = {repr(os.path.join(os.path.dirname(__file__), "..", "runtime_tracing"))}
-if runtime_tracing_dir not in sys.path:
-    sys.path.insert(0, runtime_tracing_dir)
-
-# Add project root to path
-project_root = {repr(project_root)}
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Set up AST rewriting
-from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
-
-def scan_user_py_files_and_modules(root_dir):
-    user_py_files = set()
-    file_to_module = dict()
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        for filename in filenames:
-            if filename.endswith('.py'):
-                abs_path = os.path.abspath(os.path.join(dirpath, filename))
-                user_py_files.add(abs_path)
-                # Compute module name relative to root_dir
-                rel_path = os.path.relpath(abs_path, root_dir)
-                mod_name = rel_path[:-3].replace(os.sep, '.')  # strip .py, convert / to .
-                if mod_name.endswith(".__init__"):
-                    mod_name = mod_name[:-9]  # remove .__init__
-                file_to_module[abs_path] = mod_name
-    return user_py_files, file_to_module
-
-# Scan and set up file mapping for the user's project root
-user_py_files, file_to_module = scan_user_py_files_and_modules(project_root)
-# print(f"[DEBUG] File wrapper: Found {{len(user_py_files)}} Python files in {{project_root}}")
-# print(f"[DEBUG] File wrapper: File to module mapping:")
-set_user_py_files(user_py_files, file_to_module)
-install_fstring_rewriter()
-
-# Set up argv and run the module
-sys.argv = [{repr(module_name)}] + {repr(script_args)}
-runpy.run_module({repr(module_name)}, run_name='__main__')
-"""
+        """
+        Create a temporary wrapper script that runs the module with runpy.run_module.
+        This is needed for script execution (develop script.py) so that AST patching and import hooks
+        are applied to the main script, which would not happen if run directly as __main__.
+        """
+        runtime_tracing_dir = get_runtime_tracing_dir()
+        wrapper_code = SCRIPT_WRAPPER_TEMPLATE.format(
+            runtime_tracing_dir=runtime_tracing_dir,
+            project_root=project_root,
+            module_name=repr(module_name),
+            script_args=repr(script_args)
+        )
         fd, temp_path = tempfile.mkstemp(suffix='.py', prefix='develop_runpy_wrapper_')
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(wrapper_code)
-        # print(f"[DEBUG] Created wrapper script: {temp_path}")
         return temp_path
 
     def _run_user_script_subprocess(self) -> Optional[int]:
-        """Run the user's script as a subprocess with proper environment setup."""
+        """
+        Run the user's script as a subprocess with proper environment setup.
+        This method handles both module and script execution, generating a wrapper script as needed
+        to ensure AST patching and import hooks are applied to all user code.
+        """
         env = self._setup_monkey_patching_env()
-        
-        # Load project_root from copilot.yaml
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
-        project_root = ensure_project_root_in_copilot_yaml(config_path)
-        
+        project_root = get_project_root()
         if self.is_module_execution:
             # For module execution, create a wrapper that sets up AST rewriting and resolves module names
-            # print(f"[DEBUG] Running module with hook installation wrapper")
-            wrapper_code = f"""
-import sys
-import os
-import subprocess
-import runpy
-
-# Force load sitecustomize.py for AST patching
-runtime_tracing_dir = {repr(os.path.join(os.path.dirname(__file__), "..", "runtime_tracing"))}
-if runtime_tracing_dir not in sys.path:
-    sys.path.insert(0, runtime_tracing_dir)
-
-# Add project root to path
-project_root = {repr(project_root)}
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Set up AST rewriting
-from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
-
-def scan_user_py_files_and_modules(root_dir):
-    user_py_files = set()
-    file_to_module = dict()
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        for filename in filenames:
-            if filename.endswith('.py'):
-                abs_path = os.path.abspath(os.path.join(dirpath, filename))
-                user_py_files.add(abs_path)
-                # Compute module name relative to root_dir
-                rel_path = os.path.relpath(abs_path, root_dir)
-                mod_name = rel_path[:-3].replace(os.sep, '.')  # strip .py, convert / to .
-                if mod_name.endswith(".__init__"):
-                    mod_name = mod_name[:-9]  # remove .__init__
-                file_to_module[abs_path] = mod_name
-    return user_py_files, file_to_module
-
-# Scan and set up file mapping for the user's project root
-user_py_files, file_to_module = scan_user_py_files_and_modules(project_root)
-# print(f"[DEBUG] Subprocess: Found {{len(user_py_files)}} Python files in {{project_root}}")
-# print(f"[DEBUG] Subprocess: File to module mapping:")
-set_user_py_files(user_py_files, file_to_module)
-install_fstring_rewriter()
-
-# Now run the module with proper resolution
-module_name = {repr(self.script_path)}
-sys.argv = [module_name] + {repr(self.script_args)}
-
-# For files outside the project root, just use the module name as-is
-# For files inside the project root, find the correct module name from the file mapping
-if module_name and not module_name.startswith('..'):
-    correct_module_name = None
-    for file_path, mapped_name in file_to_module.items():
-        if mapped_name == module_name:
-            correct_module_name = mapped_name
-            break
-        # Also check if the module name is a suffix of the mapped name
-        elif mapped_name.endswith('.' + module_name):
-            correct_module_name = mapped_name
-            break
-
-    if correct_module_name:
-        # print(f"[DEBUG] Resolved {{module_name}} to {{correct_module_name}}")
-        runpy.run_module(correct_module_name, run_name='__main__')
-    else:
-        # print(f"[DEBUG] Could not resolve {{module_name}}, trying as-is")
-        runpy.run_module(module_name, run_name='__main__')
-else:
-    # print(f"[DEBUG] Using module name as-is: {{module_name}}")
-    runpy.run_module(module_name, run_name='__main__')
-"""
+            runtime_tracing_dir = get_runtime_tracing_dir()
+            wrapper_code = MODULE_WRAPPER_TEMPLATE.format(
+                runtime_tracing_dir=runtime_tracing_dir,
+                project_root=project_root,
+                module_name=repr(self.script_path),
+                script_args=repr(self.script_args)
+            )
             fd, temp_path = tempfile.mkstemp(suffix='.py', prefix='develop_module_wrapper_')
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 f.write(wrapper_code)
-            # print(f"[DEBUG] Created module wrapper: {temp_path}")
-            
             self.proc = subprocess.Popen([sys.executable, temp_path], env=env)
-            # Store the wrapper path for cleanup later
             self.wrapper_path = temp_path
         else:
             # For file execution, convert to module name and use wrapper
             module_name = self._convert_file_to_module_name(self.script_path)
-            # print(f"[DEBUG] Will run file as module: {module_name}")
             wrapper_path = self._create_runpy_wrapper(module_name, self.script_args, project_root)
             self.proc = subprocess.Popen([sys.executable, wrapper_path], env=env)
-            # Store the wrapper path for cleanup later
             self.wrapper_path = wrapper_path
-        
         # Monitor the process and check for restart requests
         try:
             while self.proc.poll() is None:
@@ -529,7 +439,6 @@ else:
                     self.wrapper_path = None
                 except Exception:
                     pass
-        
         return self.proc.returncode
     
     def _run_user_script_debug_mode(self) -> int:
