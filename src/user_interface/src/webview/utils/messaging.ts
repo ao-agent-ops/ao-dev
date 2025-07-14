@@ -33,3 +33,8 @@ export function sendNavigateToCode(codeLocation: string) {
 export function sendReset() {
     sendMessage({ type: 'reset', id: Math.floor(Math.random() * 100000) });
 }
+
+// Send a get_graph message to the backend for a given session_id
+export function sendGetGraph(session_id: string) {
+    sendMessage({ type: 'get_graph', session_id });
+}

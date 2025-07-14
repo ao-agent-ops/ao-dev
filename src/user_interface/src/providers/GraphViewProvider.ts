@@ -6,9 +6,15 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
     private _view?: vscode.WebviewView;
     private _editDialogProvider?: EditDialogProvider;
-    // Removed _pendingEdit
+    private _pendingMessages: any[] = []; // Buffer for messages before webview is ready
+    private _pythonClient: PythonServerClient | null = null;
+    // The Python server connection is deferred until the webview sends 'ready'.
+    // Buffering is needed to ensure no messages are lost if the server sends messages before the webview is ready.
 
-    constructor(private readonly _extensionUri: vscode.Uri) {}
+    constructor(private readonly _extensionUri: vscode.Uri) {
+        // Set up Python server message forwarding with buffering
+        // Removed _pendingEdit
+    }
 
     public setEditDialogProvider(provider: EditDialogProvider): void {
         this._editDialogProvider = provider;
@@ -36,15 +42,11 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     ) {
         this._view = webviewView;
 
-        // Start/connect to the Python server and set up message forwarding
-        const pythonClient = PythonServerClient.getInstance();
-        pythonClient.startServerIfNeeded();
-        pythonClient.onMessage((msg) => {
-            // Forward all messages from the Python server to the webview
-            if (this._view) {
-                this._view.webview.postMessage(msg);
-            }
+        // Flush any pending messages to the webview
+        this._pendingMessages.forEach(msg => {
+            this._view!.webview.postMessage(msg);
         });
+        this._pendingMessages = [];
 
         webviewView.webview.options = {
             enableScripts: true,
@@ -68,25 +70,47 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     console.error('Restart message missing session_id! Not forwarding to Python server.');
                     return;
                 }
-                pythonClient.sendMessage({ type: 'restart', session_id: data.session_id });
+                if (this._pythonClient) {
+                    this._pythonClient.sendMessage({ type: 'restart', session_id: data.session_id });
+                }
             }
             switch (data.type) {
                 case 'updateNode':
-                    // Forward the updateNode message to the develop server
-                    pythonClient.sendMessage(data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
                     break;
                 case 'edit_input':
                     console.log('GraphViewProvider: Forwarding edit_input to Python server:', data);
-                    // Forward the edit_input message to the develop server
-                    pythonClient.sendMessage(data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
                     break;
                 case 'edit_output':
                     console.log('GraphViewProvider: Forwarding edit_output to Python server:', data);
-                    // Forward the edit_output message to the develop server
-                    pythonClient.sendMessage(data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
+                    break;
+                case 'get_graph':
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
                     break;
                 case 'ready':
-                    // Webview is ready - server will send graph data automatically
+                    // Webview is ready - now connect to the Python server and set up message forwarding
+                    if (!this._pythonClient) {
+                        this._pythonClient = PythonServerClient.getInstance();
+                        // Forward all messages from the Python server to the webview, buffer if not ready
+                        this._pythonClient.onMessage((msg) => {
+                            if (this._view) {
+                                this._view.webview.postMessage(msg);
+                            } else {
+                                this._pendingMessages.push(msg);
+                            }
+                        });
+                        this._pythonClient.startServerIfNeeded();
+                    }
                     break;
                 case 'navigateToCode':
                     // Handle code navigation

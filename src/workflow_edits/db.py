@@ -21,17 +21,20 @@ def get_conn():
 
 def _init_db(conn):
     c = conn.cursor()
-    # Create graph_topology table
+    # Create experiments table
     c.execute('''
-        CREATE TABLE IF NOT EXISTS graph_topology (
+        CREATE TABLE IF NOT EXISTS experiments (
             session_id TEXT PRIMARY KEY,
             graph_topology TEXT,
-            timestamp TEXT DEFAULT (datetime('now'))
+            timestamp TEXT DEFAULT (datetime('now')),
+            cwd TEXT,
+            command TEXT,
+            code_hash TEXT
         )
     ''')
-    # Create nodes table
+    # Create llm_calls table
     c.execute('''
-        CREATE TABLE IF NOT EXISTS nodes (
+        CREATE TABLE IF NOT EXISTS llm_calls (
             session_id TEXT,
             node_id TEXT,
             model TEXT,
@@ -48,10 +51,10 @@ def _init_db(conn):
         )
     ''')
     c.execute('''
-        CREATE INDEX IF NOT EXISTS original_input_lookup ON nodes(session_id, model, input_hash)
+        CREATE INDEX IF NOT EXISTS original_input_lookup ON llm_calls(session_id, model, input_hash)
     ''')
     c.execute('''
-        CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON nodes(session_id, model, input_overwrite_hash)
+        CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON llm_calls(session_id, model, input_overwrite_hash)
     ''')
     conn.commit()
 

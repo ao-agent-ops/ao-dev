@@ -29,7 +29,8 @@
           "id": "graphExtension.graphView",
           "name": "Graph View",
           "icon": "$(graph)",
-          "contextualTitle": "Graph View"
+          "contextualTitle": "Graph View",
+          "retainContextWhenHidden": true
         }
       ]
     },

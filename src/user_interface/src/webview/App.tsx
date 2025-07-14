@@ -3,6 +3,7 @@ import { GraphView } from './components/GraphView';
 import { ExperimentsView } from './components/ExperimentsView';
 import { GraphNode, GraphEdge, GraphData } from './types';
 import { sendReady } from './utils/messaging';
+import { sendGetGraph } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
 
 declare const vscode: any;
@@ -21,17 +22,45 @@ export const App: React.FC = () => {
 
     const isDarkTheme = useIsVsCodeDarkTheme();
 
-    // Updated handleNodeUpdate to send edit_input/edit_output for input/output edits
+    // Handles all messages from the backend. The extension backend ensures all messages are delivered after the webview is ready.
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            const message = event.data;
+            switch (message.type) {
+                case 'session_id':
+                    // No longer need to track handshake state
+                    break;
+                case 'graph_update': {
+                    const sid = message.session_id;
+                    const payload = message.payload;
+                    setExperimentGraphs(prev => ({
+                        ...prev,
+                        [sid]: payload
+                    }));
+                    break;
+                }
+                case 'updateNode':
+                    if (message.payload) {
+                        const { nodeId, field, value, session_id } = message.payload;
+                        handleNodeUpdate(nodeId, field, value, session_id);
+                    }
+                    break;
+                case 'experiment_list':
+                    setProcesses(message.experiments || []);
+                    break;
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        sendReady(); // Notify extension backend that the webview is ready
+        return () => {
+            window.removeEventListener('message', handleMessage);
+        };
+    }, []);
+
     const handleNodeUpdate = (nodeId: string, field: string, value: string, sessionId?: string) => {
-        console.log('[App] handleNodeUpdate field value:', field, 'sessionId:', sessionId);
         if (sessionId) {
             if (field === 'input') {
-                console.log('[App] Sending edit_input message:', {
-                    type: 'edit_input',
-                    session_id: sessionId,
-                    node_id: nodeId,
-                    value
-                });
                 vscode.postMessage({
                     type: 'edit_input',
                     session_id: sessionId,
@@ -39,12 +68,6 @@ export const App: React.FC = () => {
                     value
                 });
             } else if (field === 'output') {
-                console.log('[App] Sending edit_output message:', {
-                    type: 'edit_output',
-                    session_id: sessionId,
-                    node_id: nodeId,
-                    value
-                });
                 vscode.postMessage({
                     type: 'edit_output',
                     session_id: sessionId,
@@ -52,7 +75,6 @@ export const App: React.FC = () => {
                     value
                 });
             } else {
-                // For label or other fields, keep old updateNode logic
                 vscode.postMessage({
                     type: 'updateNode',
                     session_id: sessionId,
@@ -64,51 +86,11 @@ export const App: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        // Listen for messages from the extension
-        const handleMessage = (event: MessageEvent) => {
-            const message = event.data;
-            
-            switch (message.type) {
-                case 'graph_update': {
-                    const sid = message.session_id;
-                    const payload = message.payload;
-                    console.log('[App] Received graph_update for', sid, payload);
-                    setExperimentGraphs(prev => ({
-                        ...prev,
-                        [sid]: payload
-                    }));
-                    break;
-                }
-                case 'updateNode':
-                    // Handle node update from extension's EditDialog
-                    console.log('[App] Received updateNode message:', message);
-                    if (message.payload) {
-                        const { nodeId, field, value, session_id } = message.payload;
-                        console.log('[App] updateNode payload session_id:', session_id);
-                        console.log('[App] Calling handleNodeUpdate with:', { nodeId, field, value, session_id });
-                        handleNodeUpdate(nodeId, field, value, session_id);
-                    }
-                    break;
-                case 'experiment_list':
-                    setProcesses(message.experiments || []);
-                    break;
-            }
-        };
-
-        window.addEventListener('message', handleMessage);
-        
-        // Notify extension that webview is ready
-        sendReady();
-
-        return () => {
-            window.removeEventListener('message', handleMessage);
-        };
-    }, []);
-
     const handleExperimentCardClick = (process: ProcessInfo) => {
         setSelectedExperiment(process);
         setActiveTab('experiment-graph');
+        // Request the graph for this experiment from the backend
+        sendGetGraph(process.session_id);
     };
 
     const runningExperiments = processes.filter(p => p.status === 'running');
@@ -164,7 +146,7 @@ export const App: React.FC = () => {
           )}
         </div>
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {activeTab === "experiments" ? (
+          {activeTab === 'experiments' ? (
             <ExperimentsView runningProcesses={runningExperiments} finishedProcesses={finishedExperiments} onCardClick={handleExperimentCardClick} />
           ) : activeTab === 'experiment-graph' && selectedExperiment ? (
             (() => {

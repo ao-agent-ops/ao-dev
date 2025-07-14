@@ -201,11 +201,13 @@ class DevelopShim:
         except Exception as e:
             logger.error(f"Cannot connect to develop server ({e})")
             sys.exit(1)
-        # Send handshake to server
+        # Send handshake to server (never include session_id)
         handshake = {
-            "type": "hello", 
-            "role": self.role, 
-            "script": self.script_name
+            "type": "hello",
+            "role": self.role,
+            "script": self.script_name,
+            "cwd": os.getcwd(),
+            "command": " ".join(sys.argv)
         }
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
@@ -422,12 +424,6 @@ class DevelopShim:
         try:
             # Execute the script
             spec.loader.exec_module(module)
-            return 0
-        except SystemExit as e:
-            return e.code if e.code is not None else 0
-        except Exception as e:
-            logger.error(f"Error running script: {e}")
-            return 1
         finally:
             # Restore original argv
             sys.argv = original_argv

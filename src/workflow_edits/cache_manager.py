@@ -31,7 +31,7 @@ def cache_key(fn, args, kwargs):
 class CacheManager:
     """
     Handles persistent caching and retrieval of LLM call inputs/outputs per experiment session.
-    Uses the nodes table in the workflow edits database.
+    Uses the llm_calls table in the workflow edits database.
     """
     @staticmethod
     def untaint_if_needed(val):
@@ -44,7 +44,7 @@ class CacheManager:
         input_hash = db.hash_input(input)
         # print(f"[CACHE] Looking up: session_id={session_id}, model={model}, input_hash={input_hash}")
         row = db.query_one(
-            "SELECT input, input_overwrite, output, node_id FROM nodes WHERE session_id=? AND model=? AND input_hash=?",
+            "SELECT input, input_overwrite, output, node_id FROM llm_calls WHERE session_id=? AND model=? AND input_hash=?",
             (session_id, model, input_hash)
         )
         # print(f"[CACHE] DB lookup result: {row}")
@@ -53,7 +53,7 @@ class CacheManager:
             node_id = str(uuid.uuid4())
             # print(f"[CACHE] No row found, creating new with node_id={node_id}")
             db.execute(
-                "INSERT INTO nodes (session_id, model, input, input_hash, node_id) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO llm_calls (session_id, model, input, input_hash, node_id) VALUES (?, ?, ?, ?, ?)",
                 (session_id, model, input, input_hash, node_id)
             )
             return input, None, None
@@ -81,12 +81,12 @@ class CacheManager:
         
         if node_id:
             db.execute(
-                "UPDATE nodes SET output=?, api_type=?, node_id=? WHERE session_id=? AND model=? AND input_hash=?",
+                "UPDATE llm_calls SET output=?, api_type=?, node_id=? WHERE session_id=? AND model=? AND input_hash=?",
                 (output_to_store, api_type, node_id, session_id, model, input_hash)
             )
         else:
             db.execute(
-                "UPDATE nodes SET output=?, api_type=? WHERE session_id=? AND model=? AND input_hash=?",
+                "UPDATE llm_calls SET output=?, api_type=? WHERE session_id=? AND model=? AND input_hash=?",
                 (output_to_store, api_type, session_id, model, input_hash)
             )
 
