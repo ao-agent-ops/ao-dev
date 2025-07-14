@@ -6,11 +6,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
     private _view?: vscode.WebviewView;
     private _editDialogProvider?: EditDialogProvider;
-    private _pendingEdit?: {
-        nodeId: string;
-        field: string;
-        session_id?: string; // Added session_id to pendingEdit
-    };
+    // Removed _pendingEdit
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -18,19 +14,18 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         this._editDialogProvider = provider;
     }
 
-    public handleEditDialogSave(value: string): void {
-        if (this._pendingEdit && this._view) {
-            console.log('GraphViewProvider: Sending updateNode for node', this._pendingEdit.nodeId, 'with session_id:', this._pendingEdit.session_id);
+    public handleEditDialogSave(value: string, context: { nodeId: string; field: string; session_id?: string }): void {
+        if (this._view) {
+            console.log('GraphViewProvider: Sending updateNode for node', context.nodeId, 'with session_id:', context.session_id);
             this._view.webview.postMessage({
                 type: 'updateNode',
                 payload: {
-                    nodeId: this._pendingEdit.nodeId,
-                    field: this._pendingEdit.field,
+                    nodeId: context.nodeId,
+                    field: context.field,
                     value,
-                    session_id: this._pendingEdit.session_id, // should be present!
+                    session_id: context.session_id, // should be present!
                 }
             });
-            this._pendingEdit = undefined;
         }
     }
 
@@ -106,14 +101,14 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'showEditDialog':
                     if (this._editDialogProvider) {
-                        this._pendingEdit = {
-                            nodeId: data.payload.nodeId,
-                            field: data.payload.field,
-                            session_id: data.payload.session_id,
-                        };
                         this._editDialogProvider.show(
                             `${data.payload.label} ${data.payload.field === 'input' ? 'Input' : 'Output'}`,
-                            data.payload.value
+                            data.payload.value,
+                            {
+                                nodeId: data.payload.nodeId,
+                                field: data.payload.field,
+                                session_id: data.payload.session_id,
+                            }
                         );
                     }
                     break;

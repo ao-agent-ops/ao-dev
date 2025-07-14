@@ -3,31 +3,16 @@ import React, { useState, useEffect } from 'react';
 interface EditDialogProps {
     title: string;
     value: string;
-    nodeId: string;
-    field: 'input' | 'output';
-    sessionId: string;
-    onSave: (nodeId: string, field: 'input' | 'output', sessionId: string, value: string) => void;
+    onSave: (value: string) => void;
     onCancel: () => void;
 }
 
-export const EditDialog: React.FC<EditDialogProps> = ({ 
-    title, 
-    value, 
-    nodeId, 
-    field, 
-    sessionId, 
-    onSave, 
-    onCancel 
-}) => {
+export const EditDialog: React.FC<EditDialogProps> = ({ title, value, onSave, onCancel }) => {
     const [text, setText] = useState(value);
 
     useEffect(() => {
         setText(value);
     }, [value]);
-
-    const handleSave = () => {
-        onSave(nodeId, field, sessionId, text);
-    };
 
     return (
         <div
@@ -43,7 +28,7 @@ export const EditDialog: React.FC<EditDialogProps> = ({
                 justifyContent: 'center',
                 zIndex: 1000,
             }}
-            onClick={(e: React.MouseEvent) => {
+            onClick={(e) => {
                 if (e.target === e.currentTarget) {
                     onCancel();
                 }
@@ -61,14 +46,14 @@ export const EditDialog: React.FC<EditDialogProps> = ({
                     flexDirection: 'column',
                     gap: '16px',
                 }}
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
             >
                 <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
                     {title}
                 </div>
                 <textarea
                     value={text}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
+                    onChange={(e) => setText(e.target.value)}
                     style={{
                         width: '100%',
                         height: '300px',
@@ -98,7 +83,7 @@ export const EditDialog: React.FC<EditDialogProps> = ({
                         Cancel
                     </button>
                     <button
-                        onClick={handleSave}
+                        onClick={() => onSave(text)}
                         style={{
                             padding: '8px 16px',
                             backgroundColor: '#007acc',

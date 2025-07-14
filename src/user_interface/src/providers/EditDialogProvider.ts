@@ -2,25 +2,24 @@ import * as vscode from 'vscode';
 
 export class EditDialogProvider implements vscode.WebviewPanelSerializer {
     public static readonly viewType = 'graphExtension.editDialog';
-    private _panels: Map<string, vscode.WebviewPanel> = new Map();
+    private _panels: Set<vscode.WebviewPanel> = new Set();
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _onSave: (value: string) => void
+        private readonly _onSave: (value: string, context: { nodeId: string; field: string; session_id?: string }) => void
     ) {}
 
-    public async show(title: string, value: string) {
+    public async show(title: string, value: string, context: { nodeId: string; field: string; session_id?: string }) {
         // Check if a panel with this title already exists
-        for (const [_, panel] of this._panels) {
+        for (const panel of this._panels) {
             if (panel.title === title) {
                 panel.reveal(vscode.ViewColumn.One);
                 panel.webview.postMessage({ type: 'setValue', value });
+                // Update context in case it's different
+                (panel as any)._editContext = context;
                 return;
             }
         }
-
-        // Create a unique identifier for this panel
-        const panelId = `${title}-${Date.now()}`;
 
         // Create a new panel
         const panel = vscode.window.createWebviewPanel(
@@ -34,17 +33,20 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
             }
         );
 
-        this._panels.set(panelId, panel);
+        (panel as any)._editContext = context;
+        this._panels.add(panel);
         panel.webview.html = this._getHtmlForWebview(panel.webview, value);
 
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(
             message => {
                 switch (message.type) {
-                    case 'save':
-                        this._onSave(message.value);
+                    case 'save': {
+                        const ctx = (panel as any)._editContext;
+                        this._onSave(message.value, ctx);
                         panel.dispose();
                         break;
+                    }
                     case 'cancel':
                         panel.dispose();
                         break;
@@ -56,15 +58,15 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
         // Clean up when the panel is disposed
         panel.onDidDispose(
             () => {
-                this._panels.delete(panelId);
+                this._panels.delete(panel);
             },
             null
         );
     }
 
     public async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
-        const panelId = `${state.title}-${Date.now()}`;
-        this._panels.set(panelId, webviewPanel);
+        // No context restoration for deserialized panels in this example
+        this._panels.add(webviewPanel);
         webviewPanel.webview.html = this._getHtmlForWebview(webviewPanel.webview, state?.value || '');
     }
 

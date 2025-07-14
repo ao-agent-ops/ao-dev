@@ -13,9 +13,8 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // Register the edit dialog provider
-    const editDialogProvider = new EditDialogProvider(context.extensionUri, (value: string) => {
-        // This will be set by the GraphViewProvider
-        graphViewProvider.handleEditDialogSave(value);
+    const editDialogProvider = new EditDialogProvider(context.extensionUri, (value: string, contextObj: { nodeId: string; field: string; session_id?: string }) => {
+        graphViewProvider.handleEditDialogSave(value, contextObj);
     });
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(EditDialogProvider.viewType, editDialogProvider)

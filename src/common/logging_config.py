@@ -6,20 +6,10 @@ def setup_logging():
     if root.handlers:
         root.handlers.clear()
 
-    # This attaches a default StreamHandler to stderr
+    # Attach a default StreamHandler to stderr
     logging.basicConfig(
-        level=logging.WARNING,
+        level=logging.DEBUG,
         format="%(message)s",
     )
 
     return root
-
-def main():
-    setup_logging()
-
-    # Now every module can just get its logger
-    logger = logging.getLogger(__name__)
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.WARNING)
-    main()

@@ -263,9 +263,9 @@ def v1_openai_patch(server_conn):
             messages = messages.get_raw()
         # Use persistent cache/edits
         input_to_use, output_to_use, cached_node_id = CACHE.get_in_out(session_id, model, str(messages))
-        from_cache = output_to_use is not None and output_to_use
+        from_cache = output_to_use is not None
         new_node_id = None
-        if output_to_use is not None and output_to_use:
+        if output_to_use is not None:
             result = output_to_use
         else:
             # Call real LLM with possibly edited input
@@ -304,19 +304,8 @@ def response_to_json(response: Response) -> str:
 
 def json_to_response(json_str: str) -> Response:
     """Deserialize a JSON string from the DB to a Response object."""
-    logger.debug(f"json_to_response called with: {repr(json_str)}")
-    logger.debug(f"json_str type: {type(json_str)}")
-    logger.debug(f"json_str length: {len(json_str) if json_str else 0}")
-    if not json_str:
-        logger.debug("json_str is empty or None, returning None")
-        return None
-    try:
-        data = json.loads(json_str)
-        return Response(**data)
-    except json.JSONDecodeError as e:
-        logger.debug(f"JSON decode error: {e}")
-        logger.debug(f"Failed to parse: {repr(json_str)}")
-        raise
+    data = json.loads(json_str)
+    return Response(**data)
 
 def inject_output_text(response_dict: dict, new_text: str) -> dict:
     """Inject new_text into the correct place in the response dict."""
@@ -362,12 +351,11 @@ def v2_openai_patch(server_conn):
 
             # Check if there's a cached / edited input/output.
             input_to_use, output_to_use, cached_node_id = CACHE.get_in_out(session_id, model, str(input_text))
-            logger.debug(f"Cache lookup result: input_to_use={repr(input_to_use)}, output_to_use={repr(output_to_use)}, cached_node_id={cached_node_id}")
-            from_cache = output_to_use is not None and output_to_use
+            from_cache = output_to_use is not None
             new_node_id = None
 
             # Produce output.
-            if output_to_use is not None and output_to_use:
+            if output_to_use is not None:
                 # Use cached output.
                 # print("Using cached response")
                 result = json_to_response(output_to_use)

@@ -1,20 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { GraphView } from './components/GraphView';
 import { ExperimentsView } from './components/ExperimentsView';
-import { EditDialog } from './components/EditDialog';
 import { GraphNode, GraphEdge, GraphData } from './types';
 import { sendReady } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
 
 declare const vscode: any;
-
-interface OpenDialog {
-    nodeId: string;
-    field: 'input' | 'output';
-    sessionId: string;
-    value: string;
-    title: string;
-}
 
 export const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');
@@ -27,54 +18,8 @@ export const App: React.FC = () => {
     const [processes, setProcesses] = useState<ProcessInfo[]>([]);
     const [experimentGraphs, setExperimentGraphs] = useState<Record<string, GraphData>>({});
     const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
-    const [openDialogs, setOpenDialogs] = useState<OpenDialog[]>([]);
 
     const isDarkTheme = useIsVsCodeDarkTheme();
-
-    // Handle dialog save - sends the correct message type based on field
-    const handleDialogSave = (nodeId: string, field: 'input' | 'output', sessionId: string, value: string) => {
-        console.log('[App] handleDialogSave:', { nodeId, field, sessionId, value });
-        
-        if (field === 'input') {
-            console.log('[App] Sending edit_input message:', {
-                type: 'edit_input',
-                session_id: sessionId,
-                node_id: nodeId,
-                value
-            });
-            vscode.postMessage({
-                type: 'edit_input',
-                session_id: sessionId,
-                node_id: nodeId,
-                value
-            });
-        } else if (field === 'output') {
-            console.log('[App] Sending edit_output message:', {
-                type: 'edit_output',
-                session_id: sessionId,
-                node_id: nodeId,
-                value
-            });
-            vscode.postMessage({
-                type: 'edit_output',
-                session_id: sessionId,
-                node_id: nodeId,
-                value
-            });
-        }
-        
-        // Close the dialog
-        setOpenDialogs(prev => prev.filter(dialog => 
-            !(dialog.nodeId === nodeId && dialog.field === field && dialog.sessionId === sessionId)
-        ));
-    };
-
-    // Handle dialog cancel
-    const handleDialogCancel = (nodeId: string, field: 'input' | 'output', sessionId: string) => {
-        setOpenDialogs(prev => prev.filter(dialog => 
-            !(dialog.nodeId === nodeId && dialog.field === field && dialog.sessionId === sessionId)
-        ));
-    };
 
     // Updated handleNodeUpdate to send edit_input/edit_output for input/output edits
     const handleNodeUpdate = (nodeId: string, field: string, value: string, sessionId?: string) => {
@@ -147,23 +92,6 @@ export const App: React.FC = () => {
                     break;
                 case 'experiment_list':
                     setProcesses(message.experiments || []);
-                    break;
-                case 'showEditDialog':
-                    // Handle showEditDialog message from CustomNode
-                    console.log('[App] Received showEditDialog message:', message);
-                    if (message.payload) {
-                        const { nodeId, field, value, label, session_id } = message.payload;
-                        const title = `Edit ${field === 'input' ? 'Input' : 'Output'} - ${label}`;
-                        
-                        // Only allow one dialog at a time
-                        setOpenDialogs([{
-                            nodeId,
-                            field,
-                            sessionId: session_id,
-                            value,
-                            title
-                        }]);
-                    }
                     break;
             }
         };
@@ -254,20 +182,6 @@ export const App: React.FC = () => {
             })()
           ) : null}
         </div>
-        
-        {/* Render all open dialogs */}
-        {openDialogs.map((dialog, index) => (
-            <EditDialog
-                key={`${dialog.nodeId}-${dialog.field}-${dialog.sessionId}`}
-                title={dialog.title}
-                value={dialog.value}
-                nodeId={dialog.nodeId}
-                field={dialog.field}
-                sessionId={dialog.sessionId}
-                onSave={handleDialogSave}
-                onCancel={() => handleDialogCancel(dialog.nodeId, dialog.field, dialog.sessionId)}
-            />
-        ))}
       </div>
     );
 };

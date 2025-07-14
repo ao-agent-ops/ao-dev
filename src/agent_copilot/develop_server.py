@@ -211,7 +211,6 @@ class DevelopServer:
                 for line in file_obj:
                     try:
                         msg = json.loads(line.strip())
-                        logger.info(f"[SERVER] Received message: {msg}")
                     except Exception as e:
                         logger.error(f"Error parsing JSON: {e}")
                         continue

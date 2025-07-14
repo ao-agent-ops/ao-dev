@@ -93,21 +93,13 @@ class FStringImportLoader(importlib.abc.SourceLoader):
         return compile(tree, path, 'exec')
 
 class FStringImportFinder(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path, target=None):
+    def find_spec(self, fullname, path, target=None):        
         # Only handle modules that correspond to user files
-        # Skip standard library modules and third-party packages
-        if fullname in _user_file_to_module.values():
-            file_path = None
-            for fp, mod_name in _user_file_to_module.items():
-                if mod_name == fullname:
-                    file_path = fp
-                    break
-            
-            if file_path:
+        for file_path, mod_name in _user_file_to_module.items():
+            if mod_name == fullname:
                 logger.debug(f"Will rewrite: {fullname} from {file_path}")
                 return importlib.util.spec_from_loader(fullname, FStringImportLoader(fullname, file_path))
-        
-        # For all other modules, return None to let other finders handle them
+        logger.debug(f"No match found for: {fullname}")
         return None
 
 def install_fstring_rewriter():
