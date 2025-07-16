@@ -21,13 +21,13 @@ This will feel *exactly* the same as running Python but also analyzes their code
 
 ## Launch VS Code extension
 
-### Current "get started"
+### Get started
 
 This is a temporary "get started". You should run the below steps in VS Code:
 
-1. Install dependencies (see below).
+1. Install dependencies (see "Dependencies" below).
 2. Set `project_root` in `configs/copilot.yaml` to the path where your code base lives (that you want to analyze).
-3. Launch explorer window with extension installed by running "Run Extension" from the debugger options (see launch front end below).
+3. Launch explorer window with extension installed by running "Run Extension" from the debugger options (see "Launch front end" below).
 4. Normally use VS Code. E.g., open folder: The repo you want to analyze
 5. Run `develop script.py` to use our tool on your code base
 
@@ -75,7 +75,7 @@ These are the processes running.
 
 Keep dependencies up to date:
 
-`conda env export --no-builds --from-history > conda-environment.yml`
+`python create_dependency_file.py`
 
 ### Testing / Playing around
 
