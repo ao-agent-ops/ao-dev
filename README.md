@@ -28,7 +28,7 @@ Several IDEs are based on VS Code. We have successfully tried our extension in V
 This is a temporary "get started". You should run the below steps in VS Code or Cursor:
 
 1. Install dependencies (see "Dependencies" below).
-2. Set `project_root` in `configs/copilot.yaml` to the path where your code base lives (that you want to analyze). (‼️)
+2. Set `project_root` in `configs/copilot.yaml` to the path where your code base lives (that you want to analyze). Also set `cache_dir` and `cache_attachments`. When you send requests with attachements (e.g., query over a PDF), these parameters define if you want to cache the files so they are available when you later inspect inputs and outputs to a query. (‼️)
 3. Launch explorer window with extension installed by running "Run Extension" from the debugger options (see "Launch front end" below).
 4. Normally use VS Code. E.g., open folder: The repo you want to analyze
 5. Run `develop script.py` to use our tool on your code base
