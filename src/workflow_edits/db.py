@@ -5,7 +5,7 @@ import hashlib
 
 from common.utils import rel_path_to_abs
 
-DB_PATH = rel_path_to_abs(__file__, "agent-copilot/experiments.sqlite")
+DB_PATH = rel_path_to_abs(__file__, os.path.join("agent-copilot", "experiments.sqlite"))
 
 # Thread-safe singleton connection
 def get_conn():

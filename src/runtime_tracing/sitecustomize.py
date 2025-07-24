@@ -6,9 +6,11 @@ from common.logger import logger
 
 import os
 from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
-from common.utils import scan_user_py_files_and_modules
+from common.utils import get_project_root, scan_user_py_files_and_modules
+from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
+from runtime_tracing.monkey_patches import set_session_id
 
-user_py_files, file_to_module = scan_user_py_files_and_modules("/Users/ferdi/Documents/agent-copilot")
+user_py_files, file_to_module = scan_user_py_files_and_modules(get_project_root())
 set_user_py_files(user_py_files, file_to_module)
 
 install_fstring_rewriter()
@@ -46,15 +48,12 @@ def setup_tracing():
                     pass
         except Exception:
             pass
-        try:
-            from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
-            from runtime_tracing.monkey_patches import set_session_id
-            # print(f"[DEBUG] sitecustomize: session_id from env = {session_id}")
+        try:            # print(f"[DEBUG] sitecustomize: session_id from env = {session_id}")
             if session_id:
                 set_session_id(session_id)
                 # print(f"[DEBUG] sitecustomize: set_session_id called with {session_id}")
             else:
-                print(f"[DEBUG] sitecustomize: No session_id in environment, not setting")
+                logger.error(f"sitecustomize: No session_id in environment, run will not be traced properly.")
             apply_all_monkey_patches(server_conn)
         except Exception as e:
             logger.error(f"Exception in sitecustomize.py patching: {e}")
