@@ -79,6 +79,21 @@ class DevelopServer:
         msg = {"type": "experiment_list", "experiments": experiment_list}
         self.broadcast_to_all_uis(msg)
     
+    def print_graph(self, session_id):
+        # Debug utility.
+        print("\n--------------------------------")
+        # Print list of all sessions and their status.
+        for session_id, session in self.sessions.items():
+            print(f"Session {session_id}: {session.status}")
+
+        # Print graph for the given session_id.
+        print(f"\nGraph for session_id: {session_id}")
+        graph = self.session_graphs.get(session_id)
+        if graph:
+            print(json.dumps(graph, indent=4))
+        else:
+            print(f"No graph found for session_id: {session_id}")
+        print("--------------------------------\n")
     # ============================================================
     # Handle message types.
     # ============================================================
@@ -386,13 +401,10 @@ class DevelopServer:
                         logger.error(f"Error parsing JSON: {e}")
                         continue
                     
-                    # Print message type (with error handling)
-                    try:
-                        msg_type = msg.get("type", "unknown")
-                        logger.debug(f"Received message type: {msg_type}")
-                    except Exception:
-                        pass  # Skip printing if there's a key error
-                    
+                    # Print message type.
+                    msg_type = msg.get("type", "unknown")
+                    logger.debug(f"Received message type: {msg_type}")
+
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
                     

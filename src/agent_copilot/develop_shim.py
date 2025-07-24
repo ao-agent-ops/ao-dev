@@ -13,7 +13,7 @@ from typing import Optional, List
 from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
 from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 from common.logger import logger
-from common.utils import ensure_project_root_in_copilot_yaml, scan_user_py_files_and_modules
+from common.utils import get_project_root, scan_user_py_files_and_modules
 from agent_copilot.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 
 
@@ -31,14 +31,6 @@ def get_runtime_tracing_dir():
     """Return the absolute path to the runtime_tracing directory."""
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "runtime_tracing"))
 
-def get_config_path():
-    """Return the absolute path to configs/copilot.yaml."""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
-
-def get_project_root():
-    """Return the project root as set in copilot.yaml (ensuring it is set)."""
-    config_path = get_config_path()
-    return ensure_project_root_in_copilot_yaml(config_path)
 
 class DevelopShim:
     """Manages the develop shim that runs user scripts with debugging support."""
@@ -155,7 +147,6 @@ class DevelopShim:
         runtime_tracing_dir = get_runtime_tracing_dir()
         
         # Load project_root from copilot.yaml
-        config_path = get_config_path()
         project_root = get_project_root()
         
         # Add to PYTHONPATH: project_root first, then runtime_tracing_dir

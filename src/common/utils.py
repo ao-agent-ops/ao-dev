@@ -104,3 +104,14 @@ def scan_user_py_files_and_modules(root_dir):
                     mod_name = mod_name[:-9]  # remove .__init__
                 file_to_module[abs_path] = mod_name
     return user_py_files, file_to_module
+
+
+def get_config_path():
+    """Return the absolute path to configs/copilot.yaml."""
+    import os
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
+
+def get_project_root():
+    """Return the project root as set in copilot.yaml (ensuring it is set)."""
+    config_path = get_config_path()
+    return ensure_project_root_in_copilot_yaml(config_path)

@@ -1,17 +1,63 @@
 from asyncio.log import logger
 import yaml
 import uuid
+import os
 
 from runtime_tracing.taint_wrappers import untaint_if_needed
 from workflow_edits.utils import  response_to_json
 from workflow_edits import db
+from workflow_edits.utils import stream_hash, save_io_stream
+from common.utils import get_config_path
 
 
 class CacheManager:
     """
     Handles persistent caching and retrieval of LLM call inputs/outputs per experiment session.
-    Uses the llm_calls table in the workflow edits database.
     """
+
+    def __init__(self):
+        # Check if and where to cache attachments.
+        # TODO: More robustness for users having invalid configs.
+        config_path = get_config_path()
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f) or {}
+        request_attachments = config.get('request_attachments')
+
+        self.cache_attachments = request_attachments.get('cache_attachments', False)
+        self.attachment_cache_dir = request_attachments.get('cache_dir')
+        if self.cache_attachments:
+            os.makedirs(self.attachment_cache_dir, exist_ok=True)
+
+    def cache_file(self, file_id, file_name, io_stream):
+        if not getattr(self, 'cache_attachments', False):
+            return
+        # Early exit if file_id already exists
+        if db.query_one("SELECT file_id FROM attachments WHERE file_id=?", (file_id,)):
+            return
+        # Check if with same content already exists.
+        content_hash = stream_hash(io_stream)
+        row = db.query_one(
+            "SELECT file_path FROM attachments WHERE content_hash=?",
+            (content_hash,)
+        )
+        # Get appropriate file_path.
+        if row is not None:
+            file_path = row["file_path"]
+        else:
+            file_path = save_io_stream(io_stream, file_name, self.attachment_cache_dir)
+        # Insert the file_id mapping
+        db.execute(
+            "INSERT INTO attachments (file_id, content_hash, file_path) VALUES (?, ?, ?)",
+            (file_id, content_hash, file_path)
+        )
+
+    def get_file_path(self, file_id):
+        if not getattr(self, 'cache_attachments', False):
+            return None
+        row = db.query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
+        if row is not None:
+            return row["file_path"]
+        return None
 
     def get_in_out(self, session_id, model, input):
         input = untaint_if_needed(input)

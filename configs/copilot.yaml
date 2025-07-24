@@ -1,1 +1,6 @@
 project_root: /Users/ferdi/Documents/agent-copilot/example_workflows/debug_examples/tracing
+
+# Should we cache request attachements so you can see it in the scratchpad?
+request_attachments:
+  cache_attachments: true
+  cache_dir: /Users/ferdi/Documents/agent-copilot/attachment_cache

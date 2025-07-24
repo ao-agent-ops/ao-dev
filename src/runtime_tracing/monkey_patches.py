@@ -11,6 +11,7 @@ from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
 from openai import OpenAI
 from openai.resources.responses import Responses
 import openai
+import tempfile
 
 
 # ===========================================================
@@ -117,7 +118,8 @@ def _send_graph_node_and_edges(server_conn,
                                output_obj, 
                                source_node_ids, 
                                model, 
-                               api_type):
+                               api_type,
+                               attachements=[]):
     """Send graph node and edge updates to the server."""
     # Get caller location
     frame = inspect.currentframe()
@@ -132,12 +134,13 @@ def _send_graph_node_and_edges(server_conn,
         "session_id": session_id,
         "node": {
             "id": node_id,
-            "input": "None", #input,
-            "output": "None", #extract_output_text(output_obj, api_type),
+            "input": input,
+            "output": extract_output_text(output_obj, api_type),
             "border_color": "#00c542", # TODO: Later based on certainty.
             "label": f"{model}", # TODO: Later label with LLM.
             "codeLocation": codeLocation,
             "model": model,
+            "attachments": attachements,
         }
     }
 
@@ -247,24 +250,60 @@ def patch_openai_responses_create(responses, server_conn):
 
 def patch_openai_beta_threads_runs_create_and_poll(runs, server_conn):
     original_create_and_poll = runs.create_and_poll
-    def patched_create_and_poll(*args, **kwargs):
-        print("patched_create_and_poll called with", args, kwargs)
+    def patched_create_and_poll(self, **kwargs):
         taint_origins = []
-        for arg in args:
-            taint_origins.extend(get_taint_origins(arg))
         for val in kwargs.values():
             taint_origins.extend(get_taint_origins(val))
-        # Call original method with only keyword arguments
+        # Call original method with only keyword arguments.
         result = original_create_and_poll(**kwargs)
-        node_id = str(uuid.uuid4())
+        node_id = str(uuid.uuid4()) # TODO: Need to get from cache (currently not supporting edits).
+
+        # Get the model from the assistant
+        client = self._client
+        assistant_id = kwargs.get("assistant_id")
+        model = "unknown"
+        if assistant_id:
+            assistant = client.beta.assistants.retrieve(assistant_id)
+            model = getattr(assistant, "model", None)
+
+        # Get user's attachements.
+        attachments_list = []
+        thread_id = kwargs.get("thread_id")
+        input_content = None
+        output_obj = None
+
+        # Only consider most recent *user* message. 
+        # The most recent message in the thread is the LLM response, 
+        # so we need to use the second-most recent message.
+        try:
+            input = client.beta.threads.messages.list(thread_id=thread_id).data[1]
+            output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+            if input.content:
+                input_content = input.content[0].text.value
+            if hasattr(input, "attachments") and input.attachments:
+                print("Has attachments")
+                for att in input.attachments:
+                    print("in attachement")
+                    file_id = att.file_id
+                    if file_id:
+                        # Get file metadata for filename
+                        file_info = client.files.retrieve(file_id)
+                        file_name = file_info.filename
+                        # Get file path from cache
+                        file_path = CACHE.get_file_path(file_id)
+                        attachments_list.append((file_name, file_path))
+        except IndexError:
+            logger.error("No second-most recent message (user message) found in thread; attachments_list will be empty.")
+
         _send_graph_node_and_edges(
             server_conn=server_conn,
             node_id=node_id,
-            input=str(kwargs),
-            output_obj=result,
+            input=input_content,
+            output_obj=output_obj,
             source_node_ids=taint_origins,
-            model="beta_threads_run",
-            api_type="openai_beta_runs"
+            model=model,
+            api_type="openai_assistant_query",
+            attachements=attachments_list,
         )
         return taint_wrap(result, [node_id])
     runs.create_and_poll = patched_create_and_poll.__get__(runs, type(original_create_and_poll))
@@ -278,6 +317,7 @@ def v2_openai_patch(server_conn):
         patch_openai_beta_assistants_create(self.beta.assistants)
         patch_openai_beta_threads_create(self.beta.threads)
         patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs, server_conn)
+        patch_openai_files_create(self.files)
     OpenAI.__init__ = new_init
 
 
@@ -323,6 +363,33 @@ def patch_openai_beta_threads_create(threads_instance):
         return taint_wrap(result, list(taint_origins))
 
     threads_instance.create = patched_create
+
+
+def patch_openai_files_create(files_resource):
+    original_create = files_resource.create
+
+    def patched_create(self, **kwargs):
+        # Extract file argument
+        file_arg = kwargs.get("file") if "file" in kwargs else (args[0] if args else None)
+        if isinstance(file_arg, tuple) and len(file_arg) >= 2:
+            file_name = file_arg[0]
+            fileobj = file_arg[1]
+        elif hasattr(file_arg, "read"):
+            fileobj = file_arg
+            file_name = getattr(fileobj, "name", "unknown")
+        else:
+            raise ValueError("The 'file' argument must be a tuple (filename, fileobj, content_type) or a file-like object.")
+        # Call the original method
+        result = original_create(**kwargs)
+        # Get file_id from result
+        file_id = getattr(result, "id", None)
+        if file_id is None:
+            raise ValueError("OpenAI did not return a file id after file upload.")
+        CACHE.cache_file(file_id, file_name, fileobj)
+        # Propagate taint from fileobj if present
+        taint_origins = get_taint_origins(fileobj)
+        return taint_wrap(result, taint_origins)
+    files_resource.create = patched_create.__get__(files_resource, type(original_create))
 
 
 # ===========================================================

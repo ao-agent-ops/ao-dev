@@ -50,6 +50,17 @@ def _init_db(conn):
             PRIMARY KEY (session_id, node_id)
         )
     ''')
+    # Create attachments table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS attachments (
+            file_id TEXT PRIMARY KEY,
+            content_hash TEXT,
+            file_path TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE INDEX IF NOT EXISTS attachments_content_hash_idx ON attachments(content_hash)
+    ''')
     c.execute('''
         CREATE INDEX IF NOT EXISTS original_input_lookup ON llm_calls(session_id, model, input_hash)
     ''')
