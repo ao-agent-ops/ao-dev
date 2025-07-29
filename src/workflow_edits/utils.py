@@ -55,13 +55,13 @@ def _oai_v2_extract_output_text(response):
         
 # === General Response helpers ===
 def swap_output(output_text: str, json_response: str, api_type):
-    if api_type == "openai_v2":
+    if api_type == "openai_v2_response":
         return _oai_v2_swap_output(output_text, json_response)
     else:
         raise ValueError(f"Unknown API type {api_type}")
     
 def extract_output_text(response, api_type):
-    if api_type == "openai_v2":
+    if api_type == "openai_v2_response":
         return _oai_v2_extract_output_text(response)
     elif api_type == "openai_assistant_query":
         return _oai_assistant_query_extract_output_text(response)
@@ -69,13 +69,13 @@ def extract_output_text(response, api_type):
         raise ValueError(f"Unknown API type {api_type}")
 
 def response_to_json(output, api_type):
-    if api_type == "openai_v2":
+    if api_type == "openai_v2_response":
         return oai_v2_response_to_json(output)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 def json_to_response(json_str, api_type):
-    if api_type == "openai_v2":
+    if api_type == "openai_v2_response":
         return oai_v2_json_to_response(json_str)
     else:
         raise ValueError(f"Unknown API type {api_type}")

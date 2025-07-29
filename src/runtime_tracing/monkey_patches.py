@@ -166,11 +166,22 @@ def _send_graph_node_and_edges(server_conn,
 # OpenAI API patches
 # ===========================================================
 
+def v2_openai_patch(server_conn):
+    original_init = OpenAI.__init__
+    def new_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        patch_openai_responses_create(self.responses, server_conn)
+        patch_openai_beta_assistants_create(self.beta.assistants)
+        patch_openai_beta_threads_create(self.beta.threads)
+        patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs, server_conn)
+        patch_openai_files_create(self.files)
+    OpenAI.__init__ = new_init
+
 def v1_openai_patch(server_conn):
     """
     Patch openai.ChatCompletion.create (v1/classic API) to use persistent cache and edits.
     """
-
+    # raise NotImplementedError
     original_create = getattr(openai.ChatCompletion, "create", None)
     if original_create is None:
         return
@@ -201,7 +212,7 @@ def v1_openai_patch(server_conn):
             call_kwargs["messages"] = input_to_use
             result = original_create(**call_kwargs)
             # Cache
-            CACHE.cache_output(session_id, model, input_to_use, result, "openai_v1", node_id)
+            CACHE.cache_output(session_id, node_id, result, "openai_v1")
 
         # Send to server (graph node/edges)
         _send_graph_node_and_edges(
@@ -228,61 +239,39 @@ def patch_openai_responses_create(responses, server_conn):
         # Check if there's a cached / edited input/output
         input_to_use, output_to_use, node_id = CACHE.get_in_out(session_id, model, input)
         if output_to_use is not None:
-            result = json_to_response(output_to_use, "openai_v2")
+            result = json_to_response(output_to_use, "openai_v2_response")
         else:
             new_kwargs = dict(kwargs)
             new_kwargs["input"] = input_to_use
-            if len(args) == 1 and isinstance(args[0], Responses):
-                result = original_create(**new_kwargs)
-            else:
-                result = original_create(*args, **new_kwargs)
-            CACHE.cache_output(session_id, model, input_to_use, result, "openai_v2", node_id)
+            assert len(args) == 1 and isinstance(args[0], Responses) # OpenAI: all args must be kwargs
+            result = original_create(**new_kwargs)
+            CACHE.cache_output(session_id, node_id, result, "openai_v2_response")
         _send_graph_node_and_edges(server_conn=server_conn,
                                    node_id=node_id,
                                    input=input_to_use,
                                    output_obj=result,
                                    source_node_ids=taint_origins,
                                    model=model,
-                                   api_type="openai_v2")
+                                   api_type="openai_v2_response")
         return taint_wrap(result, [node_id])
     responses.create = patched_create.__get__(responses, Responses)
 
 def patch_openai_beta_threads_runs_create_and_poll(runs, server_conn):
     original_create_and_poll = runs.create_and_poll
     def patched_create_and_poll(self, **kwargs):
-        taint_origins = []
-        for val in kwargs.values():
-            taint_origins.extend(get_taint_origins(val))
-        # Call original method with only keyword arguments.
-        result = original_create_and_poll(**kwargs)
-        node_id = str(uuid.uuid4()) # TODO: Need to get from cache (currently not supporting edits).
-
-        # Get the model from the assistant
         client = self._client
-        assistant_id = kwargs.get("assistant_id")
-        model = "unknown"
-        if assistant_id:
-            assistant = client.beta.assistants.retrieve(assistant_id)
-            model = getattr(assistant, "model", None)
 
-        # Get user's attachements.
+        # Get inputs (most recent user message). 
         attachments_list = []
         thread_id = kwargs.get("thread_id")
         input_content = None
-        output_obj = None
 
-        # Only consider most recent *user* message. 
-        # The most recent message in the thread is the LLM response, 
-        # so we need to use the second-most recent message.
         try:
-            input = client.beta.threads.messages.list(thread_id=thread_id).data[1]
-            output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+            input = client.beta.threads.messages.list(thread_id=thread_id).data[0]
             if input.content:
                 input_content = input.content[0].text.value
             if hasattr(input, "attachments") and input.attachments:
-                print("Has attachments")
                 for att in input.attachments:
-                    print("in attachement")
                     file_id = att.file_id
                     if file_id:
                         # Get file metadata for filename
@@ -292,7 +281,29 @@ def patch_openai_beta_threads_runs_create_and_poll(runs, server_conn):
                         file_path = CACHE.get_file_path(file_id)
                         attachments_list.append((file_name, file_path))
         except IndexError:
-            logger.error("No second-most recent message (user message) found in thread; attachments_list will be empty.")
+            logger.error("No user message.") # TODO: How to handle this? What does OAI do?
+
+        # Get taint origins.
+        taint_origins = get_taint_origins(kwargs)
+
+        # Get the model.
+        assistant_id = kwargs.get("assistant_id")
+        model = "unknown"
+        if assistant_id:
+            assistant = client.beta.assistants.retrieve(assistant_id)
+            model = getattr(assistant, "model", None)
+
+        # Call original create_and_poll method.
+        # NOTE: Caching the output is not easy here ... probably can't support it.
+        _, _, node_id = CACHE.get_in_out(session_id, model, input_content)
+        result = original_create_and_poll(**kwargs)
+
+        # Get most recent message (LLM response).
+        output_obj = None
+        try:
+            output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+        except IndexError:
+            logger.error("No most recent message (LLM response).") # TODO: How to handle. What does OAI do?
 
         _send_graph_node_and_edges(
             server_conn=server_conn,
@@ -307,19 +318,6 @@ def patch_openai_beta_threads_runs_create_and_poll(runs, server_conn):
         return taint_wrap(result, [node_id])
     runs.create_and_poll = patched_create_and_poll.__get__(runs, type(original_create_and_poll))
 
-
-def v2_openai_patch(server_conn):
-    original_init = OpenAI.__init__
-    def new_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        patch_openai_responses_create(self.responses, server_conn)
-        patch_openai_beta_assistants_create(self.beta.assistants)
-        patch_openai_beta_threads_create(self.beta.threads)
-        patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs, server_conn)
-        patch_openai_files_create(self.files)
-    OpenAI.__init__ = new_init
-
-
 def patch_openai_beta_assistants_create(assistants_instance):
     """
     Patch the .create method of an OpenAI beta assistants instance to propagate taint origins from any input argument to the result.
@@ -328,9 +326,7 @@ def patch_openai_beta_assistants_create(assistants_instance):
     original_create = assistants_instance.create
 
     def patched_create(*args, **kwargs):
-        print("hello from patched_create")
         # Collect taint origins from all args and kwargs
-        from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
         taint_origins = set()
         for arg in args:
             taint_origins.update(get_taint_origins(arg))
@@ -346,20 +342,31 @@ def patch_openai_beta_assistants_create(assistants_instance):
 
 def patch_openai_beta_threads_create(threads_instance):
     """
-    Patch the .create method of an OpenAI beta threads instance to propagate taint origins from any input argument to the result.
-    If no input is tainted, propagate an empty origin list.
+    Patch the .create method of an OpenAI beta threads instance to propagate taint origins and support input editing.
     """
     original_create = threads_instance.create
 
-    def patched_create(*args, **kwargs):
-        from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
-        taint_origins = set()
-        for arg in args:
-            taint_origins.update(get_taint_origins(arg))
-        for val in kwargs.values():
-            taint_origins.update(get_taint_origins(val))
-        result = original_create(*args, **kwargs)
-        return taint_wrap(result, list(taint_origins))
+    def patched_create(*args, **kwargs):        
+        # Get the content from the last message in the messages list
+        # TODO: Should we handle empty messages list? What does OAI do there?
+        messages = kwargs.get("messages", [])
+        last_message = messages[-1]
+        input_content = last_message.get("content", "")
+        
+        # Get taint origins from all args and kwargs, including the input content
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs) + get_taint_origins(input_content)
+        
+        # Check if there's a cached input
+        input_to_use, _, _ = CACHE.get_in_out(session_id, None, input_content)
+        # If input is overwritten, update the last message content
+        new_messages = messages.copy()
+        new_messages[-1] = {**new_messages[-1], "content": input_to_use}
+        new_kwargs = dict(kwargs)
+        new_kwargs["messages"] = new_messages
+        result = original_create(*args, **new_kwargs)
+
+        # Forward taint: if input is tainted, output should be tainted with the same taint origins
+        return taint_wrap(result, taint_origins)
 
     threads_instance.create = patched_create
 

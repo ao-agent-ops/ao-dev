@@ -61,12 +61,13 @@ class CacheManager:
     def get_in_out(self, session_id, model, input):
         input = untaint_if_needed(input)
         model = untaint_if_needed(model)
-
         input_hash = db.hash_input(input)
+
+        # If model is not specified, check for input overwrite but not for cached output.
         row = db.query_one(
-            "SELECT input, input_overwrite, output, node_id FROM llm_calls WHERE session_id=? AND model=? AND input_hash=?",
-            (session_id, model, input_hash)
-        )
+            "SELECT input, input_overwrite, node_id FROM llm_calls WHERE session_id=? AND input_hash=?",
+            (session_id, input_hash)
+        )            
 
         if row is None:
             # Insert new row with a new node_id
@@ -77,38 +78,42 @@ class CacheManager:
             )
             return input, None, node_id
 
+        # Use data from previous LLM call.
         input_val = row["input"]
         assert input_val is not None
         input_overwrite_val = row["input_overwrite"]
-        output = row["output"]
-        node_id = row["node_id"]
-
-        # Get input_to_use
         if input_overwrite_val is not None:
             input_to_use = input_overwrite_val
         else:
             input_to_use = input_val
+        
+        node_id = row["node_id"]
+
+        # If model is specified, also check for cached output.
+        output = None
+        if model:
+            row = db.query_one(
+                "SELECT output FROM llm_calls WHERE session_id=? AND node_id=?",
+                (session_id, node_id)
+            )
+            output = row["output"]
 
         return input_to_use, output, node_id
 
-    def cache_output(self, session_id, model, input, output, api_type, node_id):
-        input = untaint_if_needed(input)
-        model = untaint_if_needed(model)
-
-        input_hash = db.hash_input(input)
-
+    def cache_output(self, session_id, node_id, output, api_type, model=None):
         # Serialize Response object to JSON
         output_to_store = response_to_json(output, api_type)
         
-        if node_id:
+        if model:
+            # This is needed as sometimes the model is unknown when creating the row.
             db.execute(
-                "UPDATE llm_calls SET output=?, api_type=?, node_id=? WHERE session_id=? AND model=? AND input_hash=?",
-                (output_to_store, api_type, node_id, session_id, model, input_hash)
-            )
+                "UPDATE llm_calls SET output=?, api_type=?, model=? WHERE session_id=? AND node_id=?",
+                (output_to_store, api_type, model, session_id, node_id)
+            )            
         else:
             db.execute(
-                "UPDATE llm_calls SET output=?, api_type=? WHERE session_id=? AND model=? AND input_hash=?",
-                (output_to_store, api_type, session_id, model, input_hash)
+                "UPDATE llm_calls SET output=?, api_type=? WHERE session_id=? AND node_id=?",
+                (output_to_store, api_type, session_id, node_id)
             )
 
     def get_finished_runs(self):

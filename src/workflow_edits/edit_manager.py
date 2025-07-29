@@ -10,11 +10,18 @@ class EditManager:
     """
 
     def set_input_overwrite(self, session_id, node_id, new_input):
+        # original_input, api_type = READ FROM DB
+        # TODO: Implement an overwrite input in utils (assume api_type = "openai_v2_response" for now)
+        # new_input = overwrite_input(original_input, new_input, api_type)
         new_input_hash = db.hash_input(new_input)
-        db.execute(
+        print("~~~~~~~~~ execute SQL", new_input, new_input_hash, node_id)
+        a = db.execute(
             "UPDATE llm_calls SET input_overwrite=?, input_overwrite_hash=?, output=NULL WHERE session_id=? AND node_id=?",
             (new_input, new_input_hash, session_id, node_id)
         )
+        print("~~~~~~~~~ executed SQL", a)
+        row = db.query_one("SELECT * FROM llm_calls WHERE session_id=? AND node_id=?", (session_id, node_id))
+        print("~~~~~~~~~ row after update:", row["input_overwrite"], row["session_id"], row["input_hash"], row["input"])
 
     def set_output_overwrite(self, session_id, node_id, new_output):
         # Get api_type and output for the given session_id and node_id
