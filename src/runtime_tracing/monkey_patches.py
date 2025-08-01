@@ -399,14 +399,213 @@ def patch_openai_files_create(files_resource):
 
 
 # ===========================================================
+# Anthropic API patches
+# ===========================================================
+
+def anthropic_patch(server_conn):
+    """
+    Patch Anthropic API to use persistent cache and edits.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        logger.info("Anthropic not installed, skipping Anthropic patches")
+        return
+    
+    original_init = anthropic.Anthropic.__init__
+    def new_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        patch_anthropic_messages_create(self.messages, server_conn)
+        patch_anthropic_files_upload(self.beta.files, server_conn)
+        patch_anthropic_files_list(self.beta.files)
+        patch_anthropic_files_retrieve_metadata(self.beta.files)
+        patch_anthropic_files_delete(self.beta.files)
+    anthropic.Anthropic.__init__ = new_init
+
+def patch_anthropic_messages_create(messages_instance, server_conn):
+    """
+    Patch the .create method of an Anthropic messages instance to handle caching and edits.
+    """
+    original_create = messages_instance.create
+    
+    def patched_create(*args, **kwargs):
+        # Extract input from messages
+        messages = kwargs.get("messages", [])
+        model = kwargs.get("model", "unknown")
+        
+        # Get the last user message content
+        input_content = None
+        attachments_list = []
+        
+        if messages:
+            last_message = messages[-1]
+            content = last_message.get("content", "")
+            
+            if isinstance(content, str):
+                input_content = content
+            elif isinstance(content, list):
+                # Handle multi-modal content
+                text_parts = []
+                for item in content:
+                    if item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
+                    elif item.get("type") == "document":
+                        # Handle document attachments - create file path entry
+                        source = item.get("source", {})
+                        if source.get("type") == "base64":
+                            # For now, we'll indicate this as a base64 document
+                            attachments_list.append(("document.pdf", "base64_embedded"))
+                input_content = " ".join(text_parts) if text_parts else str(content)
+        
+        if input_content is None:
+            input_content = str(kwargs)
+        
+        # Get taint origins from all inputs
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+        
+        # Check cache and handle input/output overrides
+        input_to_use, output_to_use, node_id = CACHE.get_in_out(session_id, model, input_content)
+        
+        if output_to_use is not None:
+            result = json_to_response(output_to_use, "anthropic_messages")
+        else:
+            # Update messages with potentially edited input
+            new_messages = messages.copy()
+            if new_messages and input_to_use != input_content:
+                last_message = new_messages[-1].copy()
+                original_content = last_message.get("content", "")
+                
+                # Handle multimodal content preservation
+                if isinstance(original_content, list):
+                    # Preserve document attachments, update only text content
+                    new_content = []
+                    for item in original_content:
+                        if item.get("type") == "text":
+                            # Update text content with edited input
+                            new_content.append({
+                                "type": "text", 
+                                "text": input_to_use
+                            })
+                        else:
+                            # Preserve non-text content (documents, etc.)
+                            new_content.append(item)
+                    last_message["content"] = new_content
+                else:
+                    # Simple text content
+                    last_message["content"] = input_to_use
+                
+                new_messages[-1] = last_message
+            
+            new_kwargs = dict(kwargs)
+            new_kwargs["messages"] = new_messages
+            
+            result = original_create(*args, **new_kwargs)
+            CACHE.cache_output(session_id, node_id, result, "anthropic_messages", model)
+        
+        # Send to server (graph node/edges)
+        _send_graph_node_and_edges(
+            server_conn=server_conn,
+            node_id=node_id,
+            input=input_to_use,
+            output_obj=result,
+            source_node_ids=taint_origins,
+            model=model,
+            api_type="anthropic_messages",
+            attachements=attachments_list
+        )
+        
+        return taint_wrap(result, [node_id])
+    
+    messages_instance.create = patched_create
+
+def patch_anthropic_files_upload(files_instance, server_conn):
+    """
+    Patch the .upload method of an Anthropic files instance to handle file caching.
+    """
+    original_upload = files_instance.upload
+    
+    def patched_upload(*args, **kwargs):
+        # Extract file argument
+        file_arg = kwargs.get("file")
+        file_name = "unknown"
+        
+        if hasattr(file_arg, "name"):
+            file_name = file_arg.name
+        elif hasattr(file_arg, "read"):
+            file_name = getattr(file_arg, "name", "uploaded_file")
+        
+        # Call original method
+        result = original_upload(*args, **kwargs)
+        
+        # Cache the file if we have caching enabled
+        file_id = getattr(result, "id", None)
+        if file_id and file_arg:
+            CACHE.cache_file(file_id, file_name, file_arg)
+        
+        # Propagate taint from file input
+        taint_origins = get_taint_origins(file_arg)
+        return taint_wrap(result, taint_origins)
+    
+    files_instance.upload = patched_upload
+
+def patch_anthropic_files_list(files_instance):
+    """
+    Patch the .list method of an Anthropic files instance to handle taint propagation.
+    """
+    original_list = files_instance.list
+    
+    def patched_list(*args, **kwargs):
+        # Call original method
+        result = original_list(*args, **kwargs)
+        
+        # Propagate taint from any input arguments
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+        return taint_wrap(result, taint_origins)
+    
+    files_instance.list = patched_list
+
+def patch_anthropic_files_retrieve_metadata(files_instance):
+    """
+    Patch the .retrieve_metadata method of an Anthropic files instance to handle taint propagation.
+    """
+    original_retrieve_metadata = files_instance.retrieve_metadata
+    
+    def patched_retrieve_metadata(*args, **kwargs):
+        # Call original method
+        result = original_retrieve_metadata(*args, **kwargs)
+        
+        # Propagate taint from any input arguments
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+        return taint_wrap(result, taint_origins)
+    
+    files_instance.retrieve_metadata = patched_retrieve_metadata
+
+def patch_anthropic_files_delete(files_instance):
+    """
+    Patch the .delete method of an Anthropic files instance to handle taint propagation.
+    """
+    original_delete = files_instance.delete
+    
+    def patched_delete(*args, **kwargs):
+        # Call original method
+        result = original_delete(*args, **kwargs)
+        
+        # Propagate taint from any input arguments
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+        return taint_wrap(result, taint_origins)
+    
+    files_instance.delete = patched_delete
+
+# ===========================================================
 # Patch function registry
 # ===========================================================
 
 # Only include patch functions that can be called at global patch time (with server_conn as argument).
 # Subclient patching must be done inside the OpenAI.__init__ patch (see v2_openai_patch).
 CUSTOM_PATCH_FUNCTIONS = [
-    v1_openai_patch,
+    v1_openai_patch, # TODO: Doesn't work currently.
     v2_openai_patch,
+    anthropic_patch,
 ]
 
 # Subclient patch functions (e.g., patch_openai_responses_create, patch_openai_beta_threads_runs_create_and_poll)

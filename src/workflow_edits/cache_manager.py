@@ -20,10 +20,10 @@ class CacheManager:
         config_path = get_config_path()
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f) or {}
-        request_attachments = config.get('request_attachments')
+        request_attachments = config.get('request_attachments', {})
 
         self.cache_attachments = request_attachments.get('cache_attachments', False)
-        self.attachment_cache_dir = request_attachments.get('cache_dir')
+        self.attachment_cache_dir = request_attachments.get('cache_dir', None)
         if self.cache_attachments:
             os.makedirs(self.attachment_cache_dir, exist_ok=True)
 

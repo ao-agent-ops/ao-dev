@@ -2,7 +2,50 @@ import hashlib
 import json
 import os
 from openai.types.responses.response import Response
+from anthropic.types import Message as AnthropicMessage
 
+
+# === Anthropic Response helpers ===
+def anthropic_response_to_json(response) -> str:
+    """Serialize an Anthropic Response object to a JSON string for storage."""
+    if hasattr(response, 'model_dump'):
+        return json.dumps(response.model_dump())
+    elif hasattr(response, '__dict__'):
+        return json.dumps(response.__dict__, default=str)
+    else:
+        return json.dumps(str(response))
+
+def anthropic_json_to_response(json_str: str):
+    """Deserialize a JSON string from the DB to an Anthropic Response object."""
+    data = json.loads(json_str)
+    return AnthropicMessage(**data)
+
+def _anthropic_swap_output(output_text: str, json_response: str) -> str:
+    # Parse the JSON response
+    response_data = json.loads(json_response)
+    
+    # Replace the text content in Anthropic response format
+    if 'content' in response_data and isinstance(response_data['content'], list):
+        for content_item in response_data['content']:
+            if content_item.get('type') == 'text':
+                content_item['text'] = output_text
+                break
+    
+    return json.dumps(response_data, indent=2)
+
+def _anthropic_extract_output_text(response):
+    """Extract the output string from an Anthropic Response object or dict."""
+    try:
+        # Anthropic Response object format
+        if hasattr(response, 'content') and response.content:
+            return response.content[0].text
+        # If dict format
+        elif isinstance(response, dict) and 'content' in response:
+            return response['content'][0]['text']
+        else:
+            return str(response)
+    except Exception:
+        return str(response)
 
 # === OpenAI v2 Response helpers ===
 def oai_v2_response_to_json(response: Response) -> str:
@@ -57,6 +100,8 @@ def _oai_v2_extract_output_text(response):
 def swap_output(output_text: str, json_response: str, api_type):
     if api_type == "openai_v2_response":
         return _oai_v2_swap_output(output_text, json_response)
+    elif api_type == "anthropic_messages":
+        return _anthropic_swap_output(output_text, json_response)
     else:
         raise ValueError(f"Unknown API type {api_type}")
     
@@ -65,18 +110,24 @@ def extract_output_text(response, api_type):
         return _oai_v2_extract_output_text(response)
     elif api_type == "openai_assistant_query":
         return _oai_assistant_query_extract_output_text(response)
+    elif api_type == "anthropic_messages":
+        return _anthropic_extract_output_text(response)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 def response_to_json(output, api_type):
     if api_type == "openai_v2_response":
         return oai_v2_response_to_json(output)
+    elif api_type == "anthropic_messages":
+        return anthropic_response_to_json(output)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 def json_to_response(json_str, api_type):
     if api_type == "openai_v2_response":
         return oai_v2_json_to_response(json_str)
+    elif api_type == "anthropic_messages":
+        return anthropic_json_to_response(json_str)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
