@@ -317,8 +317,8 @@ class DevelopShim:
         """
         runtime_tracing_dir = get_runtime_tracing_dir()
         wrapper_code = SCRIPT_WRAPPER_TEMPLATE.format(
-            runtime_tracing_dir=runtime_tracing_dir,
-            project_root=project_root,
+            runtime_tracing_dir=repr(runtime_tracing_dir),
+            project_root=repr(project_root),
             module_name=repr(module_name),
             script_args=repr(script_args)
         )
@@ -339,8 +339,8 @@ class DevelopShim:
             # For module execution, create a wrapper that sets up AST rewriting and resolves module names
             runtime_tracing_dir = get_runtime_tracing_dir()
             wrapper_code = MODULE_WRAPPER_TEMPLATE.format(
-                runtime_tracing_dir=runtime_tracing_dir,
-                project_root=project_root,
+                runtime_tracing_dir=repr(runtime_tracing_dir),
+                project_root=repr(project_root),
                 module_name=repr(self.script_path),
                 script_args=repr(self.script_args)
             )

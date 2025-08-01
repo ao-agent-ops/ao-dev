@@ -1,19 +1,14 @@
 import os
 from openai import OpenAI
 
-from runtime_tracing.taint_wrappers import is_tainted, get_taint_origins
 
 client = OpenAI()
-q_string = "What's up?"
 PDF_PATH = "/Users/ferdi/Downloads/ken_udbms_execution.pdf"
 
 response = client.responses.create(
     model="gpt-3.5-turbo",
-    input="Output the number 42 and nothing else"
+    input="Output a system prompt for a document processing LLM (e.g., you're a helpful assistant)."
 )
-
-# q_string = response.output_text
-
 
 with open(PDF_PATH, "rb") as f:
     assert os.path.isfile(PDF_PATH), f"File not found: {PDF_PATH}"
@@ -32,7 +27,7 @@ assistant = client.beta.assistants.create(
 # Create a thread and attach the file to the message
 thread = client.beta.threads.create(
     messages=[{
-        "role": "user", "content": "What's up?",
+        "role": "user", "content": "Summarize the file.",
         # Attach the new file to the message.
         "attachments": [{ "file_id": file_content, "tools": [{"type": "file_search"}] }],
     }]
