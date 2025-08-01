@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import { ProcessCard } from './ProcessCard';
-
-export interface ProcessInfo {
-  session_id: string;
-  status: string;
-  timestamp?: string;
-}
+import { GraphData, ProcessInfo } from '../types';
 
 interface ExperimentsViewProps {
   runningProcesses: ProcessInfo[];
   finishedProcesses: ProcessInfo[];
   onCardClick?: (process: ProcessInfo) => void;
+  graphs?: GraphData[];
 }
 
-export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick }) => {
+export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick, graphs }) => {
   const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   
@@ -60,22 +56,29 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
       {runningProcesses.length > 0 && (
         <>
           <div style={titleStyle}>Running</div>
-          {runningProcesses.map((process) => {
+          {runningProcesses.map((process, idx) => {
             const cardId = `running-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
+            const nodeColors =
+              graphs && graphs[idx]
+                ? graphs[idx].nodes.map((n) => n.border_color || "#00c542").slice(-10)
+                : [];
             return (
               <ProcessCard
                 key={process.session_id}
                 process={process}
                 isHovered={isHovered}
                 isDarkTheme={isDarkTheme}
+                nodeColors={nodeColors}
                 onClick={() => onCardClick && onCardClick(process)}
-                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
-                onMouseLeave={() => setHoveredCards(prev => {
-                  const newSet = new Set(prev);
+                onMouseEnter={() =>
+                  setHoveredCards((prev) => new Set(prev).add(cardId))
+                }
+                onMouseLeave={() => {
+                  const newSet = new Set(hoveredCards);
                   newSet.delete(cardId);
-                  return newSet;
-                })}
+                  setHoveredCards(newSet);
+                }}
               />
             );
           })}
@@ -84,22 +87,31 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
       {finishedProcesses.length > 0 && (
         <>
           <div style={{ ...titleStyle, marginTop: runningProcesses.length > 0 ? 32 : 0 }}>Finished</div>
-          {finishedProcesses.map((process) => {
+          {finishedProcesses.map((process, idx) => {
             const cardId = `finished-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
+            const nodeColors =
+              graphs && graphs[idx]
+                ? graphs[idx].nodes
+                    .map((n) => n.border_color || "#00c542")
+                    .slice(-11)
+                : [];
             return (
               <ProcessCard
                 key={process.session_id}
                 process={process}
                 isHovered={isHovered}
                 isDarkTheme={isDarkTheme}
+                nodeColors={nodeColors}
                 onClick={() => onCardClick && onCardClick(process)}
-                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
-                onMouseLeave={() => setHoveredCards(prev => {
-                  const newSet = new Set(prev);
+                onMouseEnter={() =>
+                  setHoveredCards((prev) => new Set(prev).add(cardId))
+                }
+                onMouseLeave={() => {
+                  const newSet = new Set(hoveredCards);
                   newSet.delete(cardId);
-                  return newSet;
-                })}
+                  setHoveredCards(newSet);
+                }}
               />
             );
           })}

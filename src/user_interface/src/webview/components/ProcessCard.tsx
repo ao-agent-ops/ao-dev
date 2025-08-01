@@ -1,16 +1,8 @@
 import React from 'react';
 import styles from './ProcessCard.module.css';
-import { ProcessInfo } from './ExperimentsView';
+import { ProcessInfo } from '../types';
+import { getDateOnly } from '../utils/timeSpan';
 
-/**
- * Card for displaying a process in the experiments view.
- * @param process The process info object
- * @param isHovered Whether the card is hovered
- * @param onClick Click handler
- * @param onMouseEnter Mouse enter handler
- * @param onMouseLeave Mouse leave handler
- * @param isDarkTheme Whether VSCode is in dark mode
- */
 export interface ProcessCardProps {
   process: ProcessInfo;
   isHovered: boolean;
@@ -18,24 +10,61 @@ export interface ProcessCardProps {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   isDarkTheme: boolean;
+  nodeColors: string[];
 }
 
-export const ProcessCard: React.FC<ProcessCardProps> = React.memo(({ process, isHovered, onClick, onMouseEnter, onMouseLeave, isDarkTheme }) => {
-  return (
-    <div
-      className={[
-        styles.card,
-        isDarkTheme ? styles.dark : styles.light,
-        isHovered ? styles.hovered : ''
-      ].join(' ')}
-      onClick={onClick}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      tabIndex={0}
-    >
-      <div className={styles.title}>
-        {process.timestamp ? `${process.timestamp} (${process.session_id.substring(0, 8)}...)` : `Session ${process.session_id.substring(0, 8)}...`}
+export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
+  ({
+    process,
+    isHovered,
+    onClick,
+    onMouseEnter,
+    onMouseLeave,
+    isDarkTheme,
+    nodeColors,
+  }) => {
+    return (
+      <div
+        className={[
+          styles.card,
+          isDarkTheme ? styles.dark : styles.light,
+          isHovered ? styles.hovered : "",
+        ].join(" ")}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        tabIndex={0}
+      >
+        <div
+          className={styles.headerRow}
+          style={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "space-between", gap: 8 }}
+        >
+          <div className={styles.title} style={{ textAlign: "left", flex: 1, minWidth: 0, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+            {process.title ? process.title : "Untitled"}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 8, minWidth: 0, justifyContent: 'flex-end' }}>           
+            <div
+              className={styles.date}
+              style={{ fontSize: 13, color: "#aaa", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 60 }}
+            >
+              {getDateOnly(process.timestamp)}
+            </div>
+          </div>
+        </div>
+        <div className={styles.nodeBar}>
+          {Array.from({ length: Math.min(nodeColors.length, 10) }).map(
+            (_, i) => (
+              <span
+                key={i}
+                className={styles.nodeRect}
+                style={{
+                  background: nodeColors[i] || "#00c542",
+                }}
+              />
+            )
+          )}
+        </div>
       </div>
-    </div>
-  );
-}); 
+    );
+  }
+);

@@ -59,3 +59,10 @@ export interface GraphData {
     nodes: GraphNode[];
     edges: GraphEdge[];
 }
+
+export interface ProcessInfo {
+    session_id: string;
+    title?: string;
+    status: string;
+    timestamp?: string;
+}

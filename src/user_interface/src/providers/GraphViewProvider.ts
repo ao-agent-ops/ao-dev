@@ -6,10 +6,13 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
     private _view?: vscode.WebviewView;
     private _editDialogProvider?: EditDialogProvider;
-    private _pendingMessages: any[] = []; // Buffer for messages before webview is ready
+    private _pendingMessages: any[] = [];
     private _pythonClient: PythonServerClient | null = null;
-    // The Python server connection is deferred until the webview sends 'ready'.
-    // Buffering is needed to ensure no messages are lost if the server sends messages before the webview is ready.
+
+    // Context for workspace state
+    // This is used to save the graph state across sessions
+    private _context?: vscode.ExtensionContext;
+    private static readonly GRAPH_STATE_KEY = 'graphView.graphState';
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Set up Python server message forwarding with buffering
@@ -18,6 +21,8 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
     // Robustly show or reveal the webview
     public showWebview(context: vscode.ExtensionContext) {
+        // Set the context for workspace state
+        this._context = context;
         if (!this._view || (this._view as any)._disposed) {
             // Create new webview view
             vscode.commands.executeCommand('workbench.view.extension.graphExtension-sidebar');
@@ -41,6 +46,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     field: context.field,
                     value,
                     session_id: context.session_id, // should be present!
+                    attachments: context.attachments,
                 }
             });
         } else {
@@ -144,21 +150,30 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case 'showEditDialog':
-                    if (this._editDialogProvider) {
+                    // Wait until the webview is ready
+                    if (this._editDialogProvider && (!this._view || !(this._view as any)._disposed)) {
                         this._editDialogProvider.show(
-                            `${data.payload.label} ${data.payload.field === 'input' ? 'Input' : 'Output'}`,
+                            `Edit ${data.payload.field}`,
                             data.payload.value,
-                            {
-                                nodeId: data.payload.nodeId,
-                                field: data.payload.field,
-                                session_id: data.payload.session_id,
-                            }
+                            data.payload
                         );
+                    } else {
+                        console.warn('No se puede abrir el diálogo: el webview está disposed o no existe.');
                     }
                     break;
-                case 'erase':
-                    if (this._pythonClient) {
-                        this._pythonClient.sendMessage(data);
+                case 'saveGraphState':
+                    // Guarda el estado del grafo en workspaceState
+                    if (this._context) {
+                        await this._context.workspaceState.update(GraphViewProvider.GRAPH_STATE_KEY, data.payload);
+                        console.log('[GraphViewProvider] Estado del grafo guardado en workspaceState');
+                    }
+                    break;
+                case 'getGraphState':
+                    // Devuelve el estado guardado (o null)
+                    if (this._context && this._view) {
+                        const state = this._context.workspaceState.get(GraphViewProvider.GRAPH_STATE_KEY, null);
+                        this._view.webview.postMessage({ type: 'graphState', payload: state });
+                        console.log('[GraphViewProvider] Estado del grafo enviado al webview');
                     }
                     break;
             }

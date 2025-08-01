@@ -11,13 +11,12 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { CustomNode } from './CustomNode';
 import { CustomEdge } from './CustomEdge';
-import { GraphNode, GraphEdge } from '../types';
+import { GraphNode, GraphEdge, ProcessInfo } from '../types';
 import { calculateNodePositions } from '../utils/nodeLayout';
 import { routeEdges } from '../utils/edgeRouting';
 import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
-import { ProcessInfo } from './ExperimentsView';
 import erasePng from '../assets/erase.png';
 
 interface GraphViewProps {
@@ -175,6 +174,81 @@ export const GraphView: React.FC<GraphViewProps> = ({
             : 'Graph'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button
+            style={{
+              ...restartButtonStyle,
+              background: 'transparent',
+              marginRight: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+            }}
+            title="Clear edits"
+            onClick={() => {
+              if (!session_id) {
+                alert("No session_id available for erase! This is a bug.");
+                throw new Error("No session_id available for erase!");
+              }
+              sendMessage({ type: 'erase', session_id });
+            }}
+          >
+            <img
+              src={erasePng}
+              alt="Erase"
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                background: 'transparent',
+              }}
+              draggable={false}
+            />
+          </button>
+          <button
+            style={{
+              ...restartButtonStyle,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0,
+            }}
+            title="Restart"
+            onClick={() => {
+              if (!session_id) {
+                alert("No session_id available for restart! This is a bug.");
+                throw new Error("No session_id available for restart!");
+              }
+              sendMessage({ type: 'restart', session_id });
+            }}
+          >
+            {React.createElement('svg', {
+              width: "20",
+              height: "20",
+              viewBox: "0 0 20 20",
+              fill: "none",
+              xmlns: "http://www.w3.org/2000/svg"
+            },
+              React.createElement('path', {
+                d: "M10 3a7 7 0 1 1-6.32 4",
+                stroke: "#fff",
+                strokeWidth: "2",
+                fill: "none",
+                strokeLinecap: "round",
+                strokeLinejoin: "round"
+              }),
+              React.createElement('polyline', {
+                points: "3 3 7 3 7 7",
+                stroke: "#fff",
+                strokeWidth: "2",
+                fill: "none",
+                strokeLinecap: "round",
+                strokeLinejoin: "round"
+              })
+            )}
+          </button>
           <button
             style={{
               ...restartButtonStyle,

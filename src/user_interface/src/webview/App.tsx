@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GraphView } from './components/GraphView';
 import { ExperimentsView } from './components/ExperimentsView';
-import { GraphNode, GraphEdge, GraphData } from './types';
+import { GraphNode, GraphEdge, GraphData, ProcessInfo } from './types';
 import { sendReady } from './utils/messaging';
 import { sendGetGraph } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
 
 declare const vscode: any;
+
+declare global {
+  interface Window {
+    vscode: {
+      postMessage: (msg: any) => void;
+    };
+  }
+}
 
 export const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');

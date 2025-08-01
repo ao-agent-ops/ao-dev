@@ -17,6 +17,7 @@ const HANDLE_TARGET_POSITION = 50 - SIDE_HANDLE_OFFSET; // 35% from top
 const HANDLE_SOURCE_POSITION = 50 + SIDE_HANDLE_OFFSET; // 65% from top
 
 interface CustomNodeData extends GraphNode {
+  attachments: any;
   onUpdate: (nodeId: string, field: string, value: string) => void;
   session_id?: string;
 }
@@ -72,6 +73,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
             value: data.input,
             label: data.label,
             session_id: data.session_id, // include session_id
+            attachments: data.attachments,
           },
         });
         break;
@@ -85,6 +87,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
             value: data.output,
             label: data.label,
             session_id: data.session_id, // include session_id
+            attachments: data.attachments,
           },
         });
         break;
