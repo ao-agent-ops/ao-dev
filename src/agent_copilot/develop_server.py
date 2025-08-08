@@ -255,6 +255,7 @@ class DevelopServer:
                     "session_id": session_id,
                     "payload": {"nodes": [], "edges": []}
                 })
+                EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
             except Exception as e:
                 logger.error(f"Failed to rerun finished session: {e}")
     

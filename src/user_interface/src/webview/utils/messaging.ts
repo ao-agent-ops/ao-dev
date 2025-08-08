@@ -1,4 +1,4 @@
-import { NodeUpdateMessage, GraphNode } from '../types';
+import { GraphNode } from '../types';
 
 declare const vscode: any;
 

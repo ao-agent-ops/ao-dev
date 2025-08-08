@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Dictionary of open panels by absolute path
 const previewPanels: Record<string, vscode.WebviewPanel> = {};
@@ -41,24 +43,21 @@ function getPreviewHtml(panel: vscode.WebviewPanel, fileName: string, fileType: 
   );
   const nonce = getNonce();
   const initialData = JSON.stringify({ fileName, fileType, fileData });
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Preview: ${fileName}</title>
-      <style>html,body,#root{height:100%;margin:0;padding:0;}</style>
-    </head>
-    <body>
-      <div id="root"></div>
-      <script nonce="${nonce}">
-        window.__PREVIEW_DATA__ = ${initialData};
-      </script>
-      <script nonce="${nonce}" src="${scriptUri}"></script>
-    </body>
-    </html>
-  `;
+  // Read the HTML template
+  const templatePath = path.join(
+    __dirname,
+    '..',
+    'src',
+    'webview',
+    'templates',
+    'preview.html.tpl'
+  );
+  let html = fs.readFileSync(templatePath, 'utf8');
+  html = html.replace('{{fileName}}', fileName);
+  html = html.replace(/{{scriptUri}}/g, scriptUri.toString());
+  html = html.replace(/{{nonce}}/g, nonce);
+  html = html.replace('{{initialData}}', initialData);
+  return html;
 }
 
 function getNonce() {

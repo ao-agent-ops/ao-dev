@@ -47,7 +47,10 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
               className={styles.date}
               style={{ fontSize: 13, color: "#aaa", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 60 }}
             >
-              {getDateOnly(process.timestamp)}
+              {process.timestamp}
+              {/* Uncomment the line below if you want to use getDateOnly*/}
+              {/* Returns only the date part (YYYY-MM-DD) from a timestamp like '2024-06-21 12:00:00' */}
+              {/* {getDateOnly(process.timestamp)} */}
             </div>
           </div>
         </div>

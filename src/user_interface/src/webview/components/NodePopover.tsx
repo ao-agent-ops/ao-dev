@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 
 interface NodePopoverProps {
@@ -6,6 +7,8 @@ interface NodePopoverProps {
     onMouseEnter: () => void;
     onMouseLeave: () => void;
     position?: 'above' | 'below';
+    top?: number;
+    left?: number;
 }
 
 export const NodePopover: React.FC<NodePopoverProps> = ({ 
@@ -13,6 +16,8 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
     onMouseEnter, 
     onMouseLeave,
     position = 'above',
+    top,
+    left,
 }) => {
     const isDarkTheme = useIsVsCodeDarkTheme();
     const popoverBg = isDarkTheme ? '#4d4d4d' : '#ffffff';
@@ -28,16 +33,16 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
 
     const popoverStyle: React.CSSProperties = {
         position: 'absolute',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top: top !== undefined ? top : undefined,
+        left: left !== undefined ? left : undefined,
+        transform: 'translate(-50%, 0)',
         background: popoverBg,
         border: `1px solid ${popoverBorder}`,
         borderRadius: '8px',
         padding: '8px',
         minWidth: '120px',
-        zIndex: 1000,
+        zIndex: 9999,
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        top: position === 'above' ? 'calc(-100% - 8px)' : position === 'below' ? 'calc(100% - 8px)' : undefined,
     };
 
     const arrowStyle: React.CSSProperties = position === 'above'
@@ -64,7 +69,7 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
               borderBottom: `6px solid ${arrowColor}`,
           };
 
-    return (
+    return ReactDOM.createPortal(
         <div
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
@@ -72,7 +77,6 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
         >
             {/* Speech bubble tail */}
             <div style={arrowStyle} />
-            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {actions.map(action => (
                     <button
@@ -100,6 +104,7 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
                     </button>
                 ))}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

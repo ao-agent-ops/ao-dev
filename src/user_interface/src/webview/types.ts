@@ -6,6 +6,7 @@ export interface GraphNode {
     label: string;
     position?: { x: number; y: number };
     border_color?: string;
+    attachments?: any[];
 }
 
 export interface GraphEdge {

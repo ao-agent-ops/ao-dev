@@ -64,7 +64,6 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   const handleAction = (action: string) => {
     switch (action) {
       case "editInput":
-        console.log('CustomNode: Sending showEditDialog for node', id, 'with session_id:', data.session_id);
         vscode.postMessage({
           type: "showEditDialog",
           payload: {
@@ -78,7 +77,6 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         });
         break;
       case "editOutput":
-        console.log('CustomNode: Sending showEditDialog for node', id, 'with session_id:', data.session_id);
         vscode.postMessage({
           type: "showEditDialog",
           payload: {
@@ -107,8 +105,37 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
 
   const isDarkTheme = useIsVsCodeDarkTheme();
   
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [popoverCoords, setPopoverCoords] = useState<{top: number, left: number} | null>(null);
+
+  useEffect(() => {
+    if (showPopover && nodeRef.current) {
+      const rect = nodeRef.current.getBoundingClientRect();
+      // Calculate the position so that the popover does not cover the node
+      let top, left;
+      const POPOVER_HEIGHT = 70; // estimated height of the popover
+      const SEPARATION = 2; // Extra space around the popover
+      const BOTTOM_SEPARATION = 45; // Extra space below the node
+      const HORIZONTAL_OFFSET = 0; // Can you adjust this if needed
+
+      // Adjust the popover position based on the node's position
+      if (yPos < NODE_HEIGHT + 20) {
+        // Popover Below the node
+        top = rect.bottom + window.scrollY + SEPARATION;
+      } else {
+        // Popover Above the node
+        top = rect.top + window.scrollY - BOTTOM_SEPARATION - POPOVER_HEIGHT;
+      }
+      left = rect.left + rect.width / 2 + window.scrollX + HORIZONTAL_OFFSET;
+      setPopoverCoords({ top, left });
+    } else if (!showPopover) {
+      setPopoverCoords(null);
+    }
+  }, [showPopover, yPos]);
+
   return (
     <div
+      ref={nodeRef}
       style={{
         boxSizing: "border-box",
         width: NODE_WIDTH,
@@ -138,12 +165,14 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         }, 150);
       }}
     >
-      {showPopover && !isEditingLabel && (
+      {showPopover && !isEditingLabel && popoverCoords && (
         <NodePopover
           onAction={handleAction}
           onMouseEnter={() => setShowPopover(true)}
           onMouseLeave={() => setShowPopover(false)}
           position={yPos < NODE_HEIGHT + 20 ? 'below' : 'above'}
+          top={popoverCoords.top}
+          left={popoverCoords.left}
         />
       )}
       {isEditingLabel && (

@@ -5,8 +5,6 @@ import { EditDialogProvider } from './providers/EditDialogProvider';
 let editDialogProvider: EditDialogProvider | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Graph Extension is now active!');
-
     // Register the webview provider
     const graphViewProvider = new GraphViewProvider(context.extensionUri);
 
@@ -28,19 +26,12 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
     }
-    // Also close all panels tracked by the previous editDialogProvider instance if it exists
-    if (editDialogProvider && typeof editDialogProvider.closeAllPanels === 'function') {
-        editDialogProvider.closeAllPanels();
-    }
 
     // Register the edit dialog provider
-    editDialogProvider = new EditDialogProvider(
-        context.extensionUri,
-        (value: string, contextObj: { nodeId: string; field: string; session_id?: string }) => {
-            graphViewProvider.handleEditDialogSave(value, contextObj);
-        },
-        context
-    );
+    const editDialogProvider = new EditDialogProvider(context.extensionUri, (value: string, contextObj: { nodeId: string; field: string; session_id?: string }) => {
+        graphViewProvider.handleEditDialogSave(value, contextObj);
+    });
+   
     context.subscriptions.push(
         vscode.window.registerWebviewPanelSerializer(EditDialogProvider.viewType, editDialogProvider)
     );
@@ -54,10 +45,4 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.commands.executeCommand('graphExtension.graphView.focus');
         })
     );
-}
-
-export function deactivate() {
-    if (editDialogProvider) {
-        editDialogProvider.closeAllPanels();
-    }
 }

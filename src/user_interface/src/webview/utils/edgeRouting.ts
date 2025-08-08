@@ -69,10 +69,7 @@ function calculateNodeBounds(positions: Map<string, { x: number; y: number }>): 
             width: NODE_WIDTH,
             height: NODE_HEIGHT
         });
-    });
-    
-    console.log(`Total nodes with bounds: ${bounds.size}`);
-    
+    });    
     return bounds;
 }
 
