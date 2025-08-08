@@ -56,7 +56,7 @@ If you make changes to the server code, you can also do `server restart` so the 
 
 ## Further resources
 
-> [!IMPORTANT] Discord  
+> [!IMPORTANT]  
 > Join our [discord server](https://discord.gg/fjsNSa6TAh).
 
 
