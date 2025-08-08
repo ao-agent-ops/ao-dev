@@ -26,6 +26,7 @@ def _init_db(conn):
         CREATE TABLE IF NOT EXISTS experiments (
             session_id TEXT PRIMARY KEY,
             graph_topology TEXT,
+            color_preview TEXT,
             timestamp TEXT DEFAULT (datetime('now')),
             cwd TEXT,
             command TEXT,
@@ -68,6 +69,14 @@ def _init_db(conn):
         CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON llm_calls(session_id, model, input_overwrite_hash)
     ''')
     conn.commit()
+    
+    # Migration: Add color_preview column if it doesn't exist
+    try:
+        c.execute('ALTER TABLE experiments ADD COLUMN color_preview TEXT')
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
 
 def query_one(sql, params=()):
     conn = get_conn()

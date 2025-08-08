@@ -68,14 +68,16 @@ class DevelopServer:
                 self.ui_connections.discard(ui_conn)
     
     def broadcast_experiment_list_to_all_uis(self) -> None:
-        experiment_list = [
-            {
+        experiment_list = []
+        for session in self.sessions.values():
+            # Get color preview from database
+            color_preview = CACHE.get_color_preview(session.session_id)
+            experiment_list.append({
                 "session_id": session.session_id,
                 "status": session.status,
-                "timestamp": session.timestamp
-            }
-            for session in self.sessions.values()
-        ]
+                "timestamp": session.timestamp,
+                "color_preview": color_preview
+            })
         msg = {"type": "experiment_list", "experiments": experiment_list}
         self.broadcast_to_all_uis(msg)
     
@@ -140,6 +142,19 @@ class DevelopServer:
                 break
         else:
             graph["nodes"].append(node)
+        
+        # Update color preview in database
+        node_colors = [n["border_color"] for n in graph["nodes"]]
+        color_preview = node_colors[-6:]  # Only display last 6 colors
+        CACHE.update_color_preview(sid, color_preview)
+        
+        # Broadcast color preview update to all UIs
+        self.broadcast_to_all_uis({
+            "type": "color_preview_update",
+            "session_id": sid,
+            "color_preview": color_preview
+        })
+        
         self.broadcast_to_all_uis({
             "type": "graph_update",
             "session_id": sid,
@@ -204,6 +219,16 @@ class DevelopServer:
     def handle_erase(self, msg):
         session_id = msg.get("session_id")
         EDIT.erase(session_id)
+        # Clear color preview in database
+        CACHE.update_color_preview(session_id, [])
+        
+        # Broadcast color preview clearing to all UIs
+        self.broadcast_to_all_uis({
+            "type": "color_preview_update",
+            "session_id": session_id,
+            "color_preview": []
+        })
+        
         self.handle_restart_message({"session_id": session_id})
 
     def handle_restart_message(self, msg: dict) -> bool:
@@ -212,6 +237,15 @@ class DevelopServer:
             logger.error("Restart message missing session_id. Ignoring.")
             return
         session = self.sessions.get(session_id)
+
+        # Reset color previews.
+        CACHE.update_color_preview(session_id, [])
+        self.broadcast_to_all_uis({
+            "type": "color_preview_update",
+            "session_id": session_id,
+            "color_preview": []
+        })
+
         if session and session.status == "running":
             # Immediately broadcast an empty graph to all UIs for fast clearing
             self.session_graphs[session_id] = {"nodes": [], "edges": []}
@@ -307,9 +341,9 @@ class DevelopServer:
             self.handle_deregister_message(msg)
         elif msg_type == "debugger_restart":
             self.handle_debugger_restart_message(msg)
-        elif msg_type == "addNode":
+        elif msg_type == "add_node":
             self.handle_add_node(msg)
-        elif msg_type == "addEdge":
+        elif msg_type == "add_edge":
             self.handle_add_edge(msg)
         elif msg_type == "edit_input":
             self.handle_edit_input(msg)
@@ -373,14 +407,16 @@ class DevelopServer:
                 self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(conn, {"type": "session_id", "session_id": None})
                 # Send experiment_list only to this UI connection
-                experiment_list = [
-                    {
+                experiment_list = []
+                for session in self.sessions.values():
+                    # Get color preview from database
+                    color_preview = CACHE.get_color_preview(session.session_id)
+                    experiment_list.append({
                         "session_id": session.session_id,
                         "status": session.status,
-                        "timestamp": session.timestamp
-                    }
-                    for session in self.sessions.values()
-                ]
+                        "timestamp": session.timestamp,
+                        "color_preview": color_preview
+                    })
                 send_json(conn, {"type": "experiment_list", "experiments": experiment_list})
                 # Send current graph data for all running sessions to the new UI
                 for sid, session in self.sessions.items():

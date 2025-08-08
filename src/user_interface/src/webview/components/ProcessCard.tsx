@@ -23,6 +23,8 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
     isDarkTheme,
     nodeColors,
   }) => {
+    // Debug logging
+    console.log(`ProcessCard render for ${process.session_id}:`, { nodeColors, color_preview: process.color_preview });
     return (
       <div
         className={[

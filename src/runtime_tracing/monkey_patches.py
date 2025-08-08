@@ -129,13 +129,13 @@ def _send_graph_node_and_edges(server_conn,
 
     # Send node
     node_msg = {
-        "type": "addNode",
+        "type": "add_node",
         "session_id": session_id,
         "node": {
             "id": node_id,
             "input": input,
             "output": extract_output_text(output_obj, api_type),
-            "border_color": "#00c542", # TODO: Later based on certainty.
+            "border_color": "#00c542", # TODO: Set based on certainty.
             "label": f"{model}", # TODO: Later label with LLM.
             "codeLocation": codeLocation,
             "model": model,
@@ -146,13 +146,13 @@ def _send_graph_node_and_edges(server_conn,
     try:
         server_conn.sendall((json.dumps(node_msg) + "\n").encode("utf-8"))
     except Exception as e:
-        logger.error(f"Failed to send addNode: {e}")
+        logger.error(f"Failed to send add_node: {e}")
 
     # Send edges for each source
     for src in source_node_ids:
         if src != node_id:
             edge_msg = {
-                "type": "addEdge",
+                "type": "add_edge",
                 "session_id": session_id,
                 "edge": {"source": src, "target": node_id}
             }

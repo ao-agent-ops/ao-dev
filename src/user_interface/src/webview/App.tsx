@@ -38,6 +38,21 @@ export const App: React.FC = () => {
           }));
           break;
         }
+        case "color_preview_update": {
+          const sid = message.session_id;
+          const color_preview = message.color_preview;
+          console.log(`Color preview update for ${sid}:`, color_preview);
+          setProcesses((prev) => {
+            const updated = prev.map(process => 
+              process.session_id === sid 
+                ? { ...process, color_preview }
+                : process
+            );
+            console.log('Updated processes:', updated);
+            return updated;
+          });
+          break;
+        }
         case "updateNode":
           if (message.payload) {
             const { nodeId, field, value, session_id } = message.payload;
@@ -50,8 +65,17 @@ export const App: React.FC = () => {
             "experiments",
             JSON.stringify(message.experiments || [])
           );
-          (message.experiments || []).forEach((exp: ProcessInfo) => {
-            sendGetGraph(exp.session_id);
+          // No longer automatically loading all graphs - only load when user clicks
+          // Clear any cached graphs for experiments that are no longer in the list
+          const currentSessionIds = new Set((message.experiments || []).map((exp: ProcessInfo) => exp.session_id));
+          setAllGraphs((prev) => {
+            const newGraphs: Record<string, GraphData> = {};
+            Object.keys(prev).forEach(sessionId => {
+              if (currentSessionIds.has(sessionId)) {
+                newGraphs[sessionId] = prev[sessionId];
+              }
+            });
+            return newGraphs;
           });
           break;
       }
@@ -166,7 +190,6 @@ export const App: React.FC = () => {
             runningProcesses={runningExperiments}
             finishedProcesses={finishedExperiments}
             onCardClick={handleExperimentCardClick}
-            graphs={Object.values(allGraphs)}
           />
         ) : activeTab === "experiment-graph" && selectedExperiment ? (
           <GraphView

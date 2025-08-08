@@ -66,4 +66,5 @@ export interface ProcessInfo {
     title?: string;
     status: string;
     timestamp?: string;
+    color_preview?: string[];
 }

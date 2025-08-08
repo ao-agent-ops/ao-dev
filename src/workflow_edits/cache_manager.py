@@ -1,6 +1,7 @@
 import yaml
 import uuid
 import os
+import json
 
 from runtime_tracing.taint_wrappers import untaint_if_needed
 from workflow_edits.utils import  response_to_json
@@ -121,6 +122,17 @@ class CacheManager:
 
     def get_graph(self, session_id):
         return db.query_one("SELECT graph_topology FROM experiments WHERE session_id=?", (session_id,))
+
+    def get_color_preview(self, session_id):
+        row = db.query_one("SELECT color_preview FROM experiments WHERE session_id=?", (session_id,))
+        if row and row["color_preview"]:
+            return json.loads(row["color_preview"])
+        return []
+
+    def update_color_preview(self, session_id, colors):
+        import json
+        color_preview_json = json.dumps(colors)
+        db.execute("UPDATE experiments SET color_preview=? WHERE session_id=?", (color_preview_json, session_id))
 
     def get_exec_command(self, session_id):
         row = db.query_one("SELECT cwd, command FROM experiments WHERE session_id=?", (session_id,))

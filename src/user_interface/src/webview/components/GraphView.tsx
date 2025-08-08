@@ -77,7 +77,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         data: {
           ...node,
           onUpdate: handleNodeUpdate,
-          session_id, // pass session_id to node data
+          session_id,
         },
       };
     });
@@ -112,11 +112,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
-        // Si hay grid con dos columnas, toma solo el ancho de la columna principal
         const grid = containerRef.current.firstChild;
         let mainColWidth = containerRef.current.offsetWidth;
         if (grid && grid instanceof HTMLElement && grid.style.display === 'grid') {
-          // Si el grid está activo, toma el ancho de la primera columna
           const gridCols = window.getComputedStyle(grid).gridTemplateColumns.split(' ');
           if (gridCols.length > 1) {
             mainColWidth = parseInt(gridCols[0], 10);
@@ -142,7 +140,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
   
   const mainLayoutStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 30px", // <-- Adjusted width for the second column
+    gridTemplateColumns: "1fr 30px",
     alignItems: "start",
     width: "100%",
     height: "100%",
@@ -172,6 +170,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
     cursor: 'pointer',
     outline: 'none',
     padding: 0,
+    position: 'relative',
   };
 
   return (
@@ -243,6 +242,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
                   borderRadius: '50%',
                   objectFit: 'cover',
                   background: 'transparent',
+                  pointerEvents: 'none',
                 }}
                 draggable={false}
               />
@@ -263,129 +263,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 height: "20",
                 viewBox: "0 0 20 20",
                 fill: "none",
-                xmlns: "http://www.w3.org/2000/svg"
-              },
-                React.createElement('path', {
-                  d: "M10 3a7 7 0 1 1-6.32 4",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                }),
-                React.createElement('polyline', {
-                  points: "3 3 7 3 7 7",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                })
-              )}
-            </button>
-            <button
-              style={{ ...restartButtonStyle, background: 'transparent', marginBottom: '4px'}}
-              title="Clear edits"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for erase! This is a bug.");
-                  throw new Error("No session_id available for erase!");
-                }
-                sendMessage({ type: 'erase', session_id });
-              }}
-            >
-              <img
-                src={erasePng}
-                alt="Erase"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  background: 'transparent',
-                }}
-                draggable={false}
-              />
-            </button>
-            <button
-              style={{ ...restartButtonStyle, marginBottom: '8px'}}
-              title="Restart"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for restart! This is a bug.");
-                  throw new Error("No session_id available for restart!");
-                }
-                sendMessage({ type: 'restart', session_id });
-              }}
-            >
-              {React.createElement('svg', {
-                width: "20",
-                height: "20",
-                viewBox: "0 0 20 20",
-                fill: "none",
-                xmlns: "http://www.w3.org/2000/svg"
-              },
-                React.createElement('path', {
-                  d: "M10 3a7 7 0 1 1-6.32 4",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                }),
-                React.createElement('polyline', {
-                  points: "3 3 7 3 7 7",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                })
-              )}
-            </button>
-            <button
-              style={{ ...restartButtonStyle, background: 'transparent', marginBottom: '4px'}}
-              title="Clear edits"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for erase! This is a bug.");
-                  throw new Error("No session_id available for erase!");
-                }
-                sendMessage({ type: 'erase', session_id });
-              }}
-            >
-              <img
-                src={erasePng}
-                alt="Erase"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  background: 'transparent',
-                }}
-                draggable={false}
-              />
-            </button>
-            <button
-              style={{ ...restartButtonStyle, marginBottom: '8px'}}
-              title="Restart"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for restart! This is a bug.");
-                  throw new Error("No session_id available for restart!");
-                }
-                sendMessage({ type: 'restart', session_id });
-              }}
-            >
-              {React.createElement('svg', {
-                width: "20",
-                height: "20",
-                viewBox: "0 0 20 20",
-                fill: "none",
-                xmlns: "http://www.w3.org/2000/svg"
+                xmlns: "http://www.w3.org/2000/svg",
+                style: { pointerEvents: 'none' }
               },
                 React.createElement('path', {
                   d: "M10 3a7 7 0 1 1-6.32 4",

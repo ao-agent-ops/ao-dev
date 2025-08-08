@@ -7,12 +7,15 @@ interface ExperimentsViewProps {
   runningProcesses: ProcessInfo[];
   finishedProcesses: ProcessInfo[];
   onCardClick?: (process: ProcessInfo) => void;
-  graphs?: GraphData[];
 }
 
-export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick, graphs }) => {
+export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick }) => {
   const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
+  
+  // Debug logging
+  console.log('ExperimentsView render - runningProcesses:', runningProcesses);
+  console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
   
   const containerStyle: React.CSSProperties = {
     padding: '20px 20px 40px 20px',
@@ -56,13 +59,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
       {runningProcesses.length > 0 && (
         <>
           <div style={titleStyle}>Running</div>
-          {runningProcesses.map((process, idx) => {
+          {runningProcesses.map((process) => {
             const cardId = `running-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
-            const nodeColors =
-              graphs && graphs[idx]
-                ? graphs[idx].nodes.map((n) => n.border_color || "#00c542").slice(-10)
-                : [];
+            const nodeColors = process.color_preview || [];
             return (
               <ProcessCard
                 key={process.session_id}
@@ -87,15 +87,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
       {finishedProcesses.length > 0 && (
         <>
           <div style={{ ...titleStyle, marginTop: runningProcesses.length > 0 ? 32 : 0 }}>Finished</div>
-          {finishedProcesses.map((process, idx) => {
+          {finishedProcesses.map((process) => {
             const cardId = `finished-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
-            const nodeColors =
-              graphs && graphs[idx]
-                ? graphs[idx].nodes
-                    .map((n) => n.border_color || "#00c542")
-                    .slice(-11)
-                : [];
+            const nodeColors = process.color_preview || [];
             return (
               <ProcessCard
                 key={process.session_id}
