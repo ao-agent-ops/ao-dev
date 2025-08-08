@@ -9,12 +9,12 @@ import os
 import runpy
 
 # Force load sitecustomize.py for AST patching
-runtime_tracing_dir = "{runtime_tracing_dir}"
+runtime_tracing_dir = {runtime_tracing_dir}
 if runtime_tracing_dir not in sys.path:
     sys.path.insert(0, runtime_tracing_dir)
 
 # Add project root to path
-project_root = "{project_root}"
+project_root = {project_root}
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -39,12 +39,12 @@ import subprocess
 import runpy
 
 # Force load sitecustomize.py for AST patching
-runtime_tracing_dir = "{runtime_tracing_dir}"
+runtime_tracing_dir = {runtime_tracing_dir}
 if runtime_tracing_dir not in sys.path:
     sys.path.insert(0, runtime_tracing_dir)
 
 # Add project root to path
-project_root = "{project_root}"
+project_root = {project_root}
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 

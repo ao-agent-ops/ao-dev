@@ -1,7 +1,7 @@
 import anthropic
 
 
-client = anthropic.Anthropic(api_key="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")
+client = anthropic.Anthropic()
 
 print("=== First API Call ===")
 print("Input: Output the number 42 and nothing else")
