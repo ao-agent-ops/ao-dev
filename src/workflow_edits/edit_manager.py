@@ -61,5 +61,12 @@ class EditManager:
             "UPDATE experiments SET graph_topology=? WHERE session_id=?",
             (graph_json, session_id)
         )
+    
+    def update_timestamp(self, session_id, timestamp):
+        """Update the timestamp of an experiment (used for reruns)"""
+        db.execute(
+            "UPDATE experiments SET timestamp=? WHERE session_id=?",
+            (timestamp, session_id)
+        )
 
 EDIT = EditManager() 

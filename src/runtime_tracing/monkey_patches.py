@@ -3,7 +3,7 @@ import inspect
 import json
 import threading
 import functools
-import uuid
+from io import BytesIO
 from workflow_edits.cache_manager import CACHE
 from common.logger import logger
 from workflow_edits.utils import extract_output_text, json_to_response
@@ -385,13 +385,23 @@ def patch_openai_files_create(files_resource):
             file_name = getattr(fileobj, "name", "unknown")
         else:
             raise ValueError("The 'file' argument must be a tuple (filename, fileobj, content_type) or a file-like object.")
+        
+        # Create a copy of the file content before the original API call consumes it
+        fileobj.seek(0)
+        file_content = fileobj.read()
+        fileobj.seek(0)
+        
+        # Create a BytesIO object with the content for our cache functions
+        fileobj_copy = BytesIO(file_content)
+        fileobj_copy.name = getattr(fileobj, "name", "unknown")
+        
         # Call the original method
         result = original_create(**kwargs)
         # Get file_id from result
         file_id = getattr(result, "id", None)
         if file_id is None:
             raise ValueError("OpenAI did not return a file id after file upload.")
-        CACHE.cache_file(file_id, file_name, fileobj)
+        CACHE.cache_file(file_id, file_name, fileobj_copy)
         # Propagate taint from fileobj if present
         taint_origins = get_taint_origins(fileobj)
         return taint_wrap(result, taint_origins)

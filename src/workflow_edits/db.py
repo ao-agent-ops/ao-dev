@@ -68,6 +68,10 @@ def _init_db(conn):
     c.execute('''
         CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON llm_calls(session_id, model, input_overwrite_hash)
     ''')
+    # Create index for timestamp ordering (most recent first)
+    c.execute('''
+        CREATE INDEX IF NOT EXISTS experiments_timestamp_idx ON experiments(timestamp DESC)
+    ''')
     conn.commit()
     
     # Migration: Add color_preview column if it doesn't exist

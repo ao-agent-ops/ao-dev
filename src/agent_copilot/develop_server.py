@@ -68,16 +68,36 @@ class DevelopServer:
                 self.ui_connections.discard(ui_conn)
     
     def broadcast_experiment_list_to_all_uis(self) -> None:
+        # Get all experiments from database (already sorted by timestamp DESC)
+        db_experiments = CACHE.get_all_experiments_sorted()
+        
+        # Create a map of session_id to session for quick lookup
+        session_map = {session.session_id: session for session in self.sessions.values()}
+        
         experiment_list = []
-        for session in self.sessions.values():
-            # Get color preview from database
-            color_preview = CACHE.get_color_preview(session.session_id)
+        for row in db_experiments:
+            session_id = row["session_id"]
+            session = session_map.get(session_id)
+            
+            # Get status from in-memory session, or default to "finished"
+            status = session.status if session else "finished"
+            timestamp = session.timestamp if session else row["timestamp"]
+            
+            # Parse color_preview from database
+            color_preview = []
+            if row["color_preview"]:
+                try:
+                    color_preview = json.loads(row["color_preview"])
+                except:
+                    color_preview = []
+            
             experiment_list.append({
-                "session_id": session.session_id,
-                "status": session.status,
-                "timestamp": session.timestamp,
+                "session_id": session_id,
+                "status": status,
+                "timestamp": timestamp,
                 "color_preview": color_preview
             })
+        
         msg = {"type": "experiment_list", "experiments": experiment_list}
         self.broadcast_to_all_uis(msg)
     
@@ -290,6 +310,17 @@ class DevelopServer:
                     "payload": {"nodes": [], "edges": []}
                 })
                 EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
+                
+                # Update the session status to running and update timestamp for rerun
+                session = self.sessions.get(session_id)
+                if session:
+                    session.status = "running"
+                    new_timestamp = datetime.now().strftime("%d/%m %H:%M")
+                    session.timestamp = new_timestamp
+                    # Update database timestamp so it sorts correctly
+                    EDIT.update_timestamp(session_id, new_timestamp)
+                    # Broadcast updated experiment list with rerun session at the front
+                    self.broadcast_experiment_list_to_all_uis()
             except Exception as e:
                 logger.error(f"Failed to rerun finished session: {e}")
     
@@ -407,16 +438,36 @@ class DevelopServer:
                 self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(conn, {"type": "session_id", "session_id": None})
                 # Send experiment_list only to this UI connection
+                # Get all experiments from database (already sorted by timestamp DESC)
+                db_experiments = CACHE.get_all_experiments_sorted()
+                
+                # Create a map of session_id to session for quick lookup
+                session_map = {session.session_id: session for session in self.sessions.values()}
+                
                 experiment_list = []
-                for session in self.sessions.values():
-                    # Get color preview from database
-                    color_preview = CACHE.get_color_preview(session.session_id)
+                for row in db_experiments:
+                    session_id = row["session_id"]
+                    session = session_map.get(session_id)
+                    
+                    # Get status from in-memory session, or default to "finished"
+                    status = session.status if session else "finished"
+                    timestamp = session.timestamp if session else row["timestamp"]
+                    
+                    # Parse color_preview from database
+                    color_preview = []
+                    if row["color_preview"]:
+                        try:
+                            color_preview = json.loads(row["color_preview"])
+                        except:
+                            color_preview = []
+                    
                     experiment_list.append({
-                        "session_id": session.session_id,
-                        "status": session.status,
-                        "timestamp": session.timestamp,
+                        "session_id": session_id,
+                        "status": status,
+                        "timestamp": timestamp,
                         "color_preview": color_preview
                     })
+                
                 send_json(conn, {"type": "experiment_list", "experiments": experiment_list})
                 # Send current graph data for all running sessions to the new UI
                 for sid, session in self.sessions.items():

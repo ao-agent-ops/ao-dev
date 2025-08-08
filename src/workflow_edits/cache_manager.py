@@ -118,7 +118,11 @@ class CacheManager:
             )
 
     def get_finished_runs(self):
-        return db.query_all("SELECT session_id, timestamp FROM experiments", ())
+        return db.query_all("SELECT session_id, timestamp FROM experiments ORDER BY timestamp DESC", ())
+    
+    def get_all_experiments_sorted(self):
+        """Get all experiments sorted by timestamp (most recent first)"""
+        return db.query_all("SELECT session_id, timestamp, color_preview FROM experiments ORDER BY timestamp DESC", ())
 
     def get_graph(self, session_id):
         return db.query_one("SELECT graph_topology FROM experiments WHERE session_id=?", (session_id,))

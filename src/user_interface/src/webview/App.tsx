@@ -126,8 +126,14 @@ export const App: React.FC = () => {
     sendGetGraph(process.session_id);
   };
 
-  const runningExperiments = processes.filter(p => p.status === 'running');
-  const finishedExperiments = processes.filter(p => p.status === 'finished');
+  // Sort experiments by timestamp (most recent first) - mainly for localStorage consistency
+  const sortedProcesses = [...processes].sort((a, b) => {
+    if (!a.timestamp || !b.timestamp) return 0;
+    return b.timestamp.localeCompare(a.timestamp);
+  });
+  
+  const runningExperiments = sortedProcesses.filter(p => p.status === 'running');
+  const finishedExperiments = sortedProcesses.filter(p => p.status === 'finished');
 
   useEffect(() => {
     if (selectedExperiment && !allGraphs[selectedExperiment.session_id]) {
