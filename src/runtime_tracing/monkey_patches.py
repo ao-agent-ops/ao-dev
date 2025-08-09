@@ -8,9 +8,6 @@ from workflow_edits.cache_manager import CACHE
 from common.logger import logger
 from workflow_edits.utils import extract_output_text, json_to_response
 from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
-from openai import OpenAI
-from openai.resources.responses import Responses
-import openai
 
 
 # ===========================================================
@@ -167,6 +164,12 @@ def _send_graph_node_and_edges(server_conn,
 # ===========================================================
 
 def v2_openai_patch(server_conn):
+    try:
+        from openai import OpenAI
+    except ImportError:
+        logger.info("OpenAI not installed, skipping OpenAI v2 patches")
+        return
+    
     original_init = OpenAI.__init__
     def new_init(self, *args, **kwargs):
         original_init(self, *args, **kwargs)
@@ -181,6 +184,12 @@ def v1_openai_patch(server_conn):
     """
     Patch openai.ChatCompletion.create (v1/classic API) to use persistent cache and edits.
     """
+    try:
+        import openai
+    except ImportError:
+        logger.info("OpenAI not installed, skipping OpenAI v1 patches")
+        return
+    
     # raise NotImplementedError
     original_create = getattr(openai.ChatCompletion, "create", None)
     if original_create is None:
@@ -231,6 +240,12 @@ def v1_openai_patch(server_conn):
     openai.ChatCompletion.create = patched_create
 
 def patch_openai_responses_create(responses, server_conn):
+    try:
+        from openai.resources.responses import Responses
+    except ImportError:
+        logger.info("OpenAI Responses not available, skipping responses.create patch")
+        return
+    
     original_create = responses.create
     def patched_create(*args, **kwargs):
         model = kwargs.get("model", args[0] if args else [])
@@ -607,6 +622,78 @@ def patch_anthropic_files_delete(files_instance):
     files_instance.delete = patched_delete
 
 # ===========================================================
+# Vertex AI API patches
+# ===========================================================
+
+def vertexai_patch(server_conn):
+    """
+    Patch Vertex AI API to use persistent cache and edits.
+    """
+    try:
+        from google import genai
+    except ImportError:
+        logger.info("Google GenAI not installed, skipping Vertex AI patches")
+        return
+    
+    # Patch the Client.__init__ method to patch the models.generate_content method
+    original_init = genai.Client.__init__
+    def new_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        patch_vertexai_models_generate_content(self.models, server_conn)
+    genai.Client.__init__ = new_init
+
+def patch_vertexai_models_generate_content(models_instance, server_conn):
+    """
+    Patch the .generate_content method of a Vertex AI models instance to handle caching and edits.
+    """
+    original_generate_content = models_instance.generate_content
+    
+    def patched_generate_content(*args, **kwargs):
+        # Extract input from contents
+        contents = kwargs.get("contents", args[0] if args else None)
+        model = kwargs.get("model", "unknown")
+        
+        # Convert contents to string for caching
+        if isinstance(contents, str):
+            input_content = contents
+        elif isinstance(contents, list):
+            # Handle list of content parts
+            input_content = " ".join(str(item) for item in contents)
+        else:
+            input_content = str(contents)
+        
+        # Get taint origins from all inputs
+        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+        
+        # Check cache and handle input/output overrides
+        input_to_use, output_to_use, node_id = CACHE.get_in_out(session_id, model, input_content)
+        
+        if output_to_use is not None:
+            result = json_to_response(output_to_use, "vertexai_generate_content")
+        else:
+            # Update contents with potentially edited input
+            new_kwargs = dict(kwargs)
+            new_kwargs["contents"] = str(input_to_use)
+            
+            result = original_generate_content(*args, **new_kwargs)
+            CACHE.cache_output(session_id, node_id, result, "vertexai_generate_content", model)
+        
+        # Send to server (graph node/edges)
+        _send_graph_node_and_edges(
+            server_conn=server_conn,
+            node_id=node_id,
+            input=input_to_use,
+            output_obj=result,
+            source_node_ids=taint_origins,
+            model=model,
+            api_type="vertexai_generate_content"
+        )
+        
+        return taint_wrap(result, [node_id])
+    
+    models_instance.generate_content = patched_generate_content
+
+# ===========================================================
 # Patch function registry
 # ===========================================================
 
@@ -616,6 +703,7 @@ CUSTOM_PATCH_FUNCTIONS = [
     v1_openai_patch, # TODO: Doesn't work currently.
     v2_openai_patch,
     anthropic_patch,
+    vertexai_patch,
 ]
 
 # Subclient patch functions (e.g., patch_openai_responses_create, patch_openai_beta_threads_runs_create_and_poll)
