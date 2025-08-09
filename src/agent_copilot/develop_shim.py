@@ -398,6 +398,12 @@ class DevelopShim:
         try:
             # Execute the script
             spec.loader.exec_module(module)
+            return 0
+        except SystemExit as e:
+            return e.code if e.code is not None else 0
+        except Exception as e:
+            logger.error(f"Error in debug mode execution: {e}")
+            return 1
         finally:
             # Restore original argv
             sys.argv = original_argv
@@ -423,7 +429,7 @@ class DevelopShim:
         except Exception:
             return False
     
-    def _run_debug_mode(self) -> None:
+    def _run_debug_mode(self) -> int:
         """Run the script in debug mode."""
         logger.info("Debug mode detected. Running script in debug context.")
         logger.info("Running script in debug mode...")
@@ -435,9 +441,11 @@ class DevelopShim:
             logger.info("Restart requested during execution, restarting script...")
             self.restart_event.clear()
             # Run the script again
-            self._run_user_script_debug_mode()
+            return self._run_user_script_debug_mode()
+        
+        return returncode
     
-    def _run_normal_mode(self) -> None:
+    def _run_normal_mode(self) -> Optional[int]:
         """Run the script in normal mode with restart handling."""
         while not self.shutdown_flag:
             logger.info("[shim-control] Starting user script subprocess.")
@@ -454,8 +462,9 @@ class DevelopShim:
                 logger.info("[shim-control] Restart requested, restarting script...")
                 self.restart_event.clear()
                 continue
-            # No restart requested, exit
-            break
+            # No restart requested, exit with user script's return code
+            return returncode
+        return 0
     
     def run(self) -> None:
         """Main entry point to run the develop shim."""
@@ -470,11 +479,12 @@ class DevelopShim:
         )
         self.listener_thread.start()
 
+        exit_code = 0
         try:
             if self._is_debug_mode():
-                self._run_debug_mode()
+                exit_code = self._run_debug_mode()
             else:
-                self._run_normal_mode()
+                exit_code = self._run_normal_mode() or 0
         finally:
             # Kill any remaining subprocess before cleanup
             self._kill_current_process()
@@ -492,5 +502,5 @@ class DevelopShim:
             if self.listener_thread:
                 self.listener_thread.join(timeout=2)
         
-        sys.exit(0)
+        sys.exit(exit_code)
 

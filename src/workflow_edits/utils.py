@@ -1,12 +1,10 @@
 import hashlib
 import json
 import os
-from openai.types.responses.response import Response
-from anthropic.types import Message as AnthropicMessage
 
 
 # === Anthropic Response helpers ===
-def anthropic_response_to_json(response) -> str:
+def _anthropic_response_to_json(response) -> str:
     """Serialize an Anthropic Response object to a JSON string for storage."""
     if hasattr(response, 'model_dump'):
         return json.dumps(response.model_dump())
@@ -15,10 +13,18 @@ def anthropic_response_to_json(response) -> str:
     else:
         return json.dumps(str(response))
 
-def anthropic_json_to_response(json_str: str):
+def _anthropic_json_to_response(json_str: str):
     """Deserialize a JSON string from the DB to an Anthropic Response object."""
+    try:
+        from anthropic.types import Message as AnthropicMessage
+    except ImportError:
+        raise ImportError("Anthropic library not installed. Cannot deserialize Anthropic response.")
+    
     data = json.loads(json_str)
-    return AnthropicMessage(**data)
+    try:
+        return AnthropicMessage(**data)
+    except Exception:
+        return str(data)
 
 def _anthropic_swap_output(output_text: str, json_response: str) -> str:
     # Parse the JSON response
@@ -35,27 +41,30 @@ def _anthropic_swap_output(output_text: str, json_response: str) -> str:
 
 def _anthropic_extract_output_text(response):
     """Extract the output string from an Anthropic Response object or dict."""
+    if hasattr(response, 'get_raw'):
+        response = response.get_raw()
     try:
-        # Anthropic Response object format
-        if hasattr(response, 'content') and response.content:
-            return response.content[0].text
-        # If dict format
-        elif isinstance(response, dict) and 'content' in response:
-            return response['content'][0]['text']
-        else:
-            return str(response)
+        return response.content[0].text
     except Exception:
         return str(response)
 
 # === OpenAI v2 Response helpers ===
-def oai_v2_response_to_json(response: Response) -> str:
+def _oai_v2_response_to_json(response) -> str:
     """Serialize an OpenAI v2 Response object to a JSON string for storage."""
     return json.dumps(response.model_dump())
 
-def oai_v2_json_to_response(json_str: str) -> Response:
+def _oai_v2_json_to_response(json_str: str):
     """Deserialize a JSON string from the DB to an OpenAI v2 Response object."""
+    try:
+        from openai.types.responses.response import Response
+    except ImportError:
+        raise ImportError("OpenAI library not installed. Cannot deserialize OpenAI response.")
+    
     data = json.loads(json_str)
-    return Response(**data)
+    try:
+        return Response(**data)
+    except Exception:
+        return str(data)
 
 def _oai_v2_swap_output(output_text: str, json_response: str) -> str:
     # Parse the JSON response
@@ -80,21 +89,59 @@ def _oai_assistant_query_extract_output_text(response):
     """Extract the output string from a Response object or dict."""
     if hasattr(response, 'get_raw'):
         response = response.get_raw()
-    return response.content[0].text.value
+    try:
+        return response.content[0].text.value
+    except Exception:
+        return str(response) 
 
 def _oai_v2_extract_output_text(response):
-    """Extract the output string from a Response object or dict."""
+    """Extract the output string from an Response object."""
     if hasattr(response, 'get_raw'):
         response = response.get_raw()
     try:
-        # v2 OpenAI Response object or dict
         return response.output[0].content[0].text
     except Exception:
-        try:
-            # If dict. TODO: Why would it be a dict?
-            return response['output'][0]['content'][0]['text']
-        except Exception:
-            return str(response) 
+        return str(response) 
+
+# === VertexAI Response helpers ===
+def _vertexai_extract_output_text(response):
+    """Extract the output string from a Vertex AI Response object."""
+    if hasattr(response, 'get_raw'):
+        response = response.get_raw()
+    try:
+        return response.text
+    except Exception:
+        return str(response) 
+
+def _vertexai_response_to_json(response) -> str:
+    """Convert Vertex AI response to JSON string."""
+    return json.dumps({
+        "output_text": response.output_text if hasattr(response, 'output_text') else str(response)
+    }, indent=2)
+
+def _vertexai_json_to_response(json_str: str):
+    """Convert JSON string back to Vertex AI response-like object."""
+    data = json.loads(json_str)
+    
+    try:
+        from google.genai.types import GenerateContentResponse
+    except ImportError:
+        raise ImportError("VertexAI library not installed. Cannot deserialize VertexAI response.")
+
+    try:
+        response = GenerateContentResponse()
+        response.output_text = data.get("output_text", "")
+        return response
+    except Exception:
+        return str(data)
+
+def _vertexai_swap_output(output_text: str, json_response: str) -> str:
+    # Parse the JSON response
+    response_data = json.loads(json_response)
+    
+    # Replace the output_text content in Vertex AI response format
+    response_data["output_text"] = output_text
+    return json.dumps(response_data, indent=2)
         
 # === General Response helpers ===
 def swap_output(output_text: str, json_response: str, api_type):
@@ -102,6 +149,8 @@ def swap_output(output_text: str, json_response: str, api_type):
         return _oai_v2_swap_output(output_text, json_response)
     elif api_type == "anthropic_messages":
         return _anthropic_swap_output(output_text, json_response)
+    elif api_type == "vertexai_generate_content":
+        return _vertexai_swap_output(output_text, json_response)
     else:
         raise ValueError(f"Unknown API type {api_type}")
     
@@ -112,22 +161,28 @@ def extract_output_text(response, api_type):
         return _oai_assistant_query_extract_output_text(response)
     elif api_type == "anthropic_messages":
         return _anthropic_extract_output_text(response)
+    elif api_type == "vertexai_generate_content":
+        return _vertexai_extract_output_text(response)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 def response_to_json(output, api_type):
     if api_type == "openai_v2_response":
-        return oai_v2_response_to_json(output)
+        return _oai_v2_response_to_json(output)
     elif api_type == "anthropic_messages":
-        return anthropic_response_to_json(output)
+        return _anthropic_response_to_json(output)
+    elif api_type == "vertexai_generate_content":
+        return _vertexai_response_to_json(output)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 def json_to_response(json_str, api_type):
     if api_type == "openai_v2_response":
-        return oai_v2_json_to_response(json_str)
+        return _oai_v2_json_to_response(json_str)
     elif api_type == "anthropic_messages":
-        return anthropic_json_to_response(json_str)
+        return _anthropic_json_to_response(json_str)
+    elif api_type == "vertexai_generate_content":
+        return _vertexai_json_to_response(json_str)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
