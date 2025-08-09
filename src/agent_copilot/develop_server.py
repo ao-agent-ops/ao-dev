@@ -149,12 +149,9 @@ class DevelopServer:
     def handle_add_node(self, msg: dict) -> None:
         sid = msg["session_id"]
         node = msg["node"]
-        if "model" not in node:
-            node["model"] = None
-        if "id" not in node:
-            node["id"] = str(uuid.uuid4())
-        if "api_type" not in node:
-            node["api_type"] = None
+        incoming_edges = msg.get("incoming_edges", [])
+        
+        # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
         for i, n in enumerate(graph["nodes"]):
             if n["id"] == node["id"]:
@@ -162,6 +159,13 @@ class DevelopServer:
                 break
         else:
             graph["nodes"].append(node)
+        
+        # Add incoming edges
+        for source in incoming_edges:
+            target = node["id"]
+            edge_id = f"e{source}-{target}"
+            full_edge = {"id": edge_id, "source": source, "target": target}
+            graph["edges"].append(full_edge)
         
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
@@ -175,21 +179,6 @@ class DevelopServer:
             "color_preview": color_preview
         })
         
-        self.broadcast_to_all_uis({
-            "type": "graph_update",
-            "session_id": sid,
-            "payload": {"nodes": graph["nodes"], "edges": graph["edges"]}
-        })
-        EDIT.update_graph_topology(sid, graph)
-
-    def handle_add_edge(self, msg: dict) -> None:
-        sid = msg["session_id"]
-        edge = msg["edge"]
-        graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
-        if not any(e["source"] == edge["source"] and e["target"] == edge["target"] for e in graph["edges"]):
-            edge_id = f"e{edge['source']}-{edge['target']}"
-            edge_with_id = {"id": edge_id, **edge}
-            graph["edges"].append(edge_with_id)
         self.broadcast_to_all_uis({
             "type": "graph_update",
             "session_id": sid,
@@ -374,8 +363,6 @@ class DevelopServer:
             self.handle_debugger_restart_message(msg)
         elif msg_type == "add_node":
             self.handle_add_node(msg)
-        elif msg_type == "add_edge":
-            self.handle_add_edge(msg)
         elif msg_type == "edit_input":
             self.handle_edit_input(msg)
         elif msg_type == "edit_output":
@@ -427,9 +414,7 @@ class DevelopServer:
                 self.conn_info[conn] = {"role": role, "session_id": session_id}
                 send_json(conn, {"type": "session_id", "session_id": session_id})
             elif role == "shim-runner":
-                session_id = handshake.get("session_id")
-                # Optionally, associate this runner with the session if needed
-                pass  # Do not add to self.ui_connections
+                pass  # Don't do anything if shim-runner
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()

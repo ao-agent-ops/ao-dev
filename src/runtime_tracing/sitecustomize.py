@@ -38,14 +38,7 @@ def setup_tracing():
         }
         try:
             server_conn.sendall((json.dumps(handshake) + "\n").encode('utf-8'))
-            file_obj = server_conn.makefile(mode='r')
-            session_line = file_obj.readline()
-            if session_line:
-                try:
-                    session_msg = json.loads(session_line.strip())
-                    # session_id = session_msg.get("session_id")  # Don't override env session_id
-                except Exception:
-                    pass
+            # For shim-runner, server doesn't send a response, so don't wait for one
         except Exception:
             pass
         try:
