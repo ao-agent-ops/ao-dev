@@ -22,6 +22,7 @@ def send_json(conn: socket.socket, msg: dict) -> None:
     except Exception as e:
         logger.error(f"Error sending JSON: {e}")
 
+
 class Session:
     """Represents a running develop process and its associated UI clients."""
     
@@ -31,6 +32,7 @@ class Session:
         self.status = "running"
         self.timestamp = datetime.now().strftime("%d/%m %H:%M")
         self.lock = threading.Lock()
+
 
 class DevelopServer:
     """Manages the development server for LLM call visualization."""

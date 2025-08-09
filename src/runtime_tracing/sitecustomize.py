@@ -3,9 +3,9 @@ import socket
 import json
 import traceback
 from common.logger import logger
-from common.constants import ACO_PROJECT_ROOT
+from common.constants import ACO_PROJECT_ROOT, HOST, PORT, SOCKET_TIMEOUT
 from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
-from common.utils import get_project_root, scan_user_py_files_and_modules
+from common.utils import scan_user_py_files_and_modules
 from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 from runtime_tracing.monkey_patches import set_session_id
 
@@ -20,12 +20,12 @@ def setup_tracing():
     """
     if not os.environ.get('AGENT_COPILOT_ENABLE_TRACING'):
         return
-    host = os.environ.get('AGENT_COPILOT_SERVER_HOST', '127.0.0.1')
-    port = int(os.environ.get('AGENT_COPILOT_SERVER_PORT', '5959'))
+    host = os.environ.get('AGENT_COPILOT_SERVER_HOST', HOST)
+    port = int(os.environ.get('AGENT_COPILOT_SERVER_PORT', PORT))
     session_id = os.environ.get('AGENT_COPILOT_SESSION_ID')
     server_conn = None
     try:
-        server_conn = socket.create_connection((host, port), timeout=5)
+        server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
     except Exception:
         return
     if server_conn:

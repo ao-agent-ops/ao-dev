@@ -4,7 +4,7 @@ import os
 # server-related constants
 HOST = '127.0.0.1'
 PORT = 5959
-SOCKET_TIMEOUT = 3
+SOCKET_TIMEOUT = 1
 SHUTDOWN_WAIT = 2
 
 
@@ -95,4 +95,7 @@ def safe_infer_project_root() -> str:
     else:
         assert os.path.isdir(project_root) and os.path.isdir(os.path.join(project_root, 'src/agent_copilot')), \
             "project root found but incorrect."
+        return project_root
+
+
 ACO_PROJECT_ROOT = safe_infer_project_root()

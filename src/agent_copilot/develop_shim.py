@@ -13,7 +13,7 @@ from typing import Optional, List
 from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
 from runtime_tracing.apply_monkey_patches import apply_all_monkey_patches
 from common.logger import logger
-from common.utils import get_project_root, scan_user_py_files_and_modules
+from common.utils import scan_user_py_files_and_modules
 from common.constants import ACO_PROJECT_ROOT
 from agent_copilot.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 

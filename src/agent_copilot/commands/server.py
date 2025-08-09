@@ -36,7 +36,7 @@ def execute_server_command(args):
     if args.command == 'start':
         # If server is already running, do not start another
         try:
-            socket.create_connection((HOST, PORT), timeout=1).close()
+            socket.create_connection((HOST, PORT), timeout=SOCKET_TIMEOUT).close()
             logger.info('Develop server is already running.')
             return
         except Exception:
