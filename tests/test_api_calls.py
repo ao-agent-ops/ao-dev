@@ -147,7 +147,8 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
     handshake = {
         "role": "shim-control",
         "cwd": test_dir,
-        "command": f"develop user_programs/{program_file}"
+        "command": f"develop user_programs/{program_file}",
+        "environment": {}
     }
     shim_file.write(json.dumps(handshake) + "\n")
     shim_file.flush()
@@ -233,6 +234,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
 ])
 def test_add_numbers_api(program_file, api_type, create_response_func):
     """Test add_numbers programs for different APIs using cached responses."""
+    # TODO: Need to make sure server is running!
     run_add_numbers_test(program_file, api_type, create_response_func)
 
 

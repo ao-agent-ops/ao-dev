@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Optional, Union
 
+import yaml
+
 def rel_path_to_abs(abs_file_path, rel_to_file):
     """
     Use __file__ as first argumante (abs_fil_path).
@@ -54,17 +56,60 @@ def get_config_path():
     # TODO: Is this still needed? Only used in cache manager.
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'configs', 'copilot.yaml'))
 
-def get_project_root() -> Path:
+def get_project_root() -> str:
     """Return the project root as set in copilot.yaml (ensuring it is set)."""
     # TODO: Check if the project root is stored in config.
-    # TODO: Should we use a string or Path here?
-    return derive_project_root()
+    # TODO: If not: return derive_project_root()
+    # TODO: Delete below.
+    config_path = get_config_path()
+    return ensure_project_root_in_copilot_yaml(config_path)
+
+# TODO: delete this function (used in develop.py).
+def ensure_project_root_in_copilot_yaml(config_path, default_root=None):
+    """
+    Ensure that copilot.yaml has a project_root entry. If not, set it using default_root or dynamic logic.
+    Returns the project_root path.
+    Throws a clear error if project root cannot be determined.
+    """
+    # Load YAML config
+    if not os.path.exists(config_path):
+        config = {}
+    else:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f) or {}
+
+    if 'project_root' in config and config['project_root']:
+        return config['project_root']
+
+    # Compute default if not provided
+    if default_root is None:
+        # Dynamic logic: look for pyproject.toml, .git
+        current = os.getcwd()
+        found = False
+        while current != os.path.dirname(current):
+            if (os.path.exists(os.path.join(current, 'pyproject.toml')) or
+                os.path.exists(os.path.join(current, '.git'))):
+                default_root = current
+                found = True
+                break
+            current = os.path.dirname(current)
+        if not found:
+            raise RuntimeError(
+                "Could not determine project root. Please create a pyproject.toml or .git in your project root, "
+                "or set 'project_root' manually in configs/copilot.yaml."
+            )
+
+    config['project_root'] = default_root
+    # Write back to YAML
+    with open(config_path, 'w') as f:
+        yaml.safe_dump(config, f)
+    return default_root
 
 # ==============================================================================
 # We try to derive the project root relative to the user working directory. 
 # All of the below is implementing this heuristic search.
 # ==============================================================================
-def derive_project_root() -> Path:
+def derive_project_root() -> str:
     """
     Walk upward from current working directory to infer a Python project root.
 
@@ -73,14 +118,14 @@ def derive_project_root() -> Path:
       2) If a parent directory name cannot be part of a Python module path (not an identifier), STOP at that directory.
       3) If we encounter common non-project anchor dirs (~/Documents, ~/Downloads, /usr, C:\\Windows, /Applications, etc.),
          DO NOT go above them; return the last "good" directory below.
-      4) If we detect we’re about to cross a virtualenv boundary, return the last good directory below.
+      4) If we detect we're about to cross a virtualenv boundary, return the last good directory below.
       5) If we hit the filesystem root without any better signal, return the last good directory we saw.
 
     "Last good directory" = the most recent directory we visited that could plausibly be part of an importable path
-    (i.e., its name is a valid identifier or it’s a top-level candidate that doesn’t obviously look like an anchor).
+    (i.e., its name is a valid identifier or it's a top-level candidate that doesn't obviously look like an anchor).
 
     Returns:
-        Path to the inferred project root.
+        String path to the inferred project root.
     """
     start = os.getcwd()
     cur = _normalize_start(start)
@@ -89,26 +134,26 @@ def derive_project_root() -> Path:
     for p in _walk_up(cur):
         # Strong signal: repo/project markers at this directory
         if _has_project_markers(p) or _has_src_layout_hint(p):
-            return p
+            return str(p)
 
         # If this segment cannot be in a Python dotted path, don't go above it.
         if not _segment_is_import_safe(p):
-            return p
+            return str(p)
 
         # If this is a known "anchor" (Documents, Downloads, Program Files, /usr, etc.),
         # don't float above it; the project likely lives below.
         if _is_common_non_project_dir(p):
-            return last_good
+            return str(last_good)
 
         # Don't float above a virtualenv boundary (if start happened to be inside one).
         if _looks_like_virtualenv_root(p):
-            return last_good
+            return str(last_good)
 
         # If nothing special, this remains a reasonable candidate.
         last_good = p
 
     # We reached the OS root without a decisive marker.
-    return last_good
+    return str(last_good)
 
 def _normalize_start(start: Optional[Union[str, os.PathLike]]) -> Path:
     if start is None:
