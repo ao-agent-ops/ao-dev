@@ -82,15 +82,12 @@ def config_command(args):
     config.to_yaml_file(config_file)
 
 
-def config_command_parser(subparsers=None):
+def config_command_parser():
     description = "Run `aco config` before you debug your agents. This " \
                     "will prompt some configurations that you can choose. " \
                     "These will get saved in a default path or in --config_path " \
                     "which you can pass: `aco config --config_path some/path/config.yaml"
-    if subparsers is not None:
-        parser = subparsers.add_parser("Config", usage="aco config [--config-file <path/to/file.yaml>]", description=description)
-    else:
-        parser = argparse.ArgumentParser("Config", usage="aco-config [--config-file <path/to/file.yaml>]", description=description)
+    parser = argparse.ArgumentParser("Config", usage="aco-config [--config-file <path/to/file.yaml>]", description=description)
 
     parser.add_argument(
         "--config-file",
@@ -98,9 +95,6 @@ def config_command_parser(subparsers=None):
         type=str,
         help="The path for the config file.",
     )
-
-    if subparsers is not None:
-        parser.set_defaults(func=config_command)
     return parser
 
 

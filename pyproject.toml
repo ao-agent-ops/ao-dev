@@ -30,7 +30,6 @@ static_analysis = ["pyre_static_analysis/**/*"]
 
 [project.scripts]
 # Console commands for the agent-copilot package
-aco = "agent_copilot.commands.aco_cli:main"
 aco-launch = "agent_copilot.commands.launch:main"
 aco-config = "agent_copilot.commands.config.config:main"
 aco-server = "agent_copilot.commands.server:main"

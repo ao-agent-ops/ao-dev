@@ -1,9 +1,9 @@
 from .config import config_command_parser
 
 
-def get_config_parser(subparsers=None):
+def get_config_parser():
     # The main config parser
-    config_parser = config_command_parser(subparsers)
+    config_parser = config_command_parser()
     return config_parser
 
 

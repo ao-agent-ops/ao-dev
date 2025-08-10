@@ -5,18 +5,12 @@ from common.constants import ACO_CONFIG
 from agent_copilot.develop_shim import DevelopShim
 
 
-def launch_command_parser(subparsers=None):
-    description = "Launch a python script with the agent copilot under the hood."
-    if subparsers is not None:
-        parser = subparsers.add_parser(
-            "launch", description=description, allow_abbrev=False
-        )
-    else:
-        parser = ArgumentParser(
-            usage="aco launch <script.py> [<args>]",
-            description=description,
-            allow_abbrev=False
-        )
+def launch_command_parser():
+    parser = ArgumentParser(
+        usage="aco-launch <script.py> [<args>]",
+        description="Launch a python script with the agent copilot under the hood.",
+        allow_abbrev=False
+    )
 
     parser.add_argument(
         "--config-file",
@@ -44,9 +38,6 @@ def launch_command_parser(subparsers=None):
     )
 
     parser.add_argument("script_args", nargs=REMAINDER, help="Arguments of the script to be executed.")
-
-    if subparsers is not None:
-        parser.set_defaults(func=launch_command)
     return parser
 
 
@@ -78,19 +69,8 @@ def _validate_launch_command(args):
     return args
 
 
-# def prepare_launcher_env(args):
-#     current_env = os.environ.copy()
-#     # here, we can make changes to environment variables for the run
-#     # without changing/overwriting the original ones.
-#     # we could set some cache related stuff here because we have access
-#     # to the default args here.
-#     return current_env
-
 def launch_command(args):
     args = _validate_launch_command(args)
-
-    # modified_env = prepare_launcher_env(args)
-
     shim = DevelopShim(args.script, args.script_args, args.module)
     shim.run()
 
