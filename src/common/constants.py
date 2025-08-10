@@ -24,7 +24,7 @@ os.makedirs(ACO_HOME, exist_ok=True)
 # Path to config.yaml. This config file includes the possible
 # command line args. Must be generated with `aco config`.
 # > Note: This does not need to be set. You can also just pass
-# the relevant command line args when you run `aco develop`.
+# the relevant command line args when you run `aco-launch`.
 default_config_path = os.path.join(ACO_HOME, "config.yaml")
 ACO_CONFIG = os.path.expandvars(
     os.path.expanduser(

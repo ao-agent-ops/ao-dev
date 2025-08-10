@@ -140,7 +140,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
     handshake = {
         "role": "shim-control",
         "cwd": test_dir,
-        "command": f"develop user_programs/{program_file}",
+        "command": f"aco-launch user_programs/{program_file}",
         "environment": {},
     }
     shim_file.write(json.dumps(handshake) + "\n")
