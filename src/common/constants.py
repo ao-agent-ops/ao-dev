@@ -47,7 +47,7 @@ ACO_CACHE = os.path.expandvars(
         )
     )
 )
-os.makedirs(os.path.dirname(ACO_CACHE), exist_ok=True)
+os.makedirs(ACO_CACHE, exist_ok=True)
 
 
 # the path to the folder where the experiments database is
@@ -61,7 +61,7 @@ ACO_DB_PATH = os.path.expandvars(
         )
     )
 )
-os.makedirs(os.path.dirname(ACO_DB_PATH), exist_ok=True)
+os.makedirs(ACO_DB_PATH, exist_ok=True)
 
 
 default_attachment_cache = os.path.join(ACO_CACHE, "attachments")
@@ -73,7 +73,7 @@ ACO_ATTACHMENT_CACHE = os.path.expandvars(
         )
     )
 )
-os.makedirs(os.path.dirname(ACO_ATTACHMENT_CACHE), exist_ok=True)
+os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
 
 
 # project root is only inferred once at import-time
