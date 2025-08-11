@@ -24,26 +24,20 @@ This will feel *exactly* the same as running Python but also analyzes their code
 Several IDEs are based on VS Code. We have successfully tried our extension in VS Code and Cursor.
 
 ### Get started
-
-This is a temporary "get started". You should run the below steps in VS Code or Cursor:
+Run the below steps in VS Code or Cursor:
 
 1. Install dependencies (see "Dependencies" below).
-2. Set `project_root` in `configs/copilot.yaml` to the path where your code base lives (that you want to analyze). Also set `cache_dir` and `cache_attachments`. When you send requests with attachements (e.g., query over a PDF), these parameters define if you want to cache the files so they are available when you later inspect inputs and outputs to a query. (‼️)
-3. Launch explorer window with extension installed by running "Run Extension" from the debugger options (see "Launch front end" below).
-4. Normally use VS Code. E.g., open folder: The repo you want to analyze
-5. Run `aco-launch script.py` to use our tool on your code base
+2. Launch explorer window with extension installed by selecting "Run Extension" from the debugger options ([more details](/src/user_interface/README.md)).
+3. Normally use VS Code with our extension installed. E.g., run `aco-launch your_script.py` to use our tool on your code base.
 
 ### Dependencies
-The project has python dependencies but also others (for front end). We recommend to use a conda env. Run the following in project root dir:
+The project has python dependencies but also others (for front end). We recommend to use a conda env. After installing conda, run the following in the project root dir:
 
 ```bash
-conda env create -f conda-environment.yml
-conda activate scratchpad
-pip install -e .
+conda env create -f conda-environment.yaml
+conda activate aco
+cd src/user_interface && npm install
 ```
-
-### Launch front end
-Then see [here](/src/user_interface/README.md) to launch explorer window with extension installed.
 
 ### Start and stop server
 Currently, you need to manually start and stop our server. Just do:
@@ -67,7 +61,7 @@ If you make changes to the server code, you can also do `aco-server restart` so 
 
 Please install the dependencies required for developing
 ```bash
-pip install -r requirements_dev.txt
+pip install -e ".[dev]"
 pre-commit install
 ```
 In [Makefile](./Makefile), there are commands that need to run smoothly before pushing any code. Execute the following commands:
@@ -88,15 +82,8 @@ These are the processes running.
 
 ### Keep dependencies up to date
 
-Keep dependencies up to date:
+Activate the conda environment whose dependencies you want to export. 
 
-`python create_dependency_file.py`
+- If you want that any user has to install all of your dependencies, run `python update_dependencies.py`. Your dependencies will be installed upon `pip install -e .` .
 
-### Testing / Playing around
-
-Go to `testing` dir to just try things out. See the READMEs there.
-
-
-### Static analysis
-
-This is not really working as of now. It works on simple scripts but not on complex ones with many edge cases. Static analysis might not really be necessary though.
+- If you're in a dev conda environment (only devs need to install all your dependencies), run `python update_dependencies.py --dev`. Any dependencies which are present in your conda env, but not in the general dependency list, are only installed upon `pip install -e ".[dev]"`.

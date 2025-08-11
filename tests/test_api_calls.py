@@ -1,8 +1,8 @@
 """
-Integration test if the develop command works as expected.
+Integration test if the aco-launch command works as expected.
 We insert cached responses into the database so we don't make actual
-API calls. We register a UI, run a develop command, and check if the
-UI receives the correct number of graph_update messages.
+API calls. We register a UI, run an aco-launch command, and check if
+the UI receives the correct number of graph_update messages.
 """
 
 import uuid
@@ -154,8 +154,6 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
     deregister_msg = {"type": "deregister", "session_id": session_id}
     shim_file.write(json.dumps(deregister_msg) + "\n")
     shim_file.flush()
-
-    # Close the fake shim connection
     shim_sock.close()
 
     # 3. Connect as UI and collect messages
@@ -206,7 +204,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
 
     # 6. Collect graph_update messages
     print("6. Collecting graph_update messages...")
-    graph_updates = []
+    graph_updates = 0
     timeout = 7  # Run for 7 seconds, check how many graph_updates we get.
     start_time = time.time()
 
@@ -215,14 +213,14 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
             msg = message_queue.get(timeout=1)
             # Filter for graph_update messages for our session
             if msg.get("type") == "graph_update" and msg.get("session_id") == session_id:
-                graph_updates.append(msg)
+                graph_updates += 1
         except queue.Empty:
             continue
     ui_sock.close()
 
     # 7. Verify we got 5 graph updates (1 inital + 1 for each LLM call).
     print("7. Verifying results...")
-    assert len(graph_updates) == 5, f"Expected 5 graph_updates, got {len(graph_updates)}"
+    assert graph_updates == 5, f"Expected 5 graph_updates, got {graph_updates}"
     print(f"✅ Test passed for {program_file}! Got 5 graph_updates as expected")
 
 
