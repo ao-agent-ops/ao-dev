@@ -18,7 +18,6 @@ class EditManager:
             "UPDATE llm_calls SET input_overwrite=?, input_overwrite_hash=?, output=NULL WHERE session_id=? AND node_id=?",
             (new_input, new_input_hash, session_id, node_id),
         )
-        self.set_edited(session_id, True)
 
     def set_output_overwrite(self, session_id, node_id, new_output):
         # Get api_type and output for the given session_id and node_id
@@ -35,7 +34,6 @@ class EditManager:
             "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
             (updated_output_json, session_id, node_id),
         )
-        self.set_edited(session_id, True)
 
     def erase(self, session_id):
         default_graph = json.dumps({"nodes": [], "edges": []})
@@ -44,7 +42,6 @@ class EditManager:
             "UPDATE experiments SET graph_topology=? WHERE session_id=?",
             (default_graph, session_id),
         )
-        self.set_edited(session_id, True)
 
     def add_experiment(
         self, session_id, name, timestamp, cwd, command, environment, parent_session_id
@@ -54,10 +51,11 @@ class EditManager:
         default_result = ""
         default_note = "Take notes."
         default_log = "No entries"
+        parent_session_id = parent_session_id if parent_session_id else session_id
 
         env_json = json.dumps(environment)
         db.execute(
-            "INSERT INTO experiments (session_id, parent_session_id, title, graph_topology, timestamp, cwd, command, environment, success, notes, log, edited) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO experiments (session_id, parent_session_id, title, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 parent_session_id,
@@ -70,19 +68,7 @@ class EditManager:
                 default_result,
                 default_note,
                 default_log,
-                False,
             ),
-        )
-
-    def set_edited(self, session_id, edited=False):
-        db.execute("UPDATE experiments SET edited=? WHERE session_id=?", (edited, session_id))
-
-    def add_subexperiment(self, session_id, name, parent_id):
-        default_graph = json.dumps({"nodes": [], "edges": []})
-        print("SESS", session_id)
-        db.execute(
-            "INSERT INTO experiments (session_id, parent_session_id, graph_topology, title, edited) VALUES (?, ?, ?, ?, ?)",
-            (session_id, parent_id, default_graph, name, False),
         )
 
     def update_graph_topology(self, session_id, graph_dict):

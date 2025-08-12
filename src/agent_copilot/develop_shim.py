@@ -200,6 +200,7 @@ class DevelopShim:
             "command": " ".join(sys.argv),
             "environment": dict(os.environ),
             "parent_session_id": None,
+            "prev_session_id": os.getenv("AGENT_COPILOT_PREV_SESSION_ID"),
         }
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode("utf-8"))
@@ -340,28 +341,12 @@ class DevelopShim:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(wrapper_code)
 
-            # [debug] removed /Users/jub/agent-copilot/src/runtime_tracing
-            # we don't need it since the wrapper-script knows where runtime_tracing is and
-            # can add it to the sys path. we can then import it and call setup_tracing from
-            # the wrapper script.
-            new_pp = "/Users/jub/agent-copilot/example_workflows/debug_examples/"
-            env["PYTHONPATH"] = new_pp
-            print(temp_path)
-
             self.proc = subprocess.Popen([sys.executable, temp_path], env=env)
             self.wrapper_path = temp_path
         else:
             # For file execution, convert to module name and use wrapper
             module_name = self._convert_file_to_module_name(self.script_path)
             wrapper_path = self._create_runpy_wrapper(module_name, self.script_args)
-
-            # [debug] removed /Users/jub/agent-copilot/src/runtime_tracing
-            # we don't need it since the wrapper-script knows where runtime_tracing is and
-            # can add it to the sys path. we can then import it and call setup_tracing from
-            # the wrapper script.
-            new_pp = "/Users/jub/agent-copilot/example_workflows/debug_examples/"
-            env["PYTHONPATH"] = new_pp
-            print(wrapper_path)
 
             self.proc = subprocess.Popen([sys.executable, wrapper_path], env=env)
             self.wrapper_path = wrapper_path

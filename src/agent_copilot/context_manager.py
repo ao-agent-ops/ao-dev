@@ -18,6 +18,9 @@ parent_session_id = None
 def aco_launch(run_name="Workflow run"):
     """
     Context manager for launching runs with a specific name.
+    NOTE: We need to rerun all subruns if we use a context manager.
+    Other subruns' expensive calls should be cached though. We also
+    hide this somewhat in the UI.
 
     Args:
         run_name (str): Name of the run to launch
@@ -27,46 +30,36 @@ def aco_launch(run_name="Workflow run"):
             # User code runs here
             result = some_function()
     """
-    # Check if this run should be executed or not.
-    # This is to support that some "sub-run" needs to be reran but not all.
-    # TODO: I think this can have some weird side effects?
     logger.debug(
         f"Sub-run '{run_name}' starting in process {os.getpid()}, thread {threading.get_ident()}"
     )
-    should_run, session_id = CACHE.should_run_subrun(parent_session_id, run_name)
-    if not should_run:
-        logger.debug(f"Sub-run '{run_name}' skipped - already executed")
-        return
 
-    print("executing", run_name)
+    # Get rerun environment from parent
+    # BUG: If parent sets env vars before calling this, these env vars are lost upon restart.
+    parent_env = CACHE.get_parent_environment(parent_session_id)
+
+    # If rerun, get previous's runs session_id.
+    prev_session_id = CACHE.get_subrun_id(parent_session_id, run_name)
 
     # Register with server as shim-control.
     shim_sock = socket.create_connection(("127.0.0.1", 5959))
     shim_file = shim_sock.makefile("rw")
-
-    # Get rerun command from parent.
-    parent_env = CACHE.get_parent_environment(parent_session_id)
-
     handshake = {
         "type": "hello",
         "role": "shim-control",
         "name": run_name,
-        "parent_run": parent_session_id,
+        "parent_session_id": parent_session_id,
         "cwd": parent_env["cwd"],
         "command": parent_env["command"],
         "environment": json.loads(parent_env["environment"]),
+        "prev_session_id": prev_session_id,
     }
     shim_file.write(json.dumps(handshake) + "\n")
     shim_file.flush()
 
+    # Get newly assigned session id (== previous one if it's a rerun).
     response = json.loads(shim_file.readline().strip())
-
-    if not session_id:
-        session_id = response["session_id"]
-    else:
-        EDIT.mark_edit_applied(session_id)
-
-    # Set session_id of this run.
+    session_id = response["session_id"]
     token = current_session_id.set(session_id)
 
     # Run user code
@@ -88,7 +81,8 @@ def get_session_id():
 
 
 def set_session_id(session_id):
-    # Set session id of original develop run (called by sitecustomize.py).
+    # Called by sitecustomize.py: set session id of `aco-launch`
     global parent_session_id, current_session_id
+    assert session_id is not None
     parent_session_id = session_id
     current_session_id.set(session_id)

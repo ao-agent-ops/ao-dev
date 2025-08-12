@@ -21,15 +21,22 @@ class CacheManager:
         self.cache_attachments = True
         self.attachment_cache_dir = ACO_ATTACHMENT_CACHE
 
-    def should_run_subrun(self, parent_session_id, name):
+    def get_subrun_id(self, parent_session_id, name):
         result = db.query_one(
-            "SELECT edited, session_id FROM experiments WHERE parent_session_id = ? AND title = ?",
+            "SELECT session_id FROM experiments WHERE parent_session_id = ? AND title = ?",
             (parent_session_id, name),
         )
         if result is None:
-            return True, None
+            return None
         else:
-            return result["edited"], result["session_id"]
+            return result["session_id"]
+
+    def get_parent_session_id(self, session_id):
+        result = db.query_one(
+            "SELECT parent_session_id FROM experiments WHERE session_id=?",
+            (session_id,),
+        )
+        return result["parent_session_id"]
 
     def cache_file(self, file_id, file_name, io_stream):
         if not getattr(self, "cache_attachments", False):

@@ -60,7 +60,6 @@ def _init_db(conn):
             success TEXT CHECK (success IN ('', 'Satisfatory', 'Failed')),
             notes TEXT,
             log TEXT,
-            edited BOOLEAN DEFAULT FALSE,
             FOREIGN KEY (parent_session_id) REFERENCES experiments (session_id)
         )
     """

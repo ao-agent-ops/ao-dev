@@ -44,8 +44,6 @@ class DevelopServer:
         self.session_graphs = {}  # session_id -> graph_data
         self.ui_connections = set()  # All UI connections (simplified)
         self.sessions = {}  # session_id -> Session (only for shim connections)
-        # Store a pending rerun session_id if a rerun is requested
-        self.pending_rerun_session_id = None
 
     # ============================================================
     # Utils
@@ -263,24 +261,25 @@ class DevelopServer:
         self.handle_restart_message({"session_id": session_id})
 
     def handle_restart_message(self, msg: dict) -> bool:
-        session_id = msg.get("session_id")
+        child_session_id = msg.get("session_id")
+        session_id = CACHE.get_parent_session_id(child_session_id)
         if not session_id:
             logger.error("Restart message missing session_id. Ignoring.")
             return
         session = self.sessions.get(session_id)
 
         # Reset color previews.
-        CACHE.update_color_preview(session_id, [])
+        CACHE.update_color_preview(child_session_id, [])
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": session_id, "color_preview": []}
         )
 
         # Immediately broadcast an empty graph to all UIs for fast clearing
-        self.session_graphs[session_id] = {"nodes": [], "edges": []}
+        self.session_graphs[child_session_id] = {"nodes": [], "edges": []}
         self.broadcast_to_all_uis(
             {
                 "type": "graph_update",
-                "session_id": session_id,
+                "session_id": child_session_id,
                 "payload": {"nodes": [], "edges": []},
             }
         )
@@ -299,8 +298,6 @@ class DevelopServer:
             else:
                 logger.warning(f"No shim_conn for session_id: {session_id}")
         elif session and session.status == "finished":
-            # For finished rerun, store the session_id for the next shim-control
-            self.pending_rerun_session_id = session_id
             # Rerun for finished session: launch new shim-control with same session_id
             cwd, command, environment = CACHE.get_exec_command(session_id)
             if not cwd:
@@ -314,6 +311,7 @@ class DevelopServer:
                 # Insert session_id into environment so shim-control uses the same session_id
                 env = os.environ.copy()
                 env["AGENT_COPILOT_SESSION_ID"] = session_id
+                env["AGENT_COPILOT_PREV_SESSION_ID"] = session_id
 
                 # Restore the user's original environment variables
                 env.update(environment)
@@ -323,16 +321,16 @@ class DevelopServer:
 
                 # Rerun the original command. This starts the shim-control, which starts the shim-runner.
                 args = shlex.split(command)
+                EDIT.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
                 subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
-                EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
 
                 # Update the session status to running and update timestamp for rerun
-                session = self.sessions.get(session_id)
+                session = self.sessions.get(child_session_id)
                 if session:
                     session.status = "running"
                     # Update database timestamp so it sorts correctly
                     new_timestamp = datetime.now().strftime("%d/%m %H:%M")
-                    EDIT.update_timestamp(session_id, new_timestamp)
+                    EDIT.update_timestamp(child_session_id, new_timestamp)
                     # Broadcast updated experiment list with rerun session at the front
                     self.broadcast_experiment_list_to_uis()
             except Exception as e:
@@ -419,14 +417,13 @@ class DevelopServer:
             role = handshake.get("role")
             session_id = None
             # Only assign session_id for shim-control.
-            # NOTE: In theory, there's' a race condition here but the user
-            # needs to click restart on two different experiments ms apart.
             if role == "shim-control":
-                if self.pending_rerun_session_id:
-                    session_id = self.pending_rerun_session_id
-                    self.pending_rerun_session_id = None
-                else:
+                # If rerun, use previous session_id. Else, assign new one.
+                prev_session_id = handshake.get("prev_session_id")
+                if prev_session_id is None:
                     session_id = str(uuid.uuid4())
+                else:
+                    session_id = prev_session_id
                 with self.lock:
                     if session_id not in self.sessions:
                         self.sessions[session_id] = Session(session_id)
