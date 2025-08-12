@@ -33,7 +33,21 @@ This is the wrapper around the user's python command. It works like this:
 
 ## context_manager.py
 
-Individual runs cannot be restarted during execution.
+Manages context like the session ids for different threads.
+
+Sometimes the user wants to do "subruns" within their `aco-launch` run. For example, if the user runs an eval script, they may want each sample to be a separate run. The can do this as follows:
+
+```
+for sample in samples:
+    with aco_launch("run name"):
+        eval_sample(prompt)
+```
+
+This can also be used to run many samples concurrently (see examples in `example_workflows/debug_examples/`).
+
+The implementation of the aco_launch context manager is in `context_manager.py`. The diagram below depicts its message sequence chart:
+
+![Subruns](/media/subrun.png)
 
 ## Editing and caching
 
