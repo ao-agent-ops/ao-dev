@@ -208,3 +208,4 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # DeepResearch
 **/DeepResearch/logs
+**/DeepResearch/data
