@@ -183,8 +183,10 @@ configs/keys
 _results/
 .pyre_configuration
 
-# DiskCache
+# Caches
 cache.db
+attachment_cache/
+configs/
 
 # VS Code extension
 src/user_interface/node_modules

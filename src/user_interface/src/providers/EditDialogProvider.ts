@@ -1,15 +1,26 @@
+import * as path from 'path';
+import { openPreviewWebview } from '../webview/openPreviewWebview';
 import * as vscode from 'vscode';
+import { fileToBase64 } from '../webview/utils/editDialog';
+import { generateAttachmentsHtml } from '../webview/utils/attachmentHtml';
+import * as fs from 'fs';
+
 
 export class EditDialogProvider implements vscode.WebviewPanelSerializer {
     public static readonly viewType = 'graphExtension.editDialog';
     private _panels: Set<vscode.WebviewPanel> = new Set();
+    private _context?: vscode.ExtensionContext;
+    private static readonly DIALOG_CONTEXT_KEY = 'editDialog.context';
 
     constructor(
         private readonly _extensionUri: vscode.Uri,
-        private readonly _onSave: (value: string, context: { nodeId: string; field: string; session_id?: string }) => void
-    ) {}
+        private readonly _onSave: (value: string, context: { nodeId: string; field: string; session_id?: string }) => void,
+        context?: vscode.ExtensionContext
+    ) {
+        this._context = context;
+    }    
 
-    public async show(title: string, value: string, context: { nodeId: string; field: string; session_id?: string }) {
+    public async show(title: string, value: string, context: { nodeId: string; field: string; session_id?: string; attachments?: any }) {
         // Check if a panel with this title already exists
         for (const panel of this._panels) {
             if (panel.title === title) {
@@ -35,7 +46,11 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
 
         (panel as any)._editContext = context;
         this._panels.add(panel);
-        panel.webview.html = this._getHtmlForWebview(panel.webview, value);
+        panel.webview.html = this._getHtmlForWebview(panel.webview, value, context);
+        // Persist the dialog context (including attachments)
+        if (this._context) {
+            await this._context.workspaceState.update(EditDialogProvider.DIALOG_CONTEXT_KEY, context);
+        }
 
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(
@@ -50,6 +65,31 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
                     case 'cancel':
                         panel.dispose();
                         break;
+                    case 'openAttachment': {
+                        const ctx = (panel as any)._editContext;
+                        const attachments = ctx && ctx.attachments ? ctx.attachments : [];
+                        const idx = message.index;
+                        if (attachments[idx]) {
+                            const filePath = attachments[idx][1];
+                            const ext = path.extname(filePath).toLowerCase();
+                            if (ext === '.pdf' || ext === '.docx') {
+                                fileToBase64(filePath).then(base64 => {
+                                    openPreviewWebview(
+                                        attachments[idx][0],
+                                        ext.replace('.', ''),
+                                        base64
+                                    );
+                                }).catch(err => {
+                                    vscode.window.showErrorMessage('Error reading file: ' + err.message);
+                                });
+                            } else {
+                                vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath));
+                            }
+                        } else {
+                            console.warn('[EditDialogProvider] Attachment index not found:', idx, attachments);
+                        }
+                        break;
+                    }
                 }
             },
             null
@@ -65,106 +105,33 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
     }
 
     public async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
-        // No context restoration for deserialized panels in this example
-        this._panels.add(webviewPanel);
-        webviewPanel.webview.html = this._getHtmlForWebview(webviewPanel.webview, state?.value || '');
+        // On reload, immediately dispose any orphaned edit dialog panels
+        webviewPanel.dispose();
     }
 
-    private _getHtmlForWebview(webview: vscode.Webview, initialValue: string) {
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'editDialog.js'));
+    private _getHtmlForWebview(webview: vscode.Webview, initialValue: string, context?: any) {
+        // Read the HTML template from the templates folder
+        const templatePath = path.join(
+            this._extensionUri.fsPath,
+            'src',
+            'webview',
+            'templates',
+            'editDialog.html'
+        );
+        let html = fs.readFileSync(templatePath, 'utf8');
 
-        return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Edit Dialog</title>
-                <style>
-                    body {
-                        padding: 20px;
-                        background-color: var(--vscode-editor-background);
-                        color: var(--vscode-editor-foreground);
-                        font-family: var(--vscode-font-family);
-                    }
-                    .container {
-                        display: flex;
-                        flex-direction: column;
-                        height: calc(100vh - 40px);
-                        gap: 16px;
-                    }
-                    textarea {
-                        flex: 1;
-                        padding: 12px;
-                        background-color: var(--vscode-input-background);
-                        color: var(--vscode-input-foreground);
-                        border: 1px solid var(--vscode-input-border);
-                        border-radius: 4px;
-                        font-family: var(--vscode-editor-font-family);
-                        font-size: var(--vscode-editor-font-size);
-                        line-height: 1.5;
-                        resize: none;
-                    }
-                    .button-container {
-                        display: flex;
-                        justify-content: flex-end;
-                        gap: 8px;
-                    }
-                    button {
-                        padding: 8px 16px;
-                        border: none;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 13px;
-                    }
-                    .cancel-button {
-                        background-color: var(--vscode-button-secondaryBackground);
-                        color: var(--vscode-button-secondaryForeground);
-                    }
-                    .save-button {
-                        background-color: var(--vscode-button-background);
-                        color: var(--vscode-button-foreground);
-                    }
-                    button:hover {
-                        opacity: 0.9;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <textarea id="editor">${initialValue}</textarea>
-                    <div class="button-container">
-                        <button class="cancel-button" onclick="cancel()">Cancel</button>
-                        <button class="save-button" onclick="save()">Save</button>
-                    </div>
-                </div>
-                <script>
-                    const vscode = acquireVsCodeApi();
-                    const editor = document.getElementById('editor');
-                    
-                    // Handle messages from the extension
-                    window.addEventListener('message', event => {
-                        const message = event.data;
-                        switch (message.type) {
-                            case 'setValue':
-                                editor.value = message.value;
-                                break;
-                        }
-                    });
+        // Prepare dynamic values
 
-                    function save() {
-                        vscode.postMessage({
-                            type: 'save',
-                            value: editor.value
-                        });
-                    }
+        const attachments = context && context.attachments ? context.attachments : [];
+        const pdfIconUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, 'src', 'webview', 'assets', 'pdf-file-icon.png')
+        ).toString();
+        const attachmentsHtml = generateAttachmentsHtml(attachments, pdfIconUri);
 
-                    function cancel() {
-                        vscode.postMessage({
-                            type: 'cancel'
-                        });
-                    }
-                </script>
-            </body>
-            </html>`;
+        // Replace placeholders in the template
+        html = html.replace('{{initialValue}}', initialValue || '');
+        html = html.replace('{{attachmentsHtml}}', attachmentsHtml);
+
+        return html;
     }
 } 

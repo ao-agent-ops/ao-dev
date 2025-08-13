@@ -6,5 +6,3 @@ y = LANGUAGE_MODEL.parse_standard_response(x)
 rec = y["recommendation"]
 
 z = LANGUAGE_MODEL.invoke(rec)
-
-

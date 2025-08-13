@@ -1,5 +1,6 @@
 import logging
 
+
 def setup_logging():
     # Clear out any old handlers (especially in REPL or interactive walks)
     root = logging.getLogger()
@@ -13,5 +14,6 @@ def setup_logging():
     )
 
     return root
+
 
 logger = setup_logging()

@@ -21,7 +21,7 @@ class Cache:
             schema = f.read()
         self.dbs = []
         for db_file in db_files:
-            #print(f"Opening {db_file}")
+            # print(f"Opening {db_file}")
             db = sqlite3.connect(db_file, check_same_thread=False)
             cur = db.cursor()
             cur.executescript(schema)
@@ -51,7 +51,10 @@ class Cache:
         db, db_lock = self._get_db(key)
         with db_lock:
             cur = db.cursor()
-            cur.execute("REPLACE INTO prompt_cache (key, prompt, value) VALUES (?, ?, ?)", (key, prompt, value))
+            cur.execute(
+                "REPLACE INTO prompt_cache (key, prompt, value) VALUES (?, ?, ?)",
+                (key, prompt, value),
+            )
             db.commit()
 
     def get_object(self, key: str) -> t.Any:
@@ -71,7 +74,6 @@ class Cache:
             cur = db.cursor()
             cur.execute("REPLACE INTO object_cache (key, value) VALUES (?, ?)", (key, value))
             db.commit()
-
 
     def clear_objects(self, prefix: str):
         db, db_lock = self._get_db(prefix)

@@ -9,10 +9,10 @@ from typing import Dict, Any
 def load_config() -> Dict[str, Any]:
     """Load configuration from config.json."""
     config_path = Path(__file__).parent.parent / "config.json"
-    
+
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
-    
+
     with open(config_path) as f:
         return json.load(f)
 
@@ -54,4 +54,4 @@ x = openai.chat.completions.create(model="gpt-4", messages=[{"role": "user", "co
 y = {}
 y["key"] = x
 result = anthropic.messages.create(model="claude-3", messages=[{"role": "user", "content": y}])
-''' 
+'''

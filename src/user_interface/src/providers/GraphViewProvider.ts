@@ -31,9 +31,8 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         this._editDialogProvider = provider;
     }
 
-    public handleEditDialogSave(value: string, context: { nodeId: string; field: string; session_id?: string }): void {
-        if (this._view && !(this._view as any)._disposed) {
-            console.log('GraphViewProvider: Sending updateNode for node', context.nodeId, 'with session_id:', context.session_id);
+    public handleEditDialogSave(value: string, context: { nodeId: string; field: string; session_id?: string; attachments?: any }): void {
+        if (this._view) {
             this._view.webview.postMessage({
                 type: 'updateNode',
                 payload: {
@@ -62,7 +61,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
         // Flush any pending messages to the webview
         this._pendingMessages.forEach(msg => {
-            if (this._view && !(this._view as any)._disposed) {
+            if (this._view) {
                 this._view.webview.postMessage(msg);
             }
         });
@@ -81,10 +80,6 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
-            console.log(`GraphViewProvider: Received message from webview: ${data.type}`, data);
-            if (data.type === 'showEditDialog') {
-                console.log('GraphViewProvider: Received showEditDialog for node', data.payload.nodeId, 'with session_id:', data.payload.session_id);
-            }
             if (data.type === 'restart') {
                 if (!data.session_id) {
                     console.error('Restart message missing session_id! Not forwarding to Python server.');
@@ -101,13 +96,11 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case 'edit_input':
-                    console.log('GraphViewProvider: Forwarding edit_input to Python server:', data);
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
                     }
                     break;
                 case 'edit_output':
-                    console.log('GraphViewProvider: Forwarding edit_output to Python server:', data);
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
                     }
@@ -145,6 +138,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                     break;
                 case 'showEditDialog':
                     if (this._editDialogProvider) {
+                        // Show the edit dialog with the provided data
                         this._editDialogProvider.show(
                             `${data.payload.label} ${data.payload.field === 'input' ? 'Input' : 'Output'}`,
                             data.payload.value,
@@ -152,6 +146,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                                 nodeId: data.payload.nodeId,
                                 field: data.payload.field,
                                 session_id: data.payload.session_id,
+                                attachments: data.payload.attachments
                             }
                         );
                     }
@@ -176,35 +171,19 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
+        const fs = require('fs');
+        const path = require('path');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
-
-        return `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Graph View</title>
-                <script>
-                    // Polyfill process
-                    window.process = {
-                        env: {},
-                        platform: 'browser',
-                        version: '',
-                        versions: {},
-                        type: 'renderer',
-                        arch: 'x64'
-                    };
-                </script>
-            </head>
-            <body>
-                <div id="root"></div>
-                <script>
-                    const vscode = acquireVsCodeApi();
-                    window.vscode = vscode;
-                </script>
-                <script src="${scriptUri}"></script>
-            </body>
-            </html>`;
+        const templatePath = path.join(
+            this._extensionUri.fsPath,
+            'src',
+            'webview',
+            'templates',
+            'graphView.html'
+        );
+        let html = fs.readFileSync(templatePath, 'utf8');
+        html = html.replace(/{{scriptUri}}/g, scriptUri.toString());
+        return html;
     }
 
     private _parseCodeLocation(codeLocation: string): { filePath: string | undefined; line: number | undefined } {

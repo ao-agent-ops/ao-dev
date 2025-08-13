@@ -11,13 +11,12 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { CustomNode } from './CustomNode';
 import { CustomEdge } from './CustomEdge';
-import { GraphNode, GraphEdge } from '../types';
+import { GraphNode, GraphEdge, ProcessInfo } from '../types';
 import { calculateNodePositions } from '../utils/nodeLayout';
 import { routeEdges } from '../utils/edgeRouting';
 import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
-import { ProcessInfo } from './ExperimentsView';
 import erasePng from '../assets/erase.png';
 
 interface GraphViewProps {
@@ -51,7 +50,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
   const handleNodeUpdate = useCallback(
     (nodeId: string, field: keyof GraphNode, value: string) => {
-      console.log('[GraphView] handleNodeUpdate called:', { nodeId, field, value, session_id });
       onNodeUpdate(nodeId, field, value);
       sendNodeUpdate(nodeId, field, value, session_id);
       sendReset();
@@ -72,7 +70,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
     const routedEdges = routeEdges(initialEdges, positions);
 
     const flowNodes: Node[] = initialNodes.map((node) => {
-      console.log('GraphView: Creating node', node.id, 'with session_id:', session_id);
       return {
         id: node.id,
         type: "custom",
@@ -80,7 +77,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         data: {
           ...node,
           onUpdate: handleNodeUpdate,
-          session_id, // pass session_id to node data
+          session_id,
         },
       };
     });
@@ -115,8 +112,15 @@ export const GraphView: React.FC<GraphViewProps> = ({
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
-        const newWidth = containerRef.current.offsetWidth;
-        setContainerWidth(newWidth);
+        const grid = containerRef.current.firstChild;
+        let mainColWidth = containerRef.current.offsetWidth;
+        if (grid && grid instanceof HTMLElement && grid.style.display === 'grid') {
+          const gridCols = window.getComputedStyle(grid).gridTemplateColumns.split(' ');
+          if (gridCols.length > 1) {
+            mainColWidth = parseInt(gridCols[0], 10);
+          }
+        }
+        setContainerWidth(mainColWidth);
       }
     };
 
@@ -134,10 +138,15 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
   const isDarkTheme = useIsVsCodeDarkTheme();
   
+  const mainLayoutStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr 30px",
+    alignItems: "start",
+    width: "100%",
+    height: "100%",
+  };
+
   const titleContainerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: '0px',
     padding: '15px 15px 0 20px',
   };
@@ -161,132 +170,122 @@ export const GraphView: React.FC<GraphViewProps> = ({
     cursor: 'pointer',
     outline: 'none',
     padding: 0,
+    position: 'relative',
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={styles.container}
-    >
-      <div style={titleContainerStyle}>
-        <div style={titleStyle}>
-          {experiment
-            ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : 'Graph')
-            : 'Graph'}
+    <div ref={containerRef} className={styles.container} style={{ width: '100%', height: '100%' }}>
+      <div style={mainLayoutStyle}>
+        <div>
+          <div style={titleContainerStyle}>
+            <div style={titleStyle}>
+              {experiment
+                ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : 'Graph')
+                : 'Graph'}
+            </div>
+          </div>
+          <ReactFlowProvider>
+            <div
+              className={styles.flowContainer}
+              style={{ height: `${containerHeight}px`, marginTop: '0px', paddingTop: '0px' }}
+            >
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                fitView={false}
+                proOptions={{ hideAttribution: true }}
+                minZoom={0.4}
+                maxZoom={1}
+                defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={true}
+                panOnDrag={false}
+                zoomOnScroll={false}
+                zoomOnPinch={false}
+                zoomOnDoubleClick={false}
+                panOnScroll={false}
+                preventScrolling={false}
+                style={{ 
+                  width: "100%", 
+                  height: "auto",
+                  padding: "0",
+                  margin: "0"
+                }}
+              />
+            </div>
+          </ReactFlowProvider>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <button
-            style={{
-              ...restartButtonStyle,
-              background: 'transparent',
-              marginRight: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-            }}
-            title="Clear edits"
-            onClick={() => {
-              if (!session_id) {
-                alert("No session_id available for erase! This is a bug.");
-                throw new Error("No session_id available for erase!");
-              }
-              sendMessage({ type: 'erase', session_id });
-            }}
-          >
-            <img
-              src={erasePng}
-              alt="Erase"
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'block',
-                borderRadius: '50%',
-                objectFit: 'cover',
-                background: 'transparent',
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: '10px', marginRight:'30px' }}>
+            <button
+              style={{ ...restartButtonStyle, background: 'transparent', marginBottom: '4px'}}
+              title="Clear edits"
+              onClick={() => {
+                if (!session_id) {
+                  alert("No session_id available for erase! This is a bug.");
+                  throw new Error("No session_id available for erase!");
+                }
+                sendMessage({ type: 'erase', session_id });
               }}
-              draggable={false}
-            />
-          </button>
-          <button
-            style={{
-              ...restartButtonStyle,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 0,
-            }}
-            title="Restart"
-            onClick={() => {
-              if (!session_id) {
-                alert("No session_id available for restart! This is a bug.");
-                throw new Error("No session_id available for restart!");
-              }
-              sendMessage({ type: 'restart', session_id });
-            }}
-          >
-            {React.createElement('svg', {
-              width: "20",
-              height: "20",
-              viewBox: "0 0 20 20",
-              fill: "none",
-              xmlns: "http://www.w3.org/2000/svg"
-            },
-              React.createElement('path', {
-                d: "M10 3a7 7 0 1 1-6.32 4",
-                stroke: "#fff",
-                strokeWidth: "2",
+            >
+              <img
+                src={erasePng}
+                alt="Erase"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  background: 'transparent',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            </button>
+            <button
+              style={{ ...restartButtonStyle, marginBottom: '8px'}}
+              title="Restart"
+              onClick={() => {
+                if (!session_id) {
+                  alert("No session_id available for restart! This is a bug.");
+                  throw new Error("No session_id available for restart!");
+                }
+                sendMessage({ type: 'restart', session_id });
+              }}
+            >
+              {React.createElement('svg', {
+                width: "20",
+                height: "20",
+                viewBox: "0 0 20 20",
                 fill: "none",
-                strokeLinecap: "round",
-                strokeLinejoin: "round"
-              }),
-              React.createElement('polyline', {
-                points: "3 3 7 3 7 7",
-                stroke: "#fff",
-                strokeWidth: "2",
-                fill: "none",
-                strokeLinecap: "round",
-                strokeLinejoin: "round"
-              })
-            )}
-          </button>
+                xmlns: "http://www.w3.org/2000/svg",
+                style: { pointerEvents: 'none' }
+              },
+                React.createElement('path', {
+                  d: "M10 3a7 7 0 1 1-6.32 4",
+                  stroke: "#fff",
+                  strokeWidth: "2",
+                  fill: "none",
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round"
+                }),
+                React.createElement('polyline', {
+                  points: "3 3 7 3 7 7",
+                  stroke: "#fff",
+                  strokeWidth: "2",
+                  fill: "none",
+                  strokeLinecap: "round",
+                  strokeLinejoin: "round"
+                })
+              )}
+            </button>
         </div>
       </div>
-      <ReactFlowProvider>
-        <div
-          className={styles.flowContainer}
-          style={{ height: `${containerHeight}px`, marginTop: '0px', paddingTop: '0px' }}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView={false}
-            proOptions={{ hideAttribution: true }}
-            minZoom={0.4}
-            maxZoom={1}
-            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            panOnDrag={false}
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-            panOnScroll={false}
-            preventScrolling={false}
-            style={{ 
-              width: "100%", 
-              height: "auto",
-              padding: "0",
-              margin: "0"
-            }}
-          />
-        </div>
-      </ReactFlowProvider>
     </div>
   );
 };

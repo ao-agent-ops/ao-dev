@@ -6,6 +6,8 @@ export interface GraphNode {
     label: string;
     position?: { x: number; y: number };
     border_color?: string;
+    attachments?: any[];
+    tab_title?: string;
 }
 
 export interface GraphEdge {
@@ -58,4 +60,12 @@ export interface PopoverAction {
 export interface GraphData {
     nodes: GraphNode[];
     edges: GraphEdge[];
+}
+
+export interface ProcessInfo {
+    session_id: string;
+    title?: string;
+    status: string;
+    timestamp?: string;
+    color_preview?: string[];
 }

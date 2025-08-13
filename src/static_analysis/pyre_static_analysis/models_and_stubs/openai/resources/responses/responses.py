@@ -2,9 +2,11 @@ def __test_source():
     # static‐analysis placeholder only
     return "some string"
 
+
 def __test_sink(x):
     # static‐analysis placeholder only
     return
+
 
 class Responses:
     def create(self, model=None, input=None, **kwargs):
@@ -16,4 +18,3 @@ class Responses:
             __test_sink(model)
             reveal_taint(model)
         return __test_source()
-

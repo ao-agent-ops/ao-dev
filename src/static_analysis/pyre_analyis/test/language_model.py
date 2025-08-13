@@ -1,10 +1,12 @@
 import warnings
 import subprocess
 import re
+
 # from .cache import CACHE
 # from .colors import bcolors
 import tomllib
 import boto3
+
 # import tomli, toml
 import typing as t
 from botocore.config import Config
@@ -16,6 +18,7 @@ import dotenv
 import time
 from collections import OrderedDict
 import threading
+
 # from code_assistant.common.util import robust_parse_toml
 
 
@@ -39,23 +42,24 @@ class LanguageModel:
         self.invoke_semaphore = threading.Semaphore(16)
         if self.llm.is_openai() or self.low_complexity_llm.is_openai():
             # Read OpenAI key from file or env var.
-            key_file_path = os.path.join(os.path.dirname(__file__), 'openai.key')
+            key_file_path = os.path.join(os.path.dirname(__file__), "openai.key")
             if os.path.exists(key_file_path):
-                with open(key_file_path, 'r') as key_file:
+                with open(key_file_path, "r") as key_file:
                     api_key = key_file.read().strip()
             else:
                 api_key = os.getenv("OPENAI_API_KEY")
             self.api_key = api_key
             self.client = openai.OpenAI(api_key=api_key, max_retries=0)
-        
+
         else:
             self.openai_client = None
         if self.llm.is_bedrock() or self.low_complexity_llm.is_bedrock():
-            self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1", config=bedrock_config)
+            self.bedrock_client = boto3.client(
+                "bedrock-runtime", region_name="us-east-1", config=bedrock_config
+            )
         else:
             self.bedrock_client = None
         self.file_lock = threading.Lock()
-
 
     def _invoke_openai(self, system_msg: str, prompt: str, temperature: float, llm) -> str:
         """Invoke the LLM using OpenAI."""
@@ -76,7 +80,10 @@ class LanguageModel:
                 role_name = "system"
             response = self.openai_client.chat.completions.create(
                 model=model_id,
-                messages=[{"role": role_name, "content": system_msg}, {"role": "user", "content": prompt}],
+                messages=[
+                    {"role": role_name, "content": system_msg},
+                    {"role": "user", "content": prompt},
+                ],
                 **extra_kwargs,
             )
             response = response.choices[0].message.content
@@ -102,12 +109,10 @@ class LanguageModel:
         model_id = llm.model_id()
         try:
             body = {
-                'anthropic_version': 'bedrock-2023-05-31',
-                'system': system_msg,
-                'messages': [
-                    {"role": "user", "content": [{"type": "text", "text": prompt}]}
-                ],
-                'max_tokens': 100000, # TODO: Make this configurable.
+                "anthropic_version": "bedrock-2023-05-31",
+                "system": system_msg,
+                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+                "max_tokens": 100000,  # TODO: Make this configurable.
             }
             # if llm == LLMType.SONNET3_7:
             #     body['thinking'] = {
@@ -116,10 +121,11 @@ class LanguageModel:
             #     }
             # else:
             #     body['temperature'] = temperature
-            body['temperature'] = temperature
+            body["temperature"] = temperature
             body = json.dumps(body)
             response = self.bedrock_client.invoke_model(
-                modelId=model_id, body=body,
+                modelId=model_id,
+                body=body,
             )
             response = json.loads(response["body"].read())
             response = response["content"][-1]["text"]
@@ -167,9 +173,13 @@ class LanguageModel:
         for _ in range(self.max_attempts):
             with self.invoke_semaphore:
                 if self.llm.is_openai():
-                    response, error = self._invoke_openai(system_msg, prompt, temperature=temperature, llm=llm)
+                    response, error = self._invoke_openai(
+                        system_msg, prompt, temperature=temperature, llm=llm
+                    )
                 elif self.llm.is_bedrock():
-                    response, error = self._invoke_bedrock(system_msg, prompt, temperature=temperature, llm=llm)
+                    response, error = self._invoke_bedrock(
+                        system_msg, prompt, temperature=temperature, llm=llm
+                    )
                 return prompt
                 if error is None or not isinstance(error, RateLimitException):
                     break
@@ -185,7 +195,9 @@ class LanguageModel:
             CACHE.set_prompt(cache_key, cache_prompt, response)
         return response
 
-    def _parse_block(self, output: str, tag: str, langs: t.List[str] = [], tolerate_unclosed_tags: bool = True):
+    def _parse_block(
+        self, output: str, tag: str, langs: t.List[str] = [], tolerate_unclosed_tags: bool = True
+    ):
         """Parse code between <tag attrs> and </tag>"""
         start_tag = f"<{tag}"
         end_tag = f"</{tag}>"
@@ -215,7 +227,16 @@ class LanguageModel:
         # Only remove the surroundings from the first and last line (after strip)
         first_line = lines[0]
         last_line = lines[-1]
-        possible_surroundings = ["```toml", "```json", "```diff", "```python", "```py", "```md", "```\n", "\n```"]
+        possible_surroundings = [
+            "```toml",
+            "```json",
+            "```diff",
+            "```python",
+            "```py",
+            "```md",
+            "```\n",
+            "\n```",
+        ]
         for lang in langs:
             possible_surroundings = [f"```{lang}"] + possible_surroundings
         for surrounding in possible_surroundings:
@@ -232,10 +253,10 @@ class LanguageModel:
         self,
         response: str,
         reason_tag: str = "reason",
-        code_tag: str = "patch", # TODO: I think we can delete this.
-        code_langs: t.List[str]|str = [],
+        code_tag: str = "patch",  # TODO: I think we can delete this.
+        code_langs: t.List[str] | str = [],
         tolerate_unclosed_tags: bool = True,
-        repeated_tags: bool = False, # Multiple blocks with the same tag may exist and are parsed together.
+        repeated_tags: bool = False,  # Multiple blocks with the same tag may exist and are parsed together.
     ):
         """Parse a standard LLM response."""
         if isinstance(code_langs, str):
@@ -267,7 +288,12 @@ class LanguageModel:
                     if len(attr) > 0:
                         attrs.setdefault(curr_reason_tag, []).append(attr)
                     response = response[block_end:]
-            res = self._parse_block(response, curr_code_tag, langs=code_langs, tolerate_unclosed_tags=tolerate_unclosed_tags)
+            res = self._parse_block(
+                response,
+                curr_code_tag,
+                langs=code_langs,
+                tolerate_unclosed_tags=tolerate_unclosed_tags,
+            )
             if res is not None:
                 codeblock, attr, block_end = res
                 if not repeated_tags:
@@ -284,8 +310,6 @@ class LanguageModel:
                     break
             i += 1
         return reasons, codes, attrs
-
-
 
 
 LANGUAGE_MODEL = LanguageModel()

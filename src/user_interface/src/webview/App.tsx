@@ -1,173 +1,223 @@
 import React, { useState, useEffect } from 'react';
 import { GraphView } from './components/GraphView';
 import { ExperimentsView } from './components/ExperimentsView';
-import { GraphNode, GraphEdge, GraphData } from './types';
-import { sendReady } from './utils/messaging';
-import { sendGetGraph } from './utils/messaging';
+import { GraphNode, GraphEdge, GraphData, ProcessInfo } from './types';
+import { sendReady, sendGetGraph, sendMessage } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
+import { useLocalStorage } from './hooks/useLocalStorage';
 
-declare const vscode: any;
+// Add global type augmentation for window.vscode
+declare global {
+  interface Window {
+    vscode?: {
+      postMessage: (message: any) => void;
+    };
+  }
+}
 
 export const App: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');
-    interface ProcessInfo {
-        session_id: string;
-        status: string;
-        timestamp?: string;
-    }
+  const [activeTab, setActiveTab] = useLocalStorage<"experiments" | "experiment-graph">("activeTab", "experiments");
+  const [processes, setProcesses] = useLocalStorage<ProcessInfo[]>("experiments", []);
+  const [selectedExperiment, setSelectedExperiment] = useLocalStorage<ProcessInfo | null>("selectedExperiment", null);
+  const [allGraphs, setAllGraphs] = useLocalStorage<Record<string, GraphData>>("graphs", {});
+  const isDarkTheme = useIsVsCodeDarkTheme();
 
-    const [processes, setProcesses] = useState<ProcessInfo[]>([]);
-    const [experimentGraphs, setExperimentGraphs] = useState<Record<string, GraphData>>({});
-    const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
-
-    const isDarkTheme = useIsVsCodeDarkTheme();
-
-    // Handles all messages from the backend. The extension backend ensures all messages are delivered after the webview is ready.
-    useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            const message = event.data;
-            switch (message.type) {
-                case 'session_id':
-                    // No longer need to track handshake state
-                    break;
-                case 'graph_update': {
-                    const sid = message.session_id;
-                    const payload = message.payload;
-                    // Debug: print received node data
-                    if (payload && payload.nodes) {
-                        console.log(`[UI] Received graph_update for session_id=${sid}:`, payload.nodes.map((n: any) => ({id: n.id, input: n.input})));
-                    }
-                    setExperimentGraphs(prev => ({
-                        ...prev,
-                        [sid]: payload
-                    }));
-                    break;
-                }
-                case 'updateNode':
-                    if (message.payload) {
-                        const { nodeId, field, value, session_id } = message.payload;
-                        handleNodeUpdate(nodeId, field, value, session_id);
-                    }
-                    break;
-                case 'experiment_list':
-                    setProcesses(message.experiments || []);
-                    break;
-            }
-        };
-
-        window.addEventListener('message', handleMessage);
-        sendReady(); // Notify extension backend that the webview is ready
-        return () => {
-            window.removeEventListener('message', handleMessage);
-        };
-    }, []);
-
-    const handleNodeUpdate = (nodeId: string, field: string, value: string, sessionId?: string) => {
-        if (sessionId) {
-            if (field === 'input') {
-                vscode.postMessage({
-                    type: 'edit_input',
-                    session_id: sessionId,
-                    node_id: nodeId,
-                    value
-                });
-            } else if (field === 'output') {
-                vscode.postMessage({
-                    type: 'edit_output',
-                    session_id: sessionId,
-                    node_id: nodeId,
-                    value
-                });
-            } else {
-                vscode.postMessage({
-                    type: 'updateNode',
-                    session_id: sessionId,
-                    nodeId,
-                    field,
-                    value
-                });
-            }
+  // Listen for backend messages and update state
+  useEffect(() => {   
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      switch (message.type) {
+        case "session_id":
+          break;
+        case "graph_update": {
+          const sid = message.session_id;
+          const payload = message.payload;         
+          setAllGraphs((prev) => ({
+            ...prev,
+            [sid]: payload,
+          }));
+          break;
         }
+        case "color_preview_update": {
+          const sid = message.session_id;
+          const color_preview = message.color_preview;
+          console.log(`Color preview update for ${sid}:`, color_preview);
+          setProcesses((prev) => {
+            const updated = prev.map(process => 
+              process.session_id === sid 
+                ? { ...process, color_preview }
+                : process
+            );
+            console.log('Updated processes:', updated);
+            return updated;
+          });
+          break;
+        }
+        case "updateNode":
+          if (message.payload) {
+            const { nodeId, field, value, session_id } = message.payload;
+            handleNodeUpdate(nodeId, field, value, session_id);
+          }
+          break;
+        case "experiment_list":
+          setProcesses(message.experiments || []);
+          localStorage.setItem(
+            "experiments",
+            JSON.stringify(message.experiments || [])
+          );
+          // No longer automatically loading all graphs - only load when user clicks
+          // Clear any cached graphs for experiments that are no longer in the list
+          const currentSessionIds = new Set((message.experiments || []).map((exp: ProcessInfo) => exp.session_id));
+          setAllGraphs((prev) => {
+            const newGraphs: Record<string, GraphData> = {};
+            Object.keys(prev).forEach(sessionId => {
+              if (currentSessionIds.has(sessionId)) {
+                newGraphs[sessionId] = prev[sessionId];
+              }
+            });
+            return newGraphs;
+          });
+          break;
+      }
     };
-
-    const handleExperimentCardClick = (process: ProcessInfo) => {
-        setSelectedExperiment(process);
-        setActiveTab('experiment-graph');
-        // Request the graph for this experiment from the backend
-        sendGetGraph(process.session_id);
+    window.addEventListener('message', handleMessage);
+    sendReady();
+    return () => {
+      window.removeEventListener('message', handleMessage);
     };
+  }, []);
 
-    const runningExperiments = processes.filter(p => p.status === 'running');
-    const finishedExperiments = processes.filter(p => p.status === 'finished');
+  const handleNodeUpdate = (
+    nodeId: string,
+    field: string,
+    value: string,
+    sessionId?: string,
+    attachments?: any
+  ) => {
+    if (sessionId && window.vscode) {
+      const baseMsg = {
+        session_id: sessionId,
+        node_id: nodeId,
+        value,
+        ...(attachments && { attachments }),
+      };
+      if (field === "input") {
+        window.vscode.postMessage({ type: "edit_input", ...baseMsg });
+      } else if (field === "output") {
+        window.vscode.postMessage({ type: "edit_output", ...baseMsg });
+      } else {
+        window.vscode.postMessage({
+          type: "updateNode",
+          session_id: sessionId,
+          nodeId,
+          field,
+          value,
+          ...(attachments && { attachments }),
+        });
+      }
+    }
+  };
 
-    return (
+  const handleExperimentCardClick = (process: ProcessInfo) => {
+    setSelectedExperiment(process);
+    setActiveTab('experiment-graph');
+    localStorage.setItem("selectedExperiment", JSON.stringify(process));
+    localStorage.setItem("activeTab", 'experiment-graph');
+    sendGetGraph(process.session_id);
+  };
+
+  // Sort experiments by timestamp (most recent first) - mainly for localStorage consistency
+  const sortedProcesses = [...processes].sort((a, b) => {
+    if (!a.timestamp || !b.timestamp) return 0;
+    return b.timestamp.localeCompare(a.timestamp);
+  });
+  
+  const runningExperiments = sortedProcesses.filter(p => p.status === 'running');
+  const finishedExperiments = sortedProcesses.filter(p => p.status === 'finished');
+
+  useEffect(() => {
+    if (selectedExperiment && !allGraphs[selectedExperiment.session_id]) {
+      sendGetGraph(selectedExperiment.session_id);
+    }
+  }, [selectedExperiment, allGraphs]);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: isDarkTheme ? "#252525" : "#F0F0F0",
+      }}
+    >
       <div
         style={{
-          width: "100%",
-          height: "100%",
           display: "flex",
-          flexDirection: "column",
-          background: isDarkTheme ? "#252525" : "#F0F0F0",
+          borderBottom: "1px solid var(--vscode-editorWidget-border)",
         }}
       >
-        <div
+        <button
+          onClick={() => setActiveTab("experiments")}
           style={{
-            display: "flex",
-            borderBottom: "1px solid var(--vscode-editorWidget-border)",
+            padding: "10px 20px",
+            border: "none",
+            backgroundColor:
+              activeTab === "experiments"
+                ? "var(--vscode-button-background)"
+                : "transparent",
+            color:
+              activeTab === "experiments"
+                ? "var(--vscode-button-foreground)"
+                : "var(--vscode-editor-foreground)",
+            cursor: "pointer",
           }}
         >
+          Experiments
+        </button>
+        {activeTab === "experiment-graph" && selectedExperiment && (
           <button
-            onClick={() => setActiveTab("experiments")}
+            onClick={() => setActiveTab("experiment-graph")}
             style={{
               padding: "10px 20px",
               border: "none",
-              backgroundColor:
-                activeTab === "experiments"
-                  ? "var(--vscode-button-background)"
-                  : "transparent",
-              color:
-                activeTab === "experiments"
-                  ? "var(--vscode-button-foreground)"
-                  : "var(--vscode-editor-foreground)",
+              backgroundColor: "var(--vscode-button-background)",
+              color: "var(--vscode-button-foreground)",
               cursor: "pointer",
             }}
           >
-            Experiments
+            Experiment {selectedExperiment.session_id.substring(0, 8)}...
           </button>
-          {activeTab === 'experiment-graph' && selectedExperiment && (
-            <button
-              onClick={() => setActiveTab('experiment-graph')}
-              style={{
-                padding: "10px 20px",
-                border: "none",
-                backgroundColor: "var(--vscode-button-background)",
-                color: "var(--vscode-button-foreground)",
-                cursor: "pointer",
-              }}
-            >
-              Experiment {selectedExperiment.session_id.substring(0, 8)}...
-            </button>
-          )}
-        </div>
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          {activeTab === 'experiments' ? (
-            <ExperimentsView runningProcesses={runningExperiments} finishedProcesses={finishedExperiments} onCardClick={handleExperimentCardClick} />
-          ) : activeTab === 'experiment-graph' && selectedExperiment ? (
-            (() => {
-                const sessionId = selectedExperiment.session_id;
-                const graphData = experimentGraphs[sessionId];
-                return (
-                    <GraphView
-                        nodes={graphData?.nodes || []}
-                        edges={graphData?.edges || []}
-                        onNodeUpdate={handleNodeUpdate}
-                        session_id={sessionId}
-                        experiment={selectedExperiment}
-                    />
-                );
-            })()
-          ) : null}
-        </div>
+        )}
       </div>
-    );
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        {activeTab === "experiments" ? (
+          <ExperimentsView
+            runningProcesses={runningExperiments}
+            finishedProcesses={finishedExperiments}
+            onCardClick={handleExperimentCardClick}
+          />
+        ) : activeTab === "experiment-graph" && selectedExperiment ? (
+          <GraphView
+            nodes={allGraphs[selectedExperiment.session_id]?.nodes || []}
+            edges={allGraphs[selectedExperiment.session_id]?.edges || []}
+            onNodeUpdate={(nodeId, field, value) => {
+              const nodes =allGraphs[selectedExperiment.session_id]?.nodes || [];
+              const node = nodes.find((n: any) => n.id === nodeId);
+              const attachments = node?.attachments || undefined;
+              handleNodeUpdate(
+                nodeId,
+                field,
+                value,
+                selectedExperiment.session_id,
+                attachments
+              );
+            }}
+            session_id={selectedExperiment.session_id}
+            experiment={selectedExperiment}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 };

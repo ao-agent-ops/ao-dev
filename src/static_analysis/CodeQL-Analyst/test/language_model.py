@@ -23,6 +23,7 @@ from example_user_file import Agent
 
 agent = Agent()
 
+
 class TokenLimitException(Exception):
     """Exception raised exceeding token limit."""
 
@@ -69,18 +70,28 @@ class LLMType(Enum):
         if self == LLMType.GPT_4O:
             return "openai/gpt-4o"
         if self in [LLMType.O3_MINI_LOW, LLMType.O3_MINI_MEDIUM, LLMType.O3_MINI_HIGH]:
-            # NOTE(ferdi): OpenHands does currently not support different reasoning levels. 
+            # NOTE(ferdi): OpenHands does currently not support different reasoning levels.
             # Monitor and add support in the future.
             warnings.warn(f"OpenHands does not support {self}. Will run 'o3-mini'")
             return "o3-mini"
-        
+
         raise ValueError(f"Model {self} is currently not supported for OpenHands.")
 
     def is_openai(self):
-        return self in [LLMType.GPT_4O, LLMType.O3_MINI_HIGH, LLMType.O3_MINI_MEDIUM, LLMType.O3_MINI_LOW]
+        return self in [
+            LLMType.GPT_4O,
+            LLMType.O3_MINI_HIGH,
+            LLMType.O3_MINI_MEDIUM,
+            LLMType.O3_MINI_LOW,
+        ]
 
     def is_bedrock(self):
-        return self in [LLMType.SONNET, LLMType.SONNETV2, LLMType.SONNET3_7, LLMType.SONNET3_7_NOTHINK]
+        return self in [
+            LLMType.SONNET,
+            LLMType.SONNETV2,
+            LLMType.SONNET3_7,
+            LLMType.SONNET3_7_NOTHINK,
+        ]
 
     def model_id(self) -> str:
         if self == LLMType.GPT_4O:
@@ -94,7 +105,7 @@ class LLMType(Enum):
         if self in [LLMType.O3_MINI_HIGH, LLMType.O3_MINI_MEDIUM, LLMType.O3_MINI_LOW]:
             return "o3-mini"
         raise ValueError(f"Unknown LLM type {self}")
-    
+
     def reasoning_level(self) -> str:
         if self.is_openai():
             if self == LLMType.O3_MINI_HIGH:
@@ -127,22 +138,24 @@ class LanguageModel:
         self.invoke_semaphore = threading.Semaphore(16)
         if self.llm.is_openai() or self.low_complexity_llm.is_openai():
             # Read OpenAI key from file or env var.
-            key_file_path = os.path.join(os.path.dirname(__file__), 'openai.key')
+            key_file_path = os.path.join(os.path.dirname(__file__), "openai.key")
             if os.path.exists(key_file_path):
-                with open(key_file_path, 'r') as key_file:
+                with open(key_file_path, "r") as key_file:
                     api_key = key_file.read().strip()
             else:
                 api_key = os.getenv("OPENAI_API_KEY")
             self.api_key = api_key
             self.client = openai.OpenAI(api_key=api_key, max_retries=0)
-        
+
         else:
             self.openai_client = None
         if self.llm.is_bedrock() or self.low_complexity_llm.is_bedrock():
             # TODO(ferdi): We should probably remove OpenHands ...
             # I cannot support bedrock for now, since I don't have an account.
             assert not self.use_openhands, "OpenHands can currently not use Bedrock"
-            self.bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1", config=bedrock_config)
+            self.bedrock_client = boto3.client(
+                "bedrock-runtime", region_name="us-east-1", config=bedrock_config
+            )
         else:
             self.bedrock_client = None
         self.file_lock = threading.Lock()
@@ -153,40 +166,41 @@ class LanguageModel:
         Build a Docker run command string with a multi-line prompt.
         """
         # Convert actual newline characters into escaped newlines (\n)
-        escaped_prompt = prompt.replace('\n', '\\n')
+        escaped_prompt = prompt.replace("\n", "\\n")
         cmd = (
-            f'docker run -it \\\n'
-            f'  --pull=always \\\n'
-            f'  -e SANDBOX_RUNTIME_CONTAINER_IMAGE=docker.all-hands.dev/all-hands-ai/runtime:0.27-nikolaik \\\n'
+            f"docker run -it \\\n"
+            f"  --pull=always \\\n"
+            f"  -e SANDBOX_RUNTIME_CONTAINER_IMAGE=docker.all-hands.dev/all-hands-ai/runtime:0.27-nikolaik \\\n"
             f'  -e WORKSPACE_MOUNT_PATH="{working_stage}" \\\n'
-            f'  -e LLM_API_KEY={api_key} \\\n'
-            f'  -e LLM_MODEL={model} \\\n'
-            f'  -e LOG_ALL_EVENTS=true \\\n'
-            f'  -v {working_stage}:/opt/workspace_base \\\n'
-            f'  -v /var/run/docker.sock:/var/run/docker.sock \\\n'
-            f'  -v ~/.openhands-state:/.openhands-state \\\n'
-            f'  --add-host host.docker.internal:host-gateway \\\n'
-            f'  --name openhands-app-$(date +%Y%m%d%H%M%S) \\\n'
-            f'  docker.all-hands.dev/all-hands-ai/openhands:0.27 \\\n'
+            f"  -e LLM_API_KEY={api_key} \\\n"
+            f"  -e LLM_MODEL={model} \\\n"
+            f"  -e LOG_ALL_EVENTS=true \\\n"
+            f"  -v {working_stage}:/opt/workspace_base \\\n"
+            f"  -v /var/run/docker.sock:/var/run/docker.sock \\\n"
+            f"  -v ~/.openhands-state:/.openhands-state \\\n"
+            f"  --add-host host.docker.internal:host-gateway \\\n"
+            f"  --name openhands-app-$(date +%Y%m%d%H%M%S) \\\n"
+            f"  docker.all-hands.dev/all-hands-ai/openhands:0.27 \\\n"
             f'  python -m openhands.core.main -t "{escaped_prompt}"'
         )
         return cmd
 
-
     @staticmethod
     def _run_docker_command(prompt, api_key, model, working_stage):
         command = LanguageModel._get_openhands_bash_command(prompt, api_key, model, working_stage)
-        
+
         try:
             # Run the command in a bash shell and capture the output
-            result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(
+                command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
             output = result.stdout + "\n" + result.stderr
 
             # Remove color codes
-            ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
-            output = ansi_escape.sub('', output)
+            ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+            output = ansi_escape.sub("", output)
             return output
-        
+
         except Exception as e:
             raise Exception(f"Couldn't run OpenHands bash command:\n{command}") from e
 
@@ -234,13 +248,12 @@ class LanguageModel:
         # Run.
         response, error = None, None
         try:
-            response =  self._run_docker_command(prompt, self.api_key, model_id, working_stage)
-            response =  self._parse_output(response)
+            response = self._run_docker_command(prompt, self.api_key, model_id, working_stage)
+            response = self._parse_output(response)
         except Exception as e:
             error = e
-        
-        return response, error
 
+        return response, error
 
     def _invoke_openai(self, system_msg: str, prompt: str, temperature: float, llm: LLMType) -> str:
         """Invoke the LLM using OpenAI."""
@@ -261,7 +274,10 @@ class LanguageModel:
                 role_name = "system"
             response = self.openai_client.chat.completions.create(
                 model=model_id,
-                messages=[{"role": role_name, "content": system_msg}, {"role": "user", "content": prompt}],
+                messages=[
+                    {"role": role_name, "content": system_msg},
+                    {"role": "user", "content": prompt},
+                ],
                 **extra_kwargs,
             )
             response = response.choices[0].message.content
@@ -277,7 +293,9 @@ class LanguageModel:
             error = e
         return response, error
 
-    def _invoke_bedrock(self, system_msg: str, prompt: str, temperature: float, llm: LLMType) -> str:
+    def _invoke_bedrock(
+        self, system_msg: str, prompt: str, temperature: float, llm: LLMType
+    ) -> str:
         """Invoke the LLM using Bedrock."""
         if not self.within_prompt_limits(prompt, system_msg):
             raise TokenLimitException(
@@ -287,23 +305,22 @@ class LanguageModel:
         model_id = llm.model_id()
         try:
             body = {
-                'anthropic_version': 'bedrock-2023-05-31',
-                'system': system_msg,
-                'messages': [
-                    {"role": "user", "content": [{"type": "text", "text": prompt}]}
-                ],
-                'max_tokens': 100000, # TODO: Make this configurable.
+                "anthropic_version": "bedrock-2023-05-31",
+                "system": system_msg,
+                "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+                "max_tokens": 100000,  # TODO: Make this configurable.
             }
             if llm == LLMType.SONNET3_7:
-                body['thinking'] = {
-                    'type': 'enabled',
-                    'budget_tokens': 90000, # TODO: Make this configurable.
+                body["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": 90000,  # TODO: Make this configurable.
                 }
             else:
-                body['temperature'] = temperature
+                body["temperature"] = temperature
             body = json.dumps(body)
             response = self.bedrock_client.invoke_model(
-                modelId=model_id, body=body,
+                modelId=model_id,
+                body=body,
             )
             response = json.loads(response["body"].read())
             response = response["content"][-1]["text"]
@@ -393,7 +410,9 @@ class LanguageModel:
                     print(f"{bcolors.OKBLUE}Using cached response for {cache_key}.{bcolors.ENDC}")
                 return cached
         if self.verbose:
-            print(f"{bcolors.OKGREEN}{bcolors.BOLD}Prompt:\n{prompt}\nCache Key:{cache_key}\n{bcolors.ENDC}")
+            print(
+                f"{bcolors.OKGREEN}{bcolors.BOLD}Prompt:\n{prompt}\nCache Key:{cache_key}\n{bcolors.ENDC}"
+            )
         with self.file_lock:
             with open("prompt.txt", "w") as f:
                 f.write(system_msg)
@@ -408,9 +427,13 @@ class LanguageModel:
                 if self.use_openhands:
                     response, error = self._invoke_with_openhands(system_msg, prompt, llm=llm)
                 elif self.llm.is_openai():
-                    response, error = self._invoke_openai(system_msg, prompt, temperature=temperature, llm=llm)
+                    response, error = self._invoke_openai(
+                        system_msg, prompt, temperature=temperature, llm=llm
+                    )
                 elif self.llm.is_bedrock():
-                    response, error = self._invoke_bedrock(system_msg, prompt, temperature=temperature, llm=llm)
+                    response, error = self._invoke_bedrock(
+                        system_msg, prompt, temperature=temperature, llm=llm
+                    )
                 if error is None or not isinstance(error, RateLimitException):
                     break
                 if isinstance(error, RateLimitException):
@@ -435,14 +458,16 @@ class LanguageModel:
     def embed(self, text: str, cache_key: t.Optional[str] = None) -> t.List[float]:
         """Embed text."""
         # Check cache.
-        cache_key = cache_key or text # Cache by either.
+        cache_key = cache_key or text  # Cache by either.
         cached_response = CACHE.get_prompt(cache_key, text)
         if cached_response is not None:
             if self.verbose:
                 print(f"{bcolors.OKBLUE}Using cached embedding for {cache_key[:100]}{bcolors.ENDC}")
             return cached_response
         if self.verbose:
-            print(f"{bcolors.OKGREEN}{bcolors.BOLD}Calling Embedding ({cache_key[:100]}):\n{text}{bcolors.ENDC}")
+            print(
+                f"{bcolors.OKGREEN}{bcolors.BOLD}Calling Embedding ({cache_key[:100]}):\n{text}{bcolors.ENDC}"
+            )
         # Make the call.
         response, error = None, None
         for _ in range(self.max_attempts):
@@ -484,7 +509,9 @@ class LanguageModel:
         # This should be a generous enough limit.
         return len(text) <= 5000
 
-    def _parse_block(self, output: str, tag: str, langs: t.List[str] = [], tolerate_unclosed_tags: bool = True):
+    def _parse_block(
+        self, output: str, tag: str, langs: t.List[str] = [], tolerate_unclosed_tags: bool = True
+    ):
         """Parse code between <tag attrs> and </tag>"""
         start_tag = f"<{tag}"
         end_tag = f"</{tag}>"
@@ -514,7 +541,16 @@ class LanguageModel:
         # Only remove the surroundings from the first and last line (after strip)
         first_line = lines[0]
         last_line = lines[-1]
-        possible_surroundings = ["```toml", "```json", "```diff", "```python", "```py", "```md", "```\n", "\n```"]
+        possible_surroundings = [
+            "```toml",
+            "```json",
+            "```diff",
+            "```python",
+            "```py",
+            "```md",
+            "```\n",
+            "\n```",
+        ]
         for lang in langs:
             possible_surroundings = [f"```{lang}"] + possible_surroundings
         for surrounding in possible_surroundings:
@@ -531,10 +567,10 @@ class LanguageModel:
         self,
         response: str,
         reason_tag: str = "reason",
-        code_tag: str = "patch", # TODO: I think we can delete this.
-        code_langs: t.List[str]|str = [],
+        code_tag: str = "patch",  # TODO: I think we can delete this.
+        code_langs: t.List[str] | str = [],
         tolerate_unclosed_tags: bool = True,
-        repeated_tags: bool = False, # Multiple blocks with the same tag may exist and are parsed together.
+        repeated_tags: bool = False,  # Multiple blocks with the same tag may exist and are parsed together.
     ):
         """Parse a standard LLM response."""
         if isinstance(code_langs, str):
@@ -571,7 +607,12 @@ class LanguageModel:
                         attrs.setdefault(curr_reason_tag, []).append(attr)
                     response = response[block_end:]
             # agent.run(reasons) # NO
-            res = self._parse_block(response, curr_code_tag, langs=code_langs, tolerate_unclosed_tags=tolerate_unclosed_tags)
+            res = self._parse_block(
+                response,
+                curr_code_tag,
+                langs=code_langs,
+                tolerate_unclosed_tags=tolerate_unclosed_tags,
+            )
             if res is not None:
                 codeblock, attr, block_end = res
                 if not repeated_tags:
@@ -624,8 +665,9 @@ Your updated response
 Be sure to clearly use the <new_response> tag to contain the answer, and respect the TOML format.
 """
             response = self.invoke(prompt, low_complexity=True)
-            _, new_tomli_str, _ = LANGUAGE_MODEL.parse_standard_response(response, code_tag="new_response",
-                                                                               code_langs=["toml"])
+            _, new_tomli_str, _ = LANGUAGE_MODEL.parse_standard_response(
+                response, code_tag="new_response", code_langs=["toml"]
+            )
             new_tomli_str = new_tomli_str["new_response"]
             return self.load_tomli_str(new_tomli_str, attempt_no=attempt_no + 1)
 

@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import { ProcessCard } from './ProcessCard';
-
-export interface ProcessInfo {
-  session_id: string;
-  status: string;
-  timestamp?: string;
-}
+import { GraphData, ProcessInfo } from '../types';
 
 interface ExperimentsViewProps {
   runningProcesses: ProcessInfo[];
@@ -17,6 +12,10 @@ interface ExperimentsViewProps {
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick }) => {
   const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
+  
+  // Debug logging
+  console.log('ExperimentsView render - runningProcesses:', runningProcesses);
+  console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
   
   const containerStyle: React.CSSProperties = {
     padding: '20px 20px 40px 20px',
@@ -63,19 +62,23 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
           {runningProcesses.map((process) => {
             const cardId = `running-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
+            const nodeColors = process.color_preview || [];
             return (
               <ProcessCard
                 key={process.session_id}
                 process={process}
                 isHovered={isHovered}
                 isDarkTheme={isDarkTheme}
+                nodeColors={nodeColors}
                 onClick={() => onCardClick && onCardClick(process)}
-                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
-                onMouseLeave={() => setHoveredCards(prev => {
-                  const newSet = new Set(prev);
+                onMouseEnter={() =>
+                  setHoveredCards((prev) => new Set(prev).add(cardId))
+                }
+                onMouseLeave={() => {
+                  const newSet = new Set(hoveredCards);
                   newSet.delete(cardId);
-                  return newSet;
-                })}
+                  setHoveredCards(newSet);
+                }}
               />
             );
           })}
@@ -87,19 +90,23 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
           {finishedProcesses.map((process) => {
             const cardId = `finished-${process.session_id}`;
             const isHovered = hoveredCards.has(cardId);
+            const nodeColors = process.color_preview || [];
             return (
               <ProcessCard
                 key={process.session_id}
                 process={process}
                 isHovered={isHovered}
                 isDarkTheme={isDarkTheme}
+                nodeColors={nodeColors}
                 onClick={() => onCardClick && onCardClick(process)}
-                onMouseEnter={() => setHoveredCards(prev => new Set(prev).add(cardId))}
-                onMouseLeave={() => setHoveredCards(prev => {
-                  const newSet = new Set(prev);
+                onMouseEnter={() =>
+                  setHoveredCards((prev) => new Set(prev).add(cardId))
+                }
+                onMouseLeave={() => {
+                  const newSet = new Set(hoveredCards);
                   newSet.delete(cardId);
-                  return newSet;
-                })}
+                  setHoveredCards(newSet);
+                }}
               />
             );
           })}

@@ -7,7 +7,6 @@ openai_client = openai.OpenAI(api_key="test-key")
 anthropic_client = anthropic.Anthropic(api_key="test-key")
 
 
-
 class A:
 
     def __init__(self):
@@ -17,6 +16,5 @@ class A:
     def run(self, x):
 
         return self.client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": x}]
+            model="gpt-4", messages=[{"role": "user", "content": x}]
         )

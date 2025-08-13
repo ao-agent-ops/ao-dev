@@ -21,10 +21,9 @@ client = openai.OpenAI(api_key="test-key")
 #             )
 
 
-
 # def test_llm_taint_flow():
 #     """Test function with LLM taint flow"""
-    
+
 #     a = Agent()
 #     x = a.run("hello")
 
@@ -35,7 +34,7 @@ client = openai.OpenAI(api_key="test-key")
 #     y = a.run(y)
 
 # if __name__ == "__main__":
-#     test_llm_taint_flow() 
+#     test_llm_taint_flow()
 
 
 # ########################## WORKS: #########################
@@ -53,5 +52,5 @@ client = openai.OpenAI(api_key="test-key")
 
 ####################### DOESN'T WORK ######################
 x = client.chat.completions.create(model="gpt-4", messages=[{"role": "user", "content": "hello"}])
-y = obfuscated_fn(x) # e.g., cursor.execute(x) to run DB query
+y = obfuscated_fn(x)  # e.g., cursor.execute(x) to run DB query
 client.chat.completions.create(model="gpt-4", messages=[{"role": "user", "content": y}])

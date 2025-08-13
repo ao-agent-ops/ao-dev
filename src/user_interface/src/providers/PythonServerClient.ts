@@ -74,7 +74,6 @@ export class PythonServerClient {
     }
 
     private sendRaw(message: string) {
-        console.log("PythonServerClient: sendRaw", message);
         if (this.isConnected && this.client) {
             this.client.write(message);
         } else {
@@ -83,11 +82,7 @@ export class PythonServerClient {
     }
 
     public sendMessage(message: any) {
-        const msgStr = JSON.stringify(message) + "\n";
-        console.log("PythonServerClient: sendMessage", msgStr);
-        if (message.type === 'edit_input' || message.type === 'edit_output') {
-            console.log(`PythonServerClient: Sending ${message.type} message:`, message);
-        }
+        const msgStr = JSON.stringify(message) + "\n";        
         this.sendRaw(msgStr);
     }
 

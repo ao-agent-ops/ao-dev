@@ -1,0 +1,12 @@
+name: aco
+dependencies:
+- conda-forge::nodejs
+- conda-forge::sqlite
+- ipykernel
+- pip
+- python=3.13
+- pip
+- pip:
+  - -e .
+post-create:
+  - cd src/user_interface && npm install
