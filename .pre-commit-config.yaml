@@ -3,3 +3,4 @@ repos:
     rev: 25.1.0
     hooks:
     -   id: black
+        exclude: ^example_workflows/

@@ -3,6 +3,7 @@ import os
 import argparse
 import logging
 from utils import get_gpt_response_openai
+from your_agents_register import your_agents
 
 
 logging.basicConfig(
@@ -124,7 +125,7 @@ def align_eval_input(eval_system, result_dir="."):
     return
 
 
-def evaluate(eval_system, resume_id=0, result_dir="."):
+def evaluate(eval_system, resume_id=0, result_dir=".", max_samples=None):
     # read evaluation prompt
     eval_prompt_dir = "./evaluation_prompt.txt"
     eval_prompt = open(eval_prompt_dir).read()
@@ -138,9 +139,12 @@ def evaluate(eval_system, resume_id=0, result_dir="."):
     with open(eval_inp_dir, "r") as f:
         json_dict_list = [json.loads(line) for line in f.readlines()]
 
+    samples_processed = 0
     for i, json_dict in enumerate(json_dict_list):
         if i < resume_id:
             continue
+        if max_samples is not None and samples_processed >= max_samples:
+            break
         question, sys_ans, ref_ans, ref_text = (
             json_dict["question"],
             json_dict["sys_ans"],
@@ -159,6 +163,7 @@ def evaluate(eval_system, resume_id=0, result_dir="."):
         with open(eval_out_dir, "a") as f:
             f.write(json.dumps(json_dict) + "\n")
         print(f"-Finish {i}-th qa")
+        samples_processed += 1
     return
 
 
@@ -271,19 +276,23 @@ def main():
             "qwen2.5",
             "ernie4",
             "gx",
-        ],
+        ] + your_agents,
         help="The name of evaluated system.",
     )
     parser.add_argument(
-        "--resume_id", type=int, default=0, help="From which folder to begin evaluation."
+        "--resume_id", type=int, default=0, help="From which sample to begin evaluation."
     )
-    parser.add_argument("--result_dir", type=str, default=".", help="Folder to save results.")
+    parser.add_argument("--result_dir", type=str, default="results", help="Folder to save results.")
+    parser.add_argument(
+        "--max_samples", type=int, default=None, help="Maximum number of samples to evaluate."
+    )
 
     args = parser.parse_args()
 
     eval_system = args.system
     resume_id = args.resume_id
     result_dir = args.result_dir
+    max_samples = args.max_samples
 
     if eval_system in [
         "gpt-4o",
@@ -297,10 +306,10 @@ def main():
         "qwen2.5",
         "ernie4",
         "gx",
-    ]:
+    ] + your_agents:
         check_cleansing(eval_system)
         align_eval_input(eval_system, result_dir=result_dir)
-    evaluate(eval_system, resume_id=resume_id, result_dir=result_dir)
+    evaluate(eval_system, resume_id=resume_id, result_dir=result_dir, max_samples=max_samples)
     print_eval_scores(eval_system, result_dir=result_dir)
 
 
