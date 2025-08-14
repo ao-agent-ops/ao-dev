@@ -54,7 +54,7 @@ If you make changes to the server code, you can also do `aco-server restart` so 
 > Join our [discord server](https://discord.gg/fjsNSa6TAh).
 
 
- - [Goals and road map](https://docs.google.com/document/d/1_qomLR9qJW9SR_dN2x_zVkBGoant-QxZQpxtUKtfk68/edit?usp=sharing)
+ - [Project goals](https://docs.google.com/document/d/1YzljXW03Hp94rb-eAa8bcLglmiVTaBGIOWf3LSWhivQ/edit?usp=sharing)
  - [Google drive folder](https://drive.google.com/drive/folders/1Syc77Cko6PFlr_wnxBMa6PB-_aXCOt1v?usp=sharing)
 
 ## Development

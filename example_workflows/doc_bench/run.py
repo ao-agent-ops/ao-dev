@@ -3,19 +3,17 @@ import argparse
 import logging
 import os
 import glob
-
-# import requests
 from openai import OpenAI
-
-# from fitz import fitz
-# import tiktoken
-# from transformers import AutoTokenizer
 from secret_key import OPENAI_API_KEY
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
-)  # for exponential backoff
+)
+from your_agents_register import your_agents
+
+from your_agent_workflow import your_agent_workflow
+
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -43,6 +41,9 @@ class Runner:
         file_content = self.get_document_content(folder, pdf_path)
         if self.system == "gpt4" or self.system == "gpt-4o":
             response = self.get_gpt4file_request(file_content, q_string)
+        elif self.system == "your_agent_workflow":
+            pdf_path = file_content
+            response = your_agent_workflow(pdf_path, q_string, folder)
         else:
             file_content = self.truncate(file_content)
             response = self.get_gpt_pl_request(file_content, q_string)
@@ -73,6 +74,8 @@ class Runner:
                     file=(os.path.basename(pdf_path), f, "application/pdf"), purpose="assistants"
                 )
                 file_content = file_response.id
+        elif self.system in your_agents:
+            return pdf_path
         else:
             content_dir = f"./data/{folder}/{folder}_content.txt"
             if os.path.exists(content_dir):
@@ -212,7 +215,7 @@ def main():
             "glm4",
             "qwen2.5",
             "ernie4",
-        ],
+        ] + your_agents,
         help="The name of running system.",
     )
     parser.add_argument(
@@ -226,7 +229,7 @@ def main():
     args = parser.parse_args()
 
     system = args.system
-    if "gpt" in system:
+    if "gpt" in system or system in your_agents:
         runner = Runner.from_type(system)
     else:
         model_dir = args.model_dir

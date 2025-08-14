@@ -203,8 +203,7 @@ src/static_analysis/CodeQL-Analyst/databases
 **/results/**
 
 # DocBench
-**/DocBench/data
-**/DocBench/secret_key.py
+**/doc_bench/data
 
 # DeepResearch
 **/DeepResearch/logs

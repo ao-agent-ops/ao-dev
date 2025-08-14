@@ -1,6 +1,17 @@
-# Testbed
+# Agent examples
 
-We implement solutions for agent benchmarks to try our tool and collect data.
+We implement example workflows here, including solutions for benchmarks.
+  
+## Simple
 
  - `debug_examples`: Simple workflows to debug our code.
- - `DocBench`: Q&A over PDFs.
+
+ - `doc_bench`: Questions over PDFs.
+
+## Medium
+
+ - TODO
+
+## Complex
+
+ - TODO
