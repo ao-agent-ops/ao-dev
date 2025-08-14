@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-import json
+import functools
 import threading
 import functools
 from io import BytesIO
@@ -115,7 +115,7 @@ def _send_graph_node_and_edges(
     codeLocation = f"{file_name}:{line_no}"
 
     # Send node
-    print("Send add node", get_session_id())
+    logger.debug(f"Send add node {get_session_id()}")
     node_msg = {
         "type": "add_node",
         "session_id": get_session_id(),
@@ -145,22 +145,25 @@ def _send_graph_node_and_edges(
 
 def v2_openai_patch():
     try:
-        from openai import OpenAI
+        from openai import OpenAI, AsyncOpenAI
     except ImportError:
         logger.info("OpenAI not installed, skipping OpenAI v2 patches")
         return
 
-    original_init = OpenAI.__init__
+    def create_patched_init(original_init):
+        def patched_init(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            patch_openai_responses_create(self.responses)
+            patch_openai_chat_completions_create(self.chat.completions)
+            patch_openai_beta_assistants_create(self.beta.assistants)
+            patch_openai_beta_threads_create(self.beta.threads)
+            patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs)
+            patch_openai_files_create(self.files)
 
-    def new_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        patch_openai_responses_create(self.responses)
-        patch_openai_beta_assistants_create(self.beta.assistants)
-        patch_openai_beta_threads_create(self.beta.threads)
-        patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs)
-        patch_openai_files_create(self.files)
+        return patched_init
 
-    OpenAI.__init__ = new_init
+    OpenAI.__init__ = create_patched_init(OpenAI.__init__)
+    AsyncOpenAI.__init__ = create_patched_init(AsyncOpenAI.__init__)
 
 
 def v1_openai_patch():
@@ -226,106 +229,292 @@ def v1_openai_patch():
 
 def patch_openai_responses_create(responses):
     try:
+        from openai import AsyncOpenAI
+        from openai.resources.responses import AsyncResponses
         from openai.resources.responses import Responses
     except ImportError:
-        logger.info("OpenAI Responses not available, skipping responses.create patch")
         return
+
+    asynchronous = responses._client.__class__ == AsyncOpenAI
+    ResponsesClass = Responses
+    if asynchronous:
+        ResponsesClass = AsyncResponses
 
     original_create = responses.create
 
-    def patched_create(*args, **kwargs):
-        model = kwargs.get("model", args[0] if args else [])
-        input = kwargs.get("input", args[1] if len(args) > 1 else [])
-        taint_origins = get_taint_origins(input) + get_taint_origins(model)
-        # Check if there's a cached / edited input/output
-        input_to_use, output_to_use, node_id = CACHE.get_in_out(get_session_id(), model, input)
-        if output_to_use is not None:
-            result = json_to_response(output_to_use, "openai_v2_response")
-        else:
-            new_kwargs = dict(kwargs)
-            new_kwargs["input"] = input_to_use
-            assert len(args) == 1 and isinstance(
-                args[0], Responses
-            )  # OpenAI: all args must be kwargs
-            result = original_create(**new_kwargs)
-            CACHE.cache_output(get_session_id(), node_id, result, "openai_v2_response")
-        _send_graph_node_and_edges(
-            node_id=node_id,
-            input=input_to_use,
-            output_obj=result,
-            source_node_ids=taint_origins,
-            model=model,
-            api_type="openai_v2_response",
-        )
-        return taint_wrap(result, [node_id])
+    if asynchronous:
 
-    responses.create = patched_create.__get__(responses, Responses)
+        async def patched_create(*args, **kwargs):
+            model = kwargs.get("model", args[0] if args else [])
+            input = kwargs.get("input", args[1] if len(args) > 1 else [])
+            taint_origins = get_taint_origins(input) + get_taint_origins(model)
+
+            input_to_use, output_to_use, node_id = CACHE.get_in_out(get_session_id(), model, input)
+            if output_to_use is not None:
+                result = json_to_response(output_to_use, "openai_v2_response")
+            else:
+                new_kwargs = dict(kwargs)
+                new_kwargs["input"] = input_to_use
+                result = await original_create(**new_kwargs)  # This might be a coroutine
+                CACHE.cache_output(get_session_id(), node_id, result, "openai_v2_response")
+
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=input_to_use,
+                output_obj=result,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_v2_response",
+            )
+            return taint_wrap(result, [node_id])
+
+    else:
+
+        def patched_create(*args, **kwargs):
+            model = kwargs.get("model", args[0] if args else [])
+            input = kwargs.get("input", args[1] if len(args) > 1 else [])
+            taint_origins = get_taint_origins(input) + get_taint_origins(model)
+
+            input_to_use, output_to_use, node_id = CACHE.get_in_out(get_session_id(), model, input)
+            if output_to_use is not None:
+                result = json_to_response(output_to_use, "openai_v2_response")
+            else:
+                new_kwargs = dict(kwargs)
+                new_kwargs["input"] = input_to_use
+                result = original_create(**new_kwargs)  # This might be a coroutine
+                CACHE.cache_output(get_session_id(), node_id, result, "openai_v2_response")
+
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=input_to_use,
+                output_obj=result,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_v2_response",
+            )
+            return taint_wrap(result, [node_id])
+
+    responses.create = patched_create.__get__(responses, ResponsesClass)
+
+
+def patch_openai_chat_completions_create(completions):
+    try:
+        from typing import Iterable
+        from openai import AsyncOpenAI
+        from openai.resources.completions import AsyncCompletions, Completions
+        from openai.types.chat import ChatCompletionMessageParam
+    except ImportError:
+        return
+
+    completions: Completions | AsyncCompletions
+    asynchronous = completions._client.__class__ == AsyncOpenAI
+    CompletionsClass = Completions
+    if asynchronous:
+        CompletionsClass = AsyncCompletions
+
+    original_create = completions.create
+
+    if asynchronous:
+
+        async def patched_create(*args, **kwargs):
+            """The shared logic"""
+            model = kwargs.get("model", args[0] if args else [])
+            input = kwargs.get("messages", args[1] if len(args) > 1 else [])
+
+            input: Iterable[ChatCompletionMessageParam]
+            # NOTE: This type is an iterable over a struct that has three fields: "content", "role", Optional: "name"
+            # "name" is an optional name for the participant.
+
+            taint_origins = get_taint_origins(input) + get_taint_origins(model)
+
+            input_to_use, output_to_use, node_id = CACHE.get_in_out(get_session_id(), model, input)
+            if output_to_use is not None:
+                result = json_to_response(output_to_use, "openai_v2_response")
+            else:
+                new_kwargs = dict(kwargs)
+                new_kwargs["messages"] = input_to_use
+                result = await original_create(**new_kwargs)  # This might be a coroutine
+                CACHE.cache_output(get_session_id(), node_id, result, "openai_v2_response")
+
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=str(input_to_use),
+                output_obj=result,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_v2_response",
+            )
+            return taint_wrap(result, [node_id])
+
+    else:
+
+        def patched_create(*args, **kwargs):
+            """The shared logic"""
+            model = kwargs.get("model", args[0] if args else [])
+            input = kwargs.get("messages", args[1] if len(args) > 1 else [])
+
+            input: Iterable[ChatCompletionMessageParam]
+            # NOTE: This type is an iterable over a struct that has three fields: "content", "role", Optional: "name"
+            # "name" is an optional name for the participant.
+
+            taint_origins = get_taint_origins(input) + get_taint_origins(model)
+
+            input_to_use, output_to_use, node_id = CACHE.get_in_out(get_session_id(), model, input)
+            if output_to_use is not None:
+                result = json_to_response(output_to_use, "openai_v2_response")
+            else:
+                new_kwargs = dict(kwargs)
+                new_kwargs["messages"] = input_to_use
+                result = original_create(**new_kwargs)  # This might be a coroutine
+                CACHE.cache_output(get_session_id(), node_id, result, "openai_v2_response")
+
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=str(input_to_use),
+                output_obj=result,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_v2_response",
+            )
+            return taint_wrap(result, [node_id])
+
+    completions.create = patched_create.__get__(completions, CompletionsClass)
 
 
 def patch_openai_beta_threads_runs_create_and_poll(runs):
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        return
+
+    asynchronous = runs._client.__class__ == AsyncOpenAI
     original_create_and_poll = runs.create_and_poll
 
-    def patched_create_and_poll(self, **kwargs):
-        client = self._client
+    if asynchronous:
 
-        # Get inputs (most recent user message).
-        attachments_list = []
-        thread_id = kwargs.get("thread_id")
-        input_content = None
+        async def patched_create_and_poll(self, **kwargs):
+            client = self._client
 
-        try:
-            input = client.beta.threads.messages.list(thread_id=thread_id).data[0]
-            if input.content:
-                input_content = input.content[0].text.value
-            if hasattr(input, "attachments") and input.attachments:
-                for att in input.attachments:
-                    file_id = att.file_id
-                    if file_id:
-                        # Get file metadata for filename
-                        file_info = client.files.retrieve(file_id)
-                        file_name = file_info.filename
-                        # Get file path from cache
-                        file_path = CACHE.get_file_path(file_id)
-                        attachments_list.append((file_name, file_path))
-        except IndexError:
-            logger.error("No user message.")  # TODO: How to handle this? What does OAI do?
+            # Get inputs (most recent user message).
+            attachments_list = []
+            thread_id = kwargs.get("thread_id")
+            input_content = None
 
-        # Get taint origins.
-        taint_origins = get_taint_origins(kwargs)
+            try:
+                input = (await client.beta.threads.messages.list(thread_id=thread_id)).data[0]
+                if input.content:
+                    input_content = input.content[0].text.value
+                if hasattr(input, "attachments") and input.attachments:
+                    for att in input.attachments:
+                        file_id = att.file_id
+                        if file_id:
+                            # Get file metadata for filename
+                            file_info = await client.files.retrieve(file_id)
+                            file_name = file_info.filename
+                            # Get file path from cache
+                            file_path = CACHE.get_file_path(file_id)
+                            attachments_list.append((file_name, file_path))
+            except IndexError:
+                logger.error("No user message.")  # TODO: How to handle this? What does OAI do?
 
-        # Get the model.
-        assistant_id = kwargs.get("assistant_id")
-        model = "unknown"
-        if assistant_id:
-            assistant = client.beta.assistants.retrieve(assistant_id)
-            model = getattr(assistant, "model", None)
+            # Get taint origins.
+            taint_origins = get_taint_origins(kwargs)
 
-        # Call original create_and_poll method.
-        # NOTE: Caching the output is not easy here ... probably can't support it.
-        _, _, node_id = CACHE.get_in_out(get_session_id(), model, input_content)
-        result = original_create_and_poll(**kwargs)
+            # Get the model.
+            assistant_id = kwargs.get("assistant_id")
+            model = "unknown"
+            if assistant_id:
+                assistant = await client.beta.assistants.retrieve(assistant_id)
+                model = getattr(assistant, "model", None)
 
-        # Get most recent message (LLM response).
-        output_obj = None
-        try:
-            output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
-        except IndexError:
-            logger.error(
-                "No most recent message (LLM response)."
-            )  # TODO: How to handle. What does OAI do?
+            # Call original create_and_poll method.
+            # NOTE: Caching the output is not easy here ... probably can't support it.
+            _, _, node_id = CACHE.get_in_out(get_session_id(), model, input_content)
+            result = await original_create_and_poll(**kwargs)
 
-        _send_graph_node_and_edges(
-            node_id=node_id,
-            input=input_content,
-            output_obj=output_obj,
-            source_node_ids=taint_origins,
-            model=model,
-            api_type="openai_assistant_query",
-            attachements=attachments_list,
-        )
-        return taint_wrap(result, [node_id])
+            # Get most recent message (LLM response).
+            output_obj = None
+            try:
+                output_obj = (await client.beta.threads.messages.list(thread_id=thread_id)).data[0]
+            except IndexError:
+                logger.error(
+                    "No most recent message (LLM response)."
+                )  # TODO: How to handle. What does OAI do?
 
-    runs.create_and_poll = patched_create_and_poll.__get__(runs, type(original_create_and_poll))
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=input_content,
+                output_obj=output_obj,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_assistant_query",
+                attachements=attachments_list,
+            )
+            return taint_wrap(result, [node_id])
+
+    else:
+
+        def patched_create_and_poll(self, **kwargs):
+            client = self._client
+
+            # Get inputs (most recent user message).
+            attachments_list = []
+            thread_id = kwargs.get("thread_id")
+            input_content = None
+
+            try:
+                input = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+                if input.content:
+                    input_content = input.content[0].text.value
+                if hasattr(input, "attachments") and input.attachments:
+                    for att in input.attachments:
+                        file_id = att.file_id
+                        if file_id:
+                            # Get file metadata for filename
+                            file_info = client.files.retrieve(file_id)
+                            file_name = file_info.filename
+                            # Get file path from cache
+                            file_path = CACHE.get_file_path(file_id)
+                            attachments_list.append((file_name, file_path))
+            except IndexError:
+                logger.error("No user message.")  # TODO: How to handle this? What does OAI do?
+
+            # Get taint origins.
+            taint_origins = get_taint_origins(kwargs)
+
+            # Get the model.
+            assistant_id = kwargs.get("assistant_id")
+            model = "unknown"
+            if assistant_id:
+                assistant = client.beta.assistants.retrieve(assistant_id)
+                model = getattr(assistant, "model", None)
+
+            # Call original create_and_poll method.
+            # NOTE: Caching the output is not easy here ... probably can't support it.
+            _, _, node_id = CACHE.get_in_out(get_session_id(), model, input_content)
+            result = original_create_and_poll(**kwargs)
+
+            # Get most recent message (LLM response).
+            output_obj = None
+            try:
+                output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+            except IndexError:
+                logger.error(
+                    "No most recent message (LLM response)."
+                )  # TODO: How to handle. What does OAI do?
+
+            _send_graph_node_and_edges(
+                node_id=node_id,
+                input=input_content,
+                output_obj=output_obj,
+                source_node_ids=taint_origins,
+                model=model,
+                api_type="openai_assistant_query",
+                attachements=attachments_list,
+            )
+            return taint_wrap(result, [node_id])
+
+    runs.create_and_poll = patched_create_and_poll
 
 
 def patch_openai_beta_assistants_create(assistants_instance):
@@ -333,19 +522,42 @@ def patch_openai_beta_assistants_create(assistants_instance):
     Patch the .create method of an OpenAI beta assistants instance to propagate taint origins from any input argument to the result.
     If no input is tainted, propagate an empty origin list.
     """
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        return
+
+    asynchronous = assistants_instance._client.__class__ == AsyncOpenAI
+
     original_create = assistants_instance.create
 
-    def patched_create(*args, **kwargs):
-        # Collect taint origins from all args and kwargs
-        taint_origins = set()
-        for arg in args:
-            taint_origins.update(get_taint_origins(arg))
-        for val in kwargs.values():
-            taint_origins.update(get_taint_origins(val))
-        # Call the original method
-        result = original_create(*args, **kwargs)
-        # Propagate taint
-        return taint_wrap(result, list(taint_origins))
+    if asynchronous:
+
+        async def patched_create(*args, **kwargs):
+            # Collect taint origins from all args and kwargs
+            taint_origins = set()
+            for arg in args:
+                taint_origins.update(get_taint_origins(arg))
+            for val in kwargs.values():
+                taint_origins.update(get_taint_origins(val))
+            # Call the original method
+            result = await original_create(*args, **kwargs)
+            # Propagate taint
+            return taint_wrap(result, list(taint_origins))
+
+    else:
+
+        def patched_create(*args, **kwargs):
+            # Collect taint origins from all args and kwargs
+            taint_origins = set()
+            for arg in args:
+                taint_origins.update(get_taint_origins(arg))
+            for val in kwargs.values():
+                taint_origins.update(get_taint_origins(val))
+            # Call the original method
+            result = original_create(*args, **kwargs)
+            # Propagate taint
+            return taint_wrap(result, list(taint_origins))
 
     assistants_instance.create = patched_create
 
@@ -354,73 +566,155 @@ def patch_openai_beta_threads_create(threads_instance):
     """
     Patch the .create method of an OpenAI beta threads instance to propagate taint origins and support input editing.
     """
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        return
+
+    asynchronous = threads_instance._client.__class__ == AsyncOpenAI
     original_create = threads_instance.create
 
-    def patched_create(*args, **kwargs):
-        # Get the content from the last message in the messages list
-        # TODO: Should we handle empty messages list? What does OAI do there?
-        messages = kwargs.get("messages", [])
-        last_message = messages[-1]
-        input_content = last_message.get("content", "")
+    if asynchronous:
 
-        # Get taint origins from all args and kwargs, including the input content
-        taint_origins = (
-            get_taint_origins(args) + get_taint_origins(kwargs) + get_taint_origins(input_content)
-        )
+        async def patched_create(*args, **kwargs):
+            # Get the content from the last message in the messages list
+            # TODO: Should we handle empty messages list? What does OAI do there?
+            messages = kwargs.get("messages", [])
+            last_message = messages[-1]
+            input_content = last_message.get("content", "")
 
-        # Check if there's a cached input
-        input_to_use, _, _ = CACHE.get_in_out(get_session_id(), None, input_content)
-        # If input is overwritten, update the last message content
-        new_messages = messages.copy()
-        new_messages[-1] = {**new_messages[-1], "content": input_to_use}
-        new_kwargs = dict(kwargs)
-        new_kwargs["messages"] = new_messages
-        result = original_create(*args, **new_kwargs)
+            # Get taint origins from all args and kwargs, including the input content
+            taint_origins = (
+                get_taint_origins(args)
+                + get_taint_origins(kwargs)
+                + get_taint_origins(input_content)
+            )
 
-        # Forward taint: if input is tainted, output should be tainted with the same taint origins
-        return taint_wrap(result, taint_origins)
+            # Check if there's a cached input
+            input_to_use, _, _ = CACHE.get_in_out(get_session_id(), None, input_content)
+            # If input is overwritten, update the last message content
+            new_messages = messages.copy()
+            new_messages[-1] = {**new_messages[-1], "content": input_to_use}
+            new_kwargs = dict(kwargs)
+            new_kwargs["messages"] = new_messages
+            result = await original_create(*args, **new_kwargs)
+
+            # Forward taint: if input is tainted, output should be tainted with the same taint origins
+            return taint_wrap(result, taint_origins)
+
+    else:
+
+        def patched_create(*args, **kwargs):
+            # Get the content from the last message in the messages list
+            # TODO: Should we handle empty messages list? What does OAI do there?
+            messages = kwargs.get("messages", [])
+            last_message = messages[-1]
+            input_content = last_message.get("content", "")
+
+            # Get taint origins from all args and kwargs, including the input content
+            taint_origins = (
+                get_taint_origins(args)
+                + get_taint_origins(kwargs)
+                + get_taint_origins(input_content)
+            )
+
+            # Check if there's a cached input
+            input_to_use, _, _ = CACHE.get_in_out(get_session_id(), None, input_content)
+            # If input is overwritten, update the last message content
+            new_messages = messages.copy()
+            new_messages[-1] = {**new_messages[-1], "content": input_to_use}
+            new_kwargs = dict(kwargs)
+            new_kwargs["messages"] = new_messages
+            result = original_create(*args, **new_kwargs)
+
+            # Forward taint: if input is tainted, output should be tainted with the same taint origins
+            return taint_wrap(result, taint_origins)
 
     threads_instance.create = patched_create
 
 
 def patch_openai_files_create(files_resource):
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        return
+
+    asynchronous = files_resource._client.__class__ == AsyncOpenAI
     original_create = files_resource.create
 
-    def patched_create(self, **kwargs):
-        # Extract file argument
-        file_arg = kwargs.get("file")
-        if isinstance(file_arg, tuple) and len(file_arg) >= 2:
-            file_name = file_arg[0]
-            fileobj = file_arg[1]
-        elif hasattr(file_arg, "read"):
-            fileobj = file_arg
-            file_name = getattr(fileobj, "name", "unknown")
-        else:
-            raise ValueError(
-                "The 'file' argument must be a tuple (filename, fileobj, content_type) or a file-like object."
-            )
+    if asynchronous:
 
-        # Create a copy of the file content before the original API call consumes it
-        fileobj.seek(0)
-        file_content = fileobj.read()
-        fileobj.seek(0)
+        async def patched_create(self, **kwargs):
+            # Extract file argument
+            file_arg = kwargs.get("file")
+            if isinstance(file_arg, tuple) and len(file_arg) >= 2:
+                file_name = file_arg[0]
+                fileobj = file_arg[1]
+            elif hasattr(file_arg, "read"):
+                fileobj = file_arg
+                file_name = getattr(fileobj, "name", "unknown")
+            else:
+                raise ValueError(
+                    "The 'file' argument must be a tuple (filename, fileobj, content_type) or a file-like object."
+                )
 
-        # Create a BytesIO object with the content for our cache functions
-        fileobj_copy = BytesIO(file_content)
-        fileobj_copy.name = getattr(fileobj, "name", "unknown")
+            # Create a copy of the file content before the original API call consumes it
+            fileobj.seek(0)
+            file_content = fileobj.read()
+            fileobj.seek(0)
 
-        # Call the original method
-        result = original_create(**kwargs)
-        # Get file_id from result
-        file_id = getattr(result, "id", None)
-        if file_id is None:
-            raise ValueError("OpenAI did not return a file id after file upload.")
-        CACHE.cache_file(file_id, file_name, fileobj_copy)
-        # Propagate taint from fileobj if present
-        taint_origins = get_taint_origins(fileobj)
-        return taint_wrap(result, taint_origins)
+            # Create a BytesIO object with the content for our cache functions
+            fileobj_copy = BytesIO(file_content)
+            fileobj_copy.name = getattr(fileobj, "name", "unknown")
 
-    files_resource.create = patched_create.__get__(files_resource, type(original_create))
+            # Call the original method
+            result = await original_create(**kwargs)
+            # Get file_id from result
+            file_id = getattr(result, "id", None)
+            if file_id is None:
+                raise ValueError("OpenAI did not return a file id after file upload.")
+            CACHE.cache_file(file_id, file_name, fileobj_copy)
+            # Propagate taint from fileobj if present
+            taint_origins = get_taint_origins(fileobj)
+            return taint_wrap(result, taint_origins)
+
+    else:
+
+        def patched_create(self, **kwargs):
+            # Extract file argument
+            file_arg = kwargs.get("file")
+            if isinstance(file_arg, tuple) and len(file_arg) >= 2:
+                file_name = file_arg[0]
+                fileobj = file_arg[1]
+            elif hasattr(file_arg, "read"):
+                fileobj = file_arg
+                file_name = getattr(fileobj, "name", "unknown")
+            else:
+                raise ValueError(
+                    "The 'file' argument must be a tuple (filename, fileobj, content_type) or a file-like object."
+                )
+
+            # Create a copy of the file content before the original API call consumes it
+            fileobj.seek(0)
+            file_content = fileobj.read()
+            fileobj.seek(0)
+
+            # Create a BytesIO object with the content for our cache functions
+            fileobj_copy = BytesIO(file_content)
+            fileobj_copy.name = getattr(fileobj, "name", "unknown")
+
+            # Call the original method
+            result = original_create(**kwargs)
+            # Get file_id from result
+            file_id = getattr(result, "id", None)
+            if file_id is None:
+                raise ValueError("OpenAI did not return a file id after file upload.")
+            CACHE.cache_file(file_id, file_name, fileobj_copy)
+            # Propagate taint from fileobj if present
+            taint_origins = get_taint_origins(fileobj)
+            return taint_wrap(result, taint_origins)
+
+    files_resource.create = patched_create
 
 
 # ===========================================================

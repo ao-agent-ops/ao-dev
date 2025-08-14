@@ -1,5 +1,7 @@
 import uuid
 import json
+import pickle
+from ast import literal_eval
 from common.constants import ACO_ATTACHMENT_CACHE
 from workflow_edits import db
 from workflow_edits.utils import response_to_json
@@ -71,7 +73,10 @@ class CacheManager:
     def get_in_out(self, session_id, model, input):
         input = untaint_if_needed(input)
         model = untaint_if_needed(model)
-        input_hash = db.hash_input(input)
+
+        input_hash = db.hash_input(str(input))
+
+        input_string = json.dumps(input)
 
         # If model is not specified, check for input overwrite but not for cached output.
         row = db.query_one(
@@ -84,14 +89,18 @@ class CacheManager:
             node_id = str(uuid.uuid4())
             db.execute(
                 "INSERT INTO llm_calls (session_id, model, input, input_hash, node_id) VALUES (?, ?, ?, ?, ?)",
-                (session_id, model, input, input_hash, node_id),
+                (session_id, model, input_string, input_hash, node_id),
             )
             return input, None, node_id
 
         # Use data from previous LLM call.
-        input_val = row["input"]
+        input_val = json.loads(row["input"])
         assert input_val is not None
-        input_overwrite_val = row["input_overwrite"]
+        if isinstance(row["input_overwrite"], str):
+            input_overwrite_val = row["input_overwrite"]
+        else:
+            input_overwrite_val = json.loads(row["input_overwrite"])
+
         if input_overwrite_val is not None:
             input_to_use = input_overwrite_val
         else:

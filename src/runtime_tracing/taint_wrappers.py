@@ -1,5 +1,3 @@
-import functools
-import uuid
 import collections.abc
 
 
@@ -76,9 +74,8 @@ class TaintStr(str):
         return TaintStr(result, self._taint_origin)
 
     def __mod__(self, other):
-        try:
-            result = str.__mod__(self, other)
-        except Exception:
+        result = str.__mod__(self, other)
+        if result is NotImplemented:
             return NotImplemented
         nodes = set(get_taint_origins(self))
         if isinstance(other, (tuple, list)):
@@ -89,9 +86,8 @@ class TaintStr(str):
         return TaintStr(result, list(nodes))
 
     def __rmod__(self, other):
-        try:
-            result = str.__mod__(other, self)
-        except Exception:
+        result = str.__mod__(other, self)
+        if result is NotImplemented:
             return NotImplemented
         nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
         return TaintStr(result, list(nodes))
@@ -208,122 +204,186 @@ class TaintInt(int):
     # Arithmetic operators
     def __add__(self, other):
         result = int.__add__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __radd__(self, other):
         result = int.__add__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __sub__(self, other):
         result = int.__sub__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rsub__(self, other):
         result = int.__sub__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __mul__(self, other):
         result = int.__mul__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rmul__(self, other):
         result = int.__mul__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __floordiv__(self, other):
         result = int.__floordiv__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rfloordiv__(self, other):
         result = int.__floordiv__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __truediv__(self, other):
         result = int.__truediv__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintFloat(result, self._propagate_taint(other))
 
     def __rtruediv__(self, other):
         result = int.__truediv__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintFloat(result, self._propagate_taint(other))
 
     def __mod__(self, other):
         result = int.__mod__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rmod__(self, other):
         result = int.__mod__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __pow__(self, other, modulo=None):
         result = (
             int.__pow__(self, other, modulo) if modulo is not None else int.__pow__(self, other)
         )
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rpow__(self, other, modulo=None):
         result = (
             int.__pow__(other, self, modulo) if modulo is not None else int.__pow__(other, self)
         )
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __neg__(self):
-        return TaintInt(int.__neg__(self), get_taint_origins(self))
+        result = int.__neg__(self)
+        if result is NotImplemented:
+            return NotImplemented
+        return TaintInt(result, get_taint_origins(self))
 
     def __pos__(self):
-        return TaintInt(int.__pos__(self), get_taint_origins(self))
+        result = int.__pos__(self)
+        if result is NotImplemented:
+            return NotImplemented
+        return TaintInt(result, get_taint_origins(self))
 
     def __abs__(self):
-        return TaintInt(int.__abs__(self), get_taint_origins(self))
+        result = int.__abs__(self)
+        if result is NotImplemented:
+            return NotImplemented
+        return TaintInt(result, get_taint_origins(self))
 
     def __invert__(self):
-        return TaintInt(int.__invert__(self), get_taint_origins(self))
+        result = int.__invert__(self)
+        if result is NotImplemented:
+            return NotImplemented
+        return TaintInt(result, get_taint_origins(self))
 
     def __and__(self, other):
         result = int.__and__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rand__(self, other):
         result = int.__and__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __or__(self, other):
         result = int.__or__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __ror__(self, other):
         result = int.__or__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __xor__(self, other):
         result = int.__xor__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rxor__(self, other):
         result = int.__xor__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __lshift__(self, other):
         result = int.__lshift__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rlshift__(self, other):
         result = int.__lshift__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rshift__(self, other):
         result = int.__rshift__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rrshift__(self, other):
         result = int.__rshift__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __matmul__(self, other):
         result = int.__matmul__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     def __rmatmul__(self, other):
         result = int.__matmul__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
         return TaintInt(result, self._propagate_taint(other))
 
     # Conversion and index

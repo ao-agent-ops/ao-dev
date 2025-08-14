@@ -132,4 +132,4 @@ def set_server_connection(server_connection):
     global server_conn, server_file
     server_conn = server_connection
     server_file = server_connection.makefile("rw")
-    print("set server file", server_conn, server_file)
+    logger.debug(f"set server file {server_conn} {server_file}")
