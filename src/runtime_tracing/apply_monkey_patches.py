@@ -1,9 +1,12 @@
 import importlib
-from runtime_tracing.monkey_patches import (
+from runtime_tracing.utils import (
     no_notify_patch,
     notify_server_patch,
-    CUSTOM_PATCH_FUNCTIONS,
 )
+
+from runtime_tracing.monkey_patches.openai_patches import v1_openai_patch, v2_openai_patch
+from runtime_tracing.monkey_patches.anthropic_patches import anthropic_patch
+from runtime_tracing.monkey_patches.vertexai_patches import vertexai_patch
 
 
 def patch_by_path(dotted_path, *, notify=False):
@@ -57,3 +60,18 @@ def apply_all_monkey_patches():
     # 2. Apply custom patches (these handle their own logic and server notification)
     for patch_func in CUSTOM_PATCH_FUNCTIONS:
         patch_func()
+
+
+# ===========================================================
+# Patch function registry
+# ===========================================================
+
+# Subclient patch functions (e.g., patch_OpenAI.responses.create)
+# are NOT included here and should only be called from within the OpenAI.__init__ patch.
+
+CUSTOM_PATCH_FUNCTIONS = [
+    # v1_openai_patch,  # TODO: Doesn't work currently.
+    v2_openai_patch,
+    anthropic_patch,
+    vertexai_patch,
+]

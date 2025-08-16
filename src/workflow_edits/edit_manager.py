@@ -7,7 +7,7 @@ from common.constants import (
     SUCCESS_STRING,
 )
 from workflow_edits import db
-from workflow_edits.utils import swap_output
+from workflow_edits.utils import set_input_string, set_output_string
 
 
 class EditManager:
@@ -17,29 +17,27 @@ class EditManager:
     """
 
     def set_input_overwrite(self, session_id, node_id, new_input):
-        # original_input, api_type = READ FROM DB
-        # TODO: Implement an overwrite input in utils (assume api_type = "openai_v2_response" for now)
-        # new_input = overwrite_input(original_input, new_input, api_type)
-        new_input_hash = db.hash_input(new_input)
+        # Overwrite input for node.
+        row = db.query_one(
+            "SELECT input, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
+            (session_id, node_id),
+        )
+        input_overwrite = set_input_string(row["input"], new_input, row["api_type"])
         db.execute(
-            "UPDATE llm_calls SET input_overwrite=?, input_overwrite_hash=?, output=NULL WHERE session_id=? AND node_id=?",
-            (new_input, new_input_hash, session_id, node_id),
+            "UPDATE llm_calls SET input_overwrite=?, output=NULL WHERE session_id=? AND node_id=?",
+            (input_overwrite, session_id, node_id),
         )
 
     def set_output_overwrite(self, session_id, node_id, new_output):
-        # Get api_type and output for the given session_id and node_id
+        # Overwrite output for node.
         row = db.query_one(
-            "SELECT api_type, output FROM llm_calls WHERE session_id=? AND node_id=?",
+            "SELECT output, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
             (session_id, node_id),
         )
-        if not row or row["output"] is None:
-            raise ValueError(f"No output found for session_id={session_id}, node_id={node_id}")
-        api_type = row["api_type"]
-        existing_output = row["output"]
-        updated_output_json = swap_output(new_output, existing_output, api_type)
+        output_overwrite = set_output_string(row["output"], new_output, row["api_type"])
         db.execute(
             "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
-            (updated_output_json, session_id, node_id),
+            (output_overwrite, session_id, node_id),
         )
 
     def erase(self, session_id):
@@ -53,7 +51,7 @@ class EditManager:
     def add_experiment(
         self, session_id, name, timestamp, cwd, command, environment, parent_session_id=None
     ):
-        # Defaults.
+        # Initial values.
         default_graph = json.dumps({"nodes": [], "edges": []})
         parent_session_id = parent_session_id if parent_session_id else session_id
 
@@ -96,7 +94,6 @@ class EditManager:
         return graph, color_preview
 
     def add_log(self, session_id, success, new_entry):
-        print("Adding log", session_id, success, new_entry)
         # Write success and new_entry to DB under certain conditions.
         row = db.query_one(
             "SELECT log, success, graph_topology FROM experiments WHERE session_id=?", (session_id,)

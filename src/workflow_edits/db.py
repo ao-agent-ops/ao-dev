@@ -2,8 +2,11 @@ import os
 import sqlite3
 import threading
 import hashlib
+
+import dill
 from common.logger import logger
 from common.constants import ACO_DB_PATH
+from runtime_tracing.taint_wrappers import untaint_if_needed
 
 
 # Global lock among concurrent threads: Threads within a process share a single
@@ -71,11 +74,9 @@ def _init_db(conn):
         CREATE TABLE IF NOT EXISTS llm_calls (
             session_id TEXT,
             node_id TEXT,
-            model TEXT,
-            input TEXT,
+            input BLOB,
             input_hash TEXT,
-            input_overwrite TEXT,
-            input_overwrite_hash TEXT,
+            input_overwrite BLOB,
             output TEXT,
             color TEXT,
             label TEXT,
@@ -103,12 +104,7 @@ def _init_db(conn):
     )
     c.execute(
         """
-        CREATE INDEX IF NOT EXISTS original_input_lookup ON llm_calls(session_id, model, input_hash)
-    """
-    )
-    c.execute(
-        """
-        CREATE INDEX IF NOT EXISTS overwrite_input_lookup ON llm_calls(session_id, model, input_overwrite_hash)
+        CREATE INDEX IF NOT EXISTS original_input_lookup ON llm_calls(session_id, input_hash)
     """
     )
     c.execute(
@@ -145,5 +141,24 @@ def execute(sql, params=()):
         return c.lastrowid
 
 
-def hash_input(input_str):
-    return hashlib.sha256(input_str.encode("utf-8")).hexdigest()
+def hash_input(input_bytes):
+    if isinstance(input_bytes, bytes):
+        return hashlib.sha256(input_bytes).hexdigest()
+    else:
+        return hashlib.sha256(input_bytes.encode("utf-8")).hexdigest()
+
+
+def deserialize_input(input_blob, api_type):
+    """Deserialize input blob back to original dict"""
+    if input_blob is None:
+        return None
+    return dill.loads(input_blob)
+
+
+def deserialize(output_json, api_type):
+    """Deserialize output JSON back to response object"""
+    if output_json is None:
+        return None
+    # This would need to be implemented based on api_type
+    # For now, just return the JSON string
+    return output_json

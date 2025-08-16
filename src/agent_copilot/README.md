@@ -67,38 +67,7 @@ We want to achieve this with the following functionality:
 
 ### Database
 
-We use a [SQLite](https://sqlite.org) database to cache LLM results and store user overwrites. We have the following 2 tables:
-
-```sql
-CREATE TABLE experiments (
-    session_id TEXT PRIMARY KEY,
-    graph_topology TEXT,
-    timestamp TEXT DEFAULT (datetime('now')),
-    cwd TEXT,
-    command TEXT,
-    code_hash TEXT
-)
-```
-
-and
-
-```sql
-CREATE TABLE llm_calls (
-    session_id TEXT,
-    node_id TEXT,
-    model TEXT,
-    input TEXT,
-    input_hash TEXT,
-    input_overwrite TEXT,
-    input_overwrite_hash TEXT,
-    output TEXT,
-    color TEXT,
-    label TEXT,
-    api_type TEXT,
-    timestamp TEXT DEFAULT (datetime('now')),
-    PRIMARY KEY (session_id, node_id)
-)
-```
+We use a [SQLite](https://sqlite.org) database to cache LLM results and store user overwrites. See `db.py` for their schemas.
 
 The `graph_topology` in the `experiments` table is a dict representation of the graph, that is used inside the develop server. I.e., the develop server can dump and reconstruct in-memory graph representations from that column.
 

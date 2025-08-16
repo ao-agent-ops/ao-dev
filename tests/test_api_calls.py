@@ -116,7 +116,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
 
     Args:
         program_file: Name of the user program file (e.g., "openai_add_numbers.py")
-        api_type: API type for cache entries (e.g., "openai_v2_response")
+        api_type: API type for cache entries (e.g., "OpenAI.responses.create")
         create_response_func: Function to create mock API responses
     """
     print(f"Starting test for {program_file}...")
@@ -228,8 +228,8 @@ def run_add_numbers_test(program_file, api_type, create_response_func):
 @pytest.mark.parametrize(
     "program_file,api_type,create_response_func",
     [
-        ("openai_add_numbers.py", "openai_v2_response", create_openai_response),
-        ("anthropic_add_numbers.py", "anthropic_messages", create_anthropic_response),
+        ("openai_add_numbers.py", "OpenAI.responses.create", create_openai_response),
+        ("anthropic_add_numbers.py", "Anthropic.messages.create", create_anthropic_response),
         # ("vertexai_add_numbers.py", "vertexai_generate_content", create_vertexai_response),
     ],
 )
@@ -242,11 +242,11 @@ def test_add_numbers_api(program_file, api_type, create_response_func):
 if __name__ == "__main__":
     # Run individual tests for debugging
     print("Running OpenAI test...")
-    run_add_numbers_test("openai_add_numbers.py", "openai_v2_response", create_openai_response)
+    run_add_numbers_test("openai_add_numbers.py", "OpenAI.responses.create", create_openai_response)
 
     print("\nRunning Anthropic test...")
     run_add_numbers_test(
-        "anthropic_add_numbers.py", "anthropic_messages", create_anthropic_response
+        "anthropic_add_numbers.py", "Anthropic.messages.create", create_anthropic_response
     )
 
     # NOTE: VertexAI needs an API key for client creation, so we skip it.

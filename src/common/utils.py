@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -306,3 +307,41 @@ def _is_common_non_project_dir(p: Path) -> bool:
         return True
 
     return False
+
+
+# ===============================================
+# Helpers for writing attachments to disk.
+# ===============================================
+def stream_hash(stream):
+    """Compute SHA-256 hash of a binary stream (reads full content into memory)."""
+    content = stream.read()
+    stream.seek(0)
+    return hashlib.sha256(content).hexdigest()
+
+
+def save_io_stream(stream, filename, dest_dir):
+    """
+    Save stream to dest_dir/filename. If filename already exists, find new unique one.
+    """
+    stream.seek(0)
+    desired_path = os.path.join(dest_dir, filename)
+    if not os.path.exists(desired_path):
+        # No conflict, write directly
+        with open(desired_path, "wb") as f:
+            f.write(stream.read())
+        stream.seek(0)
+        return desired_path
+
+    # Different content, find a unique name
+    base, ext = os.path.splitext(filename)
+    counter = 1
+    while True:
+        new_filename = f"{base}_{counter}{ext}"
+        new_path = os.path.join(dest_dir, new_filename)
+        if not os.path.exists(new_path):
+            with open(new_path, "wb") as f:
+                f.write(stream.read())
+            stream.seek(0)
+            return new_path
+
+        counter += 1

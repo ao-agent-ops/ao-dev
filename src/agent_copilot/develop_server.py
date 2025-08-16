@@ -170,6 +170,7 @@ class DevelopServer:
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
         for n in graph["nodes"]:
             if n["id"] == node["id"]:
+                assert False, "Will this ever happen?"
                 break
         else:
             # Get title for tab where user edits input/output.

@@ -1,11 +1,9 @@
 import uuid
 import json
-import pickle
-from ast import literal_eval
+import dill
 from common.constants import ACO_ATTACHMENT_CACHE
 from workflow_edits import db
-from workflow_edits.utils import response_to_json
-from workflow_edits.utils import stream_hash, save_io_stream
+from common.utils import stream_hash, save_io_stream
 from runtime_tracing.taint_wrappers import untaint_if_needed
 
 
@@ -68,72 +66,59 @@ class CacheManager:
         row = db.query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
         if row is not None:
             return row["file_path"]
+        print("RETURNING NONE")
         return None
 
-    def get_in_out(self, session_id, model, input):
-        input = untaint_if_needed(input)
-        model = untaint_if_needed(model)
+    def attachment_ids_to_paths(self, attachment_ids):
+        print("ATTACHMENT IDS", attachment_ids)
+        # get_file_path should never contain None.
+        file_paths = [self.get_file_path(attachment_id) for attachment_id in attachment_ids]
+        print("FILE PATHS", file_paths)
+        return [f for f in file_paths if f is not None]
 
-        input_hash = db.hash_input(str(input))
+    def get_in_out(self, input_dict, api_type):
+        from agent_copilot.context_manager import get_session_id
 
-        input_string = json.dumps(input)
+        # Pickle input object.
+        input_dict = untaint_if_needed(input_dict)
+        input_pickle = dill.dumps(input_dict)
+        input_hash = db.hash_input(input_pickle)
 
-        # If model is not specified, check for input overwrite but not for cached output.
+        # Check if API call with same session_id & input has been made before.
+        session_id = get_session_id()
         row = db.query_one(
-            "SELECT input, input_overwrite, node_id FROM llm_calls WHERE session_id=? AND input_hash=?",
+            "SELECT node_id, input, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?",
             (session_id, input_hash),
         )
 
         if row is None:
-            # Insert new row with a new node_id
+            # Insert new row with a new node_id.
             node_id = str(uuid.uuid4())
             db.execute(
-                "INSERT INTO llm_calls (session_id, model, input, input_hash, node_id) VALUES (?, ?, ?, ?, ?)",
-                (session_id, model, input_string, input_hash, node_id),
+                "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
+                (session_id, input_pickle, input_hash, node_id, api_type),
             )
-            return input, None, node_id
+            return input_dict, None, node_id
 
         # Use data from previous LLM call.
-        input_val = json.loads(row["input"])
-        assert input_val is not None
-        if isinstance(row["input_overwrite"], str):
-            input_overwrite_val = row["input_overwrite"]
-        else:
-            input_overwrite_val = json.loads(row["input_overwrite"])
-
-        if input_overwrite_val is not None:
-            input_to_use = input_overwrite_val
-        else:
-            input_to_use = input_val
-
         node_id = row["node_id"]
-
-        # If model is specified, also check for cached output.
         output = None
-        if model:
-            row = db.query_one(
-                "SELECT output FROM llm_calls WHERE session_id=? AND node_id=?",
-                (session_id, node_id),
-            )
-            output = row["output"]
+        if row["input_overwrite"] is not None:
+            input_dict = dill.loads(row["input_overwrite"])
+            print("oeverwrite")
+        if row["output"] is not None:
+            output = dill.loads(row["output"])
+        return input_dict, output, node_id
 
-        return input_to_use, output, node_id
+    def cache_output(self, node_id, output_obj):
+        from agent_copilot.context_manager import get_session_id
 
-    def cache_output(self, session_id, node_id, output, api_type, model=None):
-        # Serialize Response object to JSON
-        output_to_store = response_to_json(output, api_type)
-
-        if model:
-            # This is needed as sometimes the model is unknown when creating the row.
-            db.execute(
-                "UPDATE llm_calls SET output=?, api_type=?, model=? WHERE session_id=? AND node_id=?",
-                (output_to_store, api_type, model, session_id, node_id),
-            )
-        else:
-            db.execute(
-                "UPDATE llm_calls SET output=?, api_type=? WHERE session_id=? AND node_id=?",
-                (output_to_store, api_type, session_id, node_id),
-            )
+        session_id = get_session_id()
+        output_pickle = dill.dumps(output_obj)
+        db.execute(
+            "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
+            (output_pickle, session_id, node_id),
+        )
 
     def get_finished_runs(self):
         return db.query_all(
