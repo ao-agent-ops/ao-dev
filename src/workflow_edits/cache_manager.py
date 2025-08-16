@@ -66,14 +66,12 @@ class CacheManager:
         row = db.query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
         if row is not None:
             return row["file_path"]
-        print("RETURNING NONE")
         return None
 
     def attachment_ids_to_paths(self, attachment_ids):
-        print("ATTACHMENT IDS", attachment_ids)
-        # get_file_path should never contain None.
+        # file_path can be None if user doesn't want to cache?
         file_paths = [self.get_file_path(attachment_id) for attachment_id in attachment_ids]
-        print("FILE PATHS", file_paths)
+        # assert all(f is not None for f in file_paths), "All file paths should be non-None"
         return [f for f in file_paths if f is not None]
 
     def get_in_out(self, input_dict, api_type):
@@ -105,7 +103,6 @@ class CacheManager:
         output = None
         if row["input_overwrite"] is not None:
             input_dict = dill.loads(row["input_overwrite"])
-            print("oeverwrite")
         if row["output"] is not None:
             output = dill.loads(row["output"])
         return input_dict, output, node_id

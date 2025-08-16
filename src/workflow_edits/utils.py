@@ -215,8 +215,6 @@ def get_input(input_obj: any, api_type: str) -> str:
         return _get_input_vertex_client_models_generate_content(input_obj)
     elif api_type == "OpenAI.beta.threads.create":
         return _get_input_openai_beta_threads_create(input_obj)
-    elif api_type == "OpenAI.beta.threads.runs.create_and_poll":
-        return _get_input_openai_beta_threads_runs_create_and_poll(input_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
