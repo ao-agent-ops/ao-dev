@@ -8,6 +8,7 @@ from agent_copilot.commands.config.utils import (
     _convert_yes_no_to_bool,
     _convert_to_valid_path,
 )
+from common.logger import logger
 from common.constants import ACO_CONFIG
 
 
@@ -39,7 +40,7 @@ class Config:
         if overwrite:
             with open(yaml_file, "w", encoding="utf-8") as f:
                 yaml.safe_dump(self.to_dict(), f)
-            print(f"Saved config at {yaml_file}")
+            logger.info(f"Saved config at {yaml_file}")
 
     def to_dict(self) -> dict:
         result = self.__dict__
