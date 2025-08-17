@@ -49,6 +49,14 @@ Installs a custom import hook (`FStringImportFinder`) into sys.meta_path.
 
 ## Maintainance
 
-We need to patch a lot of API functions. The idea is that, given a long list of working patches, AI tools can generate patches for new functions as APIs change. 
+We need to patch a lot of API functions. Maintaining them will be challenging but since all of the patches follow a similar pattern, the hope is that AI tools will be pretty good at generating them. Please make your code as clean as possible and try to follow existing conventions. For our own sanity but also so the AI tools work better.
 
 TODO: We need CI/CD tests that detect API changes. Can simply be if API changed (pip upgrade openai, etc) and then send email with change log link.
+
+### Writing a monkey patch
+
+First look at `patch_openai_responses_create` in `monkey_patches/openai_patches.py` to understand how a patch looks like. Also check how patches are applied inside the `__init__` of a client, and how the client-level patch functions are registered in `apply_monkey_patches.py`. Then, writing a patch involves two steps:
+
+1. Write the patch function and apply it in the client-level patch function (client `__init__`). If your patching a new client, you need to create the `__init__` patch function and register it in `apply_monkey_patches.py`.
+
+2. Go to `workflow_edits/utils.py` and implement the five functions there: setting the input/output string, getting the input/output string, getting model name.

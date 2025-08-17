@@ -1,5 +1,8 @@
 # Agent developer scratchpad
 
+> [!NOTE]  
+> By default, we don't collect any data from you. There is code for telemetry which we exclusively use for dedicated test users.
+
 See README's in src dirs for more details.
 
 ## User workflow

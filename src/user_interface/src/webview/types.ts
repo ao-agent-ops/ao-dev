@@ -69,3 +69,11 @@ export interface ProcessInfo {
     timestamp?: string;
     color_preview?: string[];
 }
+
+export interface WorkflowRunDetailsPanelProps {
+  runName?: string;
+  result?: string;
+  notes?: string;
+  log?: string;
+  onOpenInTab?: () => void;
+}

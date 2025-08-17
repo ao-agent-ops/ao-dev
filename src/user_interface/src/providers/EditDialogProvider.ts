@@ -77,7 +77,9 @@ export class EditDialogProvider implements vscode.WebviewPanelSerializer {
                                     openPreviewWebview(
                                         attachments[idx][0],
                                         ext.replace('.', ''),
-                                        base64
+                                        base64,
+                                        ctx.nodeId,
+                                        ctx.session_id
                                     );
                                 }).catch(err => {
                                     vscode.window.showErrorMessage('Error reading file: ' + err.message);

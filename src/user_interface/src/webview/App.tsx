@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { WorkflowRunDetailsPanel } from './components/WorkflowRunDetailsPanel';
 import { GraphView } from './components/GraphView';
 import { ExperimentsView } from './components/ExperimentsView';
 import { GraphNode, GraphEdge, GraphData, ProcessInfo } from './types';
@@ -20,7 +21,14 @@ export const App: React.FC = () => {
   const [processes, setProcesses] = useLocalStorage<ProcessInfo[]>("experiments", []);
   const [selectedExperiment, setSelectedExperiment] = useLocalStorage<ProcessInfo | null>("selectedExperiment", null);
   const [allGraphs, setAllGraphs] = useLocalStorage<Record<string, GraphData>>("graphs", {});
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const isDarkTheme = useIsVsCodeDarkTheme();
+  // Escuchar el evento personalizado para abrir el panel de detalles
+  useEffect(() => {
+    const handler = () => setShowDetailsPanel(true);
+    window.addEventListener('open-details-panel', handler);
+    return () => window.removeEventListener('open-details-panel', handler);
+  }, []);
 
   // Listen for backend messages and update state
   useEffect(() => {   
@@ -190,19 +198,32 @@ export const App: React.FC = () => {
           </button>
         )}
       </div>
-      <div style={{ flex: 1, overflow: "hidden" }}>
+      <div
+        style={
+          showDetailsPanel
+            ? {
+                flex: 1,
+                overflow: "hidden",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                background: isDarkTheme ? "#252525" : "#F0F0F0",
+              }
+            : { flex: 1, overflow: "hidden" }
+        }
+      >
         {activeTab === "experiments" ? (
           <ExperimentsView
             runningProcesses={runningExperiments}
             finishedProcesses={finishedExperiments}
             onCardClick={handleExperimentCardClick}
           />
-        ) : activeTab === "experiment-graph" && selectedExperiment ? (
+        ) : activeTab === "experiment-graph" && selectedExperiment && !showDetailsPanel ? (
           <GraphView
             nodes={allGraphs[selectedExperiment.session_id]?.nodes || []}
             edges={allGraphs[selectedExperiment.session_id]?.edges || []}
             onNodeUpdate={(nodeId, field, value) => {
-              const nodes =allGraphs[selectedExperiment.session_id]?.nodes || [];
+              const nodes = allGraphs[selectedExperiment.session_id]?.nodes || [];
               const node = nodes.find((n: any) => n.id === nodeId);
               const attachments = node?.attachments || undefined;
               handleNodeUpdate(
@@ -215,6 +236,15 @@ export const App: React.FC = () => {
             }}
             session_id={selectedExperiment.session_id}
             experiment={selectedExperiment}
+          />
+        ) : activeTab === "experiment-graph" && selectedExperiment && showDetailsPanel ? (
+          <WorkflowRunDetailsPanel
+            runName={selectedExperiment.title || ''}
+            result={selectedExperiment.status || ''}
+            notes={''}
+            log={''}
+            onOpenInTab={() => {}}
+            onBack={() => setShowDetailsPanel(false)}
           />
         ) : null}
       </div>

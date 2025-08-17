@@ -18,6 +18,7 @@ import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
 import erasePng from '../assets/erase.png';
+import tagPng from '../assets/tag.png';
 
 interface GraphViewProps {
   nodes: GraphNode[];
@@ -174,20 +175,33 @@ export const GraphView: React.FC<GraphViewProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={styles.container} style={{ width: '100%', height: '100%' }}>
+    <div
+      ref={containerRef}
+      className={styles.container}
+      style={{ width: "100%", height: "100%" }}
+    >
       <div style={mainLayoutStyle}>
         <div>
           <div style={titleContainerStyle}>
             <div style={titleStyle}>
               {experiment
-                ? (experiment.timestamp ? `${experiment.timestamp} (${experiment.session_id.substring(0, 8)}...)` : 'Graph')
-                : 'Graph'}
+                ? experiment.timestamp
+                  ? `${experiment.timestamp} (${experiment.session_id.substring(
+                      0,
+                      8
+                    )}...)`
+                  : "Graph"
+                : "Graph"}
             </div>
           </div>
           <ReactFlowProvider>
             <div
               className={styles.flowContainer}
-              style={{ height: `${containerHeight}px`, marginTop: '0px', paddingTop: '0px' }}
+              style={{
+                height: `${containerHeight}px`,
+                marginTop: "0px",
+                paddingTop: "0px",
+              }}
             >
               <ReactFlow
                 nodes={nodes}
@@ -210,80 +224,123 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 zoomOnDoubleClick={false}
                 panOnScroll={false}
                 preventScrolling={false}
-                style={{ 
-                  width: "100%", 
+                style={{
+                  width: "100%",
                   height: "auto",
                   padding: "0",
-                  margin: "0"
+                  margin: "0",
                 }}
               />
             </div>
           </ReactFlowProvider>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: '10px', marginRight:'30px' }}>
-            <button
-              style={{ ...restartButtonStyle, background: 'transparent', marginBottom: '4px'}}
-              title="Clear edits"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for erase! This is a bug.");
-                  throw new Error("No session_id available for erase!");
-                }
-                sendMessage({ type: 'erase', session_id });
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 4,
+            marginTop: "10px",
+            marginRight: "30px",
+          }}
+        >
+          <button
+            style={{
+              ...restartButtonStyle,
+              background: "transparent",
+              marginBottom: "4px",
+            }}
+            title="Show details panel"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent("open-details-panel"));
+              }
+            }}
+          >
+            <img
+              src={tagPng}
+              alt="Show details panel"
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "block",
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "transparent",
+                pointerEvents: "none",
               }}
-            >
-              <img
-                src={erasePng}
-                alt="Erase"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  background: 'transparent',
-                  pointerEvents: 'none',
-                }}
-                draggable={false}
-              />
-            </button>
-            <button
-              style={{ ...restartButtonStyle, marginBottom: '8px'}}
-              title="Restart"
-              onClick={() => {
-                if (!session_id) {
-                  alert("No session_id available for restart! This is a bug.");
-                  throw new Error("No session_id available for restart!");
-                }
-                sendMessage({ type: 'restart', session_id });
+              draggable={false}
+            />
+          </button>
+          <button
+            style={{
+              ...restartButtonStyle,
+              background: "transparent",
+              marginBottom: "4px",
+            }}
+            title="Clear edits"
+            onClick={() => {
+              if (!session_id) {
+                alert("No session_id available for erase! This is a bug.");
+                throw new Error("No session_id available for erase!");
+              }
+              sendMessage({ type: "erase", session_id });
+            }}
+          >
+            <img
+              src={erasePng}
+              alt="Erase"
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "block",
+                borderRadius: "50%",
+                objectFit: "cover",
+                background: "transparent",
+                pointerEvents: "none",
               }}
-            >
-              {React.createElement('svg', {
+              draggable={false}
+            />
+          </button>
+          <button
+            style={{ ...restartButtonStyle, marginBottom: "8px" }}
+            title="Restart"
+            onClick={() => {
+              if (!session_id) {
+                alert("No session_id available for restart! This is a bug.");
+                throw new Error("No session_id available for restart!");
+              }
+              sendMessage({ type: "restart", session_id });
+            }}
+          >
+            {React.createElement(
+              "svg",
+              {
                 width: "20",
                 height: "20",
                 viewBox: "0 0 20 20",
                 fill: "none",
                 xmlns: "http://www.w3.org/2000/svg",
-                style: { pointerEvents: 'none' }
+                style: { pointerEvents: "none" },
               },
-                React.createElement('path', {
-                  d: "M10 3a7 7 0 1 1-6.32 4",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                }),
-                React.createElement('polyline', {
-                  points: "3 3 7 3 7 7",
-                  stroke: "#fff",
-                  strokeWidth: "2",
-                  fill: "none",
-                  strokeLinecap: "round",
-                  strokeLinejoin: "round"
-                })
-              )}
-            </button>
+              React.createElement("path", {
+                d: "M10 3a7 7 0 1 1-6.32 4",
+                stroke: "#fff",
+                strokeWidth: "2",
+                fill: "none",
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+              }),
+              React.createElement("polyline", {
+                points: "3 3 7 3 7 7",
+                stroke: "#fff",
+                strokeWidth: "2",
+                fill: "none",
+                strokeLinecap: "round",
+                strokeLinejoin: "round",
+              })
+            )}
+          </button>
         </div>
       </div>
     </div>

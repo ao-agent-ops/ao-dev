@@ -2,9 +2,59 @@ import collections.abc
 
 
 # Utility functions
-def untaint_if_needed(val):
+def untaint_if_needed(val, _seen=None):
+    """
+    Recursively remove taint from objects and nested data structures.
+
+    Args:
+        val: The value to untaint
+        _seen: Set to track visited objects (prevents circular references)
+
+    Returns:
+        The untainted version of the value
+    """
+    if _seen is None:
+        _seen = set()
+
+    obj_id = id(val)
+    if obj_id in _seen:
+        return val
+    _seen.add(obj_id)
+
+    # If object has get_raw method (tainted), use it
     if hasattr(val, "get_raw"):
-        return val.get_raw()
+        return untaint_if_needed(val.get_raw(), _seen)
+
+    # Handle nested data structures
+    if isinstance(val, dict):
+        return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
+    elif isinstance(val, (list, tuple)):
+        result = [untaint_if_needed(item, _seen) for item in val]
+        return tuple(result) if isinstance(val, tuple) else result
+    elif isinstance(val, set):
+        return {untaint_if_needed(item, _seen) for item in val}
+    elif hasattr(val, "__dict__") and not isinstance(val, type):
+        # Handle custom objects with attributes, e.g., (MyObj(a=5, b=1)).
+        try:
+            new_obj = val.__class__.__new__(val.__class__)
+            for attr, value in val.__dict__.items():
+                setattr(new_obj, attr, untaint_if_needed(value, _seen))
+            return new_obj
+        except Exception:
+            return val
+    elif hasattr(val, "__slots__"):
+        # Handle objects with __slots__ (some objects have __slots__ but no __dict__).
+        try:
+            new_obj = val.__class__.__new__(val.__class__)
+            for slot in val.__slots__:
+                if hasattr(val, slot):
+                    value = getattr(val, slot)
+                    setattr(new_obj, slot, untaint_if_needed(value, _seen))
+            return new_obj
+        except Exception:
+            return val
+
+    # Return primitive types and other objects as-is
     return val
 
 
@@ -12,22 +62,50 @@ def is_tainted(obj):
     return hasattr(obj, "_taint_origin") and bool(get_taint_origins(obj))
 
 
-def get_taint_origins(val):
-    # Return a flat list of all taint origins for the input.
+def get_taint_origins(val, _seen=None):
+    """
+    Return a flat list of all taint origins for the input, including nested objects.
+
+    Args:
+        val: The value to extract taint origins from
+        _seen: Set to track visited objects (prevents circular references)
+
+    Returns:
+        List of taint origins found in the value and its nested structures
+    """
+    if _seen is None:
+        _seen = set()
+
+    obj_id = id(val)
+    if obj_id in _seen:
+        return []
+    _seen.add(obj_id)
+
+    # Check if object has direct taint
     if hasattr(val, "_taint_origin") and val._taint_origin is not None:
         return list(val._taint_origin)
-    elif isinstance(val, (list, tuple, set)):
-        origins = set()
+
+    # Handle nested data structures
+    origins = set()
+
+    if isinstance(val, (list, tuple, set)):
         for v in val:
-            origins.update(get_taint_origins(v))
-        return list(origins)
+            origins.update(get_taint_origins(v, _seen))
     elif isinstance(val, dict):
-        origins = set()
         for v in val.values():
-            origins.update(get_taint_origins(v))
-        return list(origins)
-    else:
-        return []
+            origins.update(get_taint_origins(v, _seen))
+    elif hasattr(val, "__dict__") and not isinstance(val, type):
+        # Handle custom objects with attributes
+        for attr_val in val.__dict__.values():
+            origins.update(get_taint_origins(attr_val, _seen))
+    elif hasattr(val, "__slots__"):
+        # Handle objects with __slots__
+        for slot in val.__slots__:
+            if hasattr(val, slot):
+                slot_val = getattr(val, slot)
+                origins.update(get_taint_origins(slot_val, _seen))
+
+    return list(origins)
 
 
 def is_openai_response(obj):

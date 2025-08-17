@@ -47,7 +47,7 @@ class TestOptionalDependencies:
             builtins.__import__ = mock_import
 
             # Import module
-            from runtime_tracing.monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            from runtime_tracing.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
 
             for patch_func in CUSTOM_PATCH_FUNCTIONS:
                 try:
@@ -75,7 +75,7 @@ class TestOptionalDependencies:
 
         try:
             # Import module normally (no mocking)
-            from runtime_tracing.monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            from runtime_tracing.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
 
             # Test each patch function
             for patch_func in CUSTOM_PATCH_FUNCTIONS:

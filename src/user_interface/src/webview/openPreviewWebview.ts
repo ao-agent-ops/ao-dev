@@ -5,9 +5,9 @@ import * as path from 'path';
 // Dictionary of open panels by absolute path
 const previewPanels: Record<string, vscode.WebviewPanel> = {};
 
-export function openPreviewWebview(fileName: string, fileType: string, fileData: string) {
+export function openPreviewWebview(fileName: string, fileType: string, fileData: string, nodeId: string, sessionId: string) {
   // Use the file name as a unique key (you can use the absolute path if you prefer)
-  const key = fileName;
+  const key = `${fileName}__${nodeId}__${sessionId}`;
   const activeColumn = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One;
 
   if (previewPanels[key]) {
