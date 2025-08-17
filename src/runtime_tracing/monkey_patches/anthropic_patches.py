@@ -1,15 +1,7 @@
-import asyncio
-import inspect
-import functools
-import json
-import threading
-import functools
-from io import BytesIO
-from agent_copilot.context_manager import get_session_id
+from functools import wraps
 from runtime_tracing.utils import get_input_dict, send_graph_node_and_edges
 from workflow_edits.cache_manager import CACHE
 from common.logger import logger
-from workflow_edits.utils import get_input, get_model_name, get_output_string
 from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
 
 
@@ -25,6 +17,7 @@ def anthropic_patch():
 
     original_init = anthropic.Anthropic.__init__
 
+    @wraps(original_init)
     def new_init(self, *args, **kwargs):
         original_init(self, *args, **kwargs)
         patch_anthropic_messages_create(self.messages)
@@ -40,6 +33,7 @@ def patch_anthropic_messages_create(messages_instance):
     original_function = messages_instance.create
 
     # Patched function (executed instead of Anthropic.messages.create)
+    @wraps(original_function)
     def patched_function(*args, **kwargs):
         # 1. Set API identifier to fully qualified name of patched function.
         api_type = "Anthropic.messages.create"
@@ -78,9 +72,10 @@ def patch_anthropic_files_upload(files_instance):
     """
     Patch the .upload method of an Anthropic files instance to handle file caching.
     """
-    original_upload = files_instance.upload
+    original_function = files_instance.upload
 
-    def patched_upload(*args, **kwargs):
+    @wraps(original_function)
+    def patched_function(*args, **kwargs):
         # Extract file argument
         file_arg = kwargs.get("file")
         file_name = "unknown"
@@ -91,7 +86,7 @@ def patch_anthropic_files_upload(files_instance):
             file_name = getattr(file_arg, "name", "uploaded_file")
 
         # Call original method
-        result = original_upload(*args, **kwargs)
+        result = original_function(*args, **kwargs)
 
         # Cache the file if we have caching enabled
         file_id = getattr(result, "id", None)
@@ -102,55 +97,58 @@ def patch_anthropic_files_upload(files_instance):
         taint_origins = get_taint_origins(file_arg)
         return taint_wrap(result, taint_origins)
 
-    files_instance.upload = patched_upload
+    files_instance.upload = patched_function
 
 
 def patch_anthropic_files_list(files_instance):
     """
     Patch the .list method of an Anthropic files instance to handle taint propagation.
     """
-    original_list = files_instance.list
+    original_function = files_instance.list
 
-    def patched_list(*args, **kwargs):
+    @wraps(original_function)
+    def patched_function(*args, **kwargs):
         # Call original method
-        result = original_list(*args, **kwargs)
+        result = original_function(*args, **kwargs)
 
         # Propagate taint from any input arguments
         taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
         return taint_wrap(result, taint_origins)
 
-    files_instance.list = patched_list
+    files_instance.list = patched_function
 
 
 def patch_anthropic_files_retrieve_metadata(files_instance):
     """
     Patch the .retrieve_metadata method of an Anthropic files instance to handle taint propagation.
     """
-    original_retrieve_metadata = files_instance.retrieve_metadata
+    original_function = files_instance.retrieve_metadata
 
-    def patched_retrieve_metadata(*args, **kwargs):
+    @wraps(original_function)
+    def patched_function(*args, **kwargs):
         # Call original method
-        result = original_retrieve_metadata(*args, **kwargs)
+        result = original_function(*args, **kwargs)
 
         # Propagate taint from any input arguments
         taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
         return taint_wrap(result, taint_origins)
 
-    files_instance.retrieve_metadata = patched_retrieve_metadata
+    files_instance.retrieve_metadata = patched_function
 
 
 def patch_anthropic_files_delete(files_instance):
     """
     Patch the .delete method of an Anthropic files instance to handle taint propagation.
     """
-    original_delete = files_instance.delete
+    original_function = files_instance.delete
 
-    def patched_delete(*args, **kwargs):
+    @wraps(original_function)
+    def patched_function(*args, **kwargs):
         # Call original method
-        result = original_delete(*args, **kwargs)
+        result = original_function(*args, **kwargs)
 
         # Propagate taint from any input arguments
         taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
         return taint_wrap(result, taint_origins)
 
-    files_instance.delete = patched_delete
+    files_instance.delete = patched_function

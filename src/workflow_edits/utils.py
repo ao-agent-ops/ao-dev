@@ -15,6 +15,62 @@ except:
 
 
 # ===============================================
+# OpenAI.chat.completions.create
+# ===============================================
+
+
+def _get_input_openai_chat_completions_create(input_obj: any) -> tuple[str, list]:
+    """Extract input text and attachments from OpenAI chat completions input."""
+    messages = input_obj.get("messages", [])
+    if not messages:
+        return "", []
+
+    # Get the last user message as the primary input
+    last_message = messages[-1]
+    content = last_message.get("content", "")
+
+    # For now, no attachment support in chat completions
+    return content, []
+
+
+def _set_input_openai_chat_completions_create(
+    prev_input_pickle: bytes, new_input_text: str
+) -> bytes:
+    """Set new input text in OpenAI chat completions input."""
+    input_obj = dill.loads(prev_input_pickle)
+    if "messages" in input_obj and input_obj["messages"]:
+        # Update the last message content
+        input_obj["messages"][-1]["content"] = new_input_text
+    return dill.dumps(input_obj)
+
+
+def _get_output_openai_chat_completions_create(response_obj: any) -> str:
+    """Extract output text from OpenAI chat completions response."""
+    if hasattr(response_obj, "choices") and response_obj.choices:
+        choice = response_obj.choices[0]
+        if hasattr(choice, "message") and hasattr(choice.message, "content"):
+            return choice.message.content or ""
+    return ""
+
+
+def _set_output_openai_chat_completions_create(
+    prev_output_pickle: bytes, output_text: str
+) -> bytes:
+    """Set new output text in OpenAI chat completions response."""
+    response_obj = dill.loads(prev_output_pickle)
+    if hasattr(response_obj, "choices") and response_obj.choices:
+        choice = response_obj.choices[0]
+        if hasattr(choice, "message"):
+            choice.message.content = output_text
+    return dill.dumps(response_obj)
+
+
+def _get_model_openai_chat_completions_create(input_obj: any) -> str:
+    """Extract model name from OpenAI chat completions input."""
+    return input_obj.get("model", "unknown")
+
+
+# ===============================================
 # OpenAI.responses.create
 # ===============================================
 
@@ -207,7 +263,13 @@ def _get_model_vertex_client_models_generate_content(input_obj: any) -> str:
 
 
 def get_input(input_obj: any, api_type: str) -> str:
-    if api_type == "OpenAI.responses.create":
+    if api_type == "OpenAI.chat.completions.create":
+        return _get_input_openai_chat_completions_create(input_obj)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _get_input_openai_chat_completions_create(input_obj)
+    elif api_type == "OpenAI.responses.create":
+        return _get_input_openai_responses_create(input_obj)
+    elif api_type == "AsyncOpenAI.responses.create":
         return _get_input_openai_responses_create(input_obj)
     elif api_type == "Anthropic.messages.create":
         return _get_input_anthropic_messages_create(input_obj)
@@ -221,7 +283,13 @@ def get_input(input_obj: any, api_type: str) -> str:
 
 def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
     """Returns pickle with changed input text."""
-    if api_type == "OpenAI.responses.create":
+    if api_type == "OpenAI.chat.completions.create":
+        return _set_input_openai_chat_completions_create(prev_input_pickle, new_input_text)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _set_input_openai_chat_completions_create(prev_input_pickle, new_input_text)
+    elif api_type == "OpenAI.responses.create":
+        return _set_input_openai_responses_create(prev_input_pickle, new_input_text)
+    elif api_type == "AsyncOpenAI.responses.create":
         return _set_input_openai_responses_create(prev_input_pickle, new_input_text)
     elif api_type == "Anthropic.messages.create":
         return _set_input_anthropic_messages_create(prev_input_pickle, new_input_text)
@@ -234,7 +302,13 @@ def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
 
 
 def get_output_string(response_pickle: bytes, api_type: str) -> str:
-    if api_type == "OpenAI.responses.create":
+    if api_type == "OpenAI.chat.completions.create":
+        return _get_output_openai_chat_completions_create(response_pickle)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _get_output_openai_chat_completions_create(response_pickle)
+    elif api_type == "OpenAI.responses.create":
+        return _get_output_openai_responses_create(response_pickle)
+    elif api_type == "AsyncOpenAI.responses.create":
         return _get_output_openai_responses_create(response_pickle)
     elif api_type == "Anthropic.messages.create":
         return _get_output_anthropic_messages_create(response_pickle)
@@ -247,7 +321,13 @@ def get_output_string(response_pickle: bytes, api_type: str) -> str:
 
 
 def set_output_string(prev_output_pickle: bytes, new_output_text: str, api_type):
-    if api_type == "OpenAI.responses.create":
+    if api_type == "OpenAI.chat.completions.create":
+        return _set_output_openai_chat_completions_create(prev_output_pickle, new_output_text)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _set_output_openai_chat_completions_create(prev_output_pickle, new_output_text)
+    elif api_type == "OpenAI.responses.create":
+        return _set_output_openai_responses_create(prev_output_pickle, new_output_text)
+    elif api_type == "AsyncOpenAI.responses.create":
         return _set_output_openai_responses_create(prev_output_pickle, new_output_text)
     elif api_type == "Anthropic.messages.create":
         return _set_output_anthropic_messages_create(prev_output_pickle, new_output_text)
@@ -262,7 +342,13 @@ def set_output_string(prev_output_pickle: bytes, new_output_text: str, api_type)
 
 
 def get_model_name(input_obj: bytes, api_type: str) -> str:
-    if api_type == "OpenAI.responses.create":
+    if api_type == "OpenAI.chat.completions.create":
+        return _get_model_openai_chat_completions_create(input_obj)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _get_model_openai_chat_completions_create(input_obj)
+    elif api_type == "OpenAI.responses.create":
+        return _get_model_openai_responses_create(input_obj)
+    elif api_type == "AsyncOpenAI.responses.create":
         return _get_model_openai_responses_create(input_obj)
     elif api_type == "Anthropic.messages.create":
         return _get_model_anthropic_messages_create(input_obj)

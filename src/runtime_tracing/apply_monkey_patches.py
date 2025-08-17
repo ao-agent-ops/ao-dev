@@ -4,7 +4,7 @@ from runtime_tracing.utils import (
     notify_server_patch,
 )
 
-from runtime_tracing.monkey_patches.openai_patches import v1_openai_patch, v2_openai_patch
+from runtime_tracing.monkey_patches.openai_patches import openai_patch, async_openai_patch
 from runtime_tracing.monkey_patches.anthropic_patches import anthropic_patch
 from runtime_tracing.monkey_patches.vertexai_patches import vertexai_patch
 
@@ -70,8 +70,8 @@ def apply_all_monkey_patches():
 # are NOT included here and should only be called from within the OpenAI.__init__ patch.
 
 CUSTOM_PATCH_FUNCTIONS = [
-    # v1_openai_patch,  # TODO: Doesn't work currently.
-    v2_openai_patch,
+    openai_patch,
+    async_openai_patch,
     anthropic_patch,
     vertexai_patch,
 ]

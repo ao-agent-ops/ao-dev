@@ -1,4 +1,4 @@
-import functools
+from functools import wraps
 from runtime_tracing.utils import get_input_dict, send_graph_node_and_edges
 from workflow_edits.cache_manager import CACHE
 from common.logger import logger
@@ -18,6 +18,7 @@ def vertexai_patch():
     # Patch the Client.__init__ method to patch the models.generate_content method
     original_init = genai.Client.__init__
 
+    @wraps(original_init)
     def new_init(self, *args, **kwargs):
         original_init(self, *args, **kwargs)
         patch_client_models_generate_content(self.models)
@@ -31,14 +32,13 @@ def patch_client_models_generate_content(models_instance):
     """
     original_function = models_instance.generate_content
 
+    @wraps(original_function)
     def patched_function(*args, **kwargs):
         # 1. API identifier.
         api_type = "vertexai client_models_generate_content"
 
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
-
-        print(f"input_dict: {input_dict}")
 
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
