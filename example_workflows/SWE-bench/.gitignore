@@ -6,8 +6,6 @@ __pycache__/
 # C extensions
 *.so
 
-.DS_Store
-
 # Distribution / packaging
 .Python
 build/
@@ -96,12 +94,6 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
@@ -114,10 +106,8 @@ ipython_config.py
 #pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+#   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
-.pdm-python
-.pdm-build/
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
@@ -169,48 +159,14 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-*.key
-*secret*
-configs/keys
-
-# Pyre
-_results/
-.pyre_configuration
-
-# Caches
-cache.db
-attachment_cache/
-configs/
-
-# VS Code extension
-src/user_interface/node_modules
-src/user_interface/dist
-
-# Our DB
-*.sqlite3
-*.sqlite
-
-# CodeQL
-codeql-cli
-codeql-repo
-src/static_analysis/CodeQL-Analyst/databases
-**/results/**
-
-# DocBench
-**/doc_bench/data
-
-# DeepResearch
-**/DeepResearch/logs
-**/DeepResearch/data
-
-# SWE-bench
-**/SWE-bench/data
-**/SWE-bench/logs
-**/SWE-bench/*.jsonl
-**/SWE-bench/*.json
+# Custom
+.api_key
+.keys
+.vscode/
+*.jsonl
+*.jsonl.*
+*.patch
+*.DS_Store
+data/repos/copies
+notebooks/
+*logs/
