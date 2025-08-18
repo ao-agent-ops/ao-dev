@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { EditDialogProvider } from './EditDialogProvider';
+import { NotesLogTabProvider } from './NotesLogTabProvider';
 import { PythonServerClient } from './PythonServerClient';
 
 export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
     private _view?: vscode.WebviewView;
     private _editDialogProvider?: EditDialogProvider;
-    private _pendingMessages: any[] = []; // Buffer for messages before webview is ready
+    private _notesLogTabProvider?: NotesLogTabProvider;
+    private _pendingMessages: any[] = [];
     private _pythonClient: PythonServerClient | null = null;
     // The Python server connection is deferred until the webview sends 'ready'.
     // Buffering is needed to ensure no messages are lost if the server sends messages before the webview is ready.
@@ -14,6 +16,10 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Set up Python server message forwarding with buffering
         // Removed _pendingEdit
+    }
+
+    public setNotesLogTabProvider(provider: NotesLogTabProvider): void {
+        this._notesLogTabProvider = provider;
     }
 
     // Robustly show or reveal the webview
@@ -90,6 +96,20 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                 }
             }
             switch (data.type) {
+                case 'open_notes_tab_side_by_side':
+                    if (this._notesLogTabProvider) {
+                        this._notesLogTabProvider.openNotesTab(data.payload);
+                    } else {
+                        console.error('NotesLogTabProvider instance not set!');
+                    }
+                    break;
+                case 'open_log_tab_side_by_side':
+                    if (this._notesLogTabProvider) {
+                        this._notesLogTabProvider.openLogTab(data.payload);
+                    } else {
+                        console.error('NotesLogTabProvider instance not set!');
+                    }
+                    break;
                 case 'updateNode':
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);

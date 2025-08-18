@@ -30,14 +30,12 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
     boxSizing: "border-box",
     backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
     color: isDarkTheme ? "#FFFFFF" : "#000000",
-    fontFamily: "Consolas, 'Courier New', monospace",
     };
 
     const fieldStyle: React.CSSProperties = {
       width: "100%",
       padding: "6px 8px",
       fontSize: "14px",
-      fontFamily: "Consolas, 'Courier New', monospace",
       background: "#2d2d2d",
       color: "#fff",
       border: "1px solid #555",
@@ -105,7 +103,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         )}
         Workflow run
       </div>
-      {/* Título */}
+      {/* Title */}
       <label style={{ fontSize: "20px" }}>Run name</label>
       <input
         type="text"
@@ -154,8 +152,23 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         style={textareaStyle}
       />
 
-      {/* Botón Open in tab */}
-      <button onClick={onOpenInTab} style={buttonStyle}>
+
+      {/* Button open in tab */}
+      <button
+        onClick={() => {
+          if (window.vscode) {
+            window.vscode.postMessage({
+              type: "open_notes_tab_side_by_side",
+              payload: {
+                runName: localRunName,
+                result: localResult,
+                notes: localNotes,
+              },
+            });
+          }
+        }}
+        style={buttonStyle}
+      >
         Open in tab
       </button>
 
@@ -163,8 +176,23 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <label style={{ fontSize: "20px" }}>Log</label>
       <textarea value={log} readOnly style={textareaStyle} />
 
-      {/* Botón Open in tab */}
-      <button onClick={onOpenInTab} style={buttonStyle}>
+
+      {/* Button open in tab */}
+      <button
+        onClick={() => {
+          if (window.vscode) {
+            window.vscode.postMessage({
+              type: "open_log_tab_side_by_side",
+              payload: {
+                runName: localRunName,
+                result: localResult,
+                log,
+              },
+            });
+          }
+        }}
+        style={buttonStyle}
+      >
         Open in tab
       </button>
     </div>

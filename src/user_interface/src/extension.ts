@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { GraphViewProvider } from './providers/GraphViewProvider';
 import { EditDialogProvider } from './providers/EditDialogProvider';
-
-let editDialogProvider: EditDialogProvider | undefined;
+import { NotesLogTabProvider } from './providers/NotesLogTabProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     // Register the webview provider
     const graphViewProvider = new GraphViewProvider(context.extensionUri);
+
+    const notesLogTabProvider = new NotesLogTabProvider(context.extensionUri);
+    graphViewProvider.setNotesLogTabProvider(notesLogTabProvider);
 
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(GraphViewProvider.viewType, graphViewProvider)
