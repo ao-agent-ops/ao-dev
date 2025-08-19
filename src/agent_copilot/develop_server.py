@@ -15,6 +15,7 @@ from common.logger import logger
 from common.constants import HOST, PORT
 from telemetry.user_actions import log_node_edit, log_experiment_rerun
 from telemetry.snapshots import get_user_id
+from telemetry.user_actions import store_user_log, log_user_actions
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -302,6 +303,15 @@ class DevelopServer:
         success = msg["success"]
         entry = msg["entry"]
         EDIT.add_log(session_id, success, entry)
+
+        # Store log entry in telemetry database
+        try:
+            user_id = get_user_id()
+            store_user_log(user_id, session_id, entry, success)
+            logger.debug(f"User log stored in telemetry for session: {session_id}")
+        except Exception as e:
+            logger.error(f"Failed to store user log in telemetry: {e}")
+
         self.broadcast_experiment_list_to_uis()
 
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
@@ -310,7 +320,6 @@ class DevelopServer:
         # Log experiment view to telemetry
         try:
             user_id = get_user_id()
-            from telemetry.user_actions import log_user_actions
 
             log_user_actions(
                 user_id=user_id,
@@ -364,7 +373,6 @@ class DevelopServer:
         # Log erase action to telemetry
         try:
             user_id = get_user_id()
-            from telemetry.user_actions import log_user_actions
 
             log_user_actions(
                 user_id=user_id,

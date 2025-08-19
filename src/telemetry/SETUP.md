@@ -11,15 +11,6 @@
 In your Supabase dashboard, go to **SQL Editor** and run these commands:
 
 ```sql
--- Table for code snapshots
-CREATE TABLE code_snapshots (
-    id BIGSERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
-    code_snapshot TEXT NOT NULL,  -- Base64 encoded binary data
-    snapshot_size INTEGER
-);
-
 -- Table for UI interaction events  
 CREATE TABLE user_actions (
     id BIGSERIAL PRIMARY KEY,
@@ -30,13 +21,23 @@ CREATE TABLE user_actions (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Table for run results
-CREATE TABLE run_results (
+-- Table for code snapshots
+CREATE TABLE code_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    code_snapshot TEXT NOT NULL,  -- Base64 encoded binary data
+    snapshot_size INTEGER,
+    ui_event BIGINT REFERENCES user_actions(id)
+);
+
+-- Table for aco.log(...) entries
+CREATE TABLE user_logs (
     id BIGSERIAL PRIMARY KEY,
     user_id TEXT NOT NULL,
     session_id TEXT,
-    sample_id TEXT,
-    result TEXT,
+    log_msg TEXT,
+    success BOOLEAN,
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 ```

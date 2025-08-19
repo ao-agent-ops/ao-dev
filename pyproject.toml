@@ -22,6 +22,11 @@ aco-launch = "agent_copilot.commands.launch:main"
 aco-config = "agent_copilot.commands.config.config:main"
 aco-server = "agent_copilot.commands.server:main"
 
+# Let's keep them around for now, aco-launch is confusing 
+# when quickly showing the tool.
+develop = "agent_copilot.commands.launch:main"
+server = "agent_copilot.commands.server:main"
+
 [tool.black]
 line-length = 100
 

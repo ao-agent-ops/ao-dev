@@ -92,6 +92,32 @@ def log_experiment_rerun(user_id: str, session_id: str, experiment_name: str = "
     )
 
 
+def store_user_log(
+    user_id: str, session_id: str, log_msg: str, success: Optional[bool] = None
+) -> bool:
+    """Store a user log entry to Supabase."""
+    if not supabase_client.is_available():
+        logger.debug("Supabase not available, skipping user log storage")
+        return False
+
+    try:
+        data = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "log_msg": log_msg,
+        }
+        if success is not None:
+            data["success"] = success
+
+        supabase_client.client.table("user_logs").insert(data).execute()
+        logger.debug(f"User log stored: {log_msg[:50]}...")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to store user log: {e}")
+        return False
+
+
 if __name__ == "__main__":
     print("Testing UI events functionality...")
 
@@ -133,4 +159,11 @@ if __name__ == "__main__":
     else:
         print("❌ Custom event logging failed")
 
-    print("\nAll UI event tests completed!")
+    print("\n5. Testing user log storage...")
+    success = store_user_log(test_user, test_session, "Test log entry from user", True)
+    if success:
+        print("✅ User log stored successfully!")
+    else:
+        print("❌ User log storage failed")
+
+    print("\nAll telemetry tests completed!")
