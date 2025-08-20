@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 # Tell setuptools to look in src/ for packages
 package-dir = {"" = "src"}
 # Find all packages under src/
-packages = ["agent_copilot", "static_analysis", "common", "runtime_tracing"]
+packages = ["agent_copilot", "static_analysis", "common", "runtime_tracing", "telemetry"]
 
 [tool.setuptools.package-data]
 # Include non-Python files like pyre configs
@@ -21,6 +21,11 @@ static_analysis = ["pyre_static_analysis/**/*"]
 aco-launch = "agent_copilot.commands.launch:main"
 aco-config = "agent_copilot.commands.config.config:main"
 aco-server = "agent_copilot.commands.server:main"
+
+# Let's keep them around for now, aco-launch is confusing 
+# when quickly showing the tool.
+develop = "agent_copilot.commands.launch:main"
+server = "agent_copilot.commands.server:main"
 
 [tool.black]
 line-length = 100
@@ -190,8 +195,9 @@ dependencies = [
     'xxhash==3.5.0',
     'yarl==1.20.1',
     'zipp==3.23.0',
-    'openai-agents==0.2.6'
 ]
+# 'openai-agents==0.2.6'
+# supabase
 
 [project.optional-dependencies]
 dev = [

@@ -3,6 +3,7 @@ import styles from './ProcessCard.module.css';
 import { ProcessInfo } from '../types';
 import { getDateOnly } from '../utils/timeSpan';
 
+
 export interface ProcessCardProps {
   process: ProcessInfo;
   isHovered: boolean;
@@ -25,6 +26,12 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
   }) => {
     // Debug logging
     console.log(`ProcessCard render for ${process.session_id}:`, { nodeColors, color_preview: process.color_preview });
+    
+    const handleClick = async () => {
+      // Call original onClick (experiment clicks now handled by server)
+      onClick?.();
+    };
+    
     return (
       <div
         className={[
@@ -32,7 +39,7 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
           isDarkTheme ? styles.dark : styles.light,
           isHovered ? styles.hovered : "",
         ].join(" ")}
-        onClick={onClick}
+        onClick={handleClick}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
         tabIndex={0}

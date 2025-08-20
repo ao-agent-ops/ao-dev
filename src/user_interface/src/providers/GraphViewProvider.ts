@@ -202,6 +202,22 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
             'graphView.html'
         );
         let html = fs.readFileSync(templatePath, 'utf8');
+        
+        // Get telemetry configuration from VS Code settings or environment
+        const config = vscode.workspace.getConfiguration('agent-copilot');
+        const supabaseUrl = config.get('telemetry.supabaseUrl') || process.env.SUPABASE_URL;
+        const supabaseKey = config.get('telemetry.supabaseKey') || process.env.SUPABASE_ANON_KEY;
+        const userId = config.get('telemetry.userId') || process.env.USER_ID || 'default_user';
+        
+        // Inject telemetry configuration
+        const telemetryConfig = `
+            window.SUPABASE_URL = ${supabaseUrl ? `"${supabaseUrl}"` : 'undefined'};
+            window.SUPABASE_ANON_KEY = ${supabaseKey ? `"${supabaseKey}"` : 'undefined'};
+            window.USER_ID = "${userId}";
+        `;
+        
+        html = html.replace('const vscode = acquireVsCodeApi();', 
+            `${telemetryConfig}\n        const vscode = acquireVsCodeApi();`);
         html = html.replace(/{{scriptUri}}/g, scriptUri.toString());
         return html;
     }

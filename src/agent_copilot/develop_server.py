@@ -13,6 +13,7 @@ from workflow_edits.edit_manager import EDIT
 from workflow_edits.cache_manager import CACHE
 from common.logger import logger
 from common.constants import HOST, PORT
+from telemetry.server_logger import log_server_message, log_shim_control_registration
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -208,6 +209,7 @@ class DevelopServer:
         session_id = msg["session_id"]
         node_id = msg["node_id"]
         new_input = msg["value"]
+
         EDIT.set_input_overwrite(session_id, node_id, new_input)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
@@ -228,6 +230,7 @@ class DevelopServer:
         session_id = msg["session_id"]
         node_id = msg["node_id"]
         new_output = msg["value"]
+
         EDIT.set_output_overwrite(session_id, node_id, new_output)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
@@ -248,10 +251,13 @@ class DevelopServer:
         success = msg["success"]
         entry = msg["entry"]
         EDIT.add_log(session_id, success, entry)
+
         self.broadcast_experiment_list_to_uis()
 
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
-        self.handle_graph_request(conn, msg["session_id"])
+        session_id = msg["session_id"]
+
+        self.handle_graph_request(conn, session_id)
 
     def handle_add_subrun(self, msg: dict, conn: socket.socket) -> None:
         # If rerun, use previous session_id. Else, assign new one.
@@ -290,6 +296,7 @@ class DevelopServer:
 
     def handle_erase(self, msg):
         session_id = msg.get("session_id")
+
         EDIT.erase(session_id)
         # Clear color preview in database
         CACHE.update_color_preview(session_id, [])
@@ -417,6 +424,9 @@ class DevelopServer:
     # ============================================================
 
     def process_message(self, msg: dict, conn: socket.socket) -> None:
+        # Log the message to telemetry
+        log_server_message(msg, self.session_graphs)
+
         # TODO: Process experiment changes for title, success, notes.
         msg_type = msg.get("type")
         if msg_type == "shutdown":
@@ -493,6 +503,9 @@ class DevelopServer:
                 self.broadcast_experiment_list_to_uis()
                 self.conn_info[conn] = {"role": role, "session_id": session_id}
                 send_json(conn, {"type": "session_id", "session_id": session_id})
+
+                # Log shim-control registration to telemetry
+                log_shim_control_registration(handshake, session_id)
             elif role == "shim-runner":
                 pass  # Don't do anything if shim-runner
             elif role == "ui":

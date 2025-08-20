@@ -7,6 +7,7 @@ import { sendReady, sendGetGraph, sendMessage } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
+
 // Add global type augmentation for window.vscode
 declare global {
   interface Window {
