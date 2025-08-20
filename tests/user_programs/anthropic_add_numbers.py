@@ -1,7 +1,7 @@
 import anthropic
 
 
-client = anthropic.Anthropic(api_key="XXX")
+client = anthropic.Anthropic()
 model = "undefined_model"  # Make sure cache is used.
 
 

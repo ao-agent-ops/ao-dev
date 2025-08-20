@@ -1,7 +1,7 @@
 from openai import OpenAI
 
 
-client = OpenAI(api_key="XXX")
+client = OpenAI()
 model = "undefined_model"  # Make sure cache is used.
 
 response = client.responses.create(
