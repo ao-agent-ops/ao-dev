@@ -1,8 +1,5 @@
 """
-Integration test if the aco-launch command works as expected.
-We insert cached responses into the database so we don't make actual
-API calls. We register a UI, run an aco-launch command, and check if
-the UI receives the correct number of graph_update messages.
+Integration test: run aco-launch command and verify graph updates.
 """
 
 import json
@@ -21,77 +18,65 @@ from get_api_objects import (
     create_openai_input,
     create_openai_response,
     create_anthropic_input,
-    create_vertexai_input,
-    create_vertexai_response,
 )
 from workflow_edits.cache_manager import CACHE
 
 
-def print_server_logs(label="Server logs"):
+# expected_calls = {
+#     "openai": {"llm": 4, "http": 1}, # HTTP calls depends on version ...
+#     "anthropic": {"llm": 4, "http": 0},
+# }
+
+
+def print_server_logs():
     """Print recent server logs for debugging."""
     log_file = os.path.join(ACO_LOG_PATH, "server.log")
-    print(f"\n=== {label} ===")
     if os.path.exists(log_file):
         try:
             with open(log_file, "r") as f:
                 lines = f.readlines()
-                recent_lines = lines[-20:] if len(lines) > 20 else lines
-                for line in recent_lines:
+                print("=== Recent Server Logs ===")
+                for line in lines[-10:]:  # Last 10 lines
                     print(f"LOG: {line.strip()}")
+                print("=" * 30)
         except Exception as e:
-            print(f"Error reading server logs: {e}")
+            print(f"Error reading logs: {e}")
     else:
-        print("Server log file does not exist")
-    print("=" * 50)
+        print("No server log file found")
 
 
-def check_server_connectivity(retries=5, delay=1):
-    """Check if server is responding to connections."""
-    print(f"\n🔍 Checking server connectivity...")
-    for i in range(retries):
+def wait_for_server():
+    """Wait for server to be ready."""
+    for i in range(5):
         try:
-            sock = socket.create_connection(("127.0.0.1", 5959), timeout=2)
-            sock.close()
-            print(f"   ✅ Server is responding (attempt {i+1})")
+            socket.create_connection(("127.0.0.1", 5959), timeout=2).close()
             return True
-        except Exception as e:
-            print(f"   ❌ Connection failed (attempt {i+1}): {e}")
-            if i < retries - 1:
-                time.sleep(delay)
+        except:
+            time.sleep(1)
     return False
 
 
-def run_add_numbers_test(program_file, api_type, create_response_func, create_input_func):
-    """
-    Helper function to test add_numbers programs for different APIs.
+def run_test(program_file, api_type, create_response_func, create_input_func, http_calls):
+    """Run the actual test logic."""
 
-    Args:
-        program_file: Name of the user program file (e.g., "openai_add_numbers.py")
-        api_type: API type for cache entries (e.g., "OpenAI.responses.create")
-        create_response_func: Function to create mock API responses
-        create_input_func: Function to create mock API inputs
-    """
-    print(f"Starting test for {program_file}...")
-
-    # These are the exact input strings the monkey patches will see
-    groundtruth_inputs = [
+    # Test inputs and expected outputs
+    inputs = [
         "Output the number 42 and nothing else",
         "Add 1 to 42 and just output the result.",
         "Add 2 to 42 and just output the result.",
         "Add these two numbers together and just output the result: 43 + 44",
     ]
+    outputs = ["42", "43", "44", "87"]
 
-    cached_outputs = ["42", "43", "44", "87"]
+    initial_http_calls = len(http_calls.calls) if http_calls else 0
 
-    # 1. Connect as shim-control and get session_id
-    print("1. Connecting as shim-control...")
+    # 1. Connect as shim-control to register session
     shim_sock = socket.create_connection(("127.0.0.1", 5959))
     shim_file = shim_sock.makefile("rw")
 
-    test_dir = str(Path(__file__).parent)
     handshake = {
         "role": "shim-control",
-        "cwd": test_dir,
+        "cwd": str(Path(__file__).parent),
         "command": f"aco-launch user_programs/{program_file}",
         "environment": {},
         "name": "test_api_calls",
@@ -102,20 +87,17 @@ def run_add_numbers_test(program_file, api_type, create_response_func, create_in
     response = json.loads(shim_file.readline().strip())
     session_id = response["session_id"]
 
-    # 2. Deregister the shim-control to mark session as finished
-    print("2. Deregistering shim-control...")
+    # 2. Deregister to mark session as finished
     deregister_msg = {"type": "deregister", "session_id": session_id}
     shim_file.write(json.dumps(deregister_msg) + "\n")
     shim_file.flush()
     shim_sock.close()
 
-    # 3. Connect as UI and collect messages
-    print("3. Connecting as UI...")
+    # 3. Connect as UI to receive messages
     ui_sock = socket.create_connection(("127.0.0.1", 5959))
     ui_file = ui_sock.makefile("rw")
 
-    ui_handshake = {"role": "ui"}
-    ui_file.write(json.dumps(ui_handshake) + "\n")
+    ui_file.write(json.dumps({"role": "ui"}) + "\n")
     ui_file.flush()
 
     message_queue = queue.Queue()
@@ -125,130 +107,77 @@ def run_add_numbers_test(program_file, api_type, create_response_func, create_in
             try:
                 msg = json.loads(line.strip())
                 message_queue.put(msg)
-            except Exception:
+            except:
                 break
 
-    ui_thread = threading.Thread(target=ui_listener, daemon=True)
-    ui_thread.start()
+    threading.Thread(target=ui_listener, daemon=True).start()
 
-    # 4. Populate database with cached responses
-    print("4. Populating database with cached responses...")
+    # 4. Cache responses in database
     set_parent_session_id(session_id)
-    for input_text, output_text in zip(groundtruth_inputs, cached_outputs):
+    for input_text, output_text in zip(inputs, outputs):
         _, _, node_id = CACHE.get_in_out(create_input_func(input_text), api_type)
         response = create_response_func(output_text)
         CACHE.cache_output(node_id, response)
 
-    # 5. Send restart message from UI connection
-    print("5. Sending restart message...")
+    # 5. Send restart to trigger execution
     restart_msg = {"type": "restart", "session_id": session_id}
     ui_file.write(json.dumps(restart_msg) + "\n")
     ui_file.flush()
-    print(f"   Sent restart message for session: {session_id}")
 
-    # 6. Collect graph_update messages
-    print("6. Collecting graph_update messages...")
+    # 6. Collect graph updates
     graph_updates = 0
-    timeout = 7
     start_time = time.time()
-    all_messages = []
 
-    # Run for 7 seconds, check how many graph_updates we get.
-    # 7s should be enough given all responses are cached.
-    while time.time() - start_time < timeout:
+    while time.time() - start_time < 7:  # 7 second timeout
         try:
             msg = message_queue.get(timeout=1)
-            all_messages.append(msg)
-            print(
-                f"   Received message: {msg.get('type', 'unknown')} for session: {msg.get('session_id', 'unknown')}"
-            )
-
-            # Filter for graph_update messages for our session
             if msg.get("type") == "graph_update" and msg.get("session_id") == session_id:
                 graph_updates += 1
-                print(f"   ✅ Graph update #{graph_updates} received!")
         except queue.Empty:
-            print(f"   No message received in last 1s (elapsed: {time.time() - start_time:.1f}s)")
             continue
+
     ui_sock.close()
 
-    # Print summary of all received messages
-    print(f"\n📊 Message Summary:")
-    print(f"   Total messages received: {len(all_messages)}")
-    print(f"   Graph updates for our session: {graph_updates}")
-    for i, msg in enumerate(all_messages):
-        print(f"   {i+1}. {msg.get('type', 'unknown')} (session: {msg.get('session_id', 'N/A')})")
+    # 7. Verify results
+    final_http_calls = len(http_calls.calls) if http_calls else 0
+    http_calls_made = final_http_calls - initial_http_calls
 
-    # 7. Verify we got 5 graph updates (1 inital + 1 for each LLM call).
-    print("7. Verifying results...")
-    assert graph_updates == 5, f"Expected 5 graph_updates, got {graph_updates}"
-    print(f"✅ Test passed for {program_file}! Got 5 graph_updates as expected")
+    print(f"Graph updates: {graph_updates}, HTTP calls: {http_calls_made}")
+
+    assert graph_updates == 5, f"Expected 5 graph updates, got {graph_updates}"
+    assert http_calls_made == 0, f"Expected 0 HTTP calls, got {http_calls_made}"
 
 
 @pytest.mark.parametrize(
     "program_file,api_type,create_response_func,create_input_func",
     [
-        # (
-        #     "anthropic_add_numbers.py",
-        #     "Anthropic.messages.create",
-        #     create_anthropic_response,
-        #     create_anthropic_input,
-        # ),
         (
             "openai_add_numbers.py",
             "OpenAI.responses.create",
             create_openai_response,
             create_openai_input,
         ),
-        # ("vertexai_add_numbers.py", "vertexai_generate_content", create_vertexai_response, create_vertexai_input),
+        (
+            "anthropic_add_numbers.py",
+            "Anthropic.messages.create",
+            create_anthropic_response,
+            create_anthropic_input,
+        ),
     ],
 )
-def test_add_numbers_api(program_file, api_type, create_response_func, create_input_func):
-    """Test add_numbers programs for different APIs using cached responses."""
-    print(f"\n🧪 Starting test for {program_file}")
+def test_api_calls(program_file, api_type, create_response_func, create_input_func, http_calls):
+    """Test API calls with cached responses."""
 
-    # Print initial server state
-    print_server_logs("Before launching server")
-
+    # Start server
     launch_daemon_server()
-    time.sleep(10)
+    time.sleep(3)
 
-    # Check server connectivity
-    if not check_server_connectivity():
-        print_server_logs("Server not responding - checking logs")
-        raise Exception("Server is not responding after launch")
-
-    # Print server logs after launch
-    print_server_logs("After launching server")
+    if not wait_for_server():
+        print_server_logs()
+        pytest.fail("Server not responding")
 
     try:
-        run_add_numbers_test(program_file, api_type, create_response_func, create_input_func)
-        print(f"✅ Test passed for {program_file}")
+        run_test(program_file, api_type, create_response_func, create_input_func, http_calls)
     except Exception as e:
-        print(f"❌ Test failed for {program_file}: {e}")
-        # Print server logs on failure
-        print_server_logs("After test failure")
+        print_server_logs()
         raise
-
-
-if __name__ == "__main__":
-    # Run individual tests for debugging
-    print("Running OpenAI test...")
-    run_add_numbers_test(
-        "openai_add_numbers.py",
-        "OpenAI.responses.create",
-        create_openai_response,
-        create_openai_input,
-    )
-
-    print("\nRunning Anthropic test...")
-    run_add_numbers_test(
-        "anthropic_add_numbers.py",
-        "Anthropic.messages.create",
-        create_anthropic_response,
-        create_anthropic_input,
-    )
-
-    # NOTE: VertexAI needs an API key for client creation, so we skip it.
-    # print("\nRunning VertexAI test...")
-    # run_add_numbers_test("vertexai_add_numbers.py", "vertexai_generate_content", create_vertexai_response, create_vertexai_input)
