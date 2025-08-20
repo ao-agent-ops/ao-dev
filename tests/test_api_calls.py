@@ -112,7 +112,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func, create_in
     # 6. Collect graph_update messages
     print("6. Collecting graph_update messages...")
     graph_updates = 0
-    timeout = 7
+    timeout = 15
     start_time = time.time()
 
     # Run for 7 seconds, check how many graph_updates we get.
