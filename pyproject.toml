@@ -197,6 +197,6 @@ dependencies = [
 dev = [
     'black==25.1.0',
     'pytest',
-    'pre-commit,
+    'pre-commit',
     'responses'
 ]
