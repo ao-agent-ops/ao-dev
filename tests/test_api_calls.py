@@ -154,7 +154,7 @@ def run_add_numbers_test(program_file, api_type, create_response_func, create_in
 def test_add_numbers_api(program_file, api_type, create_response_func, create_input_func):
     """Test add_numbers programs for different APIs using cached responses."""
     launch_daemon_server()
-    time.sleep(1)
+    time.sleep(10)
     run_add_numbers_test(program_file, api_type, create_response_func, create_input_func)
 
 
