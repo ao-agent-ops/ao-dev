@@ -121,7 +121,7 @@ dependencies = [
     'nipype==1.10.0',
     'nodeenv==1.9.1',
     'numpy==2.2.5',
-    'openai==1.78.1',
+    'openai,
     'pandas==2.3.0',
     'pathlib==1.0.1',
     'pillow==11.2.1',
