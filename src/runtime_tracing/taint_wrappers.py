@@ -466,13 +466,13 @@ class TaintInt(int):
 
     # Conversion and index
     def __int__(self):
-        return int(self)
+        return super().__int__()
 
     def __float__(self):
-        return float(self)
+        return super().__float__()
 
     def __index__(self):
-        return int(self)
+        return super().__index__()
 
     # Comparison operators (return bool)
     def __eq__(self, other):
@@ -590,13 +590,13 @@ class TaintFloat(float):
 
     # Conversion and index
     def __int__(self):
-        return int(self)
+        return super().__int__()
 
     def __float__(self):
-        return float(self)
+        return super().__float__()
 
     def __index__(self):
-        return int(self)
+        return super().__index__()
 
     # Comparison operators (return bool)
     def __eq__(self, other):
@@ -942,3 +942,213 @@ def taint_format_advanced(template, *args, **kwargs):
         result = template.format(*args, **kwargs)
         # Return with combined taint
         return TaintStr(result, ctx.get_current_taint())
+
+
+class TaintFile:
+    """
+    A file-like object that preserves taint information during file operations.
+    
+    This class wraps a regular file object and ensures that any data read from
+    the file is tainted with the specified origin, and any tainted data written
+    to the file preserves its taint information for future reads.
+    """
+    
+    def __init__(self, file_obj, mode='r', taint_origin=None):
+        """
+        Initialize a TaintFile wrapper.
+        
+        Args:
+            file_obj: The underlying file object to wrap
+            mode: The file mode ('r', 'w', 'a', 'rb', 'wb', etc.)
+            taint_origin: The taint origin to apply to data read from this file
+        """
+        self._file = file_obj
+        self._mode = mode
+        self._closed = False
+        
+        # Set taint origin
+        if taint_origin is None:
+            # Use the file name as default taint origin if available
+            if hasattr(file_obj, 'name'):
+                self._taint_origin = [f"file:{file_obj.name}"]
+            else:
+                self._taint_origin = ["file:unknown"]
+        elif isinstance(taint_origin, (int, str)):
+            self._taint_origin = [taint_origin]
+        elif isinstance(taint_origin, list):
+            self._taint_origin = list(taint_origin)
+        else:
+            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+    
+    @classmethod
+    def open(cls, filename, mode='r', taint_origin=None, **kwargs):
+        """
+        Open a file with taint tracking.
+        
+        Args:
+            filename: Path to the file
+            mode: File mode
+            taint_origin: Taint origin for the file (defaults to filename)
+            **kwargs: Additional arguments to pass to open()
+        
+        Returns:
+            TaintFile object
+        """
+        file_obj = open(filename, mode, **kwargs)
+        if taint_origin is None:
+            taint_origin = f"file:{filename}"
+        return cls(file_obj, mode, taint_origin)
+    
+    def read(self, size=-1):
+        """Read from the file and return tainted data."""
+        data = self._file.read(size)
+        if isinstance(data, bytes):
+            # For binary mode, we return raw bytes but track taint separately
+            # You might want to create a TaintBytes class for this
+            return data
+        return TaintStr(data, self._taint_origin)
+    
+    def readline(self, size=-1):
+        """Read a line from the file and return tainted data."""
+        line = self._file.readline(size)
+        if isinstance(line, bytes):
+            return line
+        return TaintStr(line, self._taint_origin)
+    
+    def readlines(self, hint=-1):
+        """Read lines from the file and return tainted data."""
+        lines = self._file.readlines(hint)
+        if lines and isinstance(lines[0], bytes):
+            return lines
+        return [TaintStr(line, self._taint_origin) for line in lines]
+    
+    def write(self, data):
+        """
+        Write data to the file.
+        
+        If the data is tainted, the taint information is preserved
+        (though not persisted to disk - that would require a separate metadata system).
+        """
+        # Extract raw data if tainted
+        raw_data = untaint_if_needed(data)
+        return self._file.write(raw_data)
+    
+    def writelines(self, lines):
+        """Write multiple lines to the file."""
+        raw_lines = [untaint_if_needed(line) for line in lines]
+        return self._file.writelines(raw_lines)
+    
+    def __iter__(self):
+        """Iterate over lines in the file, returning tainted strings."""
+        return self
+    
+    def __next__(self):
+        """Get next line for iteration."""
+        line = self._file.__next__()
+        if isinstance(line, bytes):
+            return line
+        return TaintStr(line, self._taint_origin)
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+    
+    def close(self):
+        """Close the underlying file."""
+        if not self._closed:
+            self._file.close()
+            self._closed = True
+    
+    def flush(self):
+        """Flush the file buffer."""
+        return self._file.flush()
+    
+    def seek(self, offset, whence=0):
+        """Seek to a position in the file."""
+        return self._file.seek(offset, whence)
+    
+    def tell(self):
+        """Get current file position."""
+        return self._file.tell()
+    
+    def fileno(self):
+        """Get the file descriptor."""
+        return self._file.fileno()
+    
+    def isatty(self):
+        """Check if the file is a TTY."""
+        return self._file.isatty()
+    
+    def truncate(self, size=None):
+        """Truncate the file."""
+        return self._file.truncate(size)
+    
+    @property
+    def closed(self):
+        """Check if the file is closed."""
+        return self._closed
+    
+    @property
+    def mode(self):
+        """Get the file mode."""
+        return self._mode
+    
+    @property
+    def name(self):
+        """Get the file name."""
+        return getattr(self._file, 'name', None)
+    
+    @property
+    def encoding(self):
+        """Get the file encoding."""
+        return getattr(self._file, 'encoding', None)
+    
+    @property
+    def errors(self):
+        """Get the error handling mode."""
+        return getattr(self._file, 'errors', None)
+    
+    @property
+    def newlines(self):
+        """Get the newlines mode."""
+        return getattr(self._file, 'newlines', None)
+    
+    def readable(self):
+        """Check if the file is readable."""
+        return self._file.readable()
+    
+    def writable(self):
+        """Check if the file is writable."""
+        return self._file.writable()
+    
+    def seekable(self):
+        """Check if the file is seekable."""
+        return self._file.seekable()
+    
+    def __repr__(self):
+        """String representation."""
+        return f"TaintFile({self._file!r}, taint_origin={self._taint_origin})"
+
+
+def open_with_taint(filename, mode='r', taint_origin=None, **kwargs):
+    """
+    Convenience function to open a file with taint tracking.
+    
+    Usage:
+        with open_with_taint('data.txt', taint_origin='user_input') as f:
+            content = f.read()  # content will be a TaintStr
+    
+    Args:
+        filename: Path to the file
+        mode: File mode
+        taint_origin: Taint origin for the file
+        **kwargs: Additional arguments to pass to open()
+    
+    Returns:
+        TaintFile object
+    """
+    return TaintFile.open(filename, mode, taint_origin, **kwargs)
