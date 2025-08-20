@@ -49,10 +49,18 @@ def patch_anthropic_messages_create(messages_instance):
         # TODO: Can be simplified?
 
         # 5. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 6. Tell server that this LLM call happened.
         send_graph_node_and_edges(

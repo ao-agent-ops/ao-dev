@@ -20,6 +20,9 @@ class CacheManager:
         # TODO do we even need a class then?
         self.cache_attachments = True
         self.attachment_cache_dir = ACO_ATTACHMENT_CACHE
+    
+    def generate_node_id(self):
+        return str(uuid.uuid4())
 
     def get_subrun_id(self, parent_session_id, name):
         result = db.query_one(
@@ -91,7 +94,7 @@ class CacheManager:
 
         if row is None:
             # Insert new row with a new node_id.
-            node_id = str(uuid.uuid4())
+            node_id = self.generate_node_id()
             db.execute(
                 "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
                 (session_id, input_pickle, input_hash, node_id, api_type),

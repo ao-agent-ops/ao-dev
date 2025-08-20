@@ -64,10 +64,19 @@ def patch_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            #FIXME: will there ever be a case where caching is successful but retrieving from cache fails?
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id() 
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -109,10 +118,18 @@ def patch_openai_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -223,7 +240,11 @@ def patch_openai_beta_threads_create(threads_instance):
         # We need to cache an input object that does not depend on
         # dynamically assigned OpenAI ids.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_dict)
-        input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+        try:
+            input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use = cachable_input
         input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
@@ -272,7 +293,11 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_obj)
-        _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+        try:
+            _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            node_id = CACHE.generate_node_id()
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
@@ -350,10 +375,18 @@ def patch_async_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = await original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None:
+                result = await original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -446,10 +479,18 @@ def patch_async_openai_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = await original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = await original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -508,7 +549,11 @@ def patch_async_openai_beta_threads_create(threads_instance):
         # We need to cache an input object that does not depend on
         # dynamically assigned OpenAI ids.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_dict)
-        input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+        try:
+            input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use = cachable_input
         input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
@@ -557,7 +602,11 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_obj)
-        _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+        try:
+            _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            _, _, node_id = cachable_input, None, CACHE.generate_node_id()
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
@@ -606,10 +655,18 @@ def patch_async_openai_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = await original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = await original_function(**input_to_use)  # Call LLM.
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(

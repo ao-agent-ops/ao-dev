@@ -44,12 +44,18 @@ def patch_client_models_generate_content(models_instance):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        print(f"input_to_use: {input_to_use}")
-
-        if result is None:
-            result = original_function(**input_to_use)
-            CACHE.cache_output(node_id, result)
+        try:
+            input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
+        except Exception as e:
+            print(f"Error retrieving from cache: {e}")
+            input_to_use, result, node_id = input_dict, None, CACHE.generate_node_id()
+        finally:
+            if result is None: # Call LLM if not in cache.
+                result = original_function(**input_to_use)
+                try:
+                    CACHE.cache_output(node_id, result)
+                except Exception as e:
+                    print(f"Error caching output: {e}")
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
