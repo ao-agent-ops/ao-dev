@@ -12,6 +12,7 @@ import queue
 import time
 import pytest
 from pathlib import Path
+from agent_copilot.commands.server import launch_daemon_server
 from agent_copilot.context_manager import set_parent_session_id
 from get_api_objects import (
     create_anthropic_response,
@@ -152,7 +153,8 @@ def run_add_numbers_test(program_file, api_type, create_response_func, create_in
 )
 def test_add_numbers_api(program_file, api_type, create_response_func, create_input_func):
     """Test add_numbers programs for different APIs using cached responses."""
-    # TODO: Need to make sure server is running!
+    launch_daemon_server()
+    time.sleep(1)
     run_add_numbers_test(program_file, api_type, create_response_func, create_input_func)
 
 
