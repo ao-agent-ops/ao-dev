@@ -87,11 +87,9 @@ dependencies = [
     'google-auth==2.40.3',
     'google-genai==1.29.0',
     'grpclib==0.4.8',
-    'h11==0.16.0',
     'h2==4.2.0',
     'hf-xet==1.1.7',
     'hpack==4.1.0',
-    'httpcore==1.0.9',
     'httplib2==0.22.0',
     'httpx==0.28.1',
     'huggingface-hub==0.34.3',
@@ -99,7 +97,6 @@ dependencies = [
     'identify==2.6.12',
     'idna==3.10',
     'importlib_metadata==8.7.0',
-    'iniconfig==2.1.0',
     'intervaltree==3.1.0',
     'jiter==0.9.0',
     'jmespath==1.0.1',
@@ -126,7 +123,6 @@ dependencies = [
     'nipype==1.10.0',
     'nodeenv==1.9.1',
     'numpy==2.2.5',
-    'openai',
     'pandas==2.3.0',
     'pathlib==1.0.1',
     'pillow==11.2.1',
@@ -142,12 +138,10 @@ dependencies = [
     'pyasn1==0.6.1',
     'pyasn1_modules==0.4.2',
     'pydantic==2.11.4',
-    'pydantic_core==2.33.2',
     'pydot==4.0.1',
     'pyparsing==3.2.3',
     'pyre-check==0.9.23',
     'pyre-extensions==0.0.32',
-    'pytest==8.4.1',
     'python-dotenv==1.1.0',
     'pytz==2025.2',
     'pyxnat==1.6.3',
@@ -179,12 +173,10 @@ dependencies = [
     'tqdm==4.67.1',
     'traits==7.0.2',
     'typeguard==2.13.3',
-    'typer==0.16.0',
+    'typer==0.15.4',
     'types-certifi==2021.10.8.3',
     'types-toml==0.10.8.20240310',
     'typing-inspect==0.9.0',
-    'typing-inspection==0.4.0',
-    'typing_extensions==4.14.0',
     'tzdata==2025.2',
     'uc-micro-py==1.0.3',
     'unidiff==0.7.5',
@@ -196,8 +188,6 @@ dependencies = [
     'yarl==1.20.1',
     'zipp==3.23.0',
 ]
-# 'openai-agents==0.2.6'
-# supabase
 
 [project.optional-dependencies]
 dev = [
