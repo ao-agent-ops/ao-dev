@@ -4,12 +4,16 @@ import logging
 import os
 import glob
 from openai import OpenAI
-from secret_key import OPENAI_API_KEY
+try:
+    from secret_key import OPENAI_API_KEY
+except:
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
 )
+from agent_copilot.context_manager import aco_launch
 from your_agents_register import your_agents
 
 from your_agent_workflow import your_agent_workflow
@@ -240,7 +244,8 @@ def main():
 
     while cur_folder_num <= args.total_folder_number:
         logger.info(f"Folder = {cur_folder_num}")
-        runner.run(cur_folder_num)
+        with aco_launch(f"Folder {cur_folder_num}"):
+            runner.run(cur_folder_num)
         cur_folder_num += 1
 
 

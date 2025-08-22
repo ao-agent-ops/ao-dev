@@ -105,15 +105,25 @@ def _get_model_openai_responses_create(input_obj: any) -> str:
 
 
 def get_cachable_input_openai_beta_threads_create(input_obj: any) -> dict:
+    print(
+        f"[DEBUG] get_cachable_input_openai_beta_threads_create - input_obj type: {type(input_obj)}"
+    )
+    print(f"[DEBUG] get_cachable_input_openai_beta_threads_create - input_obj: {input_obj}")
+
     if isinstance(input_obj, dict):
         # For thread create, the input is a dict.
+        print(f"[DEBUG] get_cachable_input_openai_beta_threads_create - Processing dict input")
         message = input_obj["messages"][0]["content"]
         attachments = input_obj["messages"][0]["attachments"]
     else:
         # For create_and_poll, the input is an object.
+        print(f"[DEBUG] get_cachable_input_openai_beta_threads_create - Processing object input")
         message = input_obj.content[0].text.value
         attachments = input_obj.attachments
-    return {"messages": message, "attachments": attachments}
+
+    result = {"messages": message}  # "attachments": attachments --- needs to be path, not OAI id.
+    print(f"[DEBUG] get_cachable_input_openai_beta_threads_create - Returning: {result}")
+    return result
 
 
 def _get_input_openai_beta_threads_create(input_obj: any) -> tuple[str, list[str]]:
@@ -129,9 +139,17 @@ def _get_input_openai_beta_threads_create(input_obj: any) -> tuple[str, list[str
 def _set_input_openai_beta_threads_create(prev_input_pickle: bytes, new_input_text: str) -> bytes:
     # We're caching our manually-created dict.
     # TODO: Changing attachments. Also needs UI support.
+    print(f"[DEBUG] _set_input_openai_beta_threads_create - new_input_text: {new_input_text}")
+
     input_dict = dill.loads(prev_input_pickle)
+    print(f"[DEBUG] _set_input_openai_beta_threads_create - Original input_dict: {input_dict}")
+
     input_dict["messages"] = new_input_text
-    return dill.dumps(input_dict)
+    print(f"[DEBUG] _set_input_openai_beta_threads_create - Modified input_dict: {input_dict}")
+
+    result = dill.dumps(input_dict)
+    print(f"[DEBUG] _set_input_openai_beta_threads_create - Returning pickled result")
+    return result
 
 
 def _set_output_openai_beta_threads_create(prev_output_pickle: bytes, output_text: str) -> bytes:
@@ -283,6 +301,9 @@ def get_input(input_obj: any, api_type: str) -> str:
 
 def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
     """Returns pickle with changed input text."""
+    print(f"[DEBUG] set_input_string - api_type: {api_type}")
+    print(f"[DEBUG] set_input_string - new_input_text: {new_input_text}")
+
     if api_type == "OpenAI.chat.completions.create":
         return _set_input_openai_chat_completions_create(prev_input_pickle, new_input_text)
     elif api_type == "AsyncOpenAI.chat.completions.create":
@@ -296,6 +317,7 @@ def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
     elif api_type == "vertexai client_models_generate_content":
         return _set_input_vertex_client_models_generate_content(prev_input_pickle, new_input_text)
     elif api_type == "OpenAI.beta.threads.create":
+        print(f"[DEBUG] set_input_string - Using _set_input_openai_beta_threads_create")
         return _set_input_openai_beta_threads_create(prev_input_pickle, new_input_text)
     else:
         raise ValueError(f"Unknown API type {api_type}")

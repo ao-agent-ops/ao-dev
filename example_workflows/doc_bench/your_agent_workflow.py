@@ -1,35 +1,90 @@
-def your_agent_workflow(file_content, q_string, folder):
-    """
-    Your custom implementation goes here!
+import os
+
+from openai import OpenAI
+
+client = OpenAI()
+
+def call_openai_doc(pdf_path, prompt):
+    with open(pdf_path, "rb") as f:
+        assert os.path.isfile(pdf_path), f"File not found: {pdf_path}"
+        file_response = client.files.create(
+            file=(os.path.basename(pdf_path), f, "application/pdf"), purpose="assistants"
+        )
+        file_content = file_response.id
+
+        assistant = client.beta.assistants.create(
+            name="Document Assistant",
+            instructions="You are a helpful assistant that helps users answer questions based on the given document.",
+            model="gpt-4o",
+            tools=[{"type": "file_search"}],
+        )
+        # Create a thread and attach the file to the message
+        thread = client.beta.threads.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                    # Attach the new file to the message.
+                    "attachments": [{"file_id": file_content, "tools": [{"type": "file_search"}]}],
+                }
+            ]
+        )
+        run = client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=assistant.id
+        )
+        messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+        message_content = messages[0].content[0].text
+        annotations = message_content.annotations
+        for index, annotation in enumerate(annotations):
+            message_content.value = message_content.value.replace(annotation.text, "")
+        return message_content.value
+
+def call_openai_msg(prompt):
+    output = client.responses.create(
+        model="gpt-4o",
+        input=prompt
+    )
+    return output.output[-1].content[-1].text
+
+
+def your_agent_workflow(pdf_path, q_string, sample_folder):
+    prompt = f"""Given the large prompt below, rewrite it into several smaller prompts that each contains one quesiton. The new, smaller prompts should state the task in the beginning and then the question. They should be concise and contain all necessary information. Separate different prompts in your output with `PROMPT:`. So for example.
+
+PROMPT:    
+State the task and then the question.
+PROMPT:
+State the task and then the question.
+
+Original, large prompt that should be broken down:
+
+{q_string}
+"""
+
+    output = call_openai_msg(prompt)
     
-    Parameters:
-    - file_content: For gpt-4o systems, this is a file_id string. For others, it's the extracted text.
-    - q_string: The formatted questions string (e.g., "1. Question 1\n2. Question 2\n...")
-    - folder: The folder number being processed
-    
-    Returns:
-    - response: String with numbered answers (e.g., "1. Answer 1\n2. Answer 2\n...")
-    """
-    # Example: Parse questions from q_string
-    questions = []
-    for line in q_string.split('\n'):
-        if line.strip() and line[0].isdigit():
-            # Extract question text after "1. ", "2. ", etc.
-            question = line.split('.', 1)[1].strip()
-            questions.append(question)
-    
-    # Your custom logic here - you can:
-    # - Make multiple LLM calls
-    # - Use different models for different question types  
-    # - Implement chain-of-thought reasoning
-    # - Use retrieval augmented generation
-    # - Whatever you want!
-    
-    # Example implementation (replace with your logic):
-    answers = []
-    for i, question in enumerate(questions):
-        # Your custom processing for each question
-        answer = f"Your answer for: {question}"
-        answers.append(f"{i+1}. {answer}")
-    
-    return '\n'.join(answers)
+    prompts = output.split("PROMPT:")[1:]
+    print("prompts", prompts)
+    outputs = []
+    for prompt in prompts:
+        print("-"*10)
+        print(prompt)
+        print("-"*10)
+        out = call_openai_doc(pdf_path, prompt)
+        outputs.append(out)
+
+    combine_prompt = f"""{q_string}
+
+The answers are the following:
+"""
+
+    for out in outputs:
+        combine_prompt += f"{out}\n"
+
+    combine_prompt += "Your task is to form the final response such that it has the right output format. Just output the final, formatted answer and nothing else."
+
+    print(combine_prompt)
+
+    ouput = call_openai_msg(combine_prompt)
+
+    # return call_open_ai_doc(pdf_path, prompt)
+    return output

@@ -210,11 +210,22 @@ class DevelopServer:
         node_id = msg["node_id"]
         new_input = msg["value"]
 
+        print(f"[DEBUG] handle_edit_input - session_id: {session_id}")
+        print(f"[DEBUG] handle_edit_input - node_id: {node_id}")
+        print(f"[DEBUG] handle_edit_input - new_input value: {repr(new_input)}")
+        print(f"[DEBUG] handle_edit_input - new_input type: {type(new_input)}")
+
         EDIT.set_input_overwrite(session_id, node_id, new_input)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
                 if node["id"] == node_id:
+                    print(f"[DEBUG] handle_edit_input - Found node in graph with id: {node_id}")
+                    print(f"[DEBUG] handle_edit_input - Node label: {node.get('label', 'Unknown')}")
+                    print(
+                        f"[DEBUG] handle_edit_input - Previous node input: {repr(node.get('input', 'None'))}"
+                    )
                     node["input"] = new_input
+                    print(f"[DEBUG] handle_edit_input - Updated node input to: {repr(new_input)}")
                     break
             self.broadcast_to_all_uis(
                 {
@@ -561,7 +572,7 @@ class DevelopServer:
         """Main server loop: accept clients and spawn handler threads."""
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_sock.bind((HOST, PORT))
+        self.server_sock.bind((HOST, PORT))  # BUG: OSError: [Errno 48] Address already in use
         self.server_sock.listen()
         logger.info(f"Develop server listening on {HOST}:{PORT}")
 

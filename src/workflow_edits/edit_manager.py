@@ -18,15 +18,44 @@ class EditManager:
 
     def set_input_overwrite(self, session_id, node_id, new_input):
         # Overwrite input for node.
+        print(
+            f"[DEBUG] EditManager.set_input_overwrite - session_id: {session_id}, node_id: {node_id}"
+        )
+        print(f"[DEBUG] EditManager.set_input_overwrite - new_input: {new_input}")
+
         row = db.query_one(
             "SELECT input, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
             (session_id, node_id),
         )
+
+        print(
+            f"[DEBUG] EditManager.set_input_overwrite - Found row with api_type: {row['api_type'] if row else 'None'}"
+        )
+
+        if row and row["input"]:
+            try:
+                import dill
+
+                original_input = dill.loads(row["input"])
+                print(
+                    f"[DEBUG] EditManager.set_input_overwrite - Original input from DB: {original_input}"
+                )
+            except Exception as e:
+                print(
+                    f"[DEBUG] EditManager.set_input_overwrite - Could not deserialize original input: {e}"
+                )
+
         input_overwrite = set_input_string(row["input"], new_input, row["api_type"])
+        print(
+            f"[DEBUG] EditManager.set_input_overwrite - Generated input_overwrite: {input_overwrite}"
+        )
+
         db.execute(
             "UPDATE llm_calls SET input_overwrite=?, output=NULL WHERE session_id=? AND node_id=?",
             (input_overwrite, session_id, node_id),
         )
+
+        print(f"[DEBUG] EditManager.set_input_overwrite - Updated database successfully")
 
     def set_output_overwrite(self, session_id, node_id, new_output):
         # Overwrite output for node.

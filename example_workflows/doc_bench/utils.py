@@ -1,5 +1,9 @@
 from openai import OpenAI
-from secret_key import OPENAI_API_KEY
+import os
+try:
+    from secret_key import OPENAI_API_KEY
+except:
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 
 def get_gpt_response_openai(

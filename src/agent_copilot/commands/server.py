@@ -55,6 +55,7 @@ def execute_server_command(args):
 
     elif args.command == "restart":
         # Stop the server if running
+        # TODO: Delete previour server log.
         try:
             sock = socket.create_connection((HOST, PORT), timeout=SOCKET_TIMEOUT)
             handshake = {"type": "hello", "role": "admin", "script": "restarter"}
@@ -75,6 +76,7 @@ def execute_server_command(args):
 
     elif args.command == "clear":
         # Connect to the server and send a clear command
+        # TODO: Delete previour server log.
         try:
             sock = socket.create_connection((HOST, PORT), timeout=SOCKET_TIMEOUT)
             handshake = {"type": "hello", "role": "admin", "script": "clearer"}
