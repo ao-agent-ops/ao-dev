@@ -1,9 +1,18 @@
 import hashlib
 import json
 import os
+import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
+
+
+def is_valid_mod(mod_name: str):
+    """Checks if one could import this module."""
+    try:
+        return importlib.util.find_spec(mod_name) is not None
+    except:
+        return False
 
 
 def scan_user_py_files_and_modules(root_dir):
@@ -14,7 +23,8 @@ def scan_user_py_files_and_modules(root_dir):
     """
     user_py_files = set()
     file_to_module = dict()
-    for dirpath, dirnames, filenames in os.walk(root_dir):
+    module_to_file = dict()
+    for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
             if filename.endswith(".py"):
                 abs_path = os.path.abspath(os.path.join(dirpath, filename))
@@ -25,7 +35,16 @@ def scan_user_py_files_and_modules(root_dir):
                 if mod_name.endswith(".__init__"):
                     mod_name = mod_name[:-9]  # remove .__init__
                 file_to_module[abs_path] = mod_name
-    return user_py_files, file_to_module
+                module_to_file[mod_name] = abs_path
+                # is it possible to shorten the module name and still get a
+                # valid import?
+                mod_name = ".".join(mod_name.split(".")[1:])
+                while is_valid_mod(mod_name):
+                    # If it is, add it to the dict
+                    module_to_file[mod_name] = abs_path
+                    mod_name = ".".join(mod_name.split(".")[1:])
+
+    return user_py_files, file_to_module, module_to_file
 
 
 # ==============================================================================
@@ -64,11 +83,23 @@ def send_to_server_and_receive(msg):
         return response
 
 
+def find_additional_packages_in_project_root(project_root: str):
+    """
+    Using the simple pyproject.toml and setup.py heuristic, determine
+    whether there are additional packages that can be/are installed.
+    """
+    all_subdirectories = [Path(x[0]) for x in os.walk(project_root)]
+    project_roots = list(
+        set([os.fspath(sub_dir) for sub_dir in all_subdirectories if _has_package_markers(sub_dir)])
+    )
+    return project_roots
+
+
 # ==============================================================================
 # We try to derive the project root relative to the user working directory.
 # All of the below is implementing this heuristic search.
 # ==============================================================================
-def derive_project_root() -> str:
+def derive_project_root(start: str | None = None) -> str:
     """
     Walk upward from current working directory to infer a Python project root.
 
@@ -86,7 +117,6 @@ def derive_project_root() -> str:
     Returns:
         String path to the inferred project root.
     """
-    start = os.getcwd()
     cur = _normalize_start(start)
     last_good = cur
 
@@ -161,6 +191,18 @@ def _has_project_markers(p: Path) -> bool:
         ".vscode",  # VS Code project
     }
     return any((p / f).exists() for f in files) or any((p / d).is_dir() for d in dirs)
+
+
+def _has_package_markers(p: Path) -> bool:
+    """
+    Things that strongly indicate "this is a project/repo root".
+    You can extend this list to fit your org/monorepo conventions.
+    """
+    files = {
+        "pyproject.toml",
+        "setup.py",
+    }
+    return any((p / f).exists() for f in files)
 
 
 def _has_src_layout_hint(p: Path) -> bool:
