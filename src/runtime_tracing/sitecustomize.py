@@ -48,7 +48,3 @@ def setup_tracing():
         print(f"[sitecustomize] Exception in sitecustomize.py: {e}")
         logger.error(f"Exception in sitecustomize.py: {e}")
         traceback.print_exc()
-
-
-# Call setup_tracing when this module is imported
-setup_tracing()
