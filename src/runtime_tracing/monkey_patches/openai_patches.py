@@ -165,6 +165,12 @@ corresponding requests).
 
 
 def patch_openai_files_create(files_resource):
+    # Maybe the user doesn't have OpenAI installed.
+    try:
+        from openai.resources.files import Files
+    except ImportError:
+        return
+
     original_function = files_resource.create
 
     @wraps(original_function)
@@ -202,7 +208,8 @@ def patch_openai_files_create(files_resource):
         taint_origins = get_taint_origins(fileobj)
         return taint_wrap(result, taint_origins)
 
-    files_resource.create = patched_function
+    # Install patch.
+    files_resource.create = patched_function.__get__(files_resource, Files)
 
 
 """
@@ -247,7 +254,9 @@ def patch_openai_beta_threads_create(threads_instance):
         # dynamically assigned OpenAI ids.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_dict)
         input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+
         input_dict["messages"][-1]["content"] = input_to_use["messages"]
+
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
         # different than the cached ones). Therefore below is commented out.
@@ -282,8 +291,10 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         # 1. Get inputs
         # Full input dict (returned dict is ordered).
         input_dict = get_input_dict(original_function, **kwargs)
+
         # Input object with actual thread content (last message). Read-only.
         input_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+
         # Overwrite model to get cached result.
         input_obj.model = model
 
@@ -295,10 +306,13 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_obj)
-        _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+
+        _, _, node_id = CACHE.get_in_out(cachable_input, api_type, cache=False)
+
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
+
         result = original_function(**input_dict)  # Call LLM.
         # CACHE.cache_output(node_id, result)
 
@@ -443,6 +457,7 @@ def patch_async_openai_files_create(files_resource):
         taint_origins = get_taint_origins(fileobj)
         return taint_wrap(result, taint_origins)
 
+    # Install patch.
     files_resource.create = patched_function
 
 
@@ -532,7 +547,9 @@ def patch_async_openai_beta_threads_create(threads_instance):
         # dynamically assigned OpenAI ids.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_dict)
         input_to_use, _, _ = CACHE.get_in_out(cachable_input, api_type)
+
         input_dict["messages"][-1]["content"] = input_to_use["messages"]
+
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
         # different than the cached ones). Therefore below is commented out.
@@ -567,8 +584,10 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # 1. Get inputs
         # Full input dict (returned dict is ordered).
         input_dict = get_input_dict(original_function, **kwargs)
+
         # Input object with actual thread content (last message). Read-only.
         input_obj = (await client.beta.threads.messages.list(thread_id=thread_id)).data[0]
+
         # Overwrite model to get cached result.
         input_obj.model = model
 
@@ -580,10 +599,13 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
         cachable_input = get_cachable_input_openai_beta_threads_create(input_obj)
+
         _, _, node_id = CACHE.get_in_out(cachable_input, api_type)
+
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
+
         result = await original_function(**input_dict)  # Call LLM.
         # CACHE.cache_output(node_id, result)
 

@@ -7,6 +7,7 @@ import { sendReady, sendGetGraph, sendMessage } from './utils/messaging';
 import { useIsVsCodeDarkTheme } from './utils/themeUtils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
+
 // Add global type augmentation for window.vscode
 declare global {
   interface Window {
@@ -36,6 +37,11 @@ export const App: React.FC = () => {
       const message = event.data;
       switch (message.type) {
         case "session_id":
+          break;
+        case "configUpdate":
+          // Config changed - forward to config bridge
+          console.log('Config update received:', message.detail);
+          window.dispatchEvent(new CustomEvent('configUpdate', { detail: message.detail }));
           break;
         case "graph_update": {
           const sid = message.session_id;

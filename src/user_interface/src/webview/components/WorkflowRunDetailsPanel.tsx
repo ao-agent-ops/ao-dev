@@ -104,6 +104,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         Workflow run
       </div>
       {/* Title */}
+      {/* Title */}
       <label style={{ fontSize: "20px" }}>Run name</label>
       <input
         type="text"

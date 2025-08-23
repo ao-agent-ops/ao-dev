@@ -93,25 +93,13 @@ def log(entry=None, success=None):
         raise TypeError(f"`success` must be a boolean or None, got {type(success).__name__}")
 
     # Send to server.
-    shim_sock = socket.create_connection(("127.0.0.1", 5959))
-    shim_file = shim_sock.makefile("rw")
-    session_id = get_session_id()
-    handshake = {
-        "type": "hello",
-        "role": "shim-control",
-        "name": "hello",
-        "parent_session_id": parent_session_id,
-        "cwd": "example_workflows/debug_examples",
-        "command": "develop openai_add_numbers.py",
-        "environment": {},
-        "prev_session_id": None,
-    }
-    shim_file.write(json.dumps(handshake) + "\n")
-    shim_file.flush()
-    msg = {"type": "log", "session_id": session_id, "success": success, "entry": entry}
-    shim_file.write(json.dumps(msg) + "\n")
-    shim_file.flush()
-    shim_sock.close()
+    server_file.write(
+        json.dumps(
+            {"type": "log", "session_id": get_session_id(), "success": success, "entry": entry}
+        )
+        + "\n"
+    )
+    server_file.flush()
 
 
 def get_session_id():

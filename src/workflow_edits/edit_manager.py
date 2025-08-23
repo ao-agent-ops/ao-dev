@@ -22,7 +22,9 @@ class EditManager:
             "SELECT input, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
             (session_id, node_id),
         )
+
         input_overwrite = set_input_string(row["input"], new_input, row["api_type"])
+
         db.execute(
             "UPDATE llm_calls SET input_overwrite=?, output=NULL WHERE session_id=? AND node_id=?",
             (input_overwrite, session_id, node_id),

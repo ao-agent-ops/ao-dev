@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { EditDialogProvider } from './EditDialogProvider';
 import { NotesLogTabProvider } from './NotesLogTabProvider';
 import { PythonServerClient } from './PythonServerClient';
+import { configManager } from './ConfigManager';
 
 export class GraphViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'graphExtension.graphView';
@@ -17,6 +19,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         // Set up Python server message forwarding with buffering
         // Removed _pendingEdit
     }
+
 
     public setNotesLogTabProvider(provider: NotesLogTabProvider): void {
         this._notesLogTabProvider = provider;
@@ -136,6 +139,21 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                         this._pythonClient = PythonServerClient.getInstance();
                         // Forward all messages from the Python server to the webview, buffer if not ready
                         this._pythonClient.onMessage((msg) => {
+                            // Intercept session_id message to set up config management
+                            if (msg.type === 'session_id' && msg.config_path) {
+                                configManager.setConfigPath(msg.config_path);
+                                
+                                // Set up config forwarding to webview
+                                configManager.onConfigChange((config) => {
+                                    if (this._view) {
+                                        this._view.webview.postMessage({
+                                            type: 'configUpdate',
+                                            detail: config
+                                        });
+                                    }
+                                });
+                            }
+                            
                             if (this._view) {
                                 this._view.webview.postMessage(msg);
                             } else {
@@ -191,7 +209,6 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const fs = require('fs');
         const path = require('path');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
         const templatePath = path.join(
@@ -202,6 +219,25 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
             'graphView.html'
         );
         let html = fs.readFileSync(templatePath, 'utf8');
+        
+        // Set up ConfigManager bridge to webview
+        const configBridge = `
+            window.configManager = {
+                currentConfig: null,
+                onConfigChange: function(callback) {
+                    window.addEventListener('configUpdate', function(event) {
+                        window.configManager.currentConfig = event.detail;
+                        callback(event.detail);
+                    });
+                },
+                getCurrentConfig: function() {
+                    return window.configManager.currentConfig;
+                }
+            };
+        `;
+        
+        html = html.replace('const vscode = acquireVsCodeApi();', 
+            `${configBridge}\n        const vscode = acquireVsCodeApi();`);
         html = html.replace(/{{scriptUri}}/g, scriptUri.toString());
         return html;
     }
@@ -216,5 +252,9 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
             };
         }
         return { filePath: undefined, line: undefined };
+    }
+
+    public dispose(): void {
+        // Clean up is handled by ConfigManager
     }
 }

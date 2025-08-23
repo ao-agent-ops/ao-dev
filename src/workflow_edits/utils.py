@@ -113,7 +113,9 @@ def get_cachable_input_openai_beta_threads_create(input_obj: any) -> dict:
         # For create_and_poll, the input is an object.
         message = input_obj.content[0].text.value
         attachments = input_obj.attachments
-    return {"messages": message, "attachments": attachments}
+
+    result = {"messages": message}  # "attachments": attachments --- needs to be path, not OAI id.
+    return result
 
 
 def _get_input_openai_beta_threads_create(input_obj: any) -> tuple[str, list[str]]:
@@ -131,7 +133,8 @@ def _set_input_openai_beta_threads_create(prev_input_pickle: bytes, new_input_te
     # TODO: Changing attachments. Also needs UI support.
     input_dict = dill.loads(prev_input_pickle)
     input_dict["messages"] = new_input_text
-    return dill.dumps(input_dict)
+    result = dill.dumps(input_dict)
+    return result
 
 
 def _set_output_openai_beta_threads_create(prev_output_pickle: bytes, output_text: str) -> bytes:

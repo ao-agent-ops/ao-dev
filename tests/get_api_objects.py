@@ -53,6 +53,7 @@ def create_anthropic_response(text):
 def create_openai_input(text):
     return {
         "background": OPENAI_NOT_GIVEN,
+        "conversation": OPENAI_NOT_GIVEN,
         "include": OPENAI_NOT_GIVEN,
         "input": text,
         "instructions": OPENAI_NOT_GIVEN,

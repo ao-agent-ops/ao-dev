@@ -45,7 +45,6 @@ def patch_client_models_generate_content(models_instance):
 
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        print(f"input_to_use: {input_to_use}")
 
         if result is None:
             result = original_function(**input_to_use)

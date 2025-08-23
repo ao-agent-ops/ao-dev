@@ -1,5 +1,50 @@
 import os
-from common.utils import derive_project_root
+from agent_copilot.commands.config.utils import Config
+from agent_copilot.commands.config.utils import derive_project_root
+
+
+# default home directory for configs and temporary/cached files
+default_home: str = os.path.join(os.path.expanduser("~"), ".cache")
+ACO_HOME: str = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "ACO_HOME",
+            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "agent-copilot"),
+        )
+    )
+)
+os.makedirs(ACO_HOME, exist_ok=True)
+
+
+# Path to config.yaml.
+default_config_path = os.path.join(ACO_HOME, "config.yaml")
+ACO_CONFIG = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "ACO_CONFIG",
+            default_config_path,
+        )
+    )
+)
+
+# Ensure config.yaml exists. Init with defaults if not present.
+os.makedirs(os.path.dirname(ACO_CONFIG), exist_ok=True)
+if not os.path.exists(ACO_CONFIG):
+    default_config = Config(
+        project_root=derive_project_root(),
+        collect_telemetry=False,
+        telemetry_url=None,
+        telemetry_key=None,
+    )
+    default_config.to_yaml_file(ACO_CONFIG)
+
+# Load values from config file.
+config = Config.from_yaml_file(ACO_CONFIG)
+
+ACO_PROJECT_ROOT = config.project_root
+COLLECT_TELEMETRY = config.collect_telemetry
+TELEMETRY_URL = config.telemetry_url
+TELEMETRY_KEY = config.telemetry_key
 
 # server-related constants
 HOST = "127.0.0.1"
@@ -22,35 +67,6 @@ SUCCESS_COLORS = {
     "": CERTAINTY_YELLOW,
     "Failed": CERTAINTY_RED,
 }
-
-# default home directory for configs and temporary/cached files
-default_home: str = os.path.join(os.path.expanduser("~"), ".cache")
-ACO_HOME: str = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "ACO_HOME",
-            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "agent-copilot"),
-        )
-    )
-)
-os.makedirs(ACO_HOME, exist_ok=True)
-
-
-# Path to config.yaml. This config file includes the possible
-# command line args. Must be generated with `aco config`.
-# > Note: This does not need to be set. You can also just pass
-# the relevant command line args when you run `aco-launch`.
-default_config_path = os.path.join(ACO_HOME, "config.yaml")
-ACO_CONFIG = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "ACO_CONFIG",
-            default_config_path,
-        )
-    )
-)
-os.makedirs(os.path.dirname(ACO_CONFIG), exist_ok=True)
-
 
 # Anything cache-related should be stored here
 default_cache_path = os.path.join(ACO_HOME, "cache")
@@ -100,11 +116,3 @@ ACO_ATTACHMENT_CACHE = os.path.expandvars(
     )
 )
 os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
-
-
-# project root is only inferred once at import-time
-# here, we derive it based on heuristics.
-# User can also pass project_root like this:
-# aco-launch --project-root <ro/root> script.py
-# In this case, the derived project root is overwritten
-ACO_PROJECT_ROOT = derive_project_root()

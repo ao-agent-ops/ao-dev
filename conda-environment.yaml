@@ -2,6 +2,7 @@ name: aco
 dependencies:
 - conda-forge::nodejs
 - conda-forge::sqlite
+- supabase
 - ipykernel
 - pip
 - python=3.13

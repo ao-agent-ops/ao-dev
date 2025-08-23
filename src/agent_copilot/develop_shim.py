@@ -298,6 +298,7 @@ class DevelopShim:
                     session_msg = json.loads(session_line.strip())
                     self.session_id = session_msg.get("session_id")
                     logger.info(f"[shim-control] Registered with session_id: {self.session_id}")
+
                 except Exception:
                     pass
         except Exception:

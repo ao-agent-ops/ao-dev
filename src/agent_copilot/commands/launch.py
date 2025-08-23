@@ -85,6 +85,9 @@ def _validate_launch_command(args):
 
 def launch_command(args):
     args = _validate_launch_command(args)
+
+    # Note: UI event logging moved to DevelopShim where session_id is available
+
     shim = DevelopShim(
         script_path=args.script_path,
         script_args=args.script_args,

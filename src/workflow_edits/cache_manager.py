@@ -74,7 +74,7 @@ class CacheManager:
         # assert all(f is not None for f in file_paths), "All file paths should be non-None"
         return [f for f in file_paths if f is not None]
 
-    def get_in_out(self, input_dict, api_type):
+    def get_in_out(self, input_dict, api_type, cache=True):
         from agent_copilot.context_manager import get_session_id
 
         # Pickle input object.
@@ -97,16 +97,18 @@ class CacheManager:
             # Insert new row with a new node_id.
             print(f"[cache] Row is None, creating new entry")
             node_id = str(uuid.uuid4())
-            db.execute(
-                "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
-                (session_id, input_pickle, input_hash, node_id, api_type),
-            )
+            if cache:
+                db.execute(
+                    "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, input_pickle, input_hash, node_id, api_type),
+                )
             return input_dict, None, node_id
 
         # Use data from previous LLM call.
         print(f"[cache] Row found! node_id: {row['node_id']}")
         node_id = row["node_id"]
         output = None
+
         if row["input_overwrite"] is not None:
             print(f"[cache] Using input_overwrite")
             input_dict = dill.loads(row["input_overwrite"])

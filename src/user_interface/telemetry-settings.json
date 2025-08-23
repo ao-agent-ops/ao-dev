@@ -1,0 +1,11 @@
+{
+  "// Copy these settings to your VS Code settings.json to enable telemetry": "",
+  "agent-copilot.telemetry.supabaseUrl": "https://whkpqpoqntwaraiwssga.supabase.co",
+  "agent-copilot.telemetry.supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indoa3BxcG9xbnR3YXJhaXdzc2dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MDUzMzcsImV4cCI6MjA3MTA4MTMzN30.SZQ_V8rOZXY2GZW0gaxP8K_bWUVKkMvm_SWCBok49V0", 
+  "agent-copilot.telemetry.userId": "ferdi",
+  
+  "// Example:": "",
+  "// agent-copilot.telemetry.supabaseUrl": "https://abcdefghijklmnop.supabase.co",
+  "// agent-copilot.telemetry.supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "// agent-copilot.telemetry.userId": "user@example.com"
+} 
