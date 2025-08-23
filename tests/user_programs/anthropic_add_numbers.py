@@ -1,7 +1,16 @@
+import os
 import anthropic
 
+# Ensure API key is set for testing
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    print("[user_program] ANTHROPIC_API_KEY not set, setting dummy key")
+    os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test-dummy-key"
 
+print(
+    f"[user_program] Creating Anthropic client with API key: {os.environ.get('ANTHROPIC_API_KEY', 'NOT_SET')[:20]}..."
+)
 client = anthropic.Anthropic()
+print(f"[user_program] Anthropic client created successfully")
 model = "undefined_model"  # Make sure cache is used.
 
 

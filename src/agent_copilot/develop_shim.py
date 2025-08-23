@@ -14,6 +14,7 @@ from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_
 from common.logger import logger
 from common.utils import scan_user_py_files_and_modules
 from agent_copilot.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
+from agent_copilot.commands.server import launch_daemon_server
 
 
 # Configuration constants
@@ -170,9 +171,8 @@ class DevelopShim:
         try:
             socket.create_connection((HOST, PORT), timeout=SERVER_START_TIMEOUT).close()
         except Exception:
-            server_py = os.path.join(os.path.dirname(__file__), "develop_server.py")
             try:
-                subprocess.Popen([sys.executable, server_py, "start"])
+                launch_daemon_server()
             except Exception as e:
                 logger.error(f"Failed to start develop server ({e})")
                 sys.exit(1)

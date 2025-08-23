@@ -12,7 +12,11 @@ def setup_tracing():
     """
     Set up runtime tracing if enabled via environment variable.
     """
+    print(
+        f"[sitecustomize] setup_tracing called. AGENT_COPILOT_ENABLE_TRACING = {os.environ.get('AGENT_COPILOT_ENABLE_TRACING')}"
+    )
     if not os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
+        print("[sitecustomize] Tracing not enabled, returning")
         return
     host = os.environ.get("AGENT_COPILOT_SERVER_HOST", HOST)
     port = int(os.environ.get("AGENT_COPILOT_SERVER_PORT", PORT))
@@ -37,7 +41,14 @@ def setup_tracing():
         set_server_connection(server_conn)
 
         # Apply monkey patches.
+        print("[sitecustomize] Applying monkey patches...")
         apply_all_monkey_patches()
+        print("[sitecustomize] Monkey patches applied successfully")
     except Exception as e:
+        print(f"[sitecustomize] Exception in sitecustomize.py: {e}")
         logger.error(f"Exception in sitecustomize.py: {e}")
         traceback.print_exc()
+
+
+# Call setup_tracing when this module is imported
+setup_tracing()

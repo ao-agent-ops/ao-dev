@@ -94,6 +94,17 @@ ACO_DB_PATH = os.path.expandvars(
 )
 os.makedirs(ACO_DB_PATH, exist_ok=True)
 
+# the path to the folder where the logs are stored
+default_log_path = os.path.join(ACO_HOME, "logs")
+ACO_LOG_PATH = os.path.expandvars(
+    os.path.expanduser(
+        os.getenv(
+            "ACO_LOG_PATH",
+            default_log_path,
+        )
+    )
+)
+os.makedirs(ACO_LOG_PATH, exist_ok=True)
 
 default_attachment_cache = os.path.join(ACO_CACHE, "attachments")
 ACO_ATTACHMENT_CACHE = os.path.expandvars(

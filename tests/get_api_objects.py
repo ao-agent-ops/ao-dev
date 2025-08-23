@@ -52,22 +52,29 @@ def create_anthropic_response(text):
 
 def create_openai_input(text):
     return {
-        "input": text,
-        "model": "undefined_model",  # Make sure cache is used.
+        "background": OPENAI_NOT_GIVEN,
         "include": OPENAI_NOT_GIVEN,
+        "input": text,
         "instructions": OPENAI_NOT_GIVEN,
         "max_output_tokens": OPENAI_NOT_GIVEN,
+        "max_tool_calls": OPENAI_NOT_GIVEN,
         "metadata": OPENAI_NOT_GIVEN,
+        "model": "undefined_model",  # Make sure cache is used.
         "parallel_tool_calls": OPENAI_NOT_GIVEN,
         "previous_response_id": OPENAI_NOT_GIVEN,
+        "prompt": OPENAI_NOT_GIVEN,
+        "prompt_cache_key": OPENAI_NOT_GIVEN,
         "reasoning": OPENAI_NOT_GIVEN,
+        "safety_identifier": OPENAI_NOT_GIVEN,
         "service_tier": OPENAI_NOT_GIVEN,
         "store": OPENAI_NOT_GIVEN,
         "stream": OPENAI_NOT_GIVEN,
+        "stream_options": OPENAI_NOT_GIVEN,
         "temperature": 0,
         "text": OPENAI_NOT_GIVEN,
         "tool_choice": OPENAI_NOT_GIVEN,
         "tools": OPENAI_NOT_GIVEN,
+        "top_logprobs": OPENAI_NOT_GIVEN,
         "top_p": OPENAI_NOT_GIVEN,
         "truncation": OPENAI_NOT_GIVEN,
         "user": OPENAI_NOT_GIVEN,
