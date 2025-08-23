@@ -208,12 +208,12 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
             create_openai_response,
             create_openai_input,
         ),
-        # (
-        #     "anthropic_add_numbers.py",
-        #     "Anthropic.messages.create",
-        #     create_anthropic_response,
-        #     create_anthropic_input,
-        # ),
+        (
+            "anthropic_add_numbers.py",
+            "Anthropic.messages.create",
+            create_anthropic_response,
+            create_anthropic_input,
+        ),
     ],
 )
 def test_api_calls(program_file, api_type, create_response_func, create_input_func, http_calls):
