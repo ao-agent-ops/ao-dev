@@ -2,13 +2,13 @@ import ast
 import importlib.abc
 import importlib.util
 import sys
-import os
 from common.logger import logger
 from runtime_tracing.taint_wrappers import TaintStr, get_taint_origins
 
 
 _user_py_files = set()
 _user_file_to_module = dict()
+_module_to_user_file = dict()
 
 
 def set_user_py_files(py_files, file_to_module=None):
@@ -16,6 +16,11 @@ def set_user_py_files(py_files, file_to_module=None):
     _user_py_files = py_files
     if file_to_module is not None:
         _user_file_to_module = file_to_module
+
+
+def set_module_to_user_file(module_to_user_file: dict):
+    global _module_to_user_file
+    _module_to_user_file = module_to_user_file
 
 
 def taint_fstring_join(*args):
@@ -133,7 +138,7 @@ class FStringImportLoader(importlib.abc.SourceLoader):
 class FStringImportFinder(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path, target=None):
         # Only handle modules that correspond to user files
-        for file_path, mod_name in _user_file_to_module.items():
+        for mod_name, file_path in _module_to_user_file.items():
             if mod_name == fullname:
                 logger.debug(f"Will rewrite: {fullname} from {file_path}")
                 return importlib.util.spec_from_loader(

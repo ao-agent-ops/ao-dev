@@ -7,6 +7,7 @@ import sys
 import runpy
 
 project_root = {project_root}
+packages_in_project_root = {packages_in_project_root}
 
 # Add project root to path
 if project_root not in sys.path:
@@ -19,11 +20,15 @@ if runtime_tracing_dir not in sys.path:
 
 # Set up AST rewriting
 from runtime_tracing.sitecustomize import setup_tracing
-from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
+from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_module_to_user_file
 from common.utils import scan_user_py_files_and_modules
 
-user_py_files, file_to_module = scan_user_py_files_and_modules(project_root)
-set_user_py_files(user_py_files, file_to_module)
+_, _, module_to_file = scan_user_py_files_and_modules(project_root)
+for additional_package in packages_in_project_root:
+    _, _, additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
+    module_to_file = {{**module_to_file, **additional_package_module_to_file}}
+
+set_module_to_user_file(module_to_file)
 install_fstring_rewriter()
 
 setup_tracing()

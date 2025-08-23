@@ -37,12 +37,18 @@ class DevelopShim:
     """Manages the develop shim that runs user scripts with debugging support."""
 
     def __init__(
-        self, script_path: str, script_args: List[str], is_module_execution: bool, project_root: str
+        self,
+        script_path: str,
+        script_args: List[str],
+        is_module_execution: bool,
+        project_root: str,
+        packages_in_project_root: list[str],
     ):
         self.script_path = script_path
         self.script_args = script_args
         self.is_module_execution = is_module_execution
         self.project_root = project_root
+        self.packages_in_project_root = packages_in_project_root
 
         # State management
         self.restart_event = threading.Event()
@@ -183,6 +189,101 @@ class DevelopShim:
                 logger.error("Develop server did not start.")
                 sys.exit(1)
 
+    def _is_debugpy_session(self) -> bool:
+        """Detect if we're running under debugpy (VSCode debugging)."""
+        # Check if debugpy is in the call stack or if we're launched through debugpy
+        try:
+            import debugpy
+
+            # Check if debugpy is active
+            return debugpy.is_client_connected() or hasattr(debugpy, "_client")
+        except ImportError:
+            pass
+
+        # Alternative detection: check if debugpy is in sys.modules
+        if "debugpy" in sys.modules:
+            return True
+
+        # Check environment variables that debugpy might set
+        debugpy_env_vars = [
+            "DEBUGPY_LAUNCHER_PORT",
+            "PYDEVD_LOAD_VALUES_ASYNC",
+            "PYDEVD_USE_FRAME_EVAL",
+        ]
+
+        return any(os.getenv(var) for var in debugpy_env_vars)
+
+    def _get_parent_cmdline(self) -> List[str]:
+        """Get the command line of the parent process."""
+        try:
+            import psutil
+
+            current_process = psutil.Process()
+            parent = current_process.parent()
+            if parent:
+                return parent.cmdline()
+        except (ImportError, Exception):
+            pass
+        return []
+
+    def _generate_restart_command(self) -> str:
+        """Generate the appropriate command for restarting the script."""
+        original_command = " ".join(sys.argv)
+
+        # If we're in a debugpy session, recreate the debugpy command
+        if self._is_debugpy_session():
+            parent_cmdline = self._get_parent_cmdline()
+            if not parent_cmdline:
+                return original_command
+
+            cmdline_str = " ".join(parent_cmdline)
+            python_executable = sys.executable
+
+            # Pattern 1: VSCode launcher - debugpy/launcher PORT -- args
+            if "launcher" in cmdline_str and "--" in parent_cmdline:
+                try:
+                    # Find launcher path and port
+                    launcher_path = None
+                    port = "0"
+                    for i, arg in enumerate(parent_cmdline):
+                        if "launcher" in arg and os.path.exists(arg):
+                            launcher_path = arg
+                            if i + 1 < len(parent_cmdline):
+                                port = parent_cmdline[i + 1]
+                            break
+
+                    # Get original args after "--"
+                    dash_index = parent_cmdline.index("--")
+                    original_args = " ".join(parent_cmdline[dash_index + 1 :])
+
+                    if launcher_path:
+                        return f"/usr/bin/env {python_executable} {launcher_path} {port} -- {original_args}"
+                except (ValueError, IndexError):
+                    pass
+
+            # Pattern 2: Direct debugpy module - python -m debugpy [options] -m module/script
+            elif "-m" in parent_cmdline and "debugpy" in parent_cmdline:
+                # Simple approach: reconstruct basic debugpy command with current script
+                if self.is_module_execution:
+                    target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
+                else:
+                    target_args = f"{self.script_path} {' '.join(self.script_args)}"
+
+                # Use basic debugpy command with auto-assigned port
+                return f"{python_executable} -m debugpy --listen 0.0.0.0:0 --wait-for-client {target_args}"
+
+            # Fallback: basic debugpy command
+            if self.is_module_execution:
+                target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
+            else:
+                target_args = f"{self.script_path} {' '.join(self.script_args)}"
+            return (
+                f"{python_executable} -m debugpy --listen 0.0.0.0:0 --wait-for-client {target_args}"
+            )
+
+        # For non-debugging sessions, return the original command
+        return original_command
+
     def _connect_to_server(self) -> None:
         """Connect to the develop server and perform handshake."""
         try:
@@ -196,7 +297,7 @@ class DevelopShim:
             "role": "shim-control",
             "name": "Workflow run",  # TODO: Set to --run-name. Default of arg: "Workflow run"
             "cwd": os.getcwd(),
-            "command": " ".join(sys.argv),
+            "command": self._generate_restart_command(),
             "environment": dict(os.environ),
             "prev_session_id": os.getenv(
                 "AGENT_COPILOT_SESSION_ID"
@@ -225,7 +326,7 @@ class DevelopShim:
 
         # Scan for all .py files in the user's project root
         # This ensures AST rewriting works for the user's code
-        user_py_files, file_to_module = scan_user_py_files_and_modules(self.project_root)
+        user_py_files, file_to_module, _ = scan_user_py_files_and_modules(self.project_root)
         set_user_py_files(user_py_files, file_to_module)
         install_fstring_rewriter()
 
@@ -312,6 +413,7 @@ class DevelopShim:
         wrapper_code = SCRIPT_WRAPPER_TEMPLATE.format(
             runtime_tracing_dir=repr(runtime_tracing_dir),
             project_root=repr(self.project_root),
+            packages_in_project_root=repr(self.packages_in_project_root),
             module_name=repr(module_name),
             script_args=repr(script_args),
         )
@@ -333,6 +435,7 @@ class DevelopShim:
             wrapper_code = MODULE_WRAPPER_TEMPLATE.format(
                 runtime_tracing_dir=repr(runtime_tracing_dir),
                 project_root=repr(self.project_root),
+                packages_in_project_root=repr(self.packages_in_project_root),
                 module_name=repr(self.script_path),
                 script_args=repr(self.script_args),
             )
@@ -346,6 +449,8 @@ class DevelopShim:
             # For file execution, convert to module name and use wrapper
             module_name = self._convert_file_to_module_name(self.script_path)
             wrapper_path = self._create_runpy_wrapper(module_name, self.script_args)
+
+            logger.debug(f"wrapper_path {wrapper_path}")
 
             self.proc = subprocess.Popen([sys.executable, wrapper_path], env=env)
             self.wrapper_path = wrapper_path
@@ -414,16 +519,6 @@ class DevelopShim:
             except Exception:
                 pass
 
-    def _is_debug_mode(self) -> bool:
-        """Check if we're running in debug mode."""
-        return False
-        try:
-            import debugpy
-
-            return debugpy.is_client_connected()
-        except Exception:
-            return False
-
     def _run_debug_mode(self) -> int:
         """Run the script in debug mode."""
         logger.info("Debug mode detected. Running script in debug context.")
@@ -475,10 +570,7 @@ class DevelopShim:
 
         exit_code = 0
         try:
-            if self._is_debug_mode():
-                exit_code = self._run_debug_mode()
-            else:
-                exit_code = self._run_normal_mode() or 0
+            exit_code = self._run_normal_mode() or 0
         finally:
             # Kill any remaining subprocess before cleanup
             self._kill_current_process()

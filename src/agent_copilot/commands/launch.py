@@ -2,6 +2,7 @@ import os
 import yaml
 from argparse import ArgumentParser, REMAINDER
 from common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
+from common.utils import find_additional_packages_in_project_root
 from agent_copilot.develop_shim import DevelopShim
 
 
@@ -73,6 +74,12 @@ def _validate_launch_command(args):
         f"To fix this, pass the correct --project-root to aco-launch. "
         "For example, aco-launch --project-root ~/my-project script.py"
     )
+
+    # find additional packages installed in the project root
+    args.packages_in_project_root = find_additional_packages_in_project_root(
+        project_root=args.project_root
+    )
+
     return args
 
 
@@ -86,6 +93,7 @@ def launch_command(args):
         script_args=args.script_args,
         is_module_execution=args.module,
         project_root=args.project_root,
+        packages_in_project_root=args.packages_in_project_root,
     )
     shim.run()
 

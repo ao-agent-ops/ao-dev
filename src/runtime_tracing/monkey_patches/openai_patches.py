@@ -42,7 +42,6 @@ def openai_patch():
             patch_openai_beta_threads_runs_create_and_poll(self.beta.threads.runs)
             patch_openai_files_create(self.files)
             print("[openai_patch] All OpenAI sub-patches applied successfully")
-            # patch_openai_chat_completions_create(self.)
 
         return patched_init
 

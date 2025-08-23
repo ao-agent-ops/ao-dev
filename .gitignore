@@ -218,3 +218,6 @@ src/static_analysis/CodeQL-Analyst/databases
 # human-eval
 **/human-eval/data
 **/human-eval/outputs
+
+# Claude code
+**/.claude
