@@ -9,6 +9,7 @@ import signal
 import select
 import tempfile
 import runpy
+import importlib.util
 from typing import Optional, List
 from runtime_tracing.fstring_rewriter import install_fstring_rewriter, set_user_py_files
 from common.logger import logger
@@ -190,6 +191,7 @@ class DevelopShim:
                 sys.exit(1)
 
     def _is_debugpy_session(self) -> bool:
+        return False
         """Detect if we're running under debugpy (VSCode debugging)."""
         # Check if debugpy is in the call stack or if we're launched through debugpy
         try:
@@ -466,6 +468,29 @@ class DevelopShim:
                 except Exception:
                     pass
         return self.proc.returncode
+
+    def _run_user_script_debug_mode(self) -> int:
+        """Run the user's script in debug mode with restart detection."""
+        # Load the script as a module
+        spec = importlib.util.spec_from_file_location("user_script", self.script_path)
+        module = importlib.util.module_from_spec(spec)
+
+        # Add script args to sys.argv for the script
+        original_argv = sys.argv.copy()
+        sys.argv = [self.script_path] + self.script_args
+
+        try:
+            # Execute the script
+            spec.loader.exec_module(module)
+            return 0
+        except SystemExit as e:
+            return e.code if e.code is not None else 0
+        except Exception as e:
+            logger.error(f"Error in debug mode execution: {e}")
+            return 1
+        finally:
+            # Restore original argv
+            sys.argv = original_argv
 
     def _kill_current_process(self) -> None:
         """Kill the current subprocess if it's still running."""

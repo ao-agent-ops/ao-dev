@@ -787,7 +787,10 @@ class TaintedOpenAIObject:
 
     def __getattr__(self, name):
         value = getattr(self._wrapped, name)
-        return taint_wrap(value, taint_origin=self._taint_origin)
+        print(f"DEBUG: TaintedOpenAIObject.__getattr__({name}) -> {type(value).__name__}: {value}")
+        wrapped_value = taint_wrap(value, taint_origin=self._taint_origin)
+        print(f"DEBUG: After wrapping -> {type(wrapped_value).__name__}")
+        return wrapped_value
 
     def __getitem__(self, key):
         value = self._wrapped[key]
@@ -810,6 +813,64 @@ class TaintedOpenAIObject:
 
     def get_raw(self):
         return self._wrapped
+
+    def __class_getitem__(cls, item):
+        # Delegate class subscription to the wrapped class
+        return cls._wrapped.__class_getitem__(item)
+
+    def __reduce__(self):
+        # For pickle/copy operations, return the wrapped object
+        return (lambda x: x, (self._wrapped,))
+
+    def __copy__(self):
+        # For shallow copy, return wrapped object
+        return self._wrapped
+
+    def __deepcopy__(self, memo):
+        # For deep copy, return wrapped object
+        import copy
+
+        return copy.deepcopy(self._wrapped, memo)
+
+    def __instancecheck__(self, instance):
+        # Delegate isinstance checks to wrapped object
+        return isinstance(instance, self._wrapped.__class__)
+
+    def __subclasscheck__(self, subclass):
+        # Delegate issubclass checks to wrapped object
+        return issubclass(subclass, self._wrapped.__class__)
+
+    def __bool__(self):
+        # Delegate boolean evaluation to wrapped object
+        return bool(self._wrapped)
+
+    def __len__(self):
+        # Delegate len() to wrapped object
+        return len(self._wrapped)
+
+    def __hash__(self):
+        # Delegate hash() to wrapped object
+        return hash(self._wrapped)
+
+    def __eq__(self, other):
+        # Compare with the wrapped object
+        if isinstance(other, TaintedOpenAIObject):
+            return self._wrapped == other._wrapped
+        return self._wrapped == other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    # Make this object more transparent to type checkers and validation libraries
+    @property
+    def __class__(self):
+        # This makes isinstance() checks work with the wrapped object's class
+        return self._wrapped.__class__
+
+    @__class__.setter
+    def __class__(self, value):
+        # Allow class assignment (some libraries do this)
+        self._wrapped.__class__ = value
 
 
 # Helper to detect OpenAI SDK objects (Response, Assistant, etc.)

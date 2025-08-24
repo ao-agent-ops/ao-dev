@@ -9,7 +9,7 @@ from common.utils import send_to_server
 from workflow_edits.cache_manager import CACHE
 from common.logger import logger
 from workflow_edits.utils import get_input, get_model_name, get_output_string
-from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap
+from runtime_tracing.taint_wrappers import get_taint_origins, taint_wrap, untaint_if_needed
 
 
 # ===========================================================
@@ -124,7 +124,11 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
 
     # Get strings to display in UI.
     input_string, attachments = get_input(input_dict, api_type)
-    output_string = get_output_string(output_obj, api_type)
+    logger.debug("berfore")
+    # Untaint the output object before processing to avoid Pydantic validation issues
+    untainted_output_obj = untaint_if_needed(output_obj)
+    output_string = get_output_string(untainted_output_obj, api_type)
+    logger.debug("after")
     model = get_model_name(input_dict, api_type)
 
     # Send node
@@ -145,7 +149,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
         "incoming_edges": source_node_ids,
     }
 
-    # try:
-    send_to_server(node_msg)
-    # except Exception as e:
-    #     logger.error(f"Failed to send add_node: {e}")
+    try:
+        send_to_server(node_msg)
+    except Exception as e:
+        logger.error(f"Failed to send add_node: {e}")

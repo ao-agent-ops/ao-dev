@@ -83,7 +83,28 @@ def _cache_format_openai_chat_completions_create(input_obj: any) -> dict:
 
 
 def _get_input_openai_responses_create(input_obj: any) -> str:
-    return input_obj["input"], None  # no attachments
+    input_data = input_obj.get("input", [])
+    if not input_data:
+        return "", None
+
+    # Handle different input formats
+    if isinstance(input_data, list):
+        # Find the first user message and return only that
+        for item in input_data:
+            if isinstance(item, dict) and item.get("role") == "user" and "content" in item:
+                return str(item["content"]), None
+
+        # Fallback: if no user message found, try to extract any content
+        for item in input_data:
+            if isinstance(item, dict) and "content" in item:
+                return str(item["content"]), None
+
+        # Last resort: return first item as string
+        if input_data:
+            return str(input_data[0]), None
+        return "", None
+    else:
+        return str(input_data), None
 
 
 def _set_input_openai_responses_create(
@@ -91,11 +112,18 @@ def _set_input_openai_responses_create(
 ) -> dict[str, Any]:
     new_input_string = dill.loads(new_input_text)["input"]
     input_dict["input"] = new_input_string
+    print("OVERWRITTEN INPUT DICT", input_dict)
     return input_dict
 
 
-def _get_output_openai_responses_create(response_obj: bytes):
-    return response_obj.output[-1].content[-1].text
+def _get_output_openai_responses_create(response_obj: Any):
+    last_output = response_obj.output[-1]
+    if hasattr(last_output, "name"):
+        # ResponseFunctionToolCall
+        return last_output.name
+    else:
+        # ResponseOutputMessage
+        return last_output.content[-1].text
 
 
 def _set_output_openai_responses_create(prev_output_pickle: bytes, output_text: str) -> bytes:
@@ -112,9 +140,20 @@ def _cache_format_openai_responses_create(input_obj: any) -> dict:
     """Format OpenAI responses create input for caching."""
     input_text, attachments = _get_input_openai_responses_create(input_obj)
     model_str = _get_model_openai_responses_create(input_obj)
+
+    # Include tools in cache key to differentiate between different agent contexts
+    tools = input_obj.get("tools", [])
+    # Convert tools to a simplified representation for consistent caching
+    tools_key = []
+    if tools:
+        for tool in tools:
+            if isinstance(tool, dict) and "name" in tool:
+                tools_key.append(tool["name"])
+
     return {
         "input": input_text,
         "model": model_str,
+        "tools": sorted(tools_key) if tools_key else None,
         "attachments": attachments if attachments else None,
     }
 
@@ -351,21 +390,21 @@ def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
         raise ValueError(f"Unknown API type {api_type}")
 
 
-def get_output_string(response_pickle: bytes, api_type: str) -> str:
+def get_output_string(response_obj: any, api_type: str) -> str:
     if api_type == "OpenAI.chat.completions.create":
-        return _get_output_openai_chat_completions_create(response_pickle)
+        return _get_output_openai_chat_completions_create(response_obj)
     elif api_type == "AsyncOpenAI.chat.completions.create":
-        return _get_output_openai_chat_completions_create(response_pickle)
+        return _get_output_openai_chat_completions_create(response_obj)
     elif api_type == "OpenAI.responses.create":
-        return _get_output_openai_responses_create(response_pickle)
+        return _get_output_openai_responses_create(response_obj)
     elif api_type == "AsyncOpenAI.responses.create":
-        return _get_output_openai_responses_create(response_pickle)
+        return _get_output_openai_responses_create(response_obj)
     elif api_type == "Anthropic.messages.create":
-        return _get_output_anthropic_messages_create(response_pickle)
+        return _get_output_anthropic_messages_create(response_obj)
     elif api_type == "vertexai client_models_generate_content":
-        return _get_output_vertex_client_models_generate_content(response_pickle)
+        return _get_output_vertex_client_models_generate_content(response_obj)
     elif api_type == "OpenAI.beta.threads.create":
-        return _get_output_openai_beta_threads_create(response_pickle)
+        return _get_output_openai_beta_threads_create(response_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
