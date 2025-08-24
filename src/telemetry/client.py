@@ -1,14 +1,27 @@
 from typing import Optional
-from supabase import create_client, Client
 from common.constants import COLLECT_TELEMETRY, TELEMETRY_KEY, TELEMETRY_URL
 from common.logger import logger
+
+try:
+    from supabase import create_client
+
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    if COLLECT_TELEMETRY:
+        raise ImportError(
+            "Supabase is required for telemetry but not installed. "
+            "Install with: pip install supabase"
+        )
+    else:
+        logger.info("Supabase not available, but telemetry disabled anyways.")
+    SUPABASE_AVAILABLE = False
 
 
 class SupabaseClient:
     """Singleton Supabase client for telemetry operations."""
 
     _instance: Optional["SupabaseClient"] = None
-    _client: Optional[Client] = None
+    _client: Optional["Client"] = None
 
     def __new__(cls) -> "SupabaseClient":
         if cls._instance is None:
@@ -16,7 +29,7 @@ class SupabaseClient:
         return cls._instance
 
     @property
-    def client(self) -> Client:
+    def client(self) -> "Client":
         """Get or create the Supabase client."""
         if self._client is None:
             self._initialize_client()
@@ -24,7 +37,11 @@ class SupabaseClient:
 
     def _initialize_client(self) -> None:
         """Initialize the Supabase client with config values."""
-        collect_telemetry = COLLECT_TELEMETRY
+        if not SUPABASE_AVAILABLE:
+            logger.debug("Supabase not available, telemetry client disabled.")
+            self._client = None
+            return
+
         url = TELEMETRY_URL
         key = TELEMETRY_KEY
 
@@ -37,7 +54,7 @@ class SupabaseClient:
 
         try:
             self._client = create_client(url, key)
-        except Exception as e:
+        except Exception:
             self._client = None
 
     def is_available(self) -> bool:

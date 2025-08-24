@@ -8,7 +8,7 @@ spanish_agent = Agent(
 
 english_agent = Agent(
     name="English agent",
-    instructions="You only speak English",
+    instructions="You only speak English.",
 )
 
 triage_agent = Agent(

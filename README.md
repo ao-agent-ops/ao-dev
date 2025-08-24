@@ -6,7 +6,6 @@
 See README's in src dirs for more details.
 
 ## User workflow
-
 We assume the user coded their workflow in Python, i.e., runs it with something like:
 
  - `python -m foo.bar`
@@ -22,25 +21,35 @@ This will feel *exactly* the same as running Python but also analyzes their code
  - Program prints/reads to/from same terminal, crashes the same, etc.
  - [User can use VS Code debugger](https://github.com/ferdiko/agent-copilot/blob/9af2cbc27fef1e6a0a6bb63c7ad678cf04cdb205/.vscode/launch.json#L11)
 
-## Launch VS Code extension
-
-Several IDEs are based on VS Code. We have successfully tried our extension in VS Code and Cursor.
-
-### Get started
-Run the below steps in VS Code or Cursor:
-
-1. Install dependencies (see "Dependencies" below).
-2. Launch explorer window with extension installed by selecting "Run Extension" from the debugger options ([more details](/src/user_interface/README.md)).
-3. Normally use VS Code with our extension installed. E.g., run `aco-launch your_script.py` to use our tool on your code base.
-
-### Dependencies
-The project has python dependencies but also others (for front end). We recommend to use a conda env. After installing conda, run the following in the project root dir:
-
+## Getting started
+### Installation
+If you're starting from a clean sheet, create a blank conda environment and activate it. We recommend Python 3.13, but Python versions >=3.10 are supported.
 ```bash
-conda env create -f conda-environment.yaml
-conda activate aco
+conda create -n aco python=3.13 -y && conda activate aco
+```
+
+> [!NOTE]  
+> If you are a developer of this project, jump to the [Development](#development) section for installation instructions.
+
+For non-developers, install the project like so:
+```bash
+pip install -e .
+# Because the extension is not packaged yet, you need to install UI dependencies as well
 cd src/user_interface && npm install
 ```
+
+### Running the extension
+Open this project in a new window. Select the "Run Extension" option from the debugger and run it. This will open a new window with the extension enabled ([more details](/src/user_interface/README.md)).
+
+![Setup Extension](media/setup_extension.gif)
+
+### Try an example
+In the new window, you can now open any project that you are working on. We will run an example from our [examples](./example_workflows/debug_examples/) folder. Note that this example depends on the OpenAI API.
+```bash
+aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
+```
+
+![Running Example](media/execute_example.gif)
 
 ### Start and stop server
 Currently, you need to manually start and stop our server. Just do:
@@ -60,12 +69,14 @@ If you make changes to the server code, you can also do `aco-server restart` so 
  - [Project goals](https://docs.google.com/document/d/1YzljXW03Hp94rb-eAa8bcLglmiVTaBGIOWf3LSWhivQ/edit?usp=sharing)
  - [Google drive folder](https://drive.google.com/drive/folders/1Syc77Cko6PFlr_wnxBMa6PB-_aXCOt1v?usp=sharing)
 
+
 ## Development
 
 Please install the dependencies required for developing
 ```bash
 pip install -e ".[dev]"
 pre-commit install
+cd src/user_interface && npm install
 ```
 In [Makefile](./Makefile), there are commands that need to run smoothly before pushing any code. Execute the following commands:
 ```bash
@@ -82,11 +93,3 @@ These are the processes running.
 3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `develop server`. TODO: The VS Code extension spawns the `develop server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits.
 
 ![Processes overview](./media/processes.png)
-
-### Keep dependencies up to date
-
-Activate the conda environment whose dependencies you want to export. 
-
-- If you want that any user has to install all of your dependencies, run `python update_dependencies.py`. Your dependencies will be installed upon `pip install -e .` .
-
-- If you're in a dev conda environment (only devs need to install all your dependencies), run `python update_dependencies.py --dev`. Any dependencies which are present in your conda env, but not in the general dependency list, are only installed upon `pip install -e ".[dev]"`.
