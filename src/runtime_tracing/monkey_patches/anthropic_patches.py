@@ -30,6 +30,7 @@ def anthropic_patch():
 
 
 def patch_anthropic_messages_create(messages_instance):
+    # TODO: Messages with attachments don't work (att. won't be cached and displayed)
     original_function = messages_instance.create
 
     # Patched function (executed instead of Anthropic.messages.create)

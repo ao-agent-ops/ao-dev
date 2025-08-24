@@ -78,7 +78,6 @@ test_msg = {
     "data": "test_data"
 }
 log_server_message(test_msg)
-print("Server message logged")
 
 # Test shim control registration
 test_handshake = {
@@ -87,7 +86,6 @@ test_handshake = {
     "name": "test_experiment"
 }
 log_shim_control_registration(test_handshake, "test_session_123")
-print("Shim control registration logged")
 
 # Test enhanced message handling
 session_graphs = {"test_session": {"nodes": [], "edges": []}}
@@ -99,7 +97,6 @@ test_log_msg = {
     "success": True
 }
 log_server_message(test_log_msg, session_graphs)
-print("Log message processed")
 
 # Test input edit with previous value
 test_edit_msg = {
@@ -109,12 +106,10 @@ test_edit_msg = {
     "value": "new input"
 }
 log_server_message(test_edit_msg, session_graphs)
-print("Edit message processed")
 
 # Test code snapshot upload (automatic for runs, but can test manually)
 from telemetry.snapshots import store_code_snapshot
 success = store_code_snapshot("ferdi", "/path/to/project")
-print(f"Snapshot uploaded: {success}")
 ```
 
 ## 7. Integration Points

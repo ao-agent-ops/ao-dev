@@ -1,8 +1,6 @@
-import hashlib
 import os
+from typing import Any, Dict
 import dill
-
-from workflow_edits.cache_manager import CACHE
 
 """
 TODO: Should add some fallbacks for robustness ...
@@ -34,14 +32,12 @@ def _get_input_openai_chat_completions_create(input_obj: any) -> tuple[str, list
 
 
 def _set_input_openai_chat_completions_create(
-    prev_input_pickle: bytes, new_input_text: str
-) -> bytes:
+    input_dict: Dict[str, Any], new_input_text: bytes
+) -> dict[str, Any]:
     """Set new input text in OpenAI chat completions input."""
-    input_obj = dill.loads(prev_input_pickle)
-    if "messages" in input_obj and input_obj["messages"]:
-        # Update the last message content
-        input_obj["messages"][-1]["content"] = new_input_text
-    return dill.dumps(input_obj)
+    new_input_string = dill.loads(new_input_text)["input"]
+    input_dict["messages"][-1]["content"] = new_input_string
+    return input_dict
 
 
 def _get_output_openai_chat_completions_create(response_obj: any) -> str:
@@ -70,6 +66,17 @@ def _get_model_openai_chat_completions_create(input_obj: any) -> str:
     return input_obj.get("model", "unknown")
 
 
+def _cache_format_openai_chat_completions_create(input_obj: any) -> dict:
+    """Format OpenAI chat completions input for caching."""
+    input_text, attachments = _get_input_openai_chat_completions_create(input_obj)
+    model_str = _get_model_openai_chat_completions_create(input_obj)
+    return {
+        "input": input_text,
+        "model": model_str,
+        "attachments": attachments if attachments else None,
+    }
+
+
 # ===============================================
 # OpenAI.responses.create
 # ===============================================
@@ -79,10 +86,12 @@ def _get_input_openai_responses_create(input_obj: any) -> str:
     return input_obj["input"], None  # no attachments
 
 
-def _set_input_openai_responses_create(prev_input_pickle: bytes, new_input_text: str) -> bytes:
-    input_obj = dill.loads(prev_input_pickle)
-    input_obj["input"] = new_input_text
-    return dill.dumps(input_obj)
+def _set_input_openai_responses_create(
+    input_dict: Dict[str, Any], new_input_text: bytes
+) -> dict[str, Any]:
+    new_input_string = dill.loads(new_input_text)["input"]
+    input_dict["input"] = new_input_string
+    return input_dict
 
 
 def _get_output_openai_responses_create(response_obj: bytes):
@@ -99,12 +108,23 @@ def _get_model_openai_responses_create(input_obj: any) -> str:
     return input_obj.get("model", "unknown")
 
 
+def _cache_format_openai_responses_create(input_obj: any) -> dict:
+    """Format OpenAI responses create input for caching."""
+    input_text, attachments = _get_input_openai_responses_create(input_obj)
+    model_str = _get_model_openai_responses_create(input_obj)
+    return {
+        "input": input_text,
+        "model": model_str,
+        "attachments": attachments if attachments else None,
+    }
+
+
 # ===============================================
 # OpenAI.beta.threads.create (OpenAI assistants)
 # ===============================================
 
 
-def get_cachable_input_openai_beta_threads_create(input_obj: any) -> dict:
+def _cache_format_openai_beta_threads_create(input_obj: any) -> dict:
     if isinstance(input_obj, dict):
         # For thread create, the input is a dict.
         message = input_obj["messages"][0]["content"]
@@ -119,6 +139,8 @@ def get_cachable_input_openai_beta_threads_create(input_obj: any) -> dict:
 
 
 def _get_input_openai_beta_threads_create(input_obj: any) -> tuple[str, list[str]]:
+    from workflow_edits.cache_manager import CACHE
+
     # Get paths to cached attachments.
     message = input_obj.content[0].text.value
     attachments = [attachment.file_id for attachment in input_obj.attachments]
@@ -128,13 +150,14 @@ def _get_input_openai_beta_threads_create(input_obj: any) -> tuple[str, list[str
     return message, attachments
 
 
-def _set_input_openai_beta_threads_create(prev_input_pickle: bytes, new_input_text: str) -> bytes:
+def _set_input_openai_beta_threads_create(
+    input_dict: Dict[str, Any], new_input_text: bytes
+) -> dict[str, Any]:
     # We're caching our manually-created dict.
     # TODO: Changing attachments. Also needs UI support.
-    input_dict = dill.loads(prev_input_pickle)
-    input_dict["messages"] = new_input_text
-    result = dill.dumps(input_dict)
-    return result
+    new_input_string = dill.loads(new_input_text)["input"]
+    input_dict["messages"] = new_input_string
+    return input_dict
 
 
 def _set_output_openai_beta_threads_create(prev_output_pickle: bytes, output_text: str) -> bytes:
@@ -190,11 +213,13 @@ def _get_input_anthropic_messages_create(input_obj: any) -> str:
     return input_content, attachments_list
 
 
-def _set_input_anthropic_messages_create(prev_input_pickle: bytes, new_input_text: str) -> bytes:
+def _set_input_anthropic_messages_create(
+    input_dict: Dict[str, Any], new_input_text: bytes
+) -> dict[str, Any]:
     # TODO: We currently just consider the last input of messages list.
-    input_obj = dill.loads(prev_input_pickle)
-    input_obj["messages"][-1]["content"] = new_input_text
-    return dill.dumps(input_obj)
+    new_input_string = dill.loads(new_input_text)["input"]
+    input_dict["messages"][-1]["content"] = new_input_string
+    return input_dict
 
 
 def _get_output_anthropic_messages_create(response_obj: any):
@@ -211,6 +236,17 @@ def _get_model_anthropic_messages_create(input_obj: any) -> str:
     return input_obj.get("model", "unknown")
 
 
+def _cache_format_anthropic_messages_create(input_obj: any) -> dict:
+    """Format Anthropic messages create input for caching."""
+    input_text, attachments = _get_input_anthropic_messages_create(input_obj)
+    model_str = _get_model_anthropic_messages_create(input_obj)
+    return {
+        "input": input_text,
+        "model": model_str,
+        "attachments": attachments if attachments else None,
+    }
+
+
 # ===============================================
 # VertexAI: Client.models.generate_content
 # ===============================================
@@ -221,12 +257,12 @@ def _get_input_vertex_client_models_generate_content(input_obj: any) -> str:
 
 
 def _set_input_vertex_client_models_generate_content(
-    prev_input_pickle: bytes, new_input_text: str
-) -> bytes:
+    input_dict: Dict[str, Any], new_input_text: bytes
+) -> dict[str, Any]:
     # TODO: We currently just consider the case where contents is a string.
-    input_obj = dill.loads(prev_input_pickle)
-    input_obj["contents"] = new_input_text
-    return dill.dumps(input_obj)
+    new_input_string = dill.loads(new_input_text)["input"]
+    input_dict["contents"] = new_input_string
+    return input_dict
 
 
 def _get_output_vertex_client_models_generate_content(response_obj: any) -> str:
@@ -258,6 +294,17 @@ def _set_output_vertex_client_models_generate_content(
 
 def _get_model_vertex_client_models_generate_content(input_obj: any) -> str:
     return input_obj.get("model", "unknown")
+
+
+def _cache_format_vertex_client_models_generate_content(input_obj: any) -> dict:
+    """Format VertexAI client models generate content input for caching."""
+    input_text, attachments = _get_input_vertex_client_models_generate_content(input_obj)
+    model_str = _get_model_vertex_client_models_generate_content(input_obj)
+    return {
+        "input": input_text,
+        "model": model_str,
+        "attachments": attachments if attachments else None,
+    }
 
 
 # ===============================================
@@ -359,5 +406,24 @@ def get_model_name(input_obj: bytes, api_type: str) -> str:
         return _get_model_vertex_client_models_generate_content(input_obj)
     elif api_type == "OpenAI.beta.threads.create":
         return _get_model_openai_beta_threads_create(input_obj)
+    else:
+        raise ValueError(f"Unknown API type {api_type}")
+
+
+def cache_format(input_dict: Dict[str, Any], api_type: str) -> Dict[str, Any]:
+    if api_type == "OpenAI.chat.completions.create":
+        return _cache_format_openai_chat_completions_create(input_dict)
+    elif api_type == "AsyncOpenAI.chat.completions.create":
+        return _cache_format_openai_chat_completions_create(input_dict)
+    elif api_type == "OpenAI.responses.create":
+        return _cache_format_openai_responses_create(input_dict)
+    elif api_type == "AsyncOpenAI.responses.create":
+        return _cache_format_openai_responses_create(input_dict)
+    elif api_type == "Anthropic.messages.create":
+        return _cache_format_anthropic_messages_create(input_dict)
+    elif api_type == "vertexai client_models_generate_content":
+        return _cache_format_vertex_client_models_generate_content(input_dict)
+    elif api_type == "OpenAI.beta.threads.create":
+        return _cache_format_openai_beta_threads_create(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")

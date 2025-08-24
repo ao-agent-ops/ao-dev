@@ -1,4 +1,6 @@
 import json
+
+import dill
 from common.constants import (
     DEFAULT_LOG,
     DEFAULT_NOTE,
@@ -7,7 +9,7 @@ from common.constants import (
     SUCCESS_STRING,
 )
 from workflow_edits import db
-from workflow_edits.utils import set_input_string, set_output_string
+from workflow_edits.utils import set_output_string
 
 
 class EditManager:
@@ -23,7 +25,9 @@ class EditManager:
             (session_id, node_id),
         )
 
-        input_overwrite = set_input_string(row["input"], new_input, row["api_type"])
+        input_overwrite = dill.loads(row["input"])
+        input_overwrite["input"] = new_input
+        input_overwrite = dill.dumps(input_overwrite)
 
         db.execute(
             "UPDATE llm_calls SET input_overwrite=?, output=NULL WHERE session_id=? AND node_id=?",

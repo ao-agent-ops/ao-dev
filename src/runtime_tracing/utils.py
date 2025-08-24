@@ -107,7 +107,10 @@ def get_input_dict(func, *args, **kwargs):
         # Many APIs only accept kwargs
         bound = sig.bind(**kwargs)
     bound.apply_defaults()
-    return bound.arguments
+    input_dict = dict(bound.arguments)
+    if "self" in input_dict:
+        del input_dict["self"]
+    return input_dict
 
 
 def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
