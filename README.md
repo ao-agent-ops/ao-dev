@@ -46,16 +46,17 @@ cd src/user_interface && npm install
 ```
 
 ### Running the extension
-Launch explorer window with extension installed by selecting "Run Extension" from the debugger options ([more details](/src/user_interface/README.md)).
-<VIDEO HERE>
+Open this project in a new window. Select the "Run Extension" option from the debugger and run it. This will open a new window with the extension enabled ([more details](/src/user_interface/README.md)).
+
+![Setup Extension](media/setup_extension.gif)
 
 ### Try an example
-Next, try to run an example using
+In the new window, you can now open any project that you are working on. We will run an example from our [examples](./example_workflows/debug_examples/) folder:
 ```bash
 aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
 ```
-it should look similar to this:
-<VIDEO HERE>
+
+![Running Example](media/setup_extension.gif)
 
 ### Start and stop server
 Currently, you need to manually start and stop our server. Just do:
