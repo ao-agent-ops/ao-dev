@@ -221,3 +221,4 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # Claude code
 **/.claude
+**/Claude.md
