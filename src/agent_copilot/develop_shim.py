@@ -193,6 +193,8 @@ class DevelopShim:
         """Detect if we're running under debugpy (VSCode debugging)."""
         # Check if debugpy is in the call stack or if we're launched through debugpy
         try:
+            # even if you did not install it, VSCode makes this available at runtime
+            # but for linting, you can install it with pip
             import debugpy
 
             # Check if debugpy is active
@@ -241,25 +243,10 @@ class DevelopShim:
 
             # Pattern 1: VSCode launcher - debugpy/launcher PORT -- args
             if "launcher" in cmdline_str and "--" in parent_cmdline:
-                try:
-                    # Find launcher path and port
-                    launcher_path = None
-                    port = "0"
-                    for i, arg in enumerate(parent_cmdline):
-                        if "launcher" in arg and os.path.exists(arg):
-                            launcher_path = arg
-                            if i + 1 < len(parent_cmdline):
-                                port = parent_cmdline[i + 1]
-                            break
-
-                    # Get original args after "--"
-                    dash_index = parent_cmdline.index("--")
-                    original_args = " ".join(parent_cmdline[dash_index + 1 :])
-
-                    if launcher_path:
-                        return f"/usr/bin/env {python_executable} {launcher_path} {port} -- {original_args}"
-                except (ValueError, IndexError):
-                    pass
+                # Get original args after "--"
+                dash_index = parent_cmdline.index("--")
+                original_args = " ".join(parent_cmdline[dash_index + 1 :])
+                return f"/usr/bin/env {python_executable} {original_args}"
 
             # Pattern 2: Direct debugpy module - python -m debugpy [options] -m module/script
             elif "-m" in parent_cmdline and "debugpy" in parent_cmdline:
@@ -270,16 +257,14 @@ class DevelopShim:
                     target_args = f"{self.script_path} {' '.join(self.script_args)}"
 
                 # Use basic debugpy command with auto-assigned port
-                return f"{python_executable} -m debugpy --listen 0.0.0.0:0 --wait-for-client {target_args}"
+                return f"{python_executable} {target_args}"
 
             # Fallback: basic debugpy command
             if self.is_module_execution:
                 target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
             else:
                 target_args = f"{self.script_path} {' '.join(self.script_args)}"
-            return (
-                f"{python_executable} -m debugpy --listen 0.0.0.0:0 --wait-for-client {target_args}"
-            )
+            return f"{python_executable} {target_args}"
 
         # For non-debugging sessions, return the original command
         return original_command
@@ -482,31 +467,6 @@ class DevelopShim:
                     pass
         return self.proc.returncode
 
-    def _run_user_script_debug_mode(self) -> int:
-        """Run the user's script in debug mode with restart detection."""
-        import importlib.util
-
-        # Load the script as a module
-        spec = importlib.util.spec_from_file_location("user_script", self.script_path)
-        module = importlib.util.module_from_spec(spec)
-
-        # Add script args to sys.argv for the script
-        original_argv = sys.argv.copy()
-        sys.argv = [self.script_path] + self.script_args
-
-        try:
-            # Execute the script
-            spec.loader.exec_module(module)
-            return 0
-        except SystemExit as e:
-            return e.code if e.code is not None else 0
-        except Exception as e:
-            logger.error(f"Error in debug mode execution: {e}")
-            return 1
-        finally:
-            # Restore original argv
-            sys.argv = original_argv
-
     def _kill_current_process(self) -> None:
         """Kill the current subprocess if it's still running."""
         if self.proc and self.proc.poll() is None:
@@ -520,20 +480,44 @@ class DevelopShim:
                 pass
 
     def _run_debug_mode(self) -> int:
-        """Run the script in debug mode."""
-        logger.info("Debug mode detected. Running script in debug context.")
-        logger.info("Running script in debug mode...")
+        """Run the script in debug mode with persistent restart loop."""
+        logger.info("Debug mode detected. Running script in debug context with restart capability.")
 
-        returncode = self._run_user_script_debug_mode()
+        exit_code = 0
 
-        # If restart was requested during execution, handle it
-        if returncode is None:
-            logger.info("Restart requested during execution, restarting script...")
-            self.restart_event.clear()
-            # Run the script again
-            return self._run_user_script_debug_mode()
+        while not self.shutdown_flag:
+            logger.info("Running script in debug mode...")
 
-        return returncode
+            returncode = self._run_normal_mode()
+
+            # If script completed normally, wait for restart or shutdown
+            if returncode is not None:
+                exit_code = returncode
+                logger.info(
+                    f"Script completed with exit code {returncode}. Waiting for restart or shutdown..."
+                )
+
+                # Wait for either restart or shutdown signal
+                while not self.shutdown_flag and not self.restart_event.is_set():
+                    time.sleep(MESSAGE_POLL_INTERVAL)
+
+                # If shutdown was requested, exit
+                if self.shutdown_flag:
+                    logger.info("Shutdown requested, exiting debug mode.")
+                    break
+
+                # If restart was requested, clear the event and continue the loop
+                if self.restart_event.is_set():
+                    logger.info("Restart requested, reloading and restarting script...")
+                    self.restart_event.clear()
+                    continue
+            else:
+                # Script was interrupted (restart requested during execution)
+                logger.info("Script interrupted, restarting...")
+                self.restart_event.clear()
+                continue
+
+        return exit_code
 
     def _run_normal_mode(self) -> Optional[int]:
         """Run the script in normal mode with restart handling."""
@@ -570,7 +554,11 @@ class DevelopShim:
 
         exit_code = 0
         try:
-            exit_code = self._run_normal_mode() or 0
+            # Check if we're in a debug session and use appropriate execution mode
+            if self._is_debugpy_session():
+                exit_code = self._run_debug_mode()
+            else:
+                exit_code = self._run_normal_mode() or 0
         finally:
             # Kill any remaining subprocess before cleanup
             self._kill_current_process()

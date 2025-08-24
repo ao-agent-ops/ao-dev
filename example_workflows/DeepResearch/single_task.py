@@ -60,7 +60,6 @@ def main(
     task: str = "Browse the web for recent news about OpenAI and summarize them.",
     task_file_name: str = "",
 ):
-    print("inside trace")
     dotenv.load_dotenv()
     with hydra.initialize_config_dir(
         config_dir=os.path.abspath("./example_workflows/DeepResearch/config"), version_base=None
