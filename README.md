@@ -6,7 +6,6 @@
 See README's in src dirs for more details.
 
 ## User workflow
-
 We assume the user coded their workflow in Python, i.e., runs it with something like:
 
  - `python -m foo.bar`
@@ -23,12 +22,6 @@ This will feel *exactly* the same as running Python but also analyzes their code
  - [User can use VS Code debugger](https://github.com/ferdiko/agent-copilot/blob/9af2cbc27fef1e6a0a6bb63c7ad678cf04cdb205/.vscode/launch.json#L11)
 
 ## Getting started
-Run the below steps in VSCode or Cursor:
-
-1. Install dependencies (see "Dependencies" below).
-2. Launch explorer window with extension installed by selecting "Run Extension" from the debugger options ([more details](/src/user_interface/README.md)).
-3. Normally use VS Code with our extension installed. E.g., run `aco-launch your_script.py` to use our tool on your code base.
-
 ### Installation
 If you're starting from a clean sheet, create a blank conda environment and activate it. We recommend Python 3.13, but Python versions >=3.10 are supported.
 ```bash
