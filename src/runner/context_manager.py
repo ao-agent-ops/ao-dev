@@ -8,16 +8,16 @@ from server.cache_manager import CACHE
 from common.utils import send_to_server, send_to_server_and_receive
 
 
-# Store the current session_id and connection
-# We use this same connection throughout the process.
-# current_session_id maintains a mapping for thread -> session_id,
-# which is needed as different threads might have different session_ids.
+# Process's session id stored as parent_session_id. Subruns have their own
+# session_id and current_session_id maps thread -> session_id.
 current_session_id = contextvars.ContextVar("session_id", default=None)
 parent_session_id = None
+
+# Connection to server, which is shared throughout the process.
 server_conn = None
 server_file = None
 
-# All names of subruns in the process. Used to ensure run names are unique.
+# Names of all subruns in the process. Used to ensure they are unique.
 run_names = None
 
 

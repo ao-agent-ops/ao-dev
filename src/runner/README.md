@@ -9,7 +9,7 @@ This is the wrapper around the user's python command. It works like this:
 
 1. User types `aco-launch script.py` (instead of `python script.py`)
 2. This drops into an "orchestrator". It registers to the `develop_server` as "shim-control". It's needed for restarting (i.e., managing the lifecycle of the actual process running the user's code). It's communication with `develop_server` is about things like receiving "restart" or "shutdown" commands. Orchestrator spawns a child with `Popen` that will run the monkey-patched user code. 
-3. Child installs monkey patches. It registers to the develop_server as "shim-runner". It runs the actual python code from the user. It communicates with the server about inputs and outputs to LLM calls (etc). Its stdin, stdout, stderr, etc. will be forwarded to the user's terminal as is.
+3. The child process is a python script that has some wrapper code in `launch_scripts.py`, which installs monkey patches, establishes a connection to the server, and then runs the user's actual python program. It registers to the develop_server as "shim-runner". It mainly communicates events in the user's code to the server (e.g., LLM call happened + inputs and outputs). Its stdin, stdout, stderr, etc. will be forwarded to the user's terminal as is. The goal here is to provide the illusion that the user just types `python script.py`.
 
 > Note: Alternatively, if the user doesn't run `develop script.py` from the terminal but from a debugger, things work similarly but there's small changes into how the child process is started and restarted by the orchestrator.
 
