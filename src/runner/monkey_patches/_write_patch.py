@@ -1,5 +1,5 @@
 import asyncio
-from runner.generate_patch_helpers import (
+from runner.monkey_patches._generate_patch_helpers import (
     _1_get_input,
     _2_set_input,
     _3_get_output,
