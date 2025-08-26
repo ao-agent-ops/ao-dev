@@ -499,7 +499,7 @@ class TaintInt(int):
         return int.__bool__(self)
 
     def get_raw(self):
-        return super().__int__()
+        return int(self)
 
 
 class TaintFloat(float):
@@ -623,7 +623,7 @@ class TaintFloat(float):
         return float.__bool__(self)
 
     def get_raw(self):
-        return super().__float__()
+        return float(self)
 
 
 class TaintList(list):
@@ -768,39 +768,6 @@ class TaintDict(dict):
 
     def get_raw(self):
         return {k: v.get_raw() if hasattr(v, "get_raw") else v for k, v in self.items()}
-
-
-class TaintedCallable:
-    """
-    Wrapper for callable objects (methods, functions) that taints their return values.
-    """
-
-    def __init__(self, wrapped, taint_origin=None):
-        self._wrapped = wrapped
-        if taint_origin is None:
-            self._taint_origin = []
-        elif isinstance(taint_origin, (int, str)):
-            self._taint_origin = [taint_origin]
-        elif isinstance(taint_origin, list):
-            self._taint_origin = list(taint_origin)
-        else:
-            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
-
-    def __call__(self, *args, **kwargs):
-        # Call the original callable
-        result = self._wrapped(*args, **kwargs)
-        # Taint the result
-        return taint_wrap(result, taint_origin=self._taint_origin)
-
-    def __getattr__(self, name):
-        # Delegate attribute access to the wrapped callable
-        return getattr(self._wrapped, name)
-
-    def __repr__(self):
-        return f"TaintedCallable({repr(self._wrapped)}, taint_origin={self._taint_origin})"
-
-    def get_raw(self):
-        return self._wrapped
 
 
 class TaintedOpenAIObject:

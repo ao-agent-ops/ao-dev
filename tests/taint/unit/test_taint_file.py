@@ -4,7 +4,7 @@ import pytest
 import os
 import tempfile
 
-from runtime_tracing.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
+from runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
 
 
 class TestTaintFile:

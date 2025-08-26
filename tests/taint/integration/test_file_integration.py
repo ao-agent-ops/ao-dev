@@ -6,7 +6,7 @@ import os
 import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from runtime_tracing.taint_wrappers import (
+from runner.taint_wrappers import (
     TaintFile, taint_wrap, get_taint_origins, is_tainted, open_with_taint
 )
 
