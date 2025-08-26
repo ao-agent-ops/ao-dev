@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.runner.taint_wrappers import TaintList, TaintStr, get_taint_origins, is_tainted
+from runner.taint_wrappers import TaintList, TaintStr, get_taint_origins, is_tainted
 
 
 class TestTaintList:
