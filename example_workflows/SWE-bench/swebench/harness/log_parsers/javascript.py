@@ -27,9 +27,7 @@ def parse_log_calypso(log: str, test_spec: TestSpec) -> dict[str, str]:
                     if re.search(r"\(\d+ms\)", line) is not None
                     else r"^\s+✓\s(.*)"
                 )
-                test_status_map[get_test_name(suite, match_pattern, line)] = (
-                    TestStatus.PASSED.value
-                )
+                test_status_map[get_test_name(suite, match_pattern, line)] = TestStatus.PASSED.value
             elif line.strip().startswith("✕"):
                 # Test failed
                 match_pattern = (
@@ -37,9 +35,7 @@ def parse_log_calypso(log: str, test_spec: TestSpec) -> dict[str, str]:
                     if re.search(r"\(\d+ms\)", line) is not None
                     else r"^\s+✕\s(.*)"
                 )
-                test_status_map[get_test_name(suite, match_pattern, line)] = (
-                    TestStatus.FAILED.value
-                )
+                test_status_map[get_test_name(suite, match_pattern, line)] = TestStatus.FAILED.value
             elif len(line) - len(line.lstrip()) > 0:
                 # Adjust suite name
                 indent = len(line) - len(line.lstrip())
@@ -124,9 +120,7 @@ def parse_log_p5js(log: str, test_spec: TestSpec) -> dict[str, str]:
             start = match.start()
             end = match.end()
             log_content = (
-                log_content[:start]
-                + f"<{match.group(1)}>" * opening_tags
-                + log_content[end:]
+                log_content[:start] + f"<{match.group(1)}>" * opening_tags + log_content[end:]
             )
             match = xml_pat.search(log_content)
         return log_content
@@ -288,9 +282,7 @@ def parse_log_karma(log: str, test_spec: TestSpec) -> dict[str, str]:
             if status in ("✔", "✖"):
                 full_test_name = " > ".join(current_suite + [name])
                 test_status_map[full_test_name] = (
-                    TestStatus.PASSED.value
-                    if status == "✔"
-                    else TestStatus.FAILED.value
+                    TestStatus.PASSED.value if status == "✔" else TestStatus.FAILED.value
                 )
 
     return test_status_map

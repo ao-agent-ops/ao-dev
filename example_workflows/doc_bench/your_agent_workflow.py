@@ -4,6 +4,7 @@ from openai import OpenAI
 
 client = OpenAI()
 
+
 def call_openai_doc(pdf_path, prompt):
     with open(pdf_path, "rb") as f:
         assert os.path.isfile(pdf_path), f"File not found: {pdf_path}"
@@ -39,11 +40,9 @@ def call_openai_doc(pdf_path, prompt):
             message_content.value = message_content.value.replace(annotation.text, "")
         return message_content.value
 
+
 def call_openai_msg(prompt):
-    output = client.responses.create(
-        model="gpt-4o",
-        input=prompt
-    )
+    output = client.responses.create(model="gpt-4o", input=prompt)
     return output.output[-1].content[-1].text
 
 
@@ -61,14 +60,14 @@ Original, large prompt that should be broken down:
 """
 
     output = call_openai_msg(prompt)
-    
+
     prompts = output.split("PROMPT:")[1:]
     print("prompts", prompts)
     outputs = []
     for prompt in prompts:
-        print("-"*10)
+        print("-" * 10)
         print(prompt)
-        print("-"*10)
+        print("-" * 10)
         out = call_openai_doc(pdf_path, prompt)
         outputs.append(out)
 

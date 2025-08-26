@@ -9,9 +9,7 @@ from argparse import ArgumentParser
 import logging
 
 disable_caching()
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -20,9 +18,7 @@ def main(dataset_name_or_path, split):
         dataset = load_from_disk(dataset_name_or_path)[split]
     except:
         dataset = load_dataset(dataset_name_or_path, split=split)
-    print(
-        f"Evaluating {len(dataset)} instances from {dataset_name_or_path} {split} split"
-    )
+    print(f"Evaluating {len(dataset)} instances from {dataset_name_or_path} {split} split")
     instance_files_pattern = re.compile(
         r"\[start of ([\w\.\-\/]+)\]\n(?:.+?)\n\[end of \1\]", re.DOTALL
     )
@@ -59,9 +55,7 @@ def main(dataset_name_or_path, split):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--dataset_name_or_path", type=str, default="SWE-bench/SWE-bench_bm25_13K"
-    )
+    parser.add_argument("--dataset_name_or_path", type=str, default="SWE-bench/SWE-bench_bm25_13K")
     parser.add_argument("--split", type=str, default="test")
     args = parser.parse_args()
     main(**vars(args))

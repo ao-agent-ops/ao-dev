@@ -6,9 +6,7 @@ SPECS_REDIS = {
     },
     "12472": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            'TERM=dumb ./runtest --durable --single unit/acl --only "/.*ACL GETUSER.*"'
-        ],
+        "test_cmd": ['TERM=dumb ./runtest --durable --single unit/acl --only "/.*ACL GETUSER.*"'],
     },
     "12272": {
         "build": ["make distclean", "make"],
@@ -22,9 +20,7 @@ SPECS_REDIS = {
     },
     "10764": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            'TERM=dumb ./runtest --durable --single unit/type/zset --only "BZMPOP"'
-        ],
+        "test_cmd": ['TERM=dumb ./runtest --durable --single unit/type/zset --only "BZMPOP"'],
     },
     "10095": {
         "build": ["make distclean", "make"],
@@ -38,15 +34,11 @@ SPECS_REDIS = {
     },
     "10068": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            'TERM=dumb ./runtest --durable --single unit/type/stream --only "/*XTRIM*"'
-        ],
+        "test_cmd": ['TERM=dumb ./runtest --durable --single unit/type/stream --only "/*XTRIM*"'],
     },
     "11631": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            'TERM=dumb ./runtest --durable --single unit/geo --only "/.*GEOSEARCH .*"'
-        ],
+        "test_cmd": ['TERM=dumb ./runtest --durable --single unit/geo --only "/.*GEOSEARCH .*"'],
     },
     "11510": {
         "build": ["make distclean", "make"],
@@ -177,9 +169,7 @@ SPECS_VALKEY = {
     },
     "790": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            "TERM=dumb ./runtest --durable --single unit/cluster/cluster-shards"
-        ],
+        "test_cmd": ["TERM=dumb ./runtest --durable --single unit/cluster/cluster-shards"],
     },
     "1499": {
         "build": ["make distclean", "make"],
@@ -187,9 +177,7 @@ SPECS_VALKEY = {
     },
     "1842": {
         "build": ["make distclean", "make"],
-        "test_cmd": [
-            'TERM=dumb ./runtest --durable --single unit/acl --only "/.*ACL LOAD.*"'
-        ],
+        "test_cmd": ['TERM=dumb ./runtest --durable --single unit/acl --only "/.*ACL LOAD.*"'],
     },
 }
 

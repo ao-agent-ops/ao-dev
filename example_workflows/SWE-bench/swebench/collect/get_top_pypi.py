@@ -50,10 +50,7 @@ def get_package_stats(data_tasks, f):
             for link in soup.find_all("a", class_="vertical-tabs__tab--with-icon"):
                 found = False
                 for x in ["Source", "Code", "Homepage"]:
-                    if (
-                        x.lower() in link.get_text().lower()
-                        and "github" in link["href"].lower()
-                    ):
+                    if x.lower() in link.get_text().lower() and "github" in link["href"].lower():
                         package_github = link["href"]
                         found = True
                         break

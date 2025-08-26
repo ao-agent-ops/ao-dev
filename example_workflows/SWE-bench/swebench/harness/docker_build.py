@@ -58,9 +58,7 @@ def setup_logger(instance_id: str, log_file: Path, mode="w", add_stdout: bool = 
     setattr(logger, "log_file", log_file)
     if add_stdout:
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            f"%(asctime)s - {instance_id} - %(levelname)s - %(message)s"
-        )
+        formatter = logging.Formatter(f"%(asctime)s - {instance_id} - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     return logger
@@ -111,9 +109,7 @@ def build_image(
             with open(setup_script_path, "w") as f:
                 f.write(setup_script)
             if setup_script_name not in dockerfile:
-                logger.warning(
-                    f"Setup script {setup_script_name} may not be used in Dockerfile"
-                )
+                logger.warning(f"Setup script {setup_script_name} may not be used in Dockerfile")
 
         # Write the dockerfile to the build directory
         dockerfile_path = build_dir / "Dockerfile"
@@ -121,9 +117,7 @@ def build_image(
             f.write(dockerfile)
 
         # Build the image
-        logger.info(
-            f"Building docker image {image_name} in {build_dir} with platform {platform}"
-        )
+        logger.info(f"Building docker image {image_name} in {build_dir} with platform {platform}")
         response = client.api.build(
             path=str(build_dir),
             tag=image_name,
@@ -144,12 +138,8 @@ def build_image(
                 buildlog += chunk_stream
             elif "errorDetail" in chunk:
                 # Decode error message, raise BuildError
-                logger.error(
-                    f"Error: {ansi_escape(chunk['errorDetail']['message'])}"
-                )
-                raise docker.errors.BuildError(
-                    chunk["errorDetail"]["message"], buildlog
-                )
+                logger.error(f"Error: {ansi_escape(chunk['errorDetail']['message'])}")
+                raise docker.errors.BuildError(chunk["errorDetail"]["message"], buildlog)
         logger.info("Image built successfully!")
     except docker.errors.BuildError as e:
         logger.error(f"docker.errors.BuildError during {image_name}: {e}")
@@ -161,9 +151,7 @@ def build_image(
         close_logger(logger)  # functions that create loggers should close them
 
 
-def build_base_images(
-    client: docker.DockerClient, dataset: list, force_rebuild: bool = False
-):
+def build_base_images(client: docker.DockerClient, dataset: list, force_rebuild: bool = False):
     """
     Builds the base images required for the dataset if they do not already exist.
 
@@ -174,9 +162,7 @@ def build_base_images(
     """
     # Get the base images to build from the dataset
     test_specs = get_test_specs_from_dataset(dataset)
-    base_images = {
-        x.base_image_key: (x.base_dockerfile, x.platform) for x in test_specs
-    }
+    base_images = {x.base_image_key: (x.base_dockerfile, x.platform) for x in test_specs}
 
     # Build the base images
     for image_name, (dockerfile, platform) in base_images.items():
@@ -224,9 +210,7 @@ def get_env_configs_to_build(
         # Check if the base image exists
         try:
             if test_spec.base_image_key not in base_images:
-                base_images[test_spec.base_image_key] = client.images.get(
-                    test_spec.base_image_key
-                )
+                base_images[test_spec.base_image_key] = client.images.get(test_spec.base_image_key)
             base_image = base_images[test_spec.base_image_key]
         except docker.errors.ImageNotFound:
             raise Exception(
@@ -333,15 +317,9 @@ def build_instance_images(
 
     if len(env_failed) > 0:
         # Don't build images for instances that depend on failed-to-build env images
-        dont_run_specs = [
-            spec for spec in test_specs if spec.env_image_key in env_failed
-        ]
-        test_specs = [
-            spec for spec in test_specs if spec.env_image_key not in env_failed
-        ]
-        print(
-            f"Skipping {len(dont_run_specs)} instances - due to failed env image builds"
-        )
+        dont_run_specs = [spec for spec in test_specs if spec.env_image_key in env_failed]
+        test_specs = [spec for spec in test_specs if spec.env_image_key not in env_failed]
+        print(f"Skipping {len(dont_run_specs)} instances - due to failed env image builds")
     print(f"Building instance images for {len(test_specs)} instances")
     successful, failed = list(), list()
 
@@ -375,9 +353,7 @@ def build_instance_image(
         nocache (bool): Whether to use the cache when building
     """
     # Set up logging for the build process
-    build_dir = INSTANCE_IMAGE_BUILD_DIR / test_spec.instance_image_key.replace(
-        ":", "__"
-    )
+    build_dir = INSTANCE_IMAGE_BUILD_DIR / test_spec.instance_image_key.replace(":", "__")
     new_logger = False
     if logger is None:
         new_logger = True

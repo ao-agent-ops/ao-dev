@@ -114,10 +114,7 @@ def get_eval_tests_report(
             failed.append(test_case)
 
     def check_fail_only(test_case, eval_status_map, success, failed):
-        if (
-            test_case in eval_status_map
-            and eval_status_map[test_case] == TestStatus.FAILED.value
-        ):
+        if test_case in eval_status_map and eval_status_map[test_case] == TestStatus.FAILED.value:
             failed.append(test_case)
         else:
             success.append(test_case)
@@ -265,12 +262,9 @@ def get_eval_report(
         PASS_TO_PASS: test_spec.PASS_TO_PASS,
     }
 
-    eval_type = EvalType.FAIL_ONLY if test_spec.repo in FAIL_ONLY_REPOS \
-        else EvalType.PASS_AND_FAIL
+    eval_type = EvalType.FAIL_ONLY if test_spec.repo in FAIL_ONLY_REPOS else EvalType.PASS_AND_FAIL
 
-    report = get_eval_tests_report(
-        eval_status_map, eval_ref, eval_type=eval_type
-    )
+    report = get_eval_tests_report(eval_status_map, eval_ref, eval_type=eval_type)
     if get_resolution_status(report) == ResolvedStatus.FULL.value:
         report_map[instance_id]["resolved"] = True
 

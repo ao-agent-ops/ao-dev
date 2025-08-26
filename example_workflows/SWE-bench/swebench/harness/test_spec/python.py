@@ -85,9 +85,7 @@ def clean_environment_yml(yml_text: str) -> str:
         line_indent = len(line) - len(line.lstrip())
         if line_indent <= pip_indent:
             # +1 to account for the newline
-            pip_section_end = pip_content_start + sum(
-                len(l) + 1 for l in lines_after_pip[:ix]
-            )
+            pip_section_end = pip_content_start + sum(len(l) + 1 for l in lines_after_pip[:ix])
             break
     else:
         pip_section_end = len(yml_text)
@@ -149,9 +147,7 @@ def get_requirements_by_commit(repo: str, commit: str) -> str:
     original_req = []
     additional_reqs = []
     req_dir = "/".join(req_path.split("/")[:-1])
-    exclude_line = lambda line: any(
-        [line.strip().startswith(x) for x in ["-e .", "#", ".[test"]]
-    )
+    exclude_line = lambda line: any([line.strip().startswith(x) for x in ["-e .", "#", ".[test"]])
 
     for line in lines.split("\n"):
         if line.strip().startswith("-r"):
@@ -243,9 +239,7 @@ def get_test_directives(instance: SWEbenchInstance) -> list:
     diff_pat = r"diff --git a/.* b/(.*)"
     test_patch = instance["test_patch"]
     directives = re.findall(diff_pat, test_patch)
-    directives = [
-        d for d in directives if not any(d.endswith(ext) for ext in NON_TEST_EXTS)
-    ]
+    directives = [d for d in directives if not any(d.endswith(ext) for ext in NON_TEST_EXTS)]
 
     # For Django tests, remove extension + "tests/" prefix and convert slashes to dots (module referencing)
     if instance["repo"] == "django/django":
@@ -260,9 +254,7 @@ def get_test_directives(instance: SWEbenchInstance) -> list:
     return directives
 
 
-def make_repo_script_list_py(
-    specs, repo, repo_directory, base_commit, env_name
-) -> list:
+def make_repo_script_list_py(specs, repo, repo_directory, base_commit, env_name) -> list:
     """
     Create a list of bash commands to set up the repository for testing.
     This is the setup script for the instance image.
@@ -339,9 +331,7 @@ def make_env_script_list_py(instance, specs, env_name) -> list:
         )
         if "no_use_env" in specs and specs["no_use_env"]:
             # `conda create` based installation
-            cmd = (
-                f"conda create -c conda-forge -n {env_name} python={specs['python']} -y"
-            )
+            cmd = f"conda create -c conda-forge -n {env_name} python={specs['python']} -y"
             reqs_commands.append(cmd)
 
             # Install dependencies
@@ -387,9 +377,7 @@ def make_eval_script_list_py(
     )
     test_command = " ".join(
         [
-            MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]][
-                "test_cmd"
-            ],
+            MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]]["test_cmd"],
             *get_test_directives(instance),
         ]
     )

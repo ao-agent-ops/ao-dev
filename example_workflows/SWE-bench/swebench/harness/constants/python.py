@@ -9,9 +9,7 @@ TEST_SEABORN_VERBOSE = "pytest -rA --tb=long"
 TEST_PYTEST = "pytest -rA"
 TEST_PYTEST_VERBOSE = "pytest -rA --tb=long"
 TEST_SPHINX = "tox --current-env -epy39 -v --"
-TEST_SYMPY = (
-    "PYTHONWARNINGS='ignore::UserWarning,ignore::SyntaxWarning' bin/test -C --verbose"
-)
+TEST_SYMPY = "PYTHONWARNINGS='ignore::UserWarning,ignore::SyntaxWarning' bin/test -C --verbose"
 TEST_SYMPY_VERBOSE = "bin/test -C --verbose"
 
 
@@ -382,12 +380,12 @@ SPECS_MATPLOTLIB = {
         "install": "python -m pip install -e .",
         "pre_install": [
             "apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super dvipng",
-            "QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"",
-            "QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"",
-            "QHULL_BUILD_DIR=\"/testbed/build\"",
-            "wget -O \"$QHULL_TAR\" \"$QHULL_URL\"",
-            "mkdir -p \"$QHULL_BUILD_DIR\"",
-            "tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\""
+            'QHULL_URL="http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz"',
+            'QHULL_TAR="/tmp/qhull-2020-src-8.0.2.tgz"',
+            'QHULL_BUILD_DIR="/testbed/build"',
+            'wget -O "$QHULL_TAR" "$QHULL_URL"',
+            'mkdir -p "$QHULL_BUILD_DIR"',
+            'tar -xvzf "$QHULL_TAR" -C "$QHULL_BUILD_DIR"',
         ],
         "pip_packages": [
             "contourpy==1.1.0",
@@ -418,12 +416,12 @@ SPECS_MATPLOTLIB.update(
             "install": "python -m pip install -e .",
             "pre_install": [
                 "apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super",
-                "QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"",
-                "QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"",
-                "QHULL_BUILD_DIR=\"/testbed/build\"",
-                "wget -O \"$QHULL_TAR\" \"$QHULL_URL\"",
-                "mkdir -p \"$QHULL_BUILD_DIR\"",
-                "tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\""
+                'QHULL_URL="http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz"',
+                'QHULL_TAR="/tmp/qhull-2020-src-8.0.2.tgz"',
+                'QHULL_BUILD_DIR="/testbed/build"',
+                'wget -O "$QHULL_TAR" "$QHULL_URL"',
+                'mkdir -p "$QHULL_BUILD_DIR"',
+                'tar -xvzf "$QHULL_TAR" -C "$QHULL_BUILD_DIR"',
             ],
             "pip_packages": ["pytest", "ipython"],
             "test_cmd": TEST_PYTEST,
@@ -439,12 +437,12 @@ SPECS_MATPLOTLIB.update(
             "install": "python -m pip install -e .",
             "pre_install": [
                 "apt-get -y update && apt-get -y upgrade && apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config",
-                "QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"",
-                "QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"",
-                "QHULL_BUILD_DIR=\"/testbed/build\"",
-                "wget -O \"$QHULL_TAR\" \"$QHULL_URL\"",
-                "mkdir -p \"$QHULL_BUILD_DIR\"",
-                "tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\""
+                'QHULL_URL="http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz"',
+                'QHULL_TAR="/tmp/qhull-2020-src-8.0.2.tgz"',
+                'QHULL_BUILD_DIR="/testbed/build"',
+                'wget -O "$QHULL_TAR" "$QHULL_URL"',
+                'mkdir -p "$QHULL_BUILD_DIR"',
+                'tar -xvzf "$QHULL_TAR" -C "$QHULL_BUILD_DIR"',
             ],
             "pip_packages": ["pytest"],
             "test_cmd": TEST_PYTEST,
@@ -468,9 +466,7 @@ SPECS_MATPLOTLIB.update(
     }
 )
 for k in ["3.8", "3.9"]:
-    SPECS_MATPLOTLIB[k]["install"] = (
-        'python -m pip install --no-build-isolation -e ".[dev]"'
-    )
+    SPECS_MATPLOTLIB[k]["install"] = 'python -m pip install --no-build-isolation -e ".[dev]"'
 
 SPECS_SPHINX = {
     k: {
@@ -896,9 +892,7 @@ SPECS_PYDICOM = {
 SPECS_PYDICOM.update({k: {**SPECS_PYDICOM[k], "python": "3.8"} for k in ["1.4", "2.0"]})
 SPECS_PYDICOM.update({k: {**SPECS_PYDICOM[k], "python": "3.9"} for k in ["2.1", "2.2"]})
 SPECS_PYDICOM.update({k: {**SPECS_PYDICOM[k], "python": "3.10"} for k in ["2.3"]})
-SPECS_PYDICOM.update(
-    {k: {**SPECS_PYDICOM[k], "python": "3.11"} for k in ["2.4", "3.0"]}
-)
+SPECS_PYDICOM.update({k: {**SPECS_PYDICOM[k], "python": "3.11"} for k in ["2.4", "3.0"]})
 
 SPECS_HUMANEVAL = {k: {"python": "3.9", "test_cmd": "python"} for k in ["1.0"]}
 

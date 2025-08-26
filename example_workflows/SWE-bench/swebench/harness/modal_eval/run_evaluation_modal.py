@@ -19,9 +19,7 @@ from swebench.harness.utils import EvaluationError
 from typing import cast
 
 SANDBOX_ENTRYPOINT = "run_evaluation_modal_entrypoint"
-LOCAL_SANDBOX_ENTRYPOINT_PATH = (
-    Path(__file__).parent / f"{SANDBOX_ENTRYPOINT}.py"
-).resolve()
+LOCAL_SANDBOX_ENTRYPOINT_PATH = (Path(__file__).parent / f"{SANDBOX_ENTRYPOINT}.py").resolve()
 REMOTE_SANDBOX_ENTRYPOINT_PATH = f"/root/{SANDBOX_ENTRYPOINT}.py"
 
 app = modal.App("swebench-evaluation")
@@ -53,9 +51,7 @@ class ModalSandboxRuntime:
     Runtime for running instances in a Modal Sandbox.
     """
 
-    def __init__(
-        self, test_spec: TestSpec, timeout: int | None = None, verbose: bool = True
-    ):
+    def __init__(self, test_spec: TestSpec, timeout: int | None = None, verbose: bool = True):
         self.test_spec = test_spec
         self.image = ModalSandboxRuntime.get_instance_image(test_spec)
         self.sandbox = self._get_sandbox(timeout)
@@ -85,9 +81,7 @@ class ModalSandboxRuntime:
             cpu=4,
         )
 
-    async def _read_stream(
-        self, stream: modal.io_streams.StreamReader, output_list: list[str]
-    ):
+    async def _read_stream(self, stream: modal.io_streams.StreamReader, output_list: list[str]):
         try:
             async for line in stream:
                 output_list.append(line)
@@ -198,12 +192,8 @@ class ModalSandboxRuntime:
                 "/opt/miniconda3/bin/conda config --append channels conda-forge",
                 "adduser --disabled-password --gecos 'dog' nonroot",
             )
-            .add_local_file(
-Path(remote_env_script_path), remote_env_script_path, copy=True
-            )
-            .add_local_file(
-                Path(remote_repo_script_path), remote_repo_script_path, copy=True
-            )
+            .add_local_file(Path(remote_env_script_path), remote_env_script_path, copy=True)
+            .add_local_file(Path(remote_repo_script_path), remote_repo_script_path, copy=True)
             .run_commands(
                 f"chmod +x {remote_env_script_path}",
                 f"/bin/bash -c 'source ~/.bashrc && {remote_env_script_path}'",
@@ -215,9 +205,7 @@ Path(remote_env_script_path), remote_env_script_path, copy=True
 
 
 def get_log_dir(pred: dict, run_id: str, instance_id: str) -> Path:
-    model_name_or_path = cast(
-        str, pred.get("model_name_or_path", "None").replace("/", "__")
-    )
+    model_name_or_path = cast(str, pred.get("model_name_or_path", "None").replace("/", "__"))
     return RUN_EVALUATION_LOG_DIR / run_id / model_name_or_path / instance_id
 
 
@@ -226,8 +214,7 @@ def get_log_dir(pred: dict, run_id: str, instance_id: str) -> Path:
         LOCAL_SANDBOX_ENTRYPOINT_PATH,
         REMOTE_SANDBOX_ENTRYPOINT_PATH,
     ),
-    timeout=120
-    * 60,  # Much larger than default timeout to account for image build time
+    timeout=120 * 60,  # Much larger than default timeout to account for image build time
     include_source=True,
 )
 def run_instance_modal(

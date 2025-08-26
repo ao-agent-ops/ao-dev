@@ -66,22 +66,16 @@ def construct_data_files(data: dict):
                 path_pr = path_pr.replace(".jsonl", f"-{cutoff_date}.jsonl")
             if not os.path.exists(path_pr):
                 print(f"Pull request data for {repo} not found, creating...")
-                print_pulls(
-                    repo, path_pr, token, max_pulls=max_pulls, cutoff_date=cutoff_date
-                )
+                print_pulls(repo, path_pr, token, max_pulls=max_pulls, cutoff_date=cutoff_date)
                 print(f"✅ Successfully saved PR data for {repo} to {path_pr}")
             else:
-                print(
-                    f"📁 Pull request data for {repo} already exists at {path_pr}, skipping..."
-                )
+                print(f"📁 Pull request data for {repo} already exists at {path_pr}, skipping...")
 
             path_task = os.path.join(path_tasks, f"{repo_name}-task-instances.jsonl")
             if not os.path.exists(path_task):
                 print(f"Task instance data for {repo} not found, creating...")
                 build_dataset(path_pr, path_task, token)
-                print(
-                    f"✅ Successfully saved task instance data for {repo} to {path_task}"
-                )
+                print(f"✅ Successfully saved task instance data for {repo} to {path_task}")
             else:
                 print(
                     f"📁 Task instance data for {repo} already exists at {path_task}, skipping..."
@@ -146,9 +140,7 @@ if __name__ == "__main__":
         nargs="+",
         help="List of repositories (e.g., `sqlfluff/sqlfluff`) to create task instances for",
     )
-    parser.add_argument(
-        "--path_prs", type=str, help="Path to folder to save PR data files to"
-    )
+    parser.add_argument("--path_prs", type=str, help="Path to folder to save PR data files to")
     parser.add_argument(
         "--path_tasks",
         type=str,

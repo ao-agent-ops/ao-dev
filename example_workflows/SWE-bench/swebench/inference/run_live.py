@@ -38,9 +38,7 @@ from swebench.inference.run_api import call_chat, call_anthropic
 import logging
 from argparse import ArgumentParser
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -182,9 +180,7 @@ def main(
     include_readmes,
 ):
     if base_commit is not None and len(issue_url) != len(base_commit):
-        raise ValueError(
-            "Must provide either no base commits or one base commit per issue url"
-        )
+        raise ValueError("Must provide either no base commits or one base commit per issue url")
     if base_commit is None:
         base_commit = [None] * len(issue_url)
     gh_token = os.environ.get("GITHUB_TOKEN", None)
@@ -220,9 +216,7 @@ def main(
         start = time.time()
         if model_name.startswith("gpt"):
             inputs = instance["text_inputs"]
-            response, _ = call_chat(
-                model_name, inputs, use_azure=False, temperature=0, top_p=1
-            )
+            response, _ = call_chat(model_name, inputs, use_azure=False, temperature=0, top_p=1)
             completion = response.choices[0].message.content
             logger.info(
                 f"Generated {response.usage.completion_tokens} tokens in {(time.time() - start):.2f} seconds"
@@ -232,9 +226,7 @@ def main(
 
             api_key = os.environ.get("ANTHROPIC_API_KEY", None)
             anthropic = Anthropic(api_key=api_key)
-            response = call_anthropic(
-                inputs, anthropic, model_name, temperature=0, top_p=1
-            )
+            response = call_anthropic(inputs, anthropic, model_name, temperature=0, top_p=1)
             completion = response.completion
         model_patch = extract_diff(completion)
         minimal_patch = extract_minimal_patch(model_patch)

@@ -77,9 +77,7 @@ SPECS_TERRAFORM = {
     "35611": {
         "docker_specs": {"go_version": "1.23.8"},
         "install": ["go test -c ./internal/terraform"],
-        "test_cmd": [
-            'go test -v ./internal/terraform -run "^TestContext2Apply_provisioner"'
-        ],
+        "test_cmd": ['go test -v ./internal/terraform -run "^TestContext2Apply_provisioner"'],
     },
     "35543": {
         "docker_specs": {"go_version": "1.23.8"},
@@ -114,9 +112,7 @@ SPECS_PROMETHEUS = {
     "13845": {
         "docker_specs": {"go_version": "1.23.8"},
         "install": ["go test -c ./promql ./model/labels"],
-        "test_cmd": [
-            'go test -v ./promql ./model/labels -run "^(TestRangeQuery|TestLabels)"'
-        ],
+        "test_cmd": ['go test -v ./promql ./model/labels -run "^(TestRangeQuery|TestLabels)"'],
     },
     "12874": {
         "docker_specs": {"go_version": "1.23.8"},
@@ -136,9 +132,7 @@ SPECS_PROMETHEUS = {
     "10633": {
         "docker_specs": {"go_version": "1.23.8"},
         "install": ["go test -c ./discovery/puppetdb"],
-        "test_cmd": [
-            'go test -v ./discovery/puppetdb -run "TestPuppetDBRefreshWithParameters"'
-        ],
+        "test_cmd": ['go test -v ./discovery/puppetdb -run "TestPuppetDBRefreshWithParameters"'],
     },
     "9248": {
         "docker_specs": {"go_version": "1.23.8"},

@@ -870,6 +870,7 @@ class TaintedOpenAIObject:
         # Allow class assignment (some libraries do this)
         self._wrapped.__class__ = value
 
+
 class TaintedCallable:
     """
     Wrapper for callable objects (methods, functions) that taints their return values.

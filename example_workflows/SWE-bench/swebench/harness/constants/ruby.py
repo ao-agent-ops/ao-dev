@@ -22,9 +22,7 @@ SPECS_JEKYLL = {
     "9141": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["script/bootstrap"],
-        "test_cmd": [
-            'bundle exec ruby -I test test/test_site.rb -v -n "/static files/"'
-        ],
+        "test_cmd": ['bundle exec ruby -I test test/test_site.rb -v -n "/static files/"'],
     },
     "8761": {
         "docker_specs": {"ruby_version": "3.3"},
@@ -36,20 +34,14 @@ SPECS_JEKYLL = {
     "8047": {
         "docker_specs": {"ruby_version": "3.3"},
         # Remove a gem that is causing installation to fail
-        "pre_install": [
-            "sed -i '/^[[:space:]]*install_if.*mingw/,/^[[:space:]]*end/d' Gemfile"
-        ],
+        "pre_install": ["sed -i '/^[[:space:]]*install_if.*mingw/,/^[[:space:]]*end/d' Gemfile"],
         "install": ["script/bootstrap", "bundle add webrick"],
-        "test_cmd": [
-            'bundle exec ruby -I test test/test_filters.rb -v -n "/where_exp filter/"'
-        ],
+        "test_cmd": ['bundle exec ruby -I test test/test_filters.rb -v -n "/where_exp filter/"'],
     },
     "8167": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["script/bootstrap", "bundle add webrick"],
-        "test_cmd": [
-            'bundle exec ruby -I test test/test_utils.rb -v -n "/Utils.slugify/"'
-        ],
+        "test_cmd": ['bundle exec ruby -I test test/test_utils.rb -v -n "/Utils.slugify/"'],
     },
     "8771": {
         "docker_specs": {"ruby_version": "3.3"},
@@ -73,9 +65,7 @@ SPECS_FLUENTD = {
     "4311": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["bundle install"],
-        "test_cmd": [
-            "bundle exec ruby test/config/test_system_config.rb -v -n '/rotate_age/'"
-        ],
+        "test_cmd": ["bundle exec ruby test/config/test_system_config.rb -v -n '/rotate_age/'"],
     },
     "4655": {
         "docker_specs": {"ruby_version": "3.3"},
@@ -107,16 +97,12 @@ SPECS_FLUENTD = {
     "3616": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["bundle install"],
-        "test_cmd": [
-            "bundle exec ruby test/plugin/test_in_http.rb -v -n '/test_application/'"
-        ],
+        "test_cmd": ["bundle exec ruby test/plugin/test_in_http.rb -v -n '/test_application/'"],
     },
     "3631": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["bundle install"],
-        "test_cmd": [
-            "bundle exec ruby test/test_event_router.rb -v -n '/handle_emits_error/'"
-        ],
+        "test_cmd": ["bundle exec ruby test/test_event_router.rb -v -n '/handle_emits_error/'"],
     },
     "3466": {
         "docker_specs": {"ruby_version": "3.3"},
@@ -214,9 +200,7 @@ SPECS_FAKER = {
     "2970": {
         "docker_specs": {"ruby_version": "3.3"},
         "install": ["bundle install"],
-        "test_cmd": [
-            "bundle exec ruby test/faker/default/test_faker_internet.rb -v -n '/email/'"
-        ],
+        "test_cmd": ["bundle exec ruby test/faker/default/test_faker_internet.rb -v -n '/email/'"],
     },
     "2705": {
         "docker_specs": {"ruby_version": "3.3"},

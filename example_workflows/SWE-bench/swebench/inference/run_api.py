@@ -104,9 +104,7 @@ def calc_cost(model_name, input_tokens, output_tokens):
         MODEL_COST_PER_INPUT[model_name] * input_tokens
         + MODEL_COST_PER_OUTPUT[model_name] * output_tokens
     )
-    logger.info(
-        f"input_tokens={input_tokens}, output_tokens={output_tokens}, cost={cost:.2f}"
-    )
+    logger.info(f"input_tokens={input_tokens}, output_tokens={output_tokens}, cost={cost:.2f}")
     return cost
 
 
@@ -243,9 +241,7 @@ def openai_inference(
 
 
 @retry(wait=wait_random_exponential(min=60, max=600), stop=stop_after_attempt(6))
-def call_anthropic(
-    inputs, anthropic, model_name_or_path, temperature, top_p, **model_args
-):
+def call_anthropic(inputs, anthropic, model_name_or_path, temperature, top_p, **model_args):
     """
     Calls the anthropic API to generate completions for the given inputs.
 
@@ -280,9 +276,7 @@ def call_anthropic(
 
 
 @retry(wait=wait_random_exponential(min=60, max=600), stop=stop_after_attempt(6))
-def call_anthropic_v2(
-    inputs, anthropic, model_name_or_path, temperature, top_p, **model_args
-):
+def call_anthropic_v2(inputs, anthropic, model_name_or_path, temperature, top_p, **model_args):
     """
     Calls the anthropic API to generate completions for the given inputs.
 
@@ -347,8 +341,7 @@ def anthropic_inference(
     print(f"Using Anthropic key {'*' * max(0, len(api_key) - 5) + api_key[-5:]}")
     anthropic = Anthropic(api_key=api_key)
     test_dataset = test_dataset.filter(
-        lambda x: claude_tokenize(x["text"], anthropic)
-        <= MODEL_LIMITS[model_name_or_path],
+        lambda x: claude_tokenize(x["text"], anthropic) <= MODEL_LIMITS[model_name_or_path],
         desc="Filtering",
         load_from_cache_file=False,
     )
@@ -374,9 +367,7 @@ def anthropic_inference(
             if "claude-3" in model_name_or_path.lower():
                 output_dict["text_inputs"] = f"{datum['text']}\n"
             else:
-                output_dict["text_inputs"] = (
-                    f"{HUMAN_PROMPT} {datum['text']}\n\n{AI_PROMPT}"
-                )
+                output_dict["text_inputs"] = f"{HUMAN_PROMPT} {datum['text']}\n\n{AI_PROMPT}"
             try:
                 completion, cost = call_api(
                     output_dict["text_inputs"],
@@ -450,9 +441,7 @@ def main(
     max_cost,
 ):
     if shard_id is None and num_shards is not None:
-        logger.warning(
-            f"Received num_shards={num_shards} but shard_id is None, ignoring"
-        )
+        logger.warning(f"Received num_shards={num_shards} but shard_id is None, ignoring")
     if shard_id is not None and num_shards is None:
         logger.warning(f"Received shard_id={shard_id} but num_shards is None, ignoring")
     model_args = parse_model_args(model_args)

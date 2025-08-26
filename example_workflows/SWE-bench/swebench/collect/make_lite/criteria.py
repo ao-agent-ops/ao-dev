@@ -27,9 +27,7 @@ def contains_hyperlinks(text: str, repo: str = None) -> bool:
         repo_prefix = f"http://github.com/{repo}"
         pattern_repo = re.escape(repo_prefix)
         # Adding a negative lookahead assertion to ensure URLs starting with the repository prefix are excluded
-        pattern_urls = r"(?:https?://(?!{}).+)|(?:www\.(?!{}).+)".format(
-            pattern_repo, pattern_repo
-        )
+        pattern_urls = r"(?:https?://(?!{}).+)|(?:www\.(?!{}).+)".format(pattern_repo, pattern_repo)
     else:
         pattern_urls = r"https?://(?:www\.)?\S+"
 
