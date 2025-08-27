@@ -35,9 +35,7 @@ def create_instance(repo: Repo, pull: dict) -> dict:
     return {
         "repo": repo.repo.full_name,
         "pull_number": pull["number"],
-        "instance_id": (repo.repo.full_name + "-" + str(pull["number"])).replace(
-            "/", "__"
-        ),
+        "instance_id": (repo.repo.full_name + "-" + str(pull["number"])).replace("/", "__"),
         "issue_numbers": pull["resolved_issues"],
         "base_commit": pull["base"]["sha"],
         "patch": patch,
@@ -125,18 +123,16 @@ def main(pr_file: str, output: str, token: Optional[str] = None):
             for line in f:
                 pr = json.loads(line)
                 if "instance_id" not in pr:
-                    pr["instance_id"] = (
-                        pr["repo"] + "-" + str(pr["pull_number"])
-                    ).replace("/", "__")
+                    pr["instance_id"] = (pr["repo"] + "-" + str(pr["pull_number"])).replace(
+                        "/", "__"
+                    )
                 instance_id = pr["instance_id"]
                 seen_prs.add(instance_id)
                 if is_valid_instance(pr):
                     completed += 1
                     if has_test_patch(pr):
                         with_tests += 1
-    logger.info(
-        f"Will skip {len(seen_prs)} pull requests that have already been inspected"
-    )
+    logger.info(f"Will skip {len(seen_prs)} pull requests that have already been inspected")
 
     # Write to .all file for all PRs
     write_mode_all = "w" if not os.path.exists(all_output) else "a"
@@ -153,9 +149,7 @@ def main(pr_file: str, output: str, token: Optional[str] = None):
                         f"{completed} valid, {with_tests} with tests."
                     )
                 # Construct instance fields
-                instance_id = (
-                    pull["base"]["repo"]["full_name"] + "-" + str(pull["number"])
-                )
+                instance_id = pull["base"]["repo"]["full_name"] + "-" + str(pull["number"])
                 instance_id = instance_id.replace("/", "__")
                 if instance_id in seen_prs:
                     seen_prs -= {instance_id}

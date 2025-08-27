@@ -265,9 +265,7 @@ SPECS_BABEL = {
     },
     "15445": {
         "docker_specs": {"node_version": "20", "_variant": "js_2"},
-        "test_cmd": [
-            'yarn jest packages/babel-generator/test/index.js -t "generation " --verbose'
-        ],
+        "test_cmd": ['yarn jest packages/babel-generator/test/index.js -t "generation " --verbose'],
         "install": ["make bootstrap"],
         "build": ["make build"],
     },
@@ -390,9 +388,7 @@ SPECS_THREEJS = {
     "25687": {
         "docker_specs": {"node_version": "20", "_variant": "js_2"},
         "install": ["npm install --ignore-scripts"],
-        "test_cmd": [
-            'npx qunit test/unit/src/core/Object3D.tests.js -f "/json|clone|copy/i"'
-        ],
+        "test_cmd": ['npx qunit test/unit/src/core/Object3D.tests.js -f "/json|clone|copy/i"'],
     },
 }
 
@@ -535,9 +531,7 @@ SPECS_AXIOS = {
         "docker_specs": {"node_version": "20", "_variant": "js_2"},
         "install": ["npm install"],
         # Tests get stuck for some reason, so we run them with a timeout
-        "test_cmd": [
-            "timeout 10s npx mocha -R tap test/unit/adapters/http.js -g 'timeout'"
-        ],
+        "test_cmd": ["timeout 10s npx mocha -R tap test/unit/adapters/http.js -g 'timeout'"],
     },
     "4731": {
         "docker_specs": {"node_version": "20", "_variant": "js_2"},

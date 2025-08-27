@@ -1,5 +1,6 @@
 from openai import OpenAI
 import os
+
 try:
     from secret_key import OPENAI_API_KEY
 except:

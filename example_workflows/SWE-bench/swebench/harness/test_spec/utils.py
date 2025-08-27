@@ -10,18 +10,14 @@ from swebench.harness.utils import get_modified_files
 
 
 def get_test_cmds(instance) -> list:
-    test_cmd = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]][
-        "test_cmd"
-    ]
+    test_cmd = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]]["test_cmd"]
     return [test_cmd] if isinstance(test_cmd, str) else test_cmd
 
 
 # MARK: Script Creation Functions
 
 
-def make_repo_script_list_common(
-    specs, repo, repo_directory, base_commit, env_name
-) -> list:
+def make_repo_script_list_common(specs, repo, repo_directory, base_commit, env_name) -> list:
     """
     Create a list of bash commands to set up the repository for testing.
     This is the setup script for the instance image.
@@ -74,7 +70,9 @@ def make_eval_script_list_common(
     if "build" in specs:
         build_commands.extend(specs["build"])
 
-    apply_test_patch_command = f"git apply --verbose --reject - <<'{HEREDOC_DELIMITER}'\n{test_patch}\n{HEREDOC_DELIMITER}"
+    apply_test_patch_command = (
+        f"git apply --verbose --reject - <<'{HEREDOC_DELIMITER}'\n{test_patch}\n{HEREDOC_DELIMITER}"
+    )
     test_commands = get_test_cmds(instance)
     eval_commands = [
         f"cd {repo_directory}",

@@ -53,9 +53,7 @@ async def exec(command: str) -> int:
                 )
                 last_refill = current_time
 
-                chunk_size = min(
-                    len(remaining_data), STDIO_RATE_LIMIT_BYTES_PER_SEC, int(tokens)
-                )
+                chunk_size = min(len(remaining_data), STDIO_RATE_LIMIT_BYTES_PER_SEC, int(tokens))
 
                 if chunk_size == 0:
                     sleep_time = max(
@@ -72,9 +70,7 @@ async def exec(command: str) -> int:
                 # This is to avoid partial characters being written to
                 # container stdout/stderr, which results in a very small
                 # chance of errors of the form: "Error reading stream: 'utf-8' codec can't decode bytes in position ..."
-                valid_bytes = len(
-                    buffer.decode("utf-8", errors="ignore").encode("utf-8")
-                )
+                valid_bytes = len(buffer.decode("utf-8", errors="ignore").encode("utf-8"))
 
                 if valid_bytes > 0:
                     chunk = buffer[:valid_bytes]
@@ -114,9 +110,7 @@ async def main(command: str):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Execute a shell command and stream output"
-    )
+    parser = argparse.ArgumentParser(description="Execute a shell command and stream output")
     parser.add_argument("command", type=str, help="The shell command to execute")
     args = parser.parse_args()
 

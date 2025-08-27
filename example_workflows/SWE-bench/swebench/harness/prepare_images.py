@@ -81,9 +81,7 @@ def main(
 
     # Filter out instances that were not specified
     dataset = load_swebench_dataset(dataset_name, split)
-    dataset = filter_dataset_to_build(
-        dataset, instance_ids, client, force_rebuild, namespace, tag
-    )
+    dataset = filter_dataset_to_build(dataset, instance_ids, client, force_rebuild, namespace, tag)
 
     if len(dataset) == 0:
         print("All images exist. Nothing left to build.")
@@ -123,17 +121,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--force_rebuild", type=str2bool, default=False, help="Force rebuild images"
     )
-    parser.add_argument(
-        "--open_file_limit", type=int, default=8192, help="Open file limit"
-    )
+    parser.add_argument("--open_file_limit", type=int, default=8192, help="Open file limit")
     parser.add_argument(
         "--namespace",
         type=optional_str,
         default=None,
         help="Namespace to use for the images (default: None)",
     )
-    parser.add_argument(
-        "--tag", type=str, default=None, help="Tag to use for the images"
-    )
+    parser.add_argument("--tag", type=str, default=None, help="Tag to use for the images")
     args = parser.parse_args()
     main(**vars(args))

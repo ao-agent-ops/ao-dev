@@ -129,9 +129,7 @@ def make_run_report(
             }
         )
     report_file = Path(
-        list(predictions.values())[0][KEY_MODEL].replace("/", "__")
-        + f".{run_id}"
-        + ".json"
+        list(predictions.values())[0][KEY_MODEL].replace("/", "__") + f".{run_id}" + ".json"
     )
     with open(report_file, "w") as f:
         print(json.dumps(report, indent=4), file=f)

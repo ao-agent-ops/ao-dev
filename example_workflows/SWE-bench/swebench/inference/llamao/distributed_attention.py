@@ -14,18 +14,14 @@ import torch.distributed as dist
 
 class SeqAllToAll(torch.autograd.Function):
     @staticmethod
-    def forward(
-        ctx: Any, input: Tensor, scatter_idx: int, gather_idx: int, group: Any
-    ) -> Tensor:
+    def forward(ctx: Any, input: Tensor, scatter_idx: int, gather_idx: int, group: Any) -> Tensor:
         ctx.scatter_idx = scatter_idx
         ctx.gather_idx = gather_idx
         ctx.group = group
 
         world_size = dist.get_world_size(group)
 
-        input_list = [
-            t.contiguous() for t in torch.tensor_split(input, world_size, scatter_idx)
-        ]
+        input_list = [t.contiguous() for t in torch.tensor_split(input, world_size, scatter_idx)]
         output_list = [torch.empty_like(input_list[0]) for _ in range(world_size)]
 
         dist.all_to_all(output_list, input_list, group=group)
@@ -61,9 +57,7 @@ class DistributedAttention(torch.nn.Module):
         self.scatter_idx = scatter_idx  # head axis
         self.gather_idx = gather_idx  # seq axis
 
-    def forward(
-        self, query: Tensor, key_values: Tensor, group: Any = None, **kwargs
-    ) -> Tensor:
+    def forward(self, query: Tensor, key_values: Tensor, group: Any = None, **kwargs) -> Tensor:
         """forward
 
         Arguments:
@@ -77,9 +71,7 @@ class DistributedAttention(torch.nn.Module):
         """
         # in shape : e.g.,  [s/p:h:]
         query_heads = SeqAllToAll.apply(query, self.scatter_idx, self.gather_idx, group)
-        key_values_heads = SeqAllToAll.apply(
-            key_values, self.scatter_idx, self.gather_idx, group
-        )
+        key_values_heads = SeqAllToAll.apply(key_values, self.scatter_idx, self.gather_idx, group)
 
         # out shape : e.g., [s:h/p:]
         output_heads = self.local_attn(query_heads, key_values_heads, **kwargs)

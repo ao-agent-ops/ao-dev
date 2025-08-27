@@ -50,25 +50,16 @@ class TestSpec:
 
     @property
     def setup_env_script(self):
-        return (
-            "\n".join(["#!/bin/bash", "set -euxo pipefail"] + self.env_script_list)
-            + "\n"
-        )
+        return "\n".join(["#!/bin/bash", "set -euxo pipefail"] + self.env_script_list) + "\n"
 
     @property
     def eval_script(self):
-        return (
-            "\n".join(["#!/bin/bash", "set -uxo pipefail"] + self.eval_script_list)
-            + "\n"
-        )
+        return "\n".join(["#!/bin/bash", "set -uxo pipefail"] + self.eval_script_list) + "\n"
         # Don't exit early because we need to revert tests at the end
 
     @property
     def install_repo_script(self):
-        return (
-            "\n".join(["#!/bin/bash", "set -euxo pipefail"] + self.repo_script_list)
-            + "\n"
-        )
+        return "\n".join(["#!/bin/bash", "set -euxo pipefail"] + self.repo_script_list) + "\n"
 
     @property
     def base_image_key(self):
@@ -84,9 +75,7 @@ class TestSpec:
                 :10
             ]  # 10 characters is still likely to be unique given only a few base images will be created
             return f"sweb.base.{MAP_REPO_TO_EXT[self.repo]}.{self.arch}.{val}:{self.base_image_tag}"
-        return (
-            f"sweb.base.{MAP_REPO_TO_EXT[self.repo]}.{self.arch}:{self.base_image_tag}"
-        )
+        return f"sweb.base.{MAP_REPO_TO_EXT[self.repo]}.{self.arch}:{self.base_image_tag}"
 
     @property
     def env_image_key(self):
@@ -209,9 +198,7 @@ def make_test_spec(
     specs = MAP_REPO_VERSION_TO_SPECS[repo][version]
     docker_specs = specs.get("docker_specs", {})
 
-    repo_script_list = make_repo_script_list(
-        specs, repo, repo_directory, base_commit, env_name
-    )
+    repo_script_list = make_repo_script_list(specs, repo, repo_directory, base_commit, env_name)
     env_script_list = make_env_script_list(instance, specs, env_name)
     eval_script_list = make_eval_script_list(
         instance, specs, env_name, repo_directory, base_commit, test_patch

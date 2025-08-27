@@ -26,9 +26,7 @@ def copy_to_container(container: Container, src: Path, dst: Path):
     """
     # Check if destination path is valid
     if os.path.dirname(dst) == "":
-        raise ValueError(
-            f"Destination path parent directory cannot be empty!, dst: {dst}"
-        )
+        raise ValueError(f"Destination path parent directory cannot be empty!, dst: {dst}")
 
     # temporary tar file
     tar_path = src.with_suffix(".tar")
@@ -134,9 +132,7 @@ def cleanup_container(client, container, logger):
             log_info(f"Attempting to stop container {container.name}...")
             container.stop(timeout=15)
     except Exception as e:
-        log_error(
-            f"Failed to stop container {container.name}: {e}. Trying to forcefully kill..."
-        )
+        log_error(f"Failed to stop container {container.name}: {e}. Trying to forcefully kill...")
         try:
             # Get the PID of the container
             container_info = client.api.inspect_container(container_id)
@@ -144,9 +140,7 @@ def cleanup_container(client, container, logger):
 
             # If container PID found, forcefully kill the container
             if pid > 0:
-                log_info(
-                    f"Forcefully killing container {container.name} with PID {pid}..."
-                )
+                log_info(f"Forcefully killing container {container.name} with PID {pid}...")
                 os.kill(pid, signal.SIGKILL)
             else:
                 log_error(f"PID for container {container.name}: {pid} - not killing.")
@@ -166,10 +160,7 @@ def cleanup_container(client, container, logger):
     except Exception as e:
         if raise_error:
             raise e
-        log_error(
-            f"Failed to remove container {container.name}: {e}\n"
-            f"{traceback.format_exc()}"
-        )
+        log_error(f"Failed to remove container {container.name}: {e}\n" f"{traceback.format_exc()}")
 
 
 def exec_run_with_timeout(container, cmd, timeout: int | None = 60):
@@ -263,9 +254,7 @@ def list_images(client: docker.DockerClient):
     return {tag for i in client.images.list(all=True) for tag in i.tags}
 
 
-def clean_images(
-    client: docker.DockerClient, prior_images: set, cache_level: str, clean: bool
-):
+def clean_images(client: docker.DockerClient, prior_images: set, cache_level: str, clean: bool):
     """
     Clean Docker images based on cache level and clean flag.
 

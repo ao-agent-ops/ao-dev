@@ -53,9 +53,7 @@ def get_predictions_from_file(predictions_path: str, dataset_name: str, split: s
         with open(predictions_path, "r") as f:
             predictions = json.load(f)
             if isinstance(predictions, dict):
-                predictions = list(
-                    predictions.values()
-                )  # compatible with SWE-agent predictions
+                predictions = list(predictions.values())  # compatible with SWE-agent predictions
             if not isinstance(predictions, list):
                 raise ValueError(
                     "Predictions must be a list[prediction] or a dictionary[instance_id: prediction]"
@@ -96,9 +94,7 @@ def run_threadpool(func, payloads, max_workers):
                     failed.append(futures[future])
                 # Update progress bar
                 pbar.update(1)
-                pbar.set_description(
-                    f"{len(succeeded)} ran successfully, {len(failed)} failed"
-                )
+                pbar.set_description(f"{len(succeeded)} ran successfully, {len(failed)} failed")
     return succeeded, failed
 
 
@@ -160,11 +156,7 @@ def load_swebench_dataset(
                     f"\nMissing IDs:\n{' '.join(instance_ids - dataset_ids)}"
                 )
             )
-        dataset = [
-            instance
-            for instance in dataset
-            if instance[KEY_INSTANCE_ID] in instance_ids
-        ]
+        dataset = [instance for instance in dataset if instance[KEY_INSTANCE_ID] in instance_ids]
     return [cast(SWEbenchInstance, instance) for instance in dataset]
 
 
@@ -251,9 +243,7 @@ def extract_minimal_patch(model_patch):
             pre_start, pre_len, post_start, post_len, total_delta = get_hunk_stats(
                 pre_start, pre_len, post_start, post_len, content, total_delta
             )
-            new_patch += (
-                f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
-            )
+            new_patch += f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
     return new_patch
 
 

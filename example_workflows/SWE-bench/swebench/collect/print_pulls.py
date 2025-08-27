@@ -63,21 +63,23 @@ def log_single_pull(
         output (str): output file name
     """
     logger.info(f"Fetching PR #{pull_number} from {repo.owner}/{repo.name}")
-    
+
     # Get the pull request using the GitHub API
-    pull = repo.call_api(repo.api.pulls.get, owner=repo.owner, repo=repo.name, pull_number=pull_number)
-    
+    pull = repo.call_api(
+        repo.api.pulls.get, owner=repo.owner, repo=repo.name, pull_number=pull_number
+    )
+
     if pull is None:
         logger.error(f"PR #{pull_number} not found in {repo.owner}/{repo.name}")
         return
-    
+
     # Extract resolved issues
     setattr(pull, "resolved_issues", repo.extract_resolved_issues(pull))
-    
+
     # Log the pull request to a file
     with open(output, "w") as file:
         print(json.dumps(obj2dict(pull)), end="\n", flush=True, file=file)
-    
+
     logger.info(f"PR #{pull_number} saved to {output}")
     logger.info(f"Resolved issues: {pull.resolved_issues}")
 
@@ -105,7 +107,7 @@ def main(
         token = os.environ.get("GITHUB_TOKEN")
     owner, repo = repo_name.split("/")
     repo = Repo(owner, repo, token=token)
-    
+
     if pull_number is not None:
         log_single_pull(repo, pull_number, output)
     else:

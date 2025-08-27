@@ -466,13 +466,13 @@ class TaintInt(int):
 
     # Conversion and index
     def __int__(self):
-        return int(self)
+        return super().__int__()
 
     def __float__(self):
-        return float(self)
+        return super().__float__()
 
     def __index__(self):
-        return int(self)
+        return super().__index__()
 
     # Comparison operators (return bool)
     def __eq__(self, other):
@@ -590,13 +590,13 @@ class TaintFloat(float):
 
     # Conversion and index
     def __int__(self):
-        return int(self)
+        return super().__int__()
 
     def __float__(self):
-        return float(self)
+        return super().__float__()
 
     def __index__(self):
-        return int(self)
+        return super().__index__()
 
     # Comparison operators (return bool)
     def __eq__(self, other):
@@ -871,6 +871,39 @@ class TaintedOpenAIObject:
         self._wrapped.__class__ = value
 
 
+class TaintedCallable:
+    """
+    Wrapper for callable objects (methods, functions) that taints their return values.
+    """
+
+    def __init__(self, wrapped, taint_origin=None):
+        self._wrapped = wrapped
+        if taint_origin is None:
+            self._taint_origin = []
+        elif isinstance(taint_origin, (int, str)):
+            self._taint_origin = [taint_origin]
+        elif isinstance(taint_origin, list):
+            self._taint_origin = list(taint_origin)
+        else:
+            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+
+    def __call__(self, *args, **kwargs):
+        # Call the original callable
+        result = self._wrapped(*args, **kwargs)
+        # Taint the result
+        return taint_wrap(result, taint_origin=self._taint_origin)
+
+    def __getattr__(self, name):
+        # Delegate attribute access to the wrapped callable
+        return getattr(self._wrapped, name)
+
+    def __repr__(self):
+        return f"TaintedCallable({repr(self._wrapped)}, taint_origin={self._taint_origin})"
+
+    def get_raw(self):
+        return self._wrapped
+
+
 # Helper to detect OpenAI SDK objects (Response, Assistant, etc.)
 def is_openai_sdk_object(obj):
     cls = obj.__class__
@@ -907,6 +940,8 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
             [taint_wrap(x, taint_origin=taint_origin, _seen=_seen) for x in obj],
             taint_origin=taint_origin,
         )
+    if callable(obj) and not isinstance(obj, type):
+        return TaintedCallable(obj, taint_origin=taint_origin)
     if hasattr(obj, "__dict__") and not isinstance(obj, type):
         for attr in list(vars(obj)):
             try:

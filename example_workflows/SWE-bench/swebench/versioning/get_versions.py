@@ -155,15 +155,9 @@ def get_versions_from_build(data: dict):
 
     for instance in data_tasks[::-1]:
         # Reset repo to base commit
-        subprocess.run(
-            "git restore .", check=True, shell=True, stdout=subprocess.DEVNULL
-        )
-        subprocess.run(
-            "git reset HEAD .", check=True, shell=True, stdout=subprocess.DEVNULL
-        )
-        subprocess.run(
-            "git clean -fd", shell=True, check=True, stdout=subprocess.DEVNULL
-        )
+        subprocess.run("git restore .", check=True, shell=True, stdout=subprocess.DEVNULL)
+        subprocess.run("git reset HEAD .", check=True, shell=True, stdout=subprocess.DEVNULL)
+        subprocess.run("git clean -fd", shell=True, check=True, stdout=subprocess.DEVNULL)
         out_check = subprocess.run(
             f"git -c advice.detachedHead=false checkout {instance['base_commit']}",
             shell=True,
@@ -243,9 +237,7 @@ def merge_results(instances_path: str, repo_prefix: str, output_dir: str = None)
         instances_path_new = os.path.join(output_dir, instances_path_new)
     with open(f"{instances_path_new}", "w") as f:
         json.dump(merged, fp=f)
-    logger.info(
-        f"Saved merged results to {instances_path_new} ({len(merged)} instances)"
-    )
+    logger.info(f"Saved merged results to {instances_path_new} ({len(merged)} instances)")
     return len(merged)
 
 
@@ -258,9 +250,7 @@ def main(args):
     data_task_lists = split_instances(data_tasks, args.num_workers)
     repo_prefix = data_tasks[0]["repo"].replace("/", "__")
 
-    logger.info(
-        f"Getting versions for {len(data_tasks)} instances for {data_tasks[0]['repo']}"
-    )
+    logger.info(f"Getting versions for {len(data_tasks)} instances for {data_tasks[0]['repo']}")
     logger.info(
         f"Split instances into {len(data_task_lists)} groups with lengths {[len(x) for x in data_task_lists]}"
     )
@@ -275,12 +265,14 @@ def main(args):
             [
                 {
                     "data_tasks": data_task_list,
-                    "save_path": f"{repo_prefix}_versions_{i}.json"
-                    if args.retrieval_method == "github"
-                    else f"{repo_prefix}_versions_{i}_web.json",
-                    "not_found_list": shared_result_list
-                    if args.retrieval_method == "mix"
-                    else None,
+                    "save_path": (
+                        f"{repo_prefix}_versions_{i}.json"
+                        if args.retrieval_method == "github"
+                        else f"{repo_prefix}_versions_{i}_web.json"
+                    ),
+                    "not_found_list": (
+                        shared_result_list if args.retrieval_method == "mix" else None
+                    ),
                 }
                 for i, data_task_list in enumerate(data_task_lists)
             ],
@@ -315,12 +307,8 @@ def main(args):
         # Clone git repo per thread
         testbed_repo_name = f"{repo_prefix}__{x}"
         if not os.path.exists(testbed_repo_name):
-            logger.info(
-                f"Creating clone of {data_tasks[0]['repo']} at {testbed_repo_name}"
-            )
-            cmd_clone = (
-                f"git clone git@github.com:swe-bench/{repo_prefix} {testbed_repo_name}"
-            )
+            logger.info(f"Creating clone of {data_tasks[0]['repo']} at {testbed_repo_name}")
+            cmd_clone = f"git clone git@github.com:swe-bench/{repo_prefix} {testbed_repo_name}"
             subprocess.run(cmd_clone, shell=True, check=True, stdout=subprocess.DEVNULL)
         else:
             logger.info(
@@ -330,14 +318,12 @@ def main(args):
         conda_env_name = f"{args.conda_env}_clone_{x}"
         if not os.path.exists(os.path.join(args.path_conda, "envs", conda_env_name)):
             logger.info(f"Creating clone of {args.conda_env} at {conda_env_name}")
-            cmd_clone_env = f"{conda_exec} create --name {conda_env_name} --clone {args.conda_env} -y"
-            subprocess.run(
-                cmd_clone_env, shell=True, check=True, stdout=subprocess.DEVNULL
+            cmd_clone_env = (
+                f"{conda_exec} create --name {conda_env_name} --clone {args.conda_env} -y"
             )
+            subprocess.run(cmd_clone_env, shell=True, check=True, stdout=subprocess.DEVNULL)
         else:
-            logger.info(
-                f"Conda clone for thread {x} exists: {conda_env_name}; skipping..."
-            )
+            logger.info(f"Conda clone for thread {x} exists: {conda_env_name}; skipping...")
     os.chdir(cwd)
 
     # Create pool tasks
@@ -364,13 +350,10 @@ def main(args):
     if args.retrieval_method == "mix":
         assert (
             len(data_tasks)
-            == merge_results(args.instances_path, repo_prefix, args.output_dir)
-            + total_web
+            == merge_results(args.instances_path, repo_prefix, args.output_dir) + total_web
         )
     elif args.retrieval_method == "build":
-        assert len(data_tasks) == merge_results(
-            args.instances_path, repo_prefix, args.output_dir
-        )
+        assert len(data_tasks) == merge_results(args.instances_path, repo_prefix, args.output_dir)
 
     # Remove testbed repo and conda environments
     if args.cleanup:
@@ -382,9 +365,7 @@ def main(args):
             subprocess.run(f"rm -rf {testbed_repo_name}", shell=True, check=True)
 
             # Remove conda environment
-            cmd_rm_env = (
-                f"{conda_exec} remove --name {args.conda_env}_clone_{x} --all -y"
-            )
+            cmd_rm_env = f"{conda_exec} remove --name {args.conda_env}_clone_{x} --all -y"
             subprocess.run(cmd_rm_env, shell=True, check=True)
         os.chdir(cwd)
 
@@ -410,18 +391,10 @@ if __name__ == "__main__":
         action="store_true",
         help="Remove testbed repo and conda environments",
     )
-    parser.add_argument(
-        "--conda_env", type=str, default=None, help="Conda environment to use"
-    )
+    parser.add_argument("--conda_env", type=str, default=None, help="Conda environment to use")
     parser.add_argument("--path_conda", type=str, default=None, help="Path to conda")
-    parser.add_argument(
-        "--num_workers", type=int, default=1, help="Number of threads to use"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, default=None, help="Path to save results"
-    )
-    parser.add_argument(
-        "--testbed", type=str, default=None, help="Path to testbed repo"
-    )
+    parser.add_argument("--num_workers", type=int, default=1, help="Number of threads to use")
+    parser.add_argument("--output_dir", type=str, default=None, help="Path to save results")
+    parser.add_argument("--testbed", type=str, default=None, help="Path to testbed repo")
     args = parser.parse_args()
     main(args)

@@ -48,9 +48,7 @@ if __name__ == "__main__":
         help="Path to predictions file",
     )
     args = parser.parse_args()
-    instance_ids = (
-        [i.strip() for i in args.instance_ids.split(",")] if args.instance_ids else []
-    )
+    instance_ids = [i.strip() for i in args.instance_ids.split(",")] if args.instance_ids else []
     main(
         instance_ids=instance_ids,
         predictions_path=args.predictions_path,
