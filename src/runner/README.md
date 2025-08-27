@@ -89,8 +89,33 @@ TODO: We need CI/CD tests that detect API changes. Can simply be if API changed 
 
 ### Writing a monkey patch
 
-First look at `patch_openai_responses_create` in `monkey_patches/openai_patches.py` to understand how a patch looks like. Also check how patches are applied inside the `__init__` of a client, and how the client-level patch functions are registered in `apply_monkey_patches.py`. Then, writing a patch involves two steps:
+First look at `patch_openai_responses_create` in `monkey_patches/openai_patches.py` to understand how a patch looks like. Also check how patches are applied inside the `__init__` of a client. For many patches, you can use our patching agent (`_dev_patch.py`). Run it from this folder as it contains hardcoded the prompts contain relative paths.
 
-1. Write the patch function and apply it in the client-level patch function (client `__init__`). If your patching a new client, you need to create the `__init__` patch function and register it in `apply_monkey_patches.py`.
+1. Before patching the function, you must specify which file the patch should be written to. You might need to create a new file for this. 
 
-2. Go to `runner/api_parser.py` and implement the five functions there: setting the input/output string, getting the input/output string, getting model name.
+2. The patch needs to be installed inside a client `__init__`. If you're writing the first patch for a client, you need to write a patch for the client `__init__`:
+   
+```python
+def openai_patch():
+    try:
+        from openai import OpenAI
+    except ImportError:
+        logger.info("OpenAI not installed, skipping OpenAI patches")
+        return
+
+    def create_patched_init(original_init):
+
+        @wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+
+        return patched_init
+
+    OpenAI.__init__ = create_patched_init(OpenAI.__init__)
+```
+
+You then need to register this patching function in `apply_monkey_patches.py`. Many times this
+
+3. Set up the agent by following the instructions in `_dev_patch.py`.
+
+4. `python _dev_patch.py`

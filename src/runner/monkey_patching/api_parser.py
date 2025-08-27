@@ -1,6 +1,5 @@
 import os
 from typing import Any, Dict, List, Tuple
-import dill
 
 """
 TODO: Should add some fallbacks for robustness ...
@@ -17,27 +16,27 @@ except:
 # ===============================================
 
 
-def _get_input_openai_chat_completions_create(input_dict: Dict[str, Any]) -> Tuple[str, List]:
-    """Extract input text and attachments from OpenAI chat completions input."""
+def _get_input_openai_chat_completions_create(
+    input_dict: Dict[str, Any],
+) -> Tuple[str, List[str], List[str]]:
+    """Extract input text, attachments, and tools from OpenAI chat completions input."""
     messages = input_dict.get("messages", [])
     if not messages:
-        return "", []
+        return str(input_dict), [], []
 
     # Get the last user message as the primary input
     last_message = messages[-1]
     content = last_message.get("content", "")
 
     # For now, no attachment support in chat completions
-    return content, []
+    return content, [], []
 
 
 def _set_input_openai_chat_completions_create(
-    input_dict: Dict[str, Any], new_input_text: bytes
-) -> Dict[str, Any]:
+    oritinal_input_dict: Dict[str, Any], new_input_text: bytes
+) -> None:
     """Set new input text in OpenAI chat completions input."""
-    new_input_string = dill.loads(new_input_text)["input"]
-    input_dict["messages"][-1]["content"] = new_input_string
-    return input_dict
+    oritinal_input_dict["messages"][-1]["content"] = new_input_text
 
 
 def _get_output_openai_chat_completions_create(response_obj: Any) -> str:
@@ -46,19 +45,15 @@ def _get_output_openai_chat_completions_create(response_obj: Any) -> str:
         choice = response_obj.choices[0]
         if hasattr(choice, "message") and hasattr(choice.message, "content"):
             return choice.message.content or ""
-    return ""
+    return str(response_obj)
 
 
-def _set_output_openai_chat_completions_create(
-    prev_output_pickle: bytes, output_text: str
-) -> bytes:
+def _set_output_openai_chat_completions_create(original_output_obj: Any, output_text: str) -> None:
     """Set new output text in OpenAI chat completions response."""
-    response_obj = dill.loads(prev_output_pickle)
-    if hasattr(response_obj, "choices") and response_obj.choices:
-        choice = response_obj.choices[0]
+    if hasattr(original_output_obj, "choices") and original_output_obj.choices:
+        choice = original_output_obj.choices[0]
         if hasattr(choice, "message"):
             choice.message.content = output_text
-    return dill.dumps(response_obj)
 
 
 def _get_model_openai_chat_completions_create(input_dict: Dict[str, Any]) -> str:
@@ -66,95 +61,79 @@ def _get_model_openai_chat_completions_create(input_dict: Dict[str, Any]) -> str
     return input_dict.get("model", "unknown")
 
 
-def _cache_format_openai_chat_completions_create(input_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Format OpenAI chat completions input for caching."""
-    input_text, attachments = _get_input_openai_chat_completions_create(input_dict)
-    model_str = _get_model_openai_chat_completions_create(input_dict)
-    return {
-        "input": input_text,
-        "model": model_str,
-        "attachments": attachments if attachments else None,
-    }
-
-
 # ===============================================
 # OpenAI.responses.create
 # ===============================================
 
 
-def _get_input_openai_responses_create(input_dict: Dict[str, Any]) -> Tuple[str, None]:
+def _get_input_openai_responses_create(
+    input_dict: Dict[str, Any],
+) -> Tuple[str, List[str], List[str]]:
+    """Extract input text, attachments, and tools from OpenAI responses create input."""
     input_data = input_dict.get("input", [])
+
+    # Extract tools from the input_dict
+    tools = input_dict.get("tools", [])
+    tool_names = []
+
+    if isinstance(tools, list):
+        for tool in tools:
+            if isinstance(tool, dict):
+                tool_names.append(tool.get("name", "unknown_tool"))
+            elif hasattr(tool, "name"):
+                tool_names.append(tool.name)
+            else:
+                tool_names.append(str(tool))
+        tool_names = sorted(tool_names)  # Sort for consistent cache keys
+    else:
+        tool_names = []
+
     if not input_data:
-        return "", None
+        return str(input_data), [], tool_names
 
     # Handle different input formats
     if isinstance(input_data, list):
         # Find the first user message and return only that
         for item in input_data:
             if isinstance(item, dict) and item.get("role") == "user" and "content" in item:
-                return str(item["content"]), None
+                return str(item["content"]), [], tool_names
 
         # Fallback: if no user message found, try to extract any content
         for item in input_data:
             if isinstance(item, dict) and "content" in item:
-                return str(item["content"]), None
+                return str(item["content"]), [], tool_names
 
         # Last resort: return first item as string
         if input_data:
-            return str(input_data[0]), None
-        return "", None
+            return str(input_data[0]), [], tool_names
+        return str(input_data), [], tool_names
     else:
-        return str(input_data), None
+        return str(input_data), [], tool_names
 
 
 def _set_input_openai_responses_create(
-    input_dict: Dict[str, Any], new_input_text: bytes
-) -> Dict[str, Any]:
-    new_input_string = dill.loads(new_input_text)["input"]
-    input_dict["input"] = new_input_string
-    return input_dict
+    original_input_dict: Dict[str, Any], new_input_text: str
+) -> None:
+    original_input_dict["input"] = new_input_text
 
 
-def _get_output_openai_responses_create(response_obj: Any):
+def _get_output_openai_responses_create(response_obj: Any) -> str:
     last_output = response_obj.output[-1]
     if hasattr(last_output, "name"):
         # ResponseFunctionToolCall
         return last_output.name
     else:
         # ResponseOutputMessage
-        return last_output.content[-1].text
+        output_text = last_output.content[-1].text
+        return output_text
 
 
-def _set_output_openai_responses_create(prev_output_pickle: bytes, output_text: str) -> bytes:
-    response_obj = dill.loads(prev_output_pickle)
-    response_obj.output[-1].content[-1].text = output_text
-    return dill.dumps(response_obj)
+def _set_output_openai_responses_create(original_output_obj: Any, output_text: str) -> None:
+    original_output_obj.output[-1].content[-1].text = output_text
 
 
 def _get_model_openai_responses_create(input_dict: Dict[str, Any]) -> str:
     return input_dict.get("model", "unknown")
-
-
-def _cache_format_openai_responses_create(input_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Format OpenAI responses create input for caching."""
-    input_text, attachments = _get_input_openai_responses_create(input_dict)
-    model_str = _get_model_openai_responses_create(input_dict)
-
-    # Include tools in cache key to differentiate between different agent contexts
-    tools = input_dict.get("tools", [])
-    # Convert tools to a simplified representation for consistent caching
-    tools_key = []
-    if tools:
-        for tool in tools:
-            if isinstance(tool, dict) and "name" in tool:
-                tools_key.append(tool["name"])
-
-    return {
-        "input": input_text,
-        "model": model_str,
-        "tools": sorted(tools_key) if tools_key else None,
-        "attachments": attachments if attachments else None,
-    }
 
 
 # ===============================================
@@ -162,51 +141,64 @@ def _cache_format_openai_responses_create(input_dict: Dict[str, Any]) -> Dict[st
 # ===============================================
 
 
-def _cache_format_openai_beta_threads_create(input_dict: Dict[str, Any]) -> Dict[str, Any]:
-    if isinstance(input_dict, dict):
-        # For thread create, the input is a dict.
-        message = input_dict["messages"][0]["content"]
-        attachments = input_dict["messages"][0]["attachments"]
-    else:
-        # For create_and_poll, the input is an object.
-        message = input_dict.content[0].text.value
-        attachments = input_dict.attachments
+def _get_input_openai_beta_threads_create_and_poll(
+    input_obj: Any,
+) -> Tuple[str, List[str], List[str]]:
+    from server.cache_manager import CACHE
 
-    result = {"messages": message}  # "attachments": attachments --- needs to be path, not OAI id.
-    return result
+    # Get paths to cached attachments.
+    message = input_obj.content[-1].text.value
+    attachments = [attachment.file_id for attachment in input_obj.attachments]
+    attachments = CACHE.attachment_ids_to_paths(attachments)
+    # Convert into format [(name, path), ...]
+    attachments = [[os.path.basename(path), path] for path in attachments]
+    return message, attachments, []
 
 
 def _get_input_openai_beta_threads_create(
     input_dict: Dict[str, Any],
-) -> Tuple[str, List[List[str]]]:
+) -> Tuple[str, List[str], List[str]]:
     from server.cache_manager import CACHE
 
     # Get paths to cached attachments.
-    message = input_dict.content[0].text.value
-    attachments = [attachment.file_id for attachment in input_dict.attachments]
+    message = input_dict["messages"][-1]
+    prompt = message["content"]
+    attachments = []
+    if "attachments" in message:
+        attachments = [attachment["file_id"] for attachment in message["attachments"]]
     attachments = CACHE.attachment_ids_to_paths(attachments)
     # Convert into format [(name, path), ...]
     attachments = [[os.path.basename(path), path] for path in attachments]
-    return message, attachments
+    return prompt, attachments, []
 
 
-def _set_input_openai_beta_threads_create(
-    input_dict: Dict[str, Any], new_input_text: bytes
-) -> Dict[str, Any]:
+def _set_input_openai_beta_threads_create(input_dict: Dict[str, Any], new_input_text: str) -> None:
+    input_dict["messages"][-1]["content"] = new_input_text
+
+
+# TODO
+def _set_output_openai_beta_threads_create(original_output_obj: Any, output_text: str) -> None:
     # We're caching our manually-created dict.
-    # TODO: Changing attachments. Also needs UI support.
-    new_input_string = dill.loads(new_input_text)["input"]
-    input_dict["messages"] = new_input_string
-    return input_dict
+    return {"content": output_text}
 
 
-def _set_output_openai_beta_threads_create(prev_output_pickle: bytes, output_text: str) -> bytes:
-    # We're caching our manually-created dict.
-    cachable_output = {"content": output_text}
-    return dill.dumps(output_text)
+def _set_output_openai_beta_threads_create_and_poll(
+    original_output_obj: Any, output_text: str
+) -> None:
+    """Set new output text in OpenAI beta threads create and poll response."""
+    # For threads create_and_poll, we modify the message content
+    try:
+        if hasattr(original_output_obj, "content") and original_output_obj.content:
+            if hasattr(original_output_obj.content[0], "text") and hasattr(
+                original_output_obj.content[0].text, "value"
+            ):
+                original_output_obj.content[0].text.value = output_text
+    except (IndexError, AttributeError):
+        # If the structure doesn't match expected format, create a simple dict structure
+        pass
 
 
-def _get_output_openai_beta_threads_create(response_obj: Any) -> str:
+def _get_output_openai_beta_threads_create_and_poll(response_obj: Any) -> str:
     """Extract the output string from a Response object or dict."""
     try:
         return response_obj.content[0].text.value
@@ -214,8 +206,12 @@ def _get_output_openai_beta_threads_create(response_obj: Any) -> str:
         return str(response_obj)
 
 
+def _get_model_openai_beta_threads_create_and_poll(input_obj: Any) -> str:
+    return input_obj.model
+
+
 def _get_model_openai_beta_threads_create(input_dict: Dict[str, Any]) -> str:
-    return input_dict.model
+    return "undefined"
 
 
 # ===============================================
@@ -223,7 +219,9 @@ def _get_model_openai_beta_threads_create(input_dict: Dict[str, Any]) -> str:
 # ===============================================
 
 
-def _get_input_anthropic_messages_create(input_dict: Dict[str, Any]) -> Tuple[str, List]:
+def _get_input_anthropic_messages_create(
+    input_dict: Dict[str, Any],
+) -> Tuple[str, List[str], List[str]]:
     messages = input_dict.get("messages", [])
     input_content = None
     attachments_list = []
@@ -250,41 +248,80 @@ def _get_input_anthropic_messages_create(input_dict: Dict[str, Any]) -> Tuple[st
         if input_content is None:
             input_content = str(input_dict)
 
-    return input_content, attachments_list
+    return input_content, attachments_list, []
 
 
-def _set_input_anthropic_messages_create(
-    input_dict: Dict[str, Any], new_input_text: bytes
-) -> Dict[str, Any]:
+def _set_input_anthropic_messages_create(input_dict: Dict[str, Any], new_input_text: str) -> None:
     # TODO: We currently just consider the last input of messages list.
-    new_input_string = dill.loads(new_input_text)["input"]
-    input_dict["messages"][-1]["content"] = new_input_string
-    return input_dict
+    input_dict["messages"][-1]["content"] = new_input_text
 
 
 def _get_output_anthropic_messages_create(response_obj: Any) -> str:
     return response_obj.content[0].text
 
 
-def _set_output_anthropic_messages_create(prev_output_pickle: bytes, output_text: str) -> bytes:
-    response_obj = dill.loads(prev_output_pickle)
-    response_obj.content[-1].text = output_text
-    return dill.dumps(response_obj)
+def _set_output_anthropic_messages_create(original_output_obj: Any, output_text: str) -> None:
+    original_output_obj.content[-1].text = output_text
 
 
 def _get_model_anthropic_messages_create(input_dict: Dict[str, Any]) -> str:
     return input_dict.get("model", "unknown")
 
 
-def _cache_format_anthropic_messages_create(input_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Format Anthropic messages create input for caching."""
-    input_text, attachments = _get_input_anthropic_messages_create(input_dict)
-    model_str = _get_model_anthropic_messages_create(input_dict)
-    return {
-        "input": input_text,
-        "model": model_str,
-        "attachments": attachments if attachments else None,
-    }
+# ===============================================
+# together.resources.chat.completions.ChatCompletions.create
+# ===============================================
+
+
+def _get_input_together_resources_chat_completions_ChatCompletions_create(
+    input_dict: Dict[str, Any],
+) -> Tuple[str, List, List]:
+    """Extract input text, attachments, and tools from Together chat completions input."""
+    messages = input_dict.get("messages", [])
+    if not messages:
+        return str(input_dict), [], []
+
+    # Get the last user message as the primary input
+    last_message = messages[-1]
+    content = last_message.get("content", "")
+
+    # For now, no attachment or tool support in Together chat completions
+    return content, [], []
+
+
+def _set_input_together_resources_chat_completions_ChatCompletions_create(
+    input_dict: Dict[str, Any], new_input_text: str
+) -> None:
+    """Set new input text in Together chat completions input."""
+    input_dict["messages"][-1]["content"] = new_input_text
+
+
+def _get_output_together_resources_chat_completions_ChatCompletions_create(
+    response_obj: Any,
+) -> str:
+    """Extract output text from Together chat completions response."""
+    if hasattr(response_obj, "choices") and response_obj.choices:
+        choice = response_obj.choices[0]
+        if hasattr(choice, "message") and hasattr(choice.message, "content"):
+            return choice.message.content or ""
+    return str(response_obj)
+
+
+def _set_output_together_resources_chat_completions_ChatCompletions_create(
+    original_output_obj: Any, output_text: str
+) -> None:
+    """Set new output text in Together chat completions response."""
+    if hasattr(original_output_obj, "choices") and original_output_obj.choices:
+        choice = original_output_obj.choices[0]
+        if hasattr(choice, "message"):
+            choice.message.content = output_text
+
+
+def _get_model_together_resources_chat_completions_ChatCompletions_create(
+    input_dict: Dict[str, Any],
+) -> str:
+    """Extract model name from Together chat completions input."""
+    return input_dict.get("model", "unknown")
 
 
 # ===============================================
@@ -294,17 +331,15 @@ def _cache_format_anthropic_messages_create(input_dict: Dict[str, Any]) -> Dict[
 
 def _get_input_vertex_client_models_generate_content(
     input_dict: Dict[str, Any],
-) -> Tuple[str, None]:
-    return input_dict["contents"], None  # no attachments
+) -> Tuple[str, List[str], List[str]]:
+    return input_dict["contents"], [], []  # no attachments, no tools
 
 
 def _set_input_vertex_client_models_generate_content(
-    input_dict: Dict[str, Any], new_input_text: bytes
-) -> Dict[str, Any]:
+    input_dict: Dict[str, Any], new_input_text: str
+) -> None:
     # TODO: We currently just consider the case where contents is a string.
-    new_input_string = dill.loads(new_input_text)["input"]
-    input_dict["contents"] = new_input_string
-    return input_dict
+    input_dict["contents"] = new_input_text
 
 
 def _get_output_vertex_client_models_generate_content(response_obj: Any) -> str:
@@ -312,26 +347,24 @@ def _get_output_vertex_client_models_generate_content(response_obj: Any) -> str:
 
 
 def _set_output_vertex_client_models_generate_content(
-    prev_output_pickle: bytes, output_text: str
-) -> bytes:
-    from google.genai.types import GenerateContentResponse
-
-    response_obj = dill.loads(prev_output_pickle)
-    response_dict = response_obj.model_dump()
+    original_output_obj: Any, output_text: str
+) -> None:
+    # Modify the original object in-place, similar to OpenAI and Anthropic patches
     # VertexAI responses typically have candidates with parts containing text
-    if "candidates" in response_dict and isinstance(response_dict["candidates"], list):
-        for candidate in response_dict["candidates"]:
-            if "content" in candidate and "parts" in candidate["content"]:
-                for part in candidate["content"]["parts"]:
-                    if "text" in part:
-                        part["text"] = output_text
-                        break
-                break
+    if hasattr(original_output_obj, "candidates") and original_output_obj.candidates:
+        for candidate in original_output_obj.candidates:
+            if (
+                hasattr(candidate, "content")
+                and hasattr(candidate.content, "parts")
+                and candidate.content.parts
+            ):
+                for part in candidate.content.parts:
+                    if hasattr(part, "text"):
+                        part.text = output_text
+                        return
     # Fallback: if the structure doesn't match expected format, try direct text field
-    elif "text" in response_dict:
-        response_dict["text"] = output_text
-    response_obj = GenerateContentResponse.model_validate(response_dict)
-    return dill.dumps(response_obj)
+    elif hasattr(original_output_obj, "text"):
+        original_output_obj.text = output_text
 
 
 def _get_model_vertex_client_models_generate_content(input_dict: Dict[str, Any]) -> str:
@@ -356,7 +389,8 @@ def _cache_format_vertex_client_models_generate_content(
 # ===============================================
 
 
-def get_input(input_dict: Dict[str, Any], api_type: str) -> str:
+def get_input(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str], List[str]]:
+    """Extract input text, attachments, and tools from API input."""
     if api_type == "OpenAI.chat.completions.create":
         return _get_input_openai_chat_completions_create(input_dict)
     elif api_type == "AsyncOpenAI.chat.completions.create":
@@ -371,37 +405,39 @@ def get_input(input_dict: Dict[str, Any], api_type: str) -> str:
         return _get_input_vertex_client_models_generate_content(input_dict)
     elif api_type == "OpenAI.beta.threads.create":
         return _get_input_openai_beta_threads_create(input_dict)
+    elif api_type == "OpenAI.beta.threads.create_and_poll":
+        return _get_input_openai_beta_threads_create_and_poll(input_dict)
     elif api_type == "together.resources.chat.completions.ChatCompletions.create":
         return _get_input_together_resources_chat_completions_ChatCompletions_create(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 
-def set_input_string(prev_input_pickle: bytes, new_input_text: str, api_type):
+def set_input(input_dict: Dict[str, Any], new_input_text: str, api_type: str) -> None:
     """Returns pickle with changed input text."""
     if api_type == "OpenAI.chat.completions.create":
-        return _set_input_openai_chat_completions_create(prev_input_pickle, new_input_text)
+        return _set_input_openai_chat_completions_create(input_dict, new_input_text)
     elif api_type == "AsyncOpenAI.chat.completions.create":
-        return _set_input_openai_chat_completions_create(prev_input_pickle, new_input_text)
+        return _set_input_openai_chat_completions_create(input_dict, new_input_text)
     elif api_type == "OpenAI.responses.create":
-        return _set_input_openai_responses_create(prev_input_pickle, new_input_text)
+        return _set_input_openai_responses_create(input_dict, new_input_text)
     elif api_type == "AsyncOpenAI.responses.create":
-        return _set_input_openai_responses_create(prev_input_pickle, new_input_text)
+        return _set_input_openai_responses_create(input_dict, new_input_text)
     elif api_type == "Anthropic.messages.create":
-        return _set_input_anthropic_messages_create(prev_input_pickle, new_input_text)
+        return _set_input_anthropic_messages_create(input_dict, new_input_text)
     elif api_type == "vertexai client_models_generate_content":
-        return _set_input_vertex_client_models_generate_content(prev_input_pickle, new_input_text)
+        return _set_input_vertex_client_models_generate_content(input_dict, new_input_text)
     elif api_type == "OpenAI.beta.threads.create":
-        return _set_input_openai_beta_threads_create(prev_input_pickle, new_input_text)
+        return _set_input_openai_beta_threads_create(input_dict, new_input_text)
     elif api_type == "together.resources.chat.completions.ChatCompletions.create":
         return _set_input_together_resources_chat_completions_ChatCompletions_create(
-            prev_input_pickle, new_input_text
+            input_dict, new_input_text
         )
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 
-def get_output_string(response_obj: Any, api_type: str) -> str:
+def get_output(response_obj: Any, api_type: str) -> str:
     if api_type == "OpenAI.chat.completions.create":
         return _get_output_openai_chat_completions_create(response_obj)
     elif api_type == "AsyncOpenAI.chat.completions.create":
@@ -414,32 +450,34 @@ def get_output_string(response_obj: Any, api_type: str) -> str:
         return _get_output_anthropic_messages_create(response_obj)
     elif api_type == "vertexai client_models_generate_content":
         return _get_output_vertex_client_models_generate_content(response_obj)
-    elif api_type == "OpenAI.beta.threads.create":
-        return _get_output_openai_beta_threads_create(response_obj)
+    elif api_type == "OpenAI.beta.threads.create_and_poll":
+        return _get_output_openai_beta_threads_create_and_poll(response_obj)
+    elif api_type == "together.resources.chat.completions.ChatCompletions.create":
+        return _get_output_together_resources_chat_completions_ChatCompletions_create(response_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
 
-def set_output_string(prev_output_pickle: bytes, new_output_text: str, api_type):
+def set_output(original_output_obj: Any, new_output_text: str, api_type):
     if api_type == "OpenAI.chat.completions.create":
-        return _set_output_openai_chat_completions_create(prev_output_pickle, new_output_text)
+        return _set_output_openai_chat_completions_create(original_output_obj, new_output_text)
     elif api_type == "AsyncOpenAI.chat.completions.create":
-        return _set_output_openai_chat_completions_create(prev_output_pickle, new_output_text)
+        return _set_output_openai_chat_completions_create(original_output_obj, new_output_text)
     elif api_type == "OpenAI.responses.create":
-        return _set_output_openai_responses_create(prev_output_pickle, new_output_text)
+        return _set_output_openai_responses_create(original_output_obj, new_output_text)
     elif api_type == "AsyncOpenAI.responses.create":
-        return _set_output_openai_responses_create(prev_output_pickle, new_output_text)
+        return _set_output_openai_responses_create(original_output_obj, new_output_text)
     elif api_type == "Anthropic.messages.create":
-        return _set_output_anthropic_messages_create(prev_output_pickle, new_output_text)
+        return _set_output_anthropic_messages_create(original_output_obj, new_output_text)
     elif api_type == "vertexai client_models_generate_content":
         return _set_output_vertex_client_models_generate_content(
-            prev_output_pickle, new_output_text
+            original_output_obj, new_output_text
         )
-    elif api_type == "OpenAI.beta.threads.create":
-        return _get_output_openai_beta_threads_create(prev_output_pickle, new_output_text)
+    elif api_type == "OpenAI.beta.threads.create_and_poll":
+        return _set_output_openai_beta_threads_create_and_poll(original_output_obj, new_output_text)
     elif api_type == "together.resources.chat.completions.ChatCompletions.create":
         return _set_output_together_resources_chat_completions_ChatCompletions_create(
-            prev_output_pickle, new_output_text
+            original_output_obj, new_output_text
         )
     else:
         raise ValueError(f"Unknown API type {api_type}")
@@ -458,26 +496,11 @@ def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
         return _get_model_anthropic_messages_create(input_dict)
     elif api_type == "vertexai client_models_generate_content":
         return _get_model_vertex_client_models_generate_content(input_dict)
+    elif api_type == "OpenAI.beta.threads.create_and_poll":
+        return _get_model_openai_beta_threads_create_and_poll(input_dict)
     elif api_type == "OpenAI.beta.threads.create":
         return _get_model_openai_beta_threads_create(input_dict)
-    else:
-        raise ValueError(f"Unknown API type {api_type}")
-
-
-def cache_format(input_dict: Dict[str, Any], api_type: str) -> Dict[str, Any]:
-    if api_type == "OpenAI.chat.completions.create":
-        return _cache_format_openai_chat_completions_create(input_dict)
-    elif api_type == "AsyncOpenAI.chat.completions.create":
-        return _cache_format_openai_chat_completions_create(input_dict)
-    elif api_type == "OpenAI.responses.create":
-        return _cache_format_openai_responses_create(input_dict)
-    elif api_type == "AsyncOpenAI.responses.create":
-        return _cache_format_openai_responses_create(input_dict)
-    elif api_type == "Anthropic.messages.create":
-        return _cache_format_anthropic_messages_create(input_dict)
-    elif api_type == "vertexai client_models_generate_content":
-        return _cache_format_vertex_client_models_generate_content(input_dict)
-    elif api_type == "OpenAI.beta.threads.create":
-        return _cache_format_openai_beta_threads_create(input_dict)
+    elif api_type == "together.resources.chat.completions.ChatCompletions.create":
+        return _get_model_together_resources_chat_completions_ChatCompletions_create(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")

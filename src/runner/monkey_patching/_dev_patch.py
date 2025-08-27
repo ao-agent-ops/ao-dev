@@ -1,18 +1,24 @@
-import asyncio
+from runner.monkey_patching.patching_utils import get_input_dict
 from runner.monkey_patching._dev_patch_utils import (
+    extract_tag_content,
     _1_get_input,
     _2_set_input,
     _3_get_output,
     _4_set_output,
-    _5_install_set_and_get,
-    extract_tag_content,
+    _5_get_model,
+    _6_install_set_and_get,
+    _7_similar_patch,
+    _8_write_patch,
+    _9_install_patch,
 )
-from runner.monkey_patching.patching_utils import get_input_dict
 
 
 # =================================================
 # Define which function to patch.
 # =================================================
+# TODO: File to write patch to.
+file_name = "patches/together_patches.py"
+
 # TODO: Store original function (you may include "set up" code like client creation).
 from together import Together
 
@@ -57,38 +63,49 @@ def get_api_type(function_to_patch):
     return f"{function_to_patch.__module__}.{function_to_patch.__qualname__}"
 
 
+# Function name.
+api_type = get_api_type(function_to_patch)
+function_id = _get_function_id(function_to_patch)
+
 # 1. Get input.
-# function_id = _get_function_id(function_to_patch)
-# get_input = _1_get_input(input_dict, function_id)
-# get_input = extract_tag_content(get_input).get("implementation", "unavailable")
+get_input = _1_get_input(input_dict, function_id)
+get_input = extract_tag_content(get_input).get("implementation", "unavailable")
 
 # # 2. Set input.
-# set_input =_2_set_input(input_dict, function_id)
-# set_input = extract_tag_content(set_input).get("implementation", "unavailable")
+set_input = _2_set_input(get_input, function_id)
+set_input = extract_tag_content(set_input).get("implementation", "unavailable")
 
 # # 3. Get output.
-# get_output = _3_get_output(result_obj, function_id)
-# get_output = extract_tag_content(get_output).get("implementation", "unavailable")
+get_output = _3_get_output(result_obj, function_id)
+get_output = extract_tag_content(get_output).get("implementation", "unavailable")
 
-# # 4. Set output.
-# set_output = _4_set_output(result_obj, function_id)
-# set_output = extract_tag_content(set_output).get("implementation", "unavailable")
+# 4. Set output.
+set_output = _4_set_output(get_output, function_id)
+set_output = extract_tag_content(set_output).get("implementation", "unavailable")
+
+# 5. Get model.
+get_model = _5_get_model(input_dict, function_id)
+get_model = extract_tag_content(get_model).get("implementation", "unavailable")
 
 # 5. Install set and get.
-get_input = None
-set_input = None
-get_output = None
-set_output = None
-api_type = get_api_type(function_to_patch)
-asyncio.run(_5_install_set_and_get(api_type, get_input, set_input, get_output, set_output))
+_6_install_set_and_get(api_type, get_input, set_input, get_output, set_output, get_model)
 
-print("✅ Wrote getters and setters.")
+print(
+    "⚠️ I wrote the parser functions, please check them. If they look good, hit enter, otherwise Ctrl+C ⚠️"
+)
+_ = input()
 
-# 6. Write patch.
 
-# 7. Install patch.
+# # 6. Similar patches present?
+patch_plan = _7_similar_patch(api_type)
 
-# 8. Write test
+# 7. Write patch.
+implementation, explanation = _8_write_patch(api_type, patch_plan)
 
-# 9. Run test
-# TODO: pytest.
+
+# 8. Install patch
+output = _9_install_patch(api_type, implementation, file_name)
+
+# 9. Finish.
+print("⚠️ I installed the patch, please check it out. Here is my reasoning:")
+print(explanation)

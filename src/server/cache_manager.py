@@ -6,7 +6,7 @@ from common.constants import ACO_ATTACHMENT_CACHE
 from server import db
 from common.utils import stream_hash, save_io_stream
 from runner.taint_wrappers import untaint_if_needed
-from runner.monkey_patching.api_parser import cache_format, set_input_string
+from runner.monkey_patching.api_parser import get_input, get_model_name, set_input
 
 
 class CacheManager:
@@ -81,13 +81,21 @@ class CacheManager:
 
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
-        cacheable_input = cache_format(input_dict, api_type)
+        prompt, attachments, tools = get_input(input_dict, api_type)
+        model = get_model_name(input_dict, api_type)
 
+        cacheable_input = {
+            "input": prompt,
+            "attachments": attachments,
+            "model": model,
+            "tools": tools,
+        }
         input_pickle = dill.dumps(cacheable_input)
         input_hash = db.hash_input(input_pickle)
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
+
         row = db.query_one(
             "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?",
             (session_id, input_hash),
@@ -110,7 +118,9 @@ class CacheManager:
         if row["input_overwrite"] is not None:
             # input_overwrite = dill.loads(row["input_overwrite"])
             # input_overwrite = dill.dumps(input_overwrite) # TODO: Tmp, need to refactor the unnecessary dills
-            input_dict = set_input_string(input_dict, row["input_overwrite"], api_type)
+            overwrite_pickle = row["input_overwrite"]
+            overwrite_text = dill.loads(overwrite_pickle)["input"]
+            set_input(input_dict, overwrite_text, api_type)
         if row["output"] is not None:
             output = dill.loads(row["output"])
         return input_dict, output, node_id

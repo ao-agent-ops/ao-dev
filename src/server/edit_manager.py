@@ -9,7 +9,7 @@ from common.constants import (
     SUCCESS_STRING,
 )
 from server import db
-from runner.monkey_patching.api_parser import set_output_string
+from runner.monkey_patching.api_parser import set_output
 
 
 class EditManager:
@@ -40,7 +40,9 @@ class EditManager:
             "SELECT output, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
             (session_id, node_id),
         )
-        output_overwrite = set_output_string(row["output"], new_output, row["api_type"])
+        output_obj = dill.loads(row["output"])
+        set_output(output_obj, new_output, row["api_type"])
+        output_overwrite = dill.dumps(output_obj)
         db.execute(
             "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
             (output_overwrite, session_id, node_id),
