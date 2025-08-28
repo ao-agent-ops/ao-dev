@@ -75,13 +75,9 @@ if __name__ == "__main__":
     dev = load_dataset("SWE-bench/SWE-bench")["dev"]
     test = load_dataset("SWE-bench/SWE-bench")["test"]
 
-    test = apply_filters(
-        test, [filter_problem_statement, filter_patch, filter_patch_test], "test"
-    )
+    test = apply_filters(test, [filter_problem_statement, filter_patch, filter_patch_test], "test")
     test = take_subset(test, 300, "test")
-    dev = apply_filters(
-        dev, [filter_problem_statement, filter_patch, filter_patch_test], "dev"
-    )
+    dev = apply_filters(dev, [filter_problem_statement, filter_patch, filter_patch_test], "dev")
     dset = DatasetDict({"dev": dev, "test": test})
     # Save the filtered dataset to disk
     dset.save_to_disk("SWE-bench_lite")

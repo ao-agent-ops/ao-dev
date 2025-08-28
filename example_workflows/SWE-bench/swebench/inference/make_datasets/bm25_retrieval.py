@@ -87,9 +87,7 @@ def file_name_and_documentation(filename, relative_path):
         if data:
             text += f"{data}"
         for child_node in ast.walk(node):
-            if isinstance(
-                child_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-            ):
+            if isinstance(child_node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 data = ast.get_docstring(child_node)
                 if data:
                     text += f"\n\n{child_node.name}\n{data}"
@@ -115,9 +113,7 @@ def file_name_and_docs_jedi(filename, relative_path):
         abspath = Path(filename).absolute()
         names = [
             name
-            for name in script.get_names(
-                all_scopes=True, definitions=True, references=False
-            )
+            for name in script.get_names(all_scopes=True, definitions=True, references=False)
             if not name.in_builtin_module()
         ]
         for name in names:
@@ -267,8 +263,7 @@ def make_index(
     if proc.returncode != 0:
         logger.error(f"return code: {proc.returncode}")
         raise Exception(
-            thread_prefix
-            + f"Failed to build index for {instance_id} with error {error}"
+            thread_prefix + f"Failed to build index for {instance_id} with error {error}"
         )
     return index_path
 
@@ -485,13 +480,9 @@ def main(
         instances += list(dataset[split])
     python = subprocess.run("which python", shell=True, capture_output=True)
     python = python.stdout.decode("utf-8").strip()
-    output_file = Path(
-        output_dir, dataset_name, document_encoding_style + ".retrieval.jsonl"
-    )
+    output_file = Path(output_dir, dataset_name, document_encoding_style + ".retrieval.jsonl")
     remaining_instances = get_remaining_instances(instances, output_file)
-    root_dir, root_dir_name = get_root_dir(
-        dataset_name, output_dir, document_encoding_style
-    )
+    root_dir, root_dir_name = get_root_dir(dataset_name, output_dir, document_encoding_style)
     try:
         all_index_paths = get_index_paths(
             remaining_instances,

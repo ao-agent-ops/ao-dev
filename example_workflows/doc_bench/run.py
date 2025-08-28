@@ -4,6 +4,7 @@ import logging
 import os
 import glob
 from openai import OpenAI
+
 try:
     from secret_key import OPENAI_API_KEY
 except:
@@ -219,7 +220,8 @@ def main():
             "glm4",
             "qwen2.5",
             "ernie4",
-        ] + your_agents,
+        ]
+        + your_agents,
         help="The name of running system.",
     )
     parser.add_argument(

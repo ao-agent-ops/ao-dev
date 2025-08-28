@@ -76,9 +76,7 @@ if __name__ == "__main__":
     conda_source = "source " + os.path.join(args.conda_path, "etc/profile.d/conda.sh")
     check_env = conda_source + " && " + "conda env list"
     try:
-        conda_envs = subprocess.run(
-            check_env.split(" "), check=True, capture_output=True
-        )
+        conda_envs = subprocess.run(check_env.split(" "), check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         print(f"Error: {e}")
         print(f"Error output: {e.stderr.decode('utf-8')}")
@@ -88,13 +86,9 @@ if __name__ == "__main__":
     # Remove conda environments in parallel
     num_processes = 25
     pool = Pool(num_processes)
-    pool.starmap(
-        remove_environment, zip(conda_envs_names, [args.prefix] * len(conda_envs_names))
-    )
+    pool.starmap(remove_environment, zip(conda_envs_names, [args.prefix] * len(conda_envs_names)))
 
     # Remove env folder with the same prefix
-    print(
-        f"Removing miniconda folder for environments with {args.prefix} from {args.conda_path}"
-    )
+    print(f"Removing miniconda folder for environments with {args.prefix} from {args.conda_path}")
     delete_folders_with_prefix(args.prefix, args.conda_path)
     print("Done!")

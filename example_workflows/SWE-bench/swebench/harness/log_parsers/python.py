@@ -48,11 +48,7 @@ def parse_log_pytest_options(log: str, test_spec: TestSpec) -> dict[str, str]:
             has_option = option_pattern.search(test_case[1])
             if has_option:
                 main, option = has_option.groups()
-                if (
-                    option.startswith("/")
-                    and not option.startswith("//")
-                    and "*" not in option
-                ):
+                if option.startswith("/") and not option.startswith("//") and "*" not in option:
                     option = "/" + option.split("/")[-1]
                 test_name = f"{main}[{option}]"
             else:
@@ -79,9 +75,7 @@ def parse_log_django(log: str, test_spec: TestSpec) -> dict[str, str]:
 
         # This isn't ideal but the test output spans multiple lines
         if "--version is equivalent to version" in line:
-            test_status_map["--version is equivalent to version"] = (
-                TestStatus.PASSED.value
-            )
+            test_status_map["--version is equivalent to version"] = TestStatus.PASSED.value
 
         # Log it in case of error
         if " ... " in line:

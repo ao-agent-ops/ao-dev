@@ -306,9 +306,9 @@ def add_retrieval_results(input_instances, retrieval_file, k, file_source):
     Adds retrieval results to input_instances in-place
     """
     retrieval_results_path = Path(retrieval_file)
-    assert retrieval_results_path.exists(), (
-        f"Retrieval results not found at {retrieval_results_path}"
-    )
+    assert (
+        retrieval_results_path.exists()
+    ), f"Retrieval results not found at {retrieval_results_path}"
     retrieval_results = [json.loads(line) for line in open(retrieval_results_path)]
     retrieval_results = {x["instance_id"]: x["hits"] for x in retrieval_results}
     for instance_id, instance in tqdm(
@@ -381,9 +381,9 @@ def add_text_inputs(
 
     try:
         if max_context_len is not None:
-            assert tokenizer_name is not None, (
-                "Must specify tokenizer_name if using max_context_len"
-            )
+            assert (
+                tokenizer_name is not None
+            ), "Must specify tokenizer_name if using max_context_len"
             tokenizer, tokenizer_func = TOKENIZER_FUNCS[tokenizer_name]
 
         # Add retrieval results if needed
@@ -392,9 +392,7 @@ def add_text_inputs(
             add_retrieval_results(instances, retrieval_file, k, file_source)
 
         # Filter out already processed instances
-        instances_to_process = {
-            k: v for k, v in instances.items() if k not in processed_ids
-        }
+        instances_to_process = {k: v for k, v in instances.items() if k not in processed_ids}
         logger.info(f"Processing {len(instances_to_process)} instances")
 
         orig_dir = os.getcwd()
@@ -418,9 +416,7 @@ def add_text_inputs(
                         # Handle file contents based on configuration
                         if max_context_len is not None:
                             processed_instance["file_contents"] = dict()
-                            base_text_inputs = PROMPT_FUNCTIONS[prompt_style](
-                                processed_instance
-                            )
+                            base_text_inputs = PROMPT_FUNCTIONS[prompt_style](processed_instance)
                             base_text_input_length = len(
                                 tokenizer_func(base_text_inputs, tokenizer)
                             )
@@ -434,8 +430,8 @@ def add_text_inputs(
                                 [x["docid"] for x in processed_instance["hits"]]
                             )
                         elif file_source == "all":
-                            processed_instance["file_contents"] = (
-                                ingest_directory_contents(cm.repo_path)
+                            processed_instance["file_contents"] = ingest_directory_contents(
+                                cm.repo_path
                             )
                         elif file_source == "none":
                             processed_instance["file_contents"] = dict()
@@ -446,15 +442,9 @@ def add_text_inputs(
                         if max_context_len is not None:
                             cur_input_len = base_text_input_length
                             include_files = []
-                            for filename in [
-                                x["docid"] for x in processed_instance["hits"]
-                            ]:
+                            for filename in [x["docid"] for x in processed_instance["hits"]]:
                                 content = make_code_text(
-                                    {
-                                        filename: processed_instance["file_contents"][
-                                            filename
-                                        ]
-                                    }
+                                    {filename: processed_instance["file_contents"][filename]}
                                 )
                                 if tokenizer_name == "llama":
                                     tokens = tokenizer_func("\n" + content, tokenizer)
@@ -471,14 +461,12 @@ def add_text_inputs(
                             }
 
                         # Generate final text inputs
-                        processed_instance["text_inputs"] = PROMPT_FUNCTIONS[
-                            prompt_style
-                        ](processed_instance)
+                        processed_instance["text_inputs"] = PROMPT_FUNCTIONS[prompt_style](
+                            processed_instance
+                        )
 
                         # Save to progress file
-                        progress_file_handle.write(
-                            json.dumps(processed_instance) + "\n"
-                        )
+                        progress_file_handle.write(json.dumps(processed_instance) + "\n")
                         progress_file_handle.flush()
 
                 except Exception as e:

@@ -64,9 +64,7 @@ def parse_log_doctest(log: str, test_spec: TestSpec) -> dict[str, str]:
     start_tag = "<doctest"
     end_tag = "</doctest>"
     start_index = log.find(start_tag)
-    end_index = (
-        log.find(end_tag, start_index) + len(end_tag) if start_index != -1 else -1
-    )
+    end_index = log.find(end_tag, start_index) + len(end_tag) if start_index != -1 else -1
 
     if start_index != -1 and end_index != -1:
         xml_string = log[start_index:end_index]
@@ -79,9 +77,7 @@ def parse_log_doctest(log: str, test_spec: TestSpec) -> dict[str, str]:
                 name = f"{testcase_name} > {subcase_name}"
 
                 expressions = subcase.findall(".//Expression")
-                subcase_passed = all(
-                    expr.get("success") == "true" for expr in expressions
-                )
+                subcase_passed = all(expr.get("success") == "true" for expr in expressions)
 
                 if subcase_passed:
                     test_status_map[name] = TestStatus.PASSED.value

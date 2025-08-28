@@ -32,7 +32,8 @@ def openai_patch():
 
         return patched_init
 
-    OpenAI.__init__ = create_patched_init(OpenAI.__init__)
+    original_init = OpenAI.__init__
+    OpenAI.__init__ = create_patched_init(original_init)
 
 
 # Patch for OpenAI.responses.create is called patch_openai_responses_create
@@ -220,19 +221,28 @@ def patch_openai_beta_threads_create(threads_instance):
 
     @wraps(original_function)
     def patched_function(self, *args, **kwargs):
+        """
+        This patch is unusual since no LLM is run here. The API call creates
+        a thread which is then run in threads.create_and_poll. However, inputs
+        need to be overwritten here. So the patch only checks if its input should
+        be overwritten and doesn't cache an output / check for a cached output.
+        """
+        # 1. Set API identifier to fully qualified name of patched function.
         api_type = "OpenAI.beta.threads.create"
-        # 1. Get taint origins.
+
+        # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
+
+        # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
-        # 2. Get input to use and create thread.
+        # 4. Get input to use and run API call with it.
         input_to_use, _, _ = CACHE.get_in_out(input_dict, api_type)
-
-        # FIXME: Overwriting attachments is not supported. Also need to
-        # implement in UI.
         result = original_function(**input_to_use)
 
-        # 3. Taint and return.
+        # 5. We don't report this call to the server (no LLM inference).
+
+        # 6. Taint and return.
         return taint_wrap(result, taint_origins)
 
     threads_instance.create = patched_function.__get__(threads_instance, Threads)
@@ -248,60 +258,58 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
 
     @wraps(original_function)
     def patched_function(self, *args, **kwargs):
-        api_type = "OpenAI.beta.threads.create"
+        """
+        This patch is unusual since the input and output are defined/returned
+        in other API calls. Inputs are defined in OpenAI.beta.threads.create
+        and the output is obtained in OpenAI.beta.threads.messages.list.
+
+        We get the input object that was uploaded in threads.create. This object
+        is "read-only", so we use it as a cache key but overwrites must be applied
+        in beta.threads.create. We further cache the output by invoking
+        threads.messages.list.
+
+        FIXME: Keeping inputs the same but changing model will lead to cache hit.
+        """
+        # 1. Define API type, get client and assistant.
+        api_type = "OpenAI.beta.threads.create_and_poll"
         client = self._client
         thread_id = kwargs.get("thread_id")
         assistant_id = kwargs.get("assistant_id")
+        assistant = client.beta.assistants.retrieve(assistant_id)
 
-        # Get model information from assistant
-        model = "unknown"
-        if assistant_id:
-            try:
-                assistant = client.beta.assistants.retrieve(assistant_id)
-                model = assistant.model
-            except Exception:
-                model = "unknown"
-
-        # 1. Get inputs
-        # Full input dict (returned dict is ordered).
-        input_dict = get_input_dict(original_function, **kwargs)
-
-        # Input object with actual thread content (last message). Read-only.
+        # 2. Get input_dict and input object that was used in threads.create.
+        input_dict = get_input_dict(original_function, *args, **kwargs)
         input_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+        # HACK: The model is not denoted in input_obj so we just add it here.
+        # FIXME: We first set it to "unknown" because we don't know the model in
+        # threads.create, and this allows for cache hits. We then set it to the
+        # actual model for the UI. Keeping the inputs fixed but changing the model
+        # will lead to cache hits.
+        input_obj.model = "unknown"
 
-        # Overwrite model to get cached result.
-        input_obj.model = model
-
-        # 2. Get taint origins.
+        # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
-        # 3. Get cached result or call LLM.
-        # NOTE: Editing attachments is not supported.
-        # TODO: Caching inputs and outputs currently not supported.
-        # TODO: Output caching.
+        # 4. Always call the LLM (no caching for runs since they're stateful)
         _, _, node_id = CACHE.get_in_out(input_obj, api_type, cache=False)
+        run_result = original_function(**input_dict)  # Call LLM.
 
-        # input_dict = overwrite_input(original_function, **kwargs)
-        # input_dict["messages"][-1]["content"] = input_to_use["messages"]
-        # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
-
-        result = original_function(**input_dict)  # Call LLM.
-        # CACHE.cache_output(node_id, result)
-
-        # 4. Get actual, ultimate response.
-        output_obj = client.beta.threads.messages.list(thread_id=thread_id).data[0]
+        # Get the actual message result for the server reporting
+        message_result = client.beta.threads.messages.list(thread_id=thread_id).data[0]
 
         # 5. Tell server that this LLM call happened.
+        # HACK: The model is not denoted in input_obj so we just add it here.
+        input_obj.model = assistant.model
         send_graph_node_and_edges(
             node_id=node_id,
             input_dict=input_obj,
-            output_obj=output_obj,
+            output_obj=message_result,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
-        # 5. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        # 6. Taint the output object and return the run result (not the message)
+        return taint_wrap(run_result, [node_id])
 
     runs.create_and_poll = patched_function.__get__(runs, Runs)
 
@@ -332,7 +340,8 @@ def async_openai_patch():
 
         return patched_init
 
-    AsyncOpenAI.__init__ = create_patched_init(AsyncOpenAI.__init__)
+    original_init = AsyncOpenAI.__init__
+    AsyncOpenAI.__init__ = create_patched_init(original_init)
 
 
 # Patch for OpenAI.responses.create is called patch_openai_responses_create

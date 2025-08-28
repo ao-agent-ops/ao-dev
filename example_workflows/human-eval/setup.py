@@ -21,5 +21,5 @@ setup(
         "console_scripts": [
             "evaluate_functional_correctness = human_eval.evaluate_functional_correctness",
         ]
-    }
+    },
 )

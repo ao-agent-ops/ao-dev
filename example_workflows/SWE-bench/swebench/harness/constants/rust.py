@@ -26,9 +26,7 @@ SPECS_BAT = {
         "install": [
             "RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag --no-run"
         ],
-        "test_cmd": [
-            "RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag"
-        ],
+        "test_cmd": ["RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag"],
     },
     "2835": {
         "docker_specs": {"rust_version": "1.81"},
@@ -62,9 +60,7 @@ SPECS_BAT = {
         "install": [
             "RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag --no-run"
         ],
-        "test_cmd": [
-            "RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag"
-        ],
+        "test_cmd": ["RUSTFLAGS=-Awarnings cargo test --package bat --test integration_tests pag"],
     },
     "2260": {
         "docker_specs": {"rust_version": "1.81"},
@@ -214,9 +210,7 @@ TOKIO_SPECS = {
         "install": [
             'RUSTFLAGS="--cfg tokio_unstable" cargo test --test fs_file --no-fail-fast --no-run'
         ],
-        "test_cmd": [
-            'RUSTFLAGS="--cfg tokio_unstable" cargo test --test fs_file --no-fail-fast'
-        ],
+        "test_cmd": ['RUSTFLAGS="--cfg tokio_unstable" cargo test --test fs_file --no-fail-fast'],
     },
 }
 
@@ -308,9 +302,7 @@ AXUM_SPECS = {
     },
     "1119": {
         "docker_specs": {"rust_version": "1.81"},
-        "install": [
-            "RUSTFLAGS=-Awarnings cargo test --package axum --lib slash --no-run"
-        ],
+        "install": ["RUSTFLAGS=-Awarnings cargo test --package axum --lib slash --no-run"],
         "test_cmd": ["RUSTFLAGS=-Awarnings cargo test --package axum --lib slash"],
     },
     "734": {
@@ -329,9 +321,7 @@ AXUM_SPECS = {
     },
     "682": {
         "docker_specs": {"rust_version": "1.81"},
-        "install": [
-            "RUSTFLAGS=-Awarnings cargo test --package axum --lib trailing --no-run"
-        ],
+        "install": ["RUSTFLAGS=-Awarnings cargo test --package axum --lib trailing --no-run"],
         "test_cmd": [
             "RUSTFLAGS=-Awarnings cargo test --package axum --lib trailing -- with_trailing_slash_post without_trailing_slash_post"
         ],

@@ -278,9 +278,7 @@ def _extract_hints(pull: dict, repo: Repo, issue_number: int) -> list[str]:
         hints (list): list of hints
     """
     # Get all commits in PR
-    commits = repo.get_all_loop(
-        repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True
-    )
+    commits = repo.get_all_loop(repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True)
     commits = list(commits)
     if len(commits) == 0:
         # If there are no comments, return no hints
@@ -324,9 +322,7 @@ def extract_patches(pull: dict, repo: Repo) -> tuple[str, str]:
     patch_test = ""
     patch_fix = ""
     for hunk in PatchSet(patch):
-        if any(
-            test_word in hunk.path for test_word in ["test", "tests", "e2e", "testing"]
-        ):
+        if any(test_word in hunk.path for test_word in ["test", "tests", "e2e", "testing"]):
             patch_test += str(hunk)
         else:
             patch_fix += str(hunk)
@@ -334,9 +330,7 @@ def extract_patches(pull: dict, repo: Repo) -> tuple[str, str]:
 
 
 ### MARK: Repo Specific Parsing Functions ###
-def extract_problem_statement_and_hints_django(
-    pull: dict, repo: Repo
-) -> tuple[str, list[str]]:
+def extract_problem_statement_and_hints_django(pull: dict, repo: Repo) -> tuple[str, list[str]]:
     """
     Get problem statement and hints from issues associated with a pull request
 
@@ -394,9 +388,7 @@ def extract_problem_statement_and_hints_django(
             if "/" in timestamp:
                 timestamp = time.mktime(time.strptime(timestamp, "%m/%d/%y %H:%M:%S"))
             elif "," in timestamp:
-                timestamp = time.mktime(
-                    time.strptime(timestamp, "%b %d, %Y, %I:%M:%S %p")
-                )
+                timestamp = time.mktime(time.strptime(timestamp, "%b %d, %Y, %I:%M:%S %p"))
             else:
                 raise ValueError(f"Timestamp format not recognized: {timestamp}")
 

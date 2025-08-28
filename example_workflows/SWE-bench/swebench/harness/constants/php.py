@@ -89,9 +89,7 @@ SPECS_LARAVEL_FRAMEWORK = {
             "composer require orchestra/testbench-core --no-update",
             "composer install",
         ],
-        "test_cmd": [
-            "vendor/bin/phpunit --testdox --colors=never tests/Support/SupportJsTest.php"
-        ],
+        "test_cmd": ["vendor/bin/phpunit --testdox --colors=never tests/Support/SupportJsTest.php"],
     },
     "52866": {
         "docker_specs": {"php_version": "8.3.16"},
@@ -143,9 +141,7 @@ SPECS_LARAVEL_FRAMEWORK = {
             "composer require orchestra/testbench-core --no-update",
             "composer install",
         ],
-        "test_cmd": [
-            "vendor/bin/phpunit --testdox --colors=never tests/Support/OnceTest.php"
-        ],
+        "test_cmd": ["vendor/bin/phpunit --testdox --colors=never tests/Support/OnceTest.php"],
     },
     "51890": {
         "docker_specs": {"php_version": "8.3.16"},
@@ -323,9 +319,7 @@ SPECS_CARBON = {
         "install": ["composer update", "composer install"],
         # Patch involves adding a new dependency, so we need to re-install
         "build": ["composer update", "composer install"],
-        "test_cmd": [
-            "vendor/bin/phpunit --testdox --colors=never tests/Factory/FactoryTest.php"
-        ],
+        "test_cmd": ["vendor/bin/phpunit --testdox --colors=never tests/Factory/FactoryTest.php"],
     },
     "2752": {
         "docker_specs": {"php_version": "8.3.16"},
@@ -337,9 +331,7 @@ SPECS_CARBON = {
     "2665": {
         "docker_specs": {"php_version": "8.3.16"},
         "install": ["composer update", "composer install"],
-        "test_cmd": [
-            "vendor/bin/phpunit --testdox --colors=never tests/Carbon/RoundTest.php"
-        ],
+        "test_cmd": ["vendor/bin/phpunit --testdox --colors=never tests/Carbon/RoundTest.php"],
     },
     "2762": {
         "docker_specs": {"php_version": "8.3.16"},

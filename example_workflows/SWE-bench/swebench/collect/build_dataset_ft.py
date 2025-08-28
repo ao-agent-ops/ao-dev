@@ -22,9 +22,7 @@ def main(instances_path: str, output_path: str, eval_path: str, seed: int):
     """
     # Define output file name
     random.seed(seed)
-    SWE_PRS_FT_DATASET = (
-        f"SWE_PRS_FT_DATASET_{datetime.now().strftime('%Y%m%d%H')}_{seed}.jsonl"
-    )
+    SWE_PRS_FT_DATASET = f"SWE_PRS_FT_DATASET_{datetime.now().strftime('%Y%m%d%H')}_{seed}.jsonl"
     destination = os.path.join(output_path, SWE_PRS_FT_DATASET)
     total_insts, total_repos = 0, 0
 

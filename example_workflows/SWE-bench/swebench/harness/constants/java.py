@@ -338,9 +338,7 @@ SPECS_JAVAPARSER = {
     "4561": {
         "docker_specs": {"java_version": "17"},
         # build is run before patch is applied to recompile the relevant files
-        "build": [
-            "./mvnw clean install -B -pl javaparser-symbol-solver-testing -DskipTests -am"
-        ],
+        "build": ["./mvnw clean install -B -pl javaparser-symbol-solver-testing -DskipTests -am"],
         "test_cmd": [
             # FAIL_TO_PASS
             "./mvnw test -B -pl javaparser-symbol-solver-testing -Dtest=Issue4560Test",
@@ -350,9 +348,7 @@ SPECS_JAVAPARSER = {
     },
     "4538": {
         "docker_specs": {"java_version": "17"},
-        "build": [
-            "./mvnw clean install -B -pl javaparser-core-testing -DskipTests -am"
-        ],
+        "build": ["./mvnw clean install -B -pl javaparser-core-testing -DskipTests -am"],
         "test_cmd": [
             # FAIL_TO_PASS
             "./mvnw test -B -pl javaparser-core-testing -Dtest=NodeTest",
@@ -367,18 +363,14 @@ SPECS_LOMBOK = {
     # relevant to the instance, not all the tests that pass
     "3602": {
         "docker_specs": {"java_version": "11"},
-        "pre_install": make_lombok_pre_install_script(
-            ["lombok.bytecode.TestPostCompiler"]
-        ),
+        "pre_install": make_lombok_pre_install_script(["lombok.bytecode.TestPostCompiler"]),
         "build": ["ant test.compile"],
         "test_cmd": ["ant test.instance"],
     },
     **{
         k: {
             "docker_specs": {"java_version": "11"},
-            "pre_install": make_lombok_pre_install_script(
-                ["lombok.transform.TestWithDelombok"]
-            ),
+            "pre_install": make_lombok_pre_install_script(["lombok.transform.TestWithDelombok"]),
             "build": ["ant test.compile"],
             "test_cmd": ["ant test.instance"],
         }
@@ -399,9 +391,7 @@ SPECS_LOMBOK = {
     **{
         k: {
             "docker_specs": {"java_version": "17"},
-            "pre_install": make_lombok_pre_install_script(
-                ["lombok.transform.TestWithDelombok"]
-            ),
+            "pre_install": make_lombok_pre_install_script(["lombok.transform.TestWithDelombok"]),
             "build": ["ant test.compile"],
             "test_cmd": ["ant test.instance"],
         }
@@ -440,9 +430,7 @@ SPECS_LUCENE = {
     "12212": {
         "docker_specs": {"java_version": "17"},
         "pre_install": make_lucene_pre_install_script(),
-        "test_cmd": [
-            "./gradlew test --tests org.apache.lucene.facet.TestDrillSideways"
-        ],
+        "test_cmd": ["./gradlew test --tests org.apache.lucene.facet.TestDrillSideways"],
     },
     "13170": {
         "docker_specs": {"java_version": "21"},
@@ -461,9 +449,7 @@ SPECS_LUCENE = {
     "12022": {
         "docker_specs": {"java_version": "17"},
         "pre_install": make_lucene_pre_install_script(),
-        "test_cmd": [
-            "./gradlew test --tests org.apache.lucene.document.TestLatLonShape"
-        ],
+        "test_cmd": ["./gradlew test --tests org.apache.lucene.document.TestLatLonShape"],
     },
     "11760": {
         "docker_specs": {"java_version": "17"},

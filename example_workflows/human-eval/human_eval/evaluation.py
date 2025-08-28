@@ -13,7 +13,7 @@ from human_eval.execution import check_correctness
 def estimate_pass_at_k(
     num_samples: Union[int, List[int], np.ndarray],
     num_correct: Union[List[int], np.ndarray],
-    k: int
+    k: int,
 ) -> np.ndarray:
     """
     Estimates pass@k of each problem and returns them in an array.
@@ -87,8 +87,9 @@ def evaluate_functional_correctness(
     correct = np.array(correct)
 
     ks = k
-    pass_at_k = {f"pass@{k}": estimate_pass_at_k(total, correct, k).mean()
-                 for k in ks if (total >= k).all()}
+    pass_at_k = {
+        f"pass@{k}": estimate_pass_at_k(total, correct, k).mean() for k in ks if (total >= k).all()
+    }
 
     # Finally, save the results in one file:
     def combine_results():

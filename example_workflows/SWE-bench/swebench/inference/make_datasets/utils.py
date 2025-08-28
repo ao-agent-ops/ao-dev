@@ -80,9 +80,7 @@ def repair_patch(model_patch):
             pre_start, pre_len, post_start, post_len, total_delta = get_hunk_stats(
                 *list(map(lambda x: int(x) if x.isnumeric() else x, hunk)), total_delta
             )
-            new_patch += (
-                f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
-            )
+            new_patch += f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
     return new_patch
 
 
@@ -105,9 +103,7 @@ def extract_minimal_patch(model_patch):
             pre_start, pre_len, post_start, post_len, total_delta = get_hunk_stats(
                 pre_start, pre_len, post_start, post_len, content, total_delta
             )
-            new_patch += (
-                f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
-            )
+            new_patch += f"@@ -{pre_start},{pre_len} +{post_start},{post_len} @@{content}"
     return new_patch
 
 

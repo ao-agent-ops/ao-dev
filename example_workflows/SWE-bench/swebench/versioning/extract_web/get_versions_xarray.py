@@ -16,9 +16,7 @@ data_tasks = get_instances(PATH_TASKS_XARRAY)
 
 # Get version to date from xarray home page
 resp = requests.get("https://docs.xarray.dev/en/stable/whats-new.html")
-pattern = (
-    r'<a class="reference internal nav-link( active)?" href="#v(.*)">v(.*) \((.*)\)</a>'
-)
+pattern = r'<a class="reference internal nav-link( active)?" href="#v(.*)">v(.*) \((.*)\)</a>'
 matches = re.findall(pattern, resp.text)
 matches = list(set(matches))
 matches = [x[1:] for x in matches]

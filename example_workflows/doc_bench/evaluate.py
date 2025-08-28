@@ -276,7 +276,8 @@ def main():
             "qwen2.5",
             "ernie4",
             "gx",
-        ] + your_agents,
+        ]
+        + your_agents,
         help="The name of evaluated system.",
     )
     parser.add_argument(
@@ -294,19 +295,23 @@ def main():
     result_dir = args.result_dir
     max_samples = args.max_samples
 
-    if eval_system in [
-        "gpt-4o",
-        "gpt4",
-        "gpt4_pl",
-        "gpt-4o_pl",
-        "gpt3.5",
-        "kimi",
-        "claude3",
-        "glm4",
-        "qwen2.5",
-        "ernie4",
-        "gx",
-    ] + your_agents:
+    if (
+        eval_system
+        in [
+            "gpt-4o",
+            "gpt4",
+            "gpt4_pl",
+            "gpt-4o_pl",
+            "gpt3.5",
+            "kimi",
+            "claude3",
+            "glm4",
+            "qwen2.5",
+            "ernie4",
+            "gx",
+        ]
+        + your_agents
+    ):
         check_cleansing(eval_system)
         align_eval_input(eval_system, result_dir=result_dir)
     evaluate(eval_system, resume_id=resume_id, result_dir=result_dir, max_samples=max_samples)

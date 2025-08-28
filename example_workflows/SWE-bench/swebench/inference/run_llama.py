@@ -75,9 +75,7 @@ def get_output_file(
     elif Path(model_name_or_path).exists():
         if "checkpoint" in Path(model_name_or_path).name:
             model_nickname = (
-                Path(model_name_or_path).parent.name
-                + "__"
-                + Path(model_name_or_path).name
+                Path(model_name_or_path).parent.name + "__" + Path(model_name_or_path).name
             )
         else:
             model_nickname = Path(model_name_or_path).name
@@ -96,9 +94,7 @@ def get_output_file(
         + ".jsonl",
     )
     if not output_file.parent.exists():
-        output_file.parent.mkdir(
-            parents=True, exist_ok=True
-        )  # exists_ok=True for parallel
+        output_file.parent.mkdir(parents=True, exist_ok=True)  # exists_ok=True for parallel
     return output_file
 
 
@@ -209,9 +205,7 @@ def load_data(
         )
     if "SWE-Llama" in model_name_or_path and dataset[0]["input_ids"][-2:] != [13, 13]:
         # SWE-Llama needs two exactly two newlines at the end
-        dataset = dataset.map(
-            lambda x: {"input_ids": x["input_ids"] + [13]}, batched=False
-        )
+        dataset = dataset.map(lambda x: {"input_ids": x["input_ids"] + [13]}, batched=False)
     filter_func = None
     if min_len is not None and max_len is None:
         filter_func = lambda x: x >= min_len
@@ -294,9 +288,7 @@ def generate(
         for ix, instance in enumerate(tqdm(dataset, desc="Generating patches")):
             try:
                 input_ids = instance["input_ids"]
-                input_ids = torch.tensor(
-                    [input_ids], dtype=torch.long, device=model.device
-                )
+                input_ids = torch.tensor([input_ids], dtype=torch.long, device=model.device)
                 logger.info(f"Processing {input_ids.shape[-1]} tokens")
                 start = datetime.now()
                 output = model.generate(
@@ -439,9 +431,7 @@ if __name__ == "__main__":
         required=True,
         help="Path to dataset or hf dataset name",
     )
-    parser.add_argument(
-        "--split", type=str, default="test", help="Dataset split to use"
-    )
+    parser.add_argument("--split", type=str, default="test", help="Dataset split to use")
     parser.add_argument("--output_dir", type=str, default="./outputs")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top_p", type=float, default=1.0)
@@ -457,11 +447,7 @@ if __name__ == "__main__":
         default=None,
         help="Maximum length of input sequences to include",
     )
-    parser.add_argument(
-        "--shard_id", type=int, default=None, help="ID of the shard to load"
-    )
-    parser.add_argument(
-        "--num_shards", type=int, default=None, help="Total number of shards"
-    )
+    parser.add_argument("--shard_id", type=int, default=None, help="ID of the shard to load")
+    parser.add_argument("--num_shards", type=int, default=None, help="Total number of shards")
     args = parser.parse_args()
     main(**vars(args))

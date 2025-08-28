@@ -16,9 +16,7 @@ data_tasks = get_instances(PATH_TASKS_ASTROPY)
 
 # Get version to date from astropy homepage
 resp = requests.get("https://docs.astropy.org/en/latest/changelog.html")
-pattern = (
-    r'<a class="reference internal nav-link" href="#version-(.*)">Version (.*)</a>'
-)
+pattern = r'<a class="reference internal nav-link" href="#version-(.*)">Version (.*)</a>'
 matches = re.findall(pattern, resp.text)
 matches = list(set(matches))
 
