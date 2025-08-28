@@ -246,7 +246,7 @@ class TestTaintStr:
         s = TaintStr("hello", taint_origin="source1")
 
         assert str(s) == "hello"
-        assert repr(s) == "TaintStr('hello', taint_origin=['source1'])"
+        assert repr(s) == "'hello'"
 
     def test_get_raw(self):
         """Test get_raw method."""

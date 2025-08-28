@@ -1,7 +1,6 @@
 from typing import Any
-from functools import wraps
 from uuid import UUID
-from runner.taint_wrappers import TaintStr
+from runner.taint_wrappers import TaintStr, Position
 
 
 class RandomObject:
@@ -11,47 +10,13 @@ class RandomObject:
 
 def uuid_patch():
     setattr(UUID, "hex", property(hex))
-    setattr(UUID, "bytes", property(bytes_prop))
-    setattr(UUID, "bytes_le", property(bytes_le))
-    setattr(UUID, "urn", property(urn))
     setattr(UUID, "__str__", uuid_str)
     setattr(UUID, "__repr__", uuid_repr)
 
 
 def hex(self: UUID):
     hex_str = "%032x" % self.int
-    return TaintStr(hex_str, taint_origin=f"[random]{str([0,len(hex_str)])}")
-
-
-def bytes_prop(self: UUID):
-    bytes_data = self.int.to_bytes(16)  # big endian
-    return TaintStr(bytes_data, taint_origin=f"[random]{str([0,len(bytes_data)])}")
-
-
-def bytes_le(self: UUID):
-    bytes_data = self.int.to_bytes(16)  # big endian first
-    bytes_le_data = (
-        bytes_data[4 - 1 :: -1]
-        + bytes_data[6 - 1 : 4 - 1 : -1]
-        + bytes_data[8 - 1 : 6 - 1 : -1]
-        + bytes_data[8:]
-    )
-    return TaintStr(bytes_le_data, taint_origin=f"[random]{str([0,len(bytes_le_data)])}")
-
-
-def urn(self: UUID):
-    uuid_str = "%032x" % self.int
-    formatted_uuid = "%s-%s-%s-%s-%s" % (
-        uuid_str[:8],
-        uuid_str[8:12],
-        uuid_str[12:16],
-        uuid_str[16:20],
-        uuid_str[20:],
-    )
-    urn_str = "urn:uuid:" + formatted_uuid
-    return TaintStr(
-        urn_str, taint_origin=f"[random]{str([9,len(urn_str)])}"
-    )  # taint starts after 'urn:uuid:'
+    return TaintStr(hex_str, random_pos=Position(0, len(hex_str)))
 
 
 def uuid_str(self: UUID):
@@ -63,179 +28,440 @@ def uuid_str(self: UUID):
         hex_str[16:20],
         hex_str[20:],
     )
-    return TaintStr(formatted_uuid, taint_origin=f"[random]{str([0,len(formatted_uuid)])}")
+    return TaintStr(formatted_uuid, random_pos=Position(0, len(formatted_uuid)))
 
 
 def uuid_repr(self: UUID):
-    str_repr = uuid_str(self)  # Get the tainted string representation
-    repr_str = f"{self.__class__.__name__}('{str_repr}')"
-    return TaintStr(
-        repr_str, taint_origin=f"[random]{str([6,len(repr_str)-2])}"
-    )  # taint the UUID part only
+    repr_str = "%s(%r)" % (self.__class__.__name__, str(self))
+    return TaintStr(repr_str, random_pos=Position(0, len(repr_str)))
 
 
 if __name__ == "__main__":
     uuid_patch()
     from uuid import uuid4
 
-    # Test the new properties
-    print("\n=== Testing UUID properties ===")
+    print("=== Testing Position tracking in UUID patches ===")
     test_uuid = uuid4()
 
-    # Test bytes property
-    uuid_bytes = test_uuid.bytes
-    print(f"bytes result: {uuid_bytes}")
-    print(f"bytes type: {type(uuid_bytes)}")
-    print(f"bytes taint origins: {uuid_bytes._taint_origin}")
+    # Test 1: Basic hex property with Position
+    print("\nTest 1 - hex property:")
+    uuid_hex = test_uuid.hex
+    print("  hex result: " + repr(uuid_hex))
+    print("  hex type: " + str(type(uuid_hex)))
+    print("  hex random positions: " + str(uuid_hex._random_positions))
 
-    # Test bytes_le property
-    uuid_bytes_le = test_uuid.bytes_le
-    print(f"bytes_le result: {uuid_bytes_le}")
-    print(f"bytes_le type: {type(uuid_bytes_le)}")
-    print(f"bytes_le taint origins: {uuid_bytes_le._taint_origin}")
-
-    # Test urn property
-    uuid_urn = test_uuid.urn
-    print(f"urn result: {uuid_urn}")
-    print(f"urn type: {type(uuid_urn)}")
-    print(f"urn taint origins: {uuid_urn._taint_origin}")
-
-    # Test __str__ method
+    # Test 2: str method with Position
+    print("\nTest 2 - __str__ method:")
     uuid_str_result = str(test_uuid)
-    print(f"str result: {uuid_str_result}")
-    print(f"str type: {type(uuid_str_result)}")
-    print(f"str taint origins: {uuid_str_result._taint_origin}")
+    print("  str result: " + repr(uuid_str_result))
+    print("  str type: " + str(type(uuid_str_result)))
+    print("  str random positions: " + str(uuid_str_result._random_positions))
 
-    # Test __repr__ method
+    # Test 3: repr method with Position
+    print("\nTest 3 - __repr__ method:")
     uuid_repr_result = repr(test_uuid)
-    print(f"repr result: {uuid_repr_result}")
-    print(f"repr type: {type(uuid_repr_result)}")
-    print(f"repr taint origins: {uuid_repr_result._taint_origin}")
+    print("  repr result: " + repr(uuid_repr_result))
+    print("  repr type: " + str(type(uuid_repr_result)))
+    print("  repr random positions: " + str(uuid_repr_result._random_positions))
 
-    # Test case for __format__ method
-    print("\n=== Testing __format__ with tainted UUID ===")
-    uuid_hex = uuid4().hex
+    # Test 4: String concatenation with Position tracking
+    print("\nTest 4 - String concatenation:")
+    uuid_hex = test_uuid.hex
+    added_string = uuid_hex + "hello"
+    print("  Original hex: " + repr(uuid_hex))
+    print("  Original positions: " + str(uuid_hex._random_positions))
+    print("  After adding 'hello': " + repr(added_string))
+    print("  Concatenated positions: " + str(added_string._random_positions))
 
-    # Using string formatting - this triggers __format__
-    formatted = f"UUID: {uuid_hex}"
-    print(f"Formatted result: {formatted}")
-    print(f"Formatted type: {type(formatted)}")
-    print(f"Formatted taint origins: {formatted._taint_origin}")
+    # Test 5: Position object inspection
+    print("\nTest 5 - Position object details:")
+    first_pos = uuid_hex._random_positions[0]
+    print("  Position object: " + repr(first_pos))
+    print("  Start: " + str(first_pos.start))
+    print("  Stop: " + str(first_pos.stop))
 
-    # Using format method with format spec
-    formatted_upper = "{:>40}".format(uuid_hex)  # Right-align in 40 chars
-    print(f"Formatted upper result: '{formatted_upper}'")
-    print(f"Formatted upper type: {type(formatted_upper)}")
-    print(f"Formatted upper taint origins: {formatted_upper._taint_origin}")
-
-    # Test left-align format
-    formatted_left = "{:<40}".format(uuid_hex)  # Left-align in 40 chars
-    print(f"Formatted left result: '{formatted_left}'")
-    print(f"Formatted left type: {type(formatted_left)}")
-    print(f"Formatted left taint origins: {formatted_left._taint_origin}")
-
-    # Test center format
-    formatted_center = "{:^40}".format(uuid_hex)  # Center in 40 chars
-    print(f"Formatted center result: '{formatted_center}'")
-    print(f"Formatted center type: {type(formatted_center)}")
-    print(f"Formatted center taint origins: {formatted_center._taint_origin}")
-
-    # Test with padding character
-    formatted_padded = "{:*^40}".format(uuid_hex)  # Center with * padding
-    print(f"Formatted padded result: '{formatted_padded}'")
-    print(f"Formatted padded type: {type(formatted_padded)}")
-    print(f"Formatted padded taint origins: {formatted_padded._taint_origin}")
-
-    # Test multiple arguments
+    # Test 6: Multiple UUID operations
+    print("\nTest 6 - Multiple UUID operations:")
+    uuid1 = uuid4().hex
     uuid2 = uuid4().hex
-    formatted_multi = "UUID1: {} UUID2: {}".format(uuid_hex, uuid2)
-    print(f"Formatted multi result: {formatted_multi}")
-    print(f"Formatted multi type: {type(formatted_multi)}")
-    print(f"Formatted multi taint origins: {formatted_multi._taint_origin}")
+    combined = uuid1 + "-" + uuid2
+    print("  UUID1: " + repr(uuid1))
+    print("  UUID2: " + repr(uuid2))
+    print("  Combined: " + repr(combined))
+    print("  Combined positions: " + str(combined._random_positions))
 
-    # Test with non-tainted mixed in
-    formatted_mixed = "Prefix: {}, Suffix: {}".format(uuid_hex, "not-tainted")
-    print(f"Formatted mixed result: {formatted_mixed}")
-    print(f"Formatted mixed type: {type(formatted_mixed)}")
-    print(f"Formatted mixed taint origins: {formatted_mixed._taint_origin}")
+    # Test 7: String slicing and indexing with Position tracking
+    print("\nTest 7 - String slicing and indexing:")
+    uuid_hex = test_uuid.hex
+    slice_result = uuid_hex[5:15]
+    single_char = uuid_hex[10]
+    print("  Original UUID hex: " + repr(uuid_hex))
+    print("  Original positions: " + str(uuid_hex._random_positions))
+    print("  Slice [5:15]: " + repr(slice_result))
+    print("  Slice positions: " + str(slice_result._random_positions))
+    print("  Single char [10]: " + repr(single_char))
+    print("  Single char positions: " + str(single_char._random_positions))
 
-    print("\n=== EDGE CASES AND HARDER TESTS ===")
+    # Test 8: String replacement operations
+    print("\nTest 8 - String replacement:")
+    uuid_str = str(test_uuid)
+    replaced = uuid_str.replace("-", "_")
+    print("  Original UUID str: " + repr(uuid_str))
+    print("  Original positions: " + str(uuid_str._random_positions))
+    print("  After replace('-', '_'): " + repr(replaced))
+    print("  Replaced positions: " + str(replaced._random_positions))
 
-    # Edge case 1: Same UUID appearing multiple times
-    uuid3 = uuid4().hex
-    duplicate_uuid = "First: {}, Second: {}, Third: {}".format(uuid3, uuid3, uuid3)
-    print(f"Duplicate UUID result: {duplicate_uuid}")
-    print(f"Duplicate UUID taint origins: {duplicate_uuid._taint_origin}")
+    # Test 9: String formatting with UUID
+    print("\nTest 9 - String formatting:")
+    uuid_hex = test_uuid.hex
+    formatted = "UUID: " + uuid_hex + " (length: " + str(len(uuid_hex)) + ")"
+    print("  Formatted string: " + repr(formatted))
+    print("  Formatted positions: " + str(formatted._random_positions))
 
-    # Edge case 2: Substring matching issue - UUID that's a substring of another
-    short_uuid = uuid4().hex[:8]  # Take first 8 chars
-    long_text = "aa" + short_uuid + "bb"  # Embed it in a longer string
-    tricky_format = "Text: {}, Short: {}".format(long_text, short_uuid)
-    print(f"Substring matching result: {tricky_format}")
-    print(f"Substring matching taint origins: {tricky_format._taint_origin}")
+    # Test 10: Multiple concatenations with position shifts
+    print("\nTest 10 - Multiple concatenations:")
+    prefix = "prefix-"
+    uuid_part = uuid4().hex[:8]
+    suffix = "-suffix"
+    result = prefix + uuid_part + suffix
+    print("  Prefix: " + repr(prefix))
+    print("  UUID part: " + repr(uuid_part))
+    print("  UUID part positions: " + str(uuid_part._random_positions))
+    print("  Suffix: " + repr(suffix))
+    print("  Final result: " + repr(result))
+    print("  Final positions: " + str(result._random_positions))
 
-    # Edge case 3: Empty format result
-    empty_format = "{}".format("")
-    print(f"Empty format result: '{empty_format}'")
-    print(f"Empty format type: {type(empty_format)}")
+    # Test 11: Position object manipulation
+    print("\nTest 11 - Position object manipulation:")
+    uuid_hex = test_uuid.hex
+    pos = uuid_hex._random_positions[0]
+    print("  Original position: " + repr(pos))
+    print("  Position start: " + str(pos.start))
+    print("  Position stop: " + str(pos.stop))
 
-    # Edge case 4: UUID with special characters that might affect find()
-    special_uuid = TaintStr("special-uuid-with-dashes", taint_origin="[random][0,25]")
-    special_format = "Special: {}".format(special_uuid)
-    print(f"Special UUID result: {special_format}")
-    print(f"Special UUID taint origins: {special_format._taint_origin}")
+    # Create a copy and shift it
+    from runner.taint_wrappers import Position
 
-    # Edge case 5: Very long format strings with many placeholders
-    many_args = "A:{} B:{} C:{} D:{} E:{}".format(
-        uuid3[:4], uuid3[4:8], uuid3[8:12], uuid3[12:16], uuid3[16:20]
+    pos_copy = Position(pos.start, pos.stop)
+    pos_copy.shift(10)
+    print("  After shift(10): " + repr(pos_copy))
+
+    # Test 12: Edge cases with empty strings and boundaries
+    print("\nTest 12 - Edge cases:")
+    uuid_hex = test_uuid.hex
+    empty_concat = uuid_hex + ""
+    boundary_slice = uuid_hex[0:1]
+    end_slice = uuid_hex[-4:]
+    print("  UUID + empty string: " + repr(empty_concat))
+    print("  Empty concat positions: " + str(empty_concat._random_positions))
+    print("  First character [0:1]: " + repr(boundary_slice))
+    print("  First char positions: " + str(boundary_slice._random_positions))
+    print("  Last 4 chars [-4:]: " + repr(end_slice))
+    print("  Last 4 positions: " + str(end_slice._random_positions))
+
+    # Test 13: Complex nested operations
+    print("\nTest 13 - Complex nested operations:")
+    uuid1 = uuid4().hex
+    uuid2 = uuid4().hex
+    complex_result = (uuid1[:8] + "-" + uuid2[8:16]).upper()
+    print("  UUID1: " + repr(uuid1))
+    print("  UUID2: " + repr(uuid2))
+    print("  Complex result: " + repr(complex_result))
+    print("  Complex positions: " + str(complex_result._random_positions))
+
+    # Test 14: Testing all UUID methods together
+    print("\nTest 14 - All UUID methods:")
+    test_uuid2 = uuid4()
+    hex_val = test_uuid2.hex
+    str_val = str(test_uuid2)
+    repr_val = repr(test_uuid2)
+
+    print("  hex: " + repr(hex_val) + " positions: " + str(hex_val._random_positions))
+    print("  str: " + repr(str_val) + " positions: " + str(str_val._random_positions))
+    print("  repr: " + repr(repr_val) + " positions: " + str(repr_val._random_positions))
+
+    # Verify position consistency
+    hex_len = len(hex_val)
+    str_len = len(str_val)
+    print(
+        "  hex length vs position: "
+        + str(hex_len)
+        + " vs "
+        + str(hex_val._random_positions[0].stop)
     )
-    print(f"Many args result: {many_args}")
-    print(f"Many args taint origins: {many_args._taint_origin}")
+    print(
+        "  str length vs position: "
+        + str(str_len)
+        + " vs "
+        + str(str_val._random_positions[0].stop)
+    )
 
-    # Edge case 6: Nested format-like strings (shouldn't break our parser)
-    nested_format = "Outer: {{{}}}, Inner: {}".format("middle", uuid3[:6])
-    print(f"Nested format result: {nested_format}")
-    print(f"Nested format type: {type(nested_format)}")
-    if hasattr(nested_format, "_taint_origin"):
-        print(f"Nested format taint origins: {nested_format._taint_origin}")
+    # Test 15: F-string formatting
+    print("\nTest 15 - F-string formatting:")
+    uuid_hex = test_uuid.hex
+    f_string_result = f"UUID is {uuid_hex} with length {len(uuid_hex)}"
+    print("  UUID hex: " + repr(uuid_hex))
+    print("  UUID positions: " + str(uuid_hex._random_positions))
+    print("  F-string result: " + repr(f_string_result))
+    print("  F-string type: " + str(type(f_string_result)))
+    if hasattr(f_string_result, "_random_positions"):
+        print("  F-string positions: " + str(f_string_result._random_positions))
     else:
-        print("Nested format has no taint origins")
+        print("  F-string positions: None (not a TaintStr)")
 
-    # Edge case 7: Format with width shorter than UUID (should truncate)
-    truncated = "{:.10}".format(uuid3)  # Only first 10 chars
-    print(f"Truncated result: '{truncated}'")
-    print(f"Truncated taint origins: {truncated._taint_origin}")
+    # Test 16: String modulo formatting (__mod__ and __rmod__)
+    print("\nTest 16 - String modulo formatting:")
+    uuid_hex = test_uuid.hex
+    mod_result1 = "UUID: %s" % uuid_hex
+    mod_result2 = "UUID: %s, Length: %d" % (uuid_hex, len(uuid_hex))
+    print("  Single %s: " + repr(mod_result1))
+    print("  Single %s positions: " + str(mod_result1._random_positions))
+    print("  Multiple %s: " + repr(mod_result2))
+    print("  Multiple %s positions: " + str(mod_result2._random_positions))
 
-    # Edge case 8: Format with zero padding
-    uuid_as_int = int(uuid3[:8], 16)  # Convert first 8 hex chars to int
-    tainted_int = TaintStr(str(uuid_as_int), taint_origin="[random][0,10]")
-    zero_padded = "{:010}".format(tainted_int)
-    print(f"Zero padded result: '{zero_padded}'")
-    print(f"Zero padded taint origins: {zero_padded._taint_origin}")
+    # Test reverse modulo
+    template = TaintStr("Template: %s")
+    rmod_result = template % uuid_hex
+    print("  Reverse mod template: " + repr(template))
+    print("  Reverse mod result: " + repr(rmod_result))
+    print("  Reverse mod positions: " + str(rmod_result._random_positions))
 
-    # Edge case 9: Same string content but different taint origins
-    uuid_copy1 = TaintStr(uuid3, taint_origin="[random][5,15]")
-    uuid_copy2 = TaintStr(uuid3, taint_origin="[random][20,30]")
-    same_content = "Copy1: {}, Copy2: {}".format(uuid_copy1, uuid_copy2)
-    print(f"Same content result: {same_content}")
-    print(f"Same content taint origins: {same_content._taint_origin}")
+    # Test 17: String methods that return strings
+    print("\nTest 17 - String methods returning strings:")
+    uuid_str = str(test_uuid)
 
-    # Additional test: Three identical UUIDs to test multiple occurrence handling
-    print("\n=== Testing multiple identical UUIDs ===")
-    uuid_triple1 = TaintStr(uuid3, taint_origin="[random][100,132]")
-    uuid_triple2 = TaintStr(uuid3, taint_origin="[random][200,232]")
-    uuid_triple3 = TaintStr(uuid3, taint_origin="[random][300,332]")
-    triple_format = "A:{}, B:{}, C:{}".format(uuid_triple1, uuid_triple2, uuid_triple3)
-    print(f"Triple format result: {triple_format}")
-    print(f"Triple format taint origins: {triple_format._taint_origin}")
-    print(f"Number of taint origins: {len(triple_format._taint_origin)}")
+    # Test strip methods
+    padded_uuid = "   " + uuid_str + "   "
+    stripped = padded_uuid.strip()
+    lstripped = padded_uuid.lstrip()
+    rstripped = padded_uuid.rstrip()
+    print("  Padded UUID: " + repr(padded_uuid))
+    print("  Padded positions: " + str(padded_uuid._random_positions))
+    print("  strip(): " + repr(stripped))
+    print("  strip() positions: " + str(stripped._random_positions))
+    print("  lstrip(): " + repr(lstripped))
+    print("  lstrip() positions: " + str(lstripped._random_positions))
+    print("  rstrip(): " + repr(rstripped))
+    print("  rstrip() positions: " + str(rstripped._random_positions))
 
-    # Edge case 10: Format that results in the UUID not being found (transformed)
+    # Test 18: Split method
+    print("\nTest 18 - Split method:")
+    uuid_str = str(test_uuid)
+    split_result = uuid_str.split("-")
+    print("  Original UUID: " + repr(uuid_str))
+    print("  Original positions: " + str(uuid_str._random_positions))
+    print("  Split result: " + str([repr(s) for s in split_result]))
+    print("  Split types: " + str([type(s).__name__ for s in split_result]))
+    print("  First part positions: " + str(split_result[0]._random_positions))
+    print("  Second part positions: " + str(split_result[1]._random_positions))
+
+    # Test 19: Title and capitalize methods
+    print("\nTest 19 - Title and capitalize methods:")
+    uuid_lower = uuid_hex.lower()
+    titled = uuid_lower.title()
+    capitalized = uuid_lower.capitalize()
+    print("  Lowercase UUID: " + repr(uuid_lower))
+    print("  Lowercase positions: " + str(uuid_lower._random_positions))
+    print("  title(): " + repr(titled))
+    print("  title() positions: " + str(titled._random_positions))
+    print("  capitalize(): " + repr(capitalized))
+    print("  capitalize() positions: " + str(capitalized._random_positions))
+
+    # Test 20: Encode and decode methods
+    print("\nTest 20 - Encode and decode methods:")
+    uuid_hex = test_uuid.hex
+    encoded = uuid_hex.encode("utf-8")
+    decoded = encoded.decode("utf-8")
+    print("  Original UUID: " + repr(uuid_hex))
+    print("  Original positions: " + str(uuid_hex._random_positions))
+    print("  Encoded: " + repr(encoded))
+    print("  Encoded type: " + str(type(encoded)))
+    print("  Decoded: " + repr(decoded))
+    print("  Decoded type: " + str(type(decoded)))
+    # Note: encode/decode don't preserve taint in current implementation
+
+    # Test 21: Complex f-string with multiple UUIDs
+    print("\nTest 21 - Complex f-string with multiple UUIDs:")
+    uuid1 = uuid4().hex
+    uuid2 = uuid4().hex
+    complex_f_string = f"First: {uuid1[:8]}, Second: {uuid2[8:16]}, Combined: {uuid1 + uuid2}"
+    print("  UUID1: " + repr(uuid1))
+    print("  UUID2: " + repr(uuid2))
+    print("  Complex f-string: " + repr(complex_f_string))
+    print("  F-string type: " + str(type(complex_f_string)))
+
+    # Test 22: String formatting with format method
+    print("\nTest 22 - String format method:")
+    uuid_hex = test_uuid.hex
+    format_result = "UUID: {} length: {}".format(uuid_hex, len(uuid_hex))
+    print("  Format result: " + repr(format_result))
+    print("  Format type: " + str(type(format_result)))
+    if hasattr(format_result, "_random_positions"):
+        print("  Format positions: " + str(format_result._random_positions))
+
+    # Test 23: String case methods
+    print("\nTest 23 - String case methods:")
+    uuid_hex = test_uuid.hex
+    upper_result = uuid_hex.upper()
+    lower_result = uuid_hex.lower()
+    swapcase_result = uuid_hex.swapcase()
+    casefold_result = uuid_hex.casefold()
+    print("  Original: " + repr(uuid_hex))
+    print("  Original positions: " + str(uuid_hex._random_positions))
+    print("  upper(): " + repr(upper_result))
+    print("  upper() positions: " + str(upper_result._random_positions))
+    print("  lower(): " + repr(lower_result))
+    print("  lower() positions: " + str(lower_result._random_positions))
+    print("  swapcase(): " + repr(swapcase_result))
+    print("  swapcase() positions: " + str(swapcase_result._random_positions))
+    print("  casefold(): " + repr(casefold_result))
+    print("  casefold() positions: " + str(casefold_result._random_positions))
+
+    # Test 24: String alignment methods
+    print("\nTest 24 - String alignment methods:")
+    uuid_short = uuid_hex[:8]
+    centered = uuid_short.center(20, "-")
+    left_just = uuid_short.ljust(20, "*")
+    right_just = uuid_short.rjust(20, "=")
+    zero_filled = uuid_short.zfill(20)
+    print("  Short UUID: " + repr(uuid_short))
+    print("  Short positions: " + str(uuid_short._random_positions))
+    print("  center(20, '-'): " + repr(centered))
+    print("  center positions: " + str(centered._random_positions))
+    print("  ljust(20, '*'): " + repr(left_just))
+    print("  ljust positions: " + str(left_just._random_positions))
+    print("  rjust(20, '='): " + repr(right_just))
+    print("  rjust positions: " + str(right_just._random_positions))
+    print("  zfill(20): " + repr(zero_filled))
+    print("  zfill positions: " + str(zero_filled._random_positions))
+
+    # Test 25: String partition methods
+    print("\nTest 25 - String partition methods:")
+    uuid_str = str(test_uuid)
+    partition_result = uuid_str.partition("-")
+    rpartition_result = uuid_str.rpartition("-")
+    print("  UUID: " + repr(uuid_str))
+    print("  UUID positions: " + str(uuid_str._random_positions))
+    print("  partition('-'): " + str([repr(s) for s in partition_result]))
+    print("  partition types: " + str([type(s).__name__ for s in partition_result]))
+    print("  rpartition('-'): " + str([repr(s) for s in rpartition_result]))
+    print("  rpartition types: " + str([type(s).__name__ for s in rpartition_result]))
+
+    # Test 26: String split variations
+    print("\nTest 26 - String split variations:")
+    uuid_str = str(test_uuid)
+    rsplit_result = uuid_str.rsplit("-", 1)
+    splitlines_test = uuid_str + "\nSecond line\nThird line"
+    splitlines_result = splitlines_test.splitlines()
+    print("  rsplit('-', 1): " + str([repr(s) for s in rsplit_result]))
+    print("  rsplit types: " + str([type(s).__name__ for s in rsplit_result]))
+    print("  splitlines test: " + repr(splitlines_test))
+    print("  splitlines(): " + str([repr(s) for s in splitlines_result]))
+    print("  splitlines types: " + str([type(s).__name__ for s in splitlines_result]))
+
+    # Test 27: String join method
+    print("\nTest 27 - String join method:")
+    uuid_parts = [uuid4().hex[:4] for _ in range(3)]
+    separator = TaintStr("-", random_pos=Position(0, 1))
+    joined_result = separator.join(uuid_parts)
+    print("  UUID parts: " + str([repr(p) for p in uuid_parts]))
+    print("  Separator: " + repr(separator))
+    print("  Separator positions: " + str(separator._random_positions))
+    print("  Joined result: " + repr(joined_result))
+    print("  Joined positions: " + str(joined_result._random_positions))
+
+    # Test 28: String prefix/suffix methods (boolean return)
+    print("\nTest 28 - String prefix/suffix methods:")
+    uuid_hex = test_uuid.hex
+    starts_with_result = uuid_hex.startswith(uuid_hex[:4])
+    ends_with_result = uuid_hex.endswith(uuid_hex[-4:])
+    print("  UUID: " + repr(uuid_hex))
+    print("  startswith(first_4): " + str(starts_with_result))
+    print("  endswith(last_4): " + str(ends_with_result))
+
+    # Test 29: String search methods (return indices)
+    print("\nTest 29 - String search methods:")
+    uuid_str = str(test_uuid)
+    find_result = uuid_str.find("-")
+    rfind_result = uuid_str.rfind("-")
+    index_result = uuid_str.index("-")
+    rindex_result = uuid_str.rindex("-")
+    count_result = uuid_str.count("-")
+    print("  UUID: " + repr(uuid_str))
+    print("  find('-'): " + str(find_result))
+    print("  rfind('-'): " + str(rfind_result))
+    print("  index('-'): " + str(index_result))
+    print("  rindex('-'): " + str(rindex_result))
+    print("  count('-'): " + str(count_result))
+
+    # Test 30: String translation methods
+    print("\nTest 30 - String translation methods:")
+    uuid_hex = test_uuid.hex
+    # Create a simple translation table
+    trans_table = str.maketrans("abcdef", "123456")
+    translated = uuid_hex.translate(trans_table)
+    print("  Original: " + repr(uuid_hex))
+    print("  Original positions: " + str(uuid_hex._random_positions))
+    print("  Translated (a-f -> 1-6): " + repr(translated))
+    print("  Translated positions: " + str(translated._random_positions))
+
+    # Test 31: String expandtabs method
+    print("\nTest 31 - String expandtabs method:")
+    tab_string = TaintStr("UUID:\t" + uuid_hex, random_pos=Position(6, 6 + len(uuid_hex)))
+    expanded = tab_string.expandtabs(8)
+    print("  With tabs: " + repr(tab_string))
+    print("  Tab string positions: " + str(tab_string._random_positions))
+    print("  expandtabs(8): " + repr(expanded))
+    print("  Expanded positions: " + str(expanded._random_positions))
+
+    # Test 32: String format_map method
+    print("\nTest 32 - String format_map method:")
+    template = "UUID: {uuid}, Length: {length}"
+    format_map_result = template.format_map({"uuid": uuid_hex, "length": len(uuid_hex)})
+    print("  Template: " + repr(template))
+    print("  format_map result: " + repr(format_map_result))
+    print("  format_map type: " + str(type(format_map_result)))
+
+    # Test 33: String classification methods (return boolean)
+    print("\nTest 33 - String classification methods:")
+    uuid_hex = test_uuid.hex
+    test_strings = [uuid_hex, "123456", "abcdef", "ABC123", "   ", ""]
+    methods = [
+        "isalnum",
+        "isalpha",
+        "isascii",
+        "isdecimal",
+        "isdigit",
+        "isidentifier",
+        "islower",
+        "isnumeric",
+        "isprintable",
+        "isspace",
+        "istitle",
+        "isupper",
+    ]
+
+    for test_str in test_strings[:2]:  # Test first two strings to keep output manageable
+        print("  Testing: " + repr(test_str))
+        for method in methods:
+            if hasattr(test_str, method):
+                result = getattr(test_str, method)()
+                print("    " + method + "(): " + str(result))
+
+    # Test 34: String removeprefix and removesuffix (Python 3.9+)
+    print("\nTest 34 - String removeprefix/removesuffix:")
+    uuid_with_prefix = "prefix_" + uuid_hex
+    uuid_with_suffix = uuid_hex + "_suffix"
     try:
-        upper_format = "{:UPPER CASE NOT SUPPORTED}".format(uuid3)  # This will fail
-        print(f"Upper format attempt: {upper_format}")
-        print(f"Upper format taint origins: {upper_format._taint_origin}")
-    except ValueError as e:
-        print(f"Upper format failed as expected: {e}")
-    except Exception as e:
-        print(f"Upper format failed with unexpected error: {e}")
+        removed_prefix = uuid_with_prefix.removeprefix("prefix_")
+        removed_suffix = uuid_with_suffix.removesuffix("_suffix")
+        print("  With prefix: " + repr(uuid_with_prefix))
+        print("  removeprefix: " + repr(removed_prefix))
+        print("  removeprefix positions: " + str(removed_prefix._random_positions))
+        print("  With suffix: " + repr(uuid_with_suffix))
+        print("  removesuffix: " + repr(removed_suffix))
+        print("  removesuffix positions: " + str(removed_suffix._random_positions))
+    except AttributeError:
+        print("  removeprefix/removesuffix not available (Python < 3.9)")
+
+    print("\n=== All tests completed ===")

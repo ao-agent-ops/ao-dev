@@ -304,3 +304,8 @@ class TestGetInputOpenAIChatCompletionsCreate:
         content, attachments = _get_input_openai_chat_completions_create(input_dict)
         assert content == ""
         assert attachments == []
+
+
+if __name__ == "__main__":
+    test_obj = TestGetInputOpenAIChatCompletionsCreate()
+    test_obj.test_assistant_message_with_none_content_and_function_call()
