@@ -1,4 +1,5 @@
 import collections.abc
+import ast
 
 
 # Utility functions
@@ -135,12 +136,14 @@ class TaintStr(str):
 
     def __add__(self, other):
         result = str.__add__(self, other)
-        nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
+        adjusted_other_taints = increase_position_taints(other, len(self))
+        nodes = set(get_taint_origins(self)) | set(adjusted_other_taints)
         return TaintStr(result, list(nodes))
 
     def __radd__(self, other):
         result = str.__add__(other, self)
-        nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
+        adjusted_self_taints = increase_position_taints(self, len(other))
+        nodes = set(get_taint_origins(other)) | set(adjusted_self_taints)
         return TaintStr(result, list(nodes))
 
     def __format__(self, format_spec):
@@ -149,7 +152,25 @@ class TaintStr(str):
 
     def __getitem__(self, key):
         result = str.__getitem__(self, key)
-        return TaintStr(result, self._taint_origin)
+        adjusted_taints = []
+        for taint_origin in get_taint_origins(self):
+            if is_random_taint(taint_origin):
+                new_taint = None
+                pos_list = extract_position_from_random_taint(taint_origin)
+                if isinstance(key, slice):
+                    indices_key = list(range(0, len(self)))[key]
+                    overlap = [i for i in range(pos_list[0], pos_list[1]) if i in indices_key]
+                    if overlap != []:
+                        new_taint = f"[position]{str([min(overlap), max(overlap)])}"
+                else:
+                    # key: int
+                    if key >= pos_list[0] and key < pos_list[1]:
+                        new_taint = f"[position]{str([key, key])}"
+                if new_taint is not None:
+                    adjusted_taints.append(new_taint)
+            else:
+                adjusted_taints.append(taint_origin)
+        return TaintStr(result, adjusted_taints)
 
     def __mod__(self, other):
         result = str.__mod__(self, other)
@@ -929,42 +950,6 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
     return obj
 
 
-class TaintStringContext:
-    """
-    Context manager for taint-aware string operations.
-    This provides a way to temporarily intercept string operations to preserve taint.
-    """
-
-    def __init__(self):
-        self.original_str = str
-        self.original_format = str.format
-        self._taint_stack = []
-
-    def __enter__(self):
-        # Store current taint context
-        self._taint_stack.append(set())
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # Restore previous taint context
-        if self._taint_stack:
-            self._taint_stack.pop()
-
-    def add_taint(self, taint_origin):
-        """Add taint origin to current context."""
-        if self._taint_stack:
-            if isinstance(taint_origin, (list, tuple)):
-                self._taint_stack[-1].update(taint_origin)
-            elif isinstance(taint_origin, (str, int)):
-                self._taint_stack[-1].add(taint_origin)
-
-    def get_current_taint(self):
-        """Get current taint origins."""
-        if self._taint_stack:
-            return list(self._taint_stack[-1])
-        return []
-
-
 def taint_format(template, *args, **kwargs):
     """
     Taint-aware string formatting that preserves taint information.
@@ -987,17 +972,61 @@ def taint_format(template, *args, **kwargs):
     return TaintStr(formatted, list(all_origins))
 
 
-def taint_format_advanced(template, *args, **kwargs):
+def is_random_taint(taint_origin):
+    """Check if a taint origin represents a random taint with position information."""
+    return isinstance(taint_origin, str) and "[random]" in taint_origin
+
+
+def extract_position_from_random_taint(taint_origin):
+    """Extract position list from a random taint origin."""
+    return ast.literal_eval(taint_origin.split("[random]")[1])
+
+
+def increase_position_taints(obj: str | TaintStr, offs: int) -> list:
     """
-    Advanced taint-aware formatting that can handle complex cases.
+    Increase position taints in an object's taint origins by a given offset.
+
+    Args:
+        obj: The object to extract and adjust taint origins from
+        offs: The offset to add to position-based taints
+
+    Returns:
+        List of adjusted taint origins
     """
-    with TaintStringContext() as ctx:
-        # Add taint from all arguments
-        for arg in args:
-            ctx.add_taint(get_taint_origins(arg))
-        for value in kwargs.values():
-            ctx.add_taint(get_taint_origins(value))
-        # Format the string
-        result = template.format(*args, **kwargs)
-        # Return with combined taint
-        return TaintStr(result, ctx.get_current_taint())
+    adjusted_taints = []
+    for taint_origin in get_taint_origins(obj):
+        if is_random_taint(taint_origin):
+            pos_list = extract_position_from_random_taint(taint_origin)
+            pos_list = list(map(lambda p: p + offs, pos_list))
+            adjusted_taints.append(f"[random]{str(pos_list)}")
+        else:
+            adjusted_taints.append(taint_origin)
+    return adjusted_taints
+
+
+def set_position_taints(obj, start_pos: int, end_pos: int) -> list:
+    """
+    Set position taints for an object to specific start/end positions.
+
+    Args:
+        obj: The object to extract taint origins from
+        start_pos: The start position in the final result
+        end_pos: The end position in the final result
+
+    Returns:
+        List of taint origins with position taints set to the specified range.
+        Returns empty list if obj is not tainted or has no position taints.
+    """
+    taint_origins = get_taint_origins(obj)
+
+    # Create new taint list with updated positions
+    new_taints = []
+    for taint_origin in taint_origins:
+        if is_random_taint(taint_origin):
+            # Replace position with new range
+            new_taints.append(f"[random]{str([start_pos, end_pos])}")
+        else:
+            # Keep non-position taints as-is
+            new_taints.append(taint_origin)
+
+    return new_taints

@@ -2,8 +2,14 @@ import ast
 import importlib.abc
 import importlib.util
 import sys
+import re
 from common.logger import logger
-from runner.taint_wrappers import TaintStr, get_taint_origins
+from runner.taint_wrappers import (
+    TaintStr,
+    get_taint_origins,
+    increase_position_taints,
+    set_position_taints,
+)
 
 
 _user_py_files = set()
@@ -26,8 +32,11 @@ def set_module_to_user_file(module_to_user_file: dict):
 def taint_fstring_join(*args):
     result = "".join(str(a) for a in args)
     all_origins = set()
+    offs = 0
     for a in args:
-        all_origins.update(get_taint_origins(a))
+        updated_taint_origins = increase_position_taints(a, offs)
+        all_origins.update(updated_taint_origins)
+        offs += len(a)
     if all_origins:
         return TaintStr(result, list(all_origins))
     return result
@@ -36,10 +45,119 @@ def taint_fstring_join(*args):
 def taint_format_string(format_string, *args, **kwargs):
     result = format_string.format(*args, **kwargs)
     all_origins = set()
-    for a in args:
-        all_origins.update(get_taint_origins(a))
-    for v in kwargs.values():
-        all_origins.update(get_taint_origins(v))
+    used_positions = set()  # Track (start, end) tuples to avoid duplicates
+
+    # Parse the format string to extract individual format specs
+    import string
+
+    formatter = string.Formatter()
+    format_specs = list(formatter.parse(format_string))
+
+    # For each tainted argument, format it individually and find where it appears
+    arg_index = 0
+    for literal_text, field_name, format_spec, conversion in format_specs:
+        if field_name is not None:  # This is a placeholder
+            # Determine if this is a positional or keyword argument
+            if field_name.isdigit():
+                # Positional argument with explicit index
+                idx = int(field_name)
+                if idx < len(args):
+                    arg = args[idx]
+                else:
+                    continue
+            elif field_name == "":
+                # Auto-numbered positional argument
+                if arg_index < len(args):
+                    arg = args[arg_index]
+                    arg_index += 1
+                else:
+                    continue
+            elif field_name in kwargs:
+                # Keyword argument
+                arg = kwargs[field_name]
+            else:
+                continue
+
+            # Only process tainted arguments
+            if get_taint_origins(arg):
+                # Format this argument individually to see how it gets transformed
+                try:
+                    # Create format spec for just this argument
+                    individual_format_spec = format_spec if format_spec else ""
+                    if conversion:
+                        # Handle conversion (!s, !r, !a)
+                        if conversion == "s":
+                            converted_arg = str(arg)
+                        elif conversion == "r":
+                            converted_arg = repr(arg)
+                        elif conversion == "a":
+                            converted_arg = ascii(arg)
+                        else:
+                            converted_arg = arg
+                        formatted_arg = format(converted_arg, individual_format_spec)
+                    else:
+                        formatted_arg = format(arg, individual_format_spec)
+
+                    # Find where this formatted argument appears in the final result
+                    for match in re.finditer(re.escape(formatted_arg), result):
+                        formatted_field_start = match.start()
+                        formatted_field_end = match.end()
+
+                        # Skip if this position is already used
+                        if (formatted_field_start, formatted_field_end) not in used_positions:
+                            used_positions.add((formatted_field_start, formatted_field_end))
+
+                            # Find where the actual content appears within the formatted field
+                            original_content = str(arg)
+                            content_pos_in_field = formatted_arg.find(original_content)
+
+                            if content_pos_in_field != -1:
+                                # Calculate the actual content position in the final result
+                                content_start = formatted_field_start + content_pos_in_field
+                                content_end = content_start + len(original_content)
+
+                                # Set position taints based on where the actual content ended up
+                                position_taints = set_position_taints(
+                                    arg, content_start, content_end
+                                )
+                                all_origins.update(position_taints)
+                            else:
+                                # Fallback: if we can't find original content in formatted field,
+                                # track the entire formatted field (this handles cases like conversions)
+                                position_taints = set_position_taints(
+                                    arg, formatted_field_start, formatted_field_end
+                                )
+                                all_origins.update(position_taints)
+                            break  # Use only the first unused occurrence for this argument
+                    else:
+                        # Fallback: add original taints if formatted version not found
+                        all_origins.update(get_taint_origins(arg))
+
+                except (ValueError, AttributeError, TypeError) as e:
+                    # Format failed - fallback to original taints
+                    all_origins.update(get_taint_origins(arg))
+            else:
+                # Non-tainted argument - still increment counter for auto-numbered args
+                if field_name == "":
+                    arg_index += 1
+
+    # Handle any remaining positional args that weren't covered by format specs
+    # (This shouldn't normally happen with well-formed format strings)
+    for i in range(arg_index, len(args)):
+        arg = args[i]
+        if get_taint_origins(arg):
+            all_origins.update(get_taint_origins(arg))
+
+    # Handle any remaining kwargs that weren't covered
+    for key, value in kwargs.items():
+        if get_taint_origins(value):
+            # Check if this kwarg was already processed
+            was_processed = any(
+                field_name == key for _, field_name, _, _ in format_specs if field_name
+            )
+            if not was_processed:
+                all_origins.update(get_taint_origins(value))
+
     if all_origins:
         return TaintStr(result, list(all_origins))
     return result
@@ -155,3 +273,4 @@ def install_fstring_rewriter():
 
     builtins.taint_fstring_join = taint_fstring_join
     builtins.taint_format_string = taint_format_string
+    builtins.taint_percent_format = taint_percent_format
