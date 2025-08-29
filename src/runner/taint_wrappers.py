@@ -1107,15 +1107,41 @@ class TaintFile:
 
     def read(self, size=-1):
         """Read from the file and return tainted data."""
+        from common.logger import logger
+        logger.debug(f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
+        
         data = self._file.read(size)
         if isinstance(data, bytes):
             # For binary mode, we return raw bytes but track taint separately
             # You might want to create a TaintBytes class for this
             return data
+        
+        # For text mode, check if there's taint from previous sessions
+        if hasattr(self._file, "name") and data:
+            try:
+                from server.db import get_taint_info
+                # Check line 0 for now (we'd need to track all lines for full read)
+                logger.debug(f"Checking for taint in read(): file={self._file.name}")
+                prev_session_id, taint_nodes = get_taint_info(self._file.name, 0)
+                logger.debug(f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}")
+                
+                if prev_session_id and prev_session_id != self._session_id and taint_nodes:
+                    # Notify about session switch needed
+                    self._notify_session_switch(prev_session_id, taint_nodes)
+                    # Combine existing taint with file taint
+                    combined_taint = list(set(self._taint_origin + taint_nodes))
+                    return TaintStr(data, combined_taint)
+            except Exception as e:
+                import sys
+                print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
+        
         return TaintStr(data, self._taint_origin)
 
     def readline(self, size=-1):
         """Read a line from the file and return tainted data."""
+        from common.logger import logger
+        logger.debug(f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}")
+        
         line = self._file.readline(size)
         if isinstance(line, bytes):
             return line
@@ -1124,7 +1150,9 @@ class TaintFile:
         if hasattr(self._file, "name"):
             try:
                 from server.db import get_taint_info
+                logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
+                logger.debug(f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}")
                 
                 if prev_session_id and prev_session_id != self._session_id:
                     # Notify about session switch needed
@@ -1177,12 +1205,16 @@ class TaintFile:
         If the data is tainted, the taint information is preserved
         and stored in the database for cross-session tracking.
         """
+        from common.logger import logger
+        logger.debug(f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
+        
         # Extract raw data if tainted
         raw_data = untaint_if_needed(data)
         
         # Store taint information in database if we have a session ID and file name
         if self._session_id and hasattr(self._file, "name"):
             taint_nodes = get_taint_origins(data)
+            logger.debug(f"Writing with taint nodes: {taint_nodes}")
             if taint_nodes:
                 # Store taint for the current line being written
                 try:
