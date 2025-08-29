@@ -4,12 +4,58 @@ import re
 
 
 # Utility functions
-def untaint_if_needed(val, _seen=None):
+def erase_random_substring(val):
+    """
+    Remove random/tainted portions from a tainted string, keeping only clean parts.
+
+    This function processes TaintStr objects that contain position markers indicating
+    which portions of the string contain random or sensitive data. It extracts and
+    concatenates only the clean (non-random) portions of the string.
+
+    Args:
+        val: The value to process. Can be any type, but only TaintStr objects
+             with _random_positions attribute will be processed. Other types
+             are returned unchanged.
+
+    Returns:
+        str: A clean string with random portions removed, or the original value
+             if it doesn't contain random position tracking.
+
+    Example:
+        >>> tainted = TaintStr("Hello world test", random_pos=[Position(6, 11)])
+        >>> erase_random(tainted)
+        'Hello  test'
+
+    Note:
+        - Automatically sorts positions by start position
+        - Positions should be non-overlapping for correct results
+        - Invalid positions beyond string bounds may cause errors
+    """
+    if not hasattr(val, "_random_positions"):
+        if hasattr(val, "get_raw"):
+            return val.get_raw()
+        return val
+
+    # Sort positions by start position to handle unsorted input
+    sorted_positions = sorted(val._random_positions, key=lambda pos: pos.start)
+
+    last_end = 0
+    raw_string = val.get_raw()
+    clean_string = []
+    for pos in sorted_positions:
+        clean_string.append(raw_string[last_end : pos.start])
+        last_end = pos.stop
+    clean_string.append(raw_string[last_end:])
+    return "".join(clean_string)
+
+
+def untaint_if_needed(val, erase_random: bool = False, _seen=None):
     """
     Recursively remove taint from objects and nested data structures.
 
     Args:
         val: The value to untaint
+        erase_random: If True, removes random substrings that have been marked
         _seen: Set to track visited objects (prevents circular references)
 
     Returns:
@@ -25,22 +71,26 @@ def untaint_if_needed(val, _seen=None):
 
     # If object has get_raw method (tainted), use it
     if hasattr(val, "get_raw"):
-        return untaint_if_needed(val.get_raw(), _seen)
+        if erase_random:
+            raw_val = erase_random_substring(val)  # returns raw string
+        else:
+            raw_val = val.get_raw()
+        return untaint_if_needed(raw_val, erase_random, _seen)
 
     # Handle nested data structures
     if isinstance(val, dict):
-        return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
+        return {k: untaint_if_needed(v, erase_random, _seen) for k, v in val.items()}
     elif isinstance(val, (list, tuple)):
-        result = [untaint_if_needed(item, _seen) for item in val]
+        result = [untaint_if_needed(item, erase_random, _seen) for item in val]
         return tuple(result) if isinstance(val, tuple) else result
     elif isinstance(val, set):
-        return {untaint_if_needed(item, _seen) for item in val}
+        return {untaint_if_needed(item, erase_random, _seen) for item in val}
     elif hasattr(val, "__dict__") and not isinstance(val, type):
         # Handle custom objects with attributes, e.g., (MyObj(a=5, b=1)).
         try:
             new_obj = val.__class__.__new__(val.__class__)
             for attr, value in val.__dict__.items():
-                setattr(new_obj, attr, untaint_if_needed(value, _seen))
+                setattr(new_obj, attr, untaint_if_needed(value, erase_random, _seen))
             return new_obj
         except Exception:
             return val
@@ -51,7 +101,7 @@ def untaint_if_needed(val, _seen=None):
             for slot in val.__slots__:
                 if hasattr(val, slot):
                     value = getattr(val, slot)
-                    setattr(new_obj, slot, untaint_if_needed(value, _seen))
+                    setattr(new_obj, slot, untaint_if_needed(value, erase_random, _seen))
             return new_obj
         except Exception:
             return val
