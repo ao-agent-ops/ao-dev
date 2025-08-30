@@ -17,8 +17,14 @@ export function routeEdges(
   const verticalChannels = new Map<number, number[]>();
 
   edges.forEach(edge => {
-    const sourceBounds = nodeBounds.get(edge.source)!;
-    const targetBounds = nodeBounds.get(edge.target)!;
+    const sourceBounds = nodeBounds.get(edge.source);
+    const targetBounds = nodeBounds.get(edge.target);
+    
+    // Skip edges where source or target node doesn't exist
+    if (!sourceBounds || !targetBounds) {
+      console.warn(`Skipping edge ${edge.id}: missing node bounds for source ${edge.source} or target ${edge.target}`);
+      return;
+    }
 
     // 1) try straight down
     let route = tryCase1_StraightDown(

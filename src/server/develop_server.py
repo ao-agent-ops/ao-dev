@@ -162,11 +162,42 @@ class DevelopServer:
             return label
         return f"{label} ({len(matches)})"
 
+    def _find_session_with_node(self, node_id: str) -> Optional[str]:
+        """Find which session contains a specific node ID"""
+        for session_id, graph in self.session_graphs.items():
+            for node in graph["nodes"]:
+                if node["id"] == node_id:
+                    return session_id
+        return None
+
     def handle_add_node(self, msg: dict) -> None:
         sid = msg["session_id"]
         node = msg["node"]
         incoming_edges = msg.get("incoming_edges", [])
+        
+        # Check if any incoming edges reference nodes from other sessions
+        cross_session_sources = []
+        target_sessions = set()
+        
+        for source in incoming_edges:
+            # Find which session contains this source node
+            source_session = self._find_session_with_node(source)
+            if source_session:
+                target_sessions.add(source_session)
+                cross_session_sources.append(source)
+                logger.info(f"Found cross-session edge: node {source} in session {source_session}")
+        
+        # If we have cross-session references, add the node to those sessions instead of current session
+        if target_sessions:
+            logger.info(f"Adding node {node['id']} to cross-session targets: {target_sessions}")
+            for target_sid in target_sessions:
+                self._add_node_to_session(target_sid, node, cross_session_sources)
+        else:
+            # No cross-session references, add to current session as normal
+            self._add_node_to_session(sid, node, incoming_edges)
 
+    def _add_node_to_session(self, sid: str, node: dict, incoming_edges: list) -> None:
+        """Add a node to a specific session's graph"""
         # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
         for n in graph["nodes"]:
@@ -177,24 +208,28 @@ class DevelopServer:
             tab_title = self._determine_unique_tab_title(node["label"], sid)
             node["tab_title"] = tab_title
             graph["nodes"].append(node)
-
-        # Add incoming edges
-        for source in incoming_edges:
-            target = node["id"]
-            edge_id = f"e{source}-{target}"
-            full_edge = {"id": edge_id, "source": source, "target": target}
-            graph["edges"].append(full_edge)
-
+            logger.info(f"Added node {node['id']} to session {sid}")
+        
+        # Add incoming edges (only if source nodes exist in the graph)
+        existing_node_ids = {n["id"] for n in graph["nodes"]}
+        for source in incoming_edges:                
+            if source in existing_node_ids:
+                target = node["id"]
+                edge_id = f"e{source}-{target}"
+                full_edge = {"id": edge_id, "source": source, "target": target}
+                graph["edges"].append(full_edge)
+                logger.info(f"Added edge {edge_id} in session {sid}")
+            else:
+                logger.debug(f"Skipping edge from non-existent node {source} to {node['id']}")
+        
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
         color_preview = node_colors[-6:]  # Only display last 6 colors
         CACHE.update_color_preview(sid, color_preview)
-
         # Broadcast color preview update to all UIs
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": sid, "color_preview": color_preview}
         )
-
         self.broadcast_to_all_uis(
             {
                 "type": "graph_update",
@@ -419,48 +454,6 @@ class DevelopServer:
         )
         logger.info("All database records and in-memory state cleared.")
     
-    def handle_switch_session_for_taint(self, msg: dict) -> None:
-        """Handle session switch when reading from a TaintFile with existing taint"""
-        current_session_id = msg.get("current_session_id")
-        target_session_id = msg.get("target_session_id")
-        taint_nodes = msg.get("taint_nodes", [])
-        file_path = msg.get("file_path", "unknown")
-        
-        logger.debug(f"Switching session context from {current_session_id} to {target_session_id} for file {file_path}")
-        
-        # Load the target session's graph if not already loaded
-        if target_session_id not in self.session_graphs:
-            self.handle_graph_request(None, target_session_id)
-        
-        # Add edges from the current node to the taint nodes in the target session
-        if current_session_id and current_session_id in self.session_graphs:
-            current_graph = self.session_graphs[current_session_id]
-            
-            # Find the most recent node in the current session (the one reading the file)
-            if current_graph["nodes"]:
-                current_node = current_graph["nodes"][-1]
-                
-                # Modify the node to indicate it's reading from a tainted file
-                current_node["label"] = f"{current_node.get('label', 'Node')} (reading {file_path})"
-                
-                # Add edges to the taint nodes from the previous session
-                for taint_node_id in taint_nodes:
-                    edge_id = f"e{taint_node_id}-{current_node['id']}"
-                    edge = {"id": edge_id, "source": taint_node_id, "target": current_node["id"], "cross_session": True}
-                    current_graph["edges"].append(edge)
-                
-                # Update the graph in memory and database
-                EDIT.update_graph_topology(current_session_id, current_graph)
-                
-                # Broadcast the updated graph
-                self.broadcast_to_all_uis(
-                    {
-                        "type": "graph_update",
-                        "session_id": current_session_id,
-                        "payload": current_graph,
-                    }
-                )
-
     # ============================================================
     # Message rounting logic.
     # ============================================================
@@ -495,8 +488,6 @@ class DevelopServer:
             self.handle_erase(msg)
         elif msg_type == "clear":
             self.handle_clear()
-        elif msg_type == "switch_session_for_taint":
-            self.handle_switch_session_for_taint(msg)
         else:
             logger.error(f"Unknown message type. Message:\n{msg}")
 

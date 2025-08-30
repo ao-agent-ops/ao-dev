@@ -1108,7 +1108,9 @@ class TaintFile:
     def read(self, size=-1):
         """Read from the file and return tainted data."""
         from common.logger import logger
-        logger.debug(f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
+        import os
+        logger.info(f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
+        logger.info(f"Current environment session: {os.environ.get('AGENT_COPILOT_SESSION_ID')}")
         
         data = self._file.read(size)
         if isinstance(data, bytes):
@@ -1121,20 +1123,24 @@ class TaintFile:
             try:
                 from server.db import get_taint_info
                 # Check line 0 for now (we'd need to track all lines for full read)
-                logger.debug(f"Checking for taint in read(): file={self._file.name}")
+                logger.info(f"Checking for taint in read(): file={self._file.name}")
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, 0)
-                logger.debug(f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}")
+                logger.info(f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}")
                 
-                if prev_session_id and prev_session_id != self._session_id and taint_nodes:
-                    # Notify about session switch needed
-                    self._notify_session_switch(prev_session_id, taint_nodes)
-                    # Combine existing taint with file taint
+                if prev_session_id and taint_nodes:
+                    logger.info(f"Found taint from previous session {prev_session_id}: {taint_nodes}")
+                    # Combine existing taint with file taint - the server will handle cross-session nodes
                     combined_taint = list(set(self._taint_origin + taint_nodes))
+                    logger.info(f"Returning TaintStr with combined taint: {combined_taint}")
                     return TaintStr(data, combined_taint)
             except Exception as e:
                 import sys
                 print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
+                logger.error(f"Exception in taint info retrieval: {e}")
+        else:
+            logger.info(f"Skipping taint check - file has name: {hasattr(self._file, 'name')}, data length: {len(data) if data else 0}")
         
+        logger.info(f"Returning TaintStr with default taint: {self._taint_origin}")
         return TaintStr(data, self._taint_origin)
 
     def readline(self, size=-1):
@@ -1154,10 +1160,8 @@ class TaintFile:
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
                 logger.debug(f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}")
                 
-                if prev_session_id and prev_session_id != self._session_id:
-                    # Notify about session switch needed
-                    self._notify_session_switch(prev_session_id, taint_nodes)
-                    # Combine existing taint with file taint
+                if prev_session_id and taint_nodes:
+                    # Combine existing taint with file taint - the server will handle cross-session nodes
                     combined_taint = list(set(self._taint_origin + taint_nodes))
                     self._line_no += 1
                     return TaintStr(line, combined_taint)
@@ -1169,28 +1173,6 @@ class TaintFile:
         self._line_no += 1
         return TaintStr(line, self._taint_origin)
     
-    def _notify_session_switch(self, target_session_id, taint_nodes):
-        """Notify the server that we need to switch to a different session's graph"""
-        try:
-            import socket
-            import json
-            from common.constants import HOST, PORT
-            
-            # Send a message to the develop server to switch session context
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect((HOST, PORT))
-                msg = {
-                    "type": "switch_session_for_taint",
-                    "current_session_id": self._session_id,
-                    "target_session_id": target_session_id,
-                    "taint_nodes": taint_nodes,
-                    "file_path": self._file.name if hasattr(self._file, "name") else "unknown"
-                }
-                s.sendall((json.dumps(msg) + "\n").encode("utf-8"))
-        except Exception as e:
-            import sys
-            print(f"Warning: Could not notify session switch: {e}", file=sys.stderr)
-
     def readlines(self, hint=-1):
         """Read lines from the file and return tainted data."""
         lines = self._file.readlines(hint)
