@@ -14,16 +14,8 @@ All returned strings include Position objects that track the entire string
 as containing random/sensitive data for security analysis purposes.
 """
 
-from typing import Any
 from uuid import UUID
 from runner.taint_wrappers import TaintStr, Position
-
-
-class RandomObject:
-    """Wrapper class for random objects (currently unused)."""
-
-    def __init__(self, obj: Any):
-        self.obj = obj
 
 
 def uuid_patch():
