@@ -91,8 +91,12 @@ def _init_db(conn):
         """
         CREATE TABLE IF NOT EXISTS attachments (
             file_id TEXT PRIMARY KEY,
+            session_id TEXT,
+            line_no INTEGER,
             content_hash TEXT,
-            file_path TEXT
+            file_path TEXT,
+            taint TEXT,
+            FOREIGN KEY (session_id) REFERENCES experiments (session_id)
         )
     """
     )
@@ -161,3 +165,40 @@ def deserialize(output_json, api_type):
     # This would need to be implemented based on api_type
     # For now, just return the JSON string
     return output_json
+
+
+def store_taint_info(session_id, file_path, line_no, taint_nodes):
+    """Store taint information for a line in a file"""
+    import json
+    file_id = f"{session_id}:{file_path}:{line_no}"
+    content_hash = hash_input(f"{file_path}:{line_no}")
+    taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
+    
+    logger.debug(f"Storing taint info for {file_id}: {taint_json}")
+    
+    execute(
+        """
+        INSERT OR REPLACE INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (file_id, session_id, line_no, content_hash, file_path, taint_json)
+    )
+
+
+def get_taint_info(file_path, line_no):
+    """Get taint information for a specific line in a file from any previous session"""
+    import json
+    row = query_one(
+        """
+        SELECT session_id, taint FROM attachments 
+        WHERE file_path = ? AND line_no = ?
+        ORDER BY rowid DESC
+        LIMIT 1
+        """,
+        (file_path, line_no)
+    )
+    if row:
+        logger.debug(f"Taint info for {file_path}:{line_no}: {row['taint']}")
+        taint_nodes = json.loads(row["taint"]) if row["taint"] else []
+        return row["session_id"], taint_nodes
+    return None, []

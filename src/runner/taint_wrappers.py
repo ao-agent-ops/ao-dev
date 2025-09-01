@@ -1,6 +1,7 @@
 import collections.abc
 import ast
 import re
+import io
 
 
 # Utility functions
@@ -1310,6 +1311,341 @@ class TaintedCallable:
         return self._wrapped
 
 
+class TaintFile:
+    """
+    A file-like object that preserves taint information during file operations.
+
+    This class wraps a regular file object and ensures that any data read from
+    the file is tainted with the specified origin, and any tainted data written
+    to the file preserves its taint information for future reads.
+    """
+
+    def __init__(self, file_obj, mode="r", taint_origin=None, session_id=None):
+        """
+        Initialize a TaintFile wrapper.
+
+        Args:
+            file_obj: The underlying file object to wrap
+            mode: The file mode ('r', 'w', 'a', 'rb', 'wb', etc.)
+            taint_origin: The taint origin to apply to data read from this file
+            session_id: The current session ID for tracking taint across sessions
+        """
+        self._file = file_obj
+        self._mode = mode
+        self._closed = False
+        self._line_no = 0  # Track current line number
+        self._session_id = session_id or self._get_current_session_id()
+
+        # Set taint origin
+        if taint_origin is None:
+            # Use the file name as default taint origin if available
+            if hasattr(file_obj, "name"):
+                self._taint_origin = [f"file:{file_obj.name}"]
+            else:
+                self._taint_origin = ["file:unknown"]
+        elif isinstance(taint_origin, (int, str)):
+            self._taint_origin = [taint_origin]
+        elif isinstance(taint_origin, list):
+            self._taint_origin = list(taint_origin)
+        else:
+            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+
+    def _get_current_session_id(self):
+        """Get the current session ID from environment or context"""
+        import os
+
+        return os.environ.get("AGENT_COPILOT_SESSION_ID", None)
+
+    @classmethod
+    def open(cls, filename, mode="r", taint_origin=None, session_id=None, **kwargs):
+        """
+        Open a file with taint tracking.
+
+        Args:
+            filename: Path to the file
+            mode: File mode
+            taint_origin: Taint origin for the file (defaults to filename)
+            session_id: The session ID for cross-session tracking
+            **kwargs: Additional arguments to pass to open()
+
+        Returns:
+            TaintFile object
+        """
+        file_obj = open(filename, mode, **kwargs)
+        if taint_origin is None:
+            taint_origin = f"file:{filename}"
+        return cls(file_obj, mode, taint_origin, session_id)
+
+    def read(self, size=-1):
+        """Read from the file and return tainted data."""
+        from common.logger import logger
+        import os
+
+        logger.info(
+            f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
+        )
+        logger.info(f"Current environment session: {os.environ.get('AGENT_COPILOT_SESSION_ID')}")
+
+        data = self._file.read(size)
+        if isinstance(data, bytes):
+            # For binary mode, we return raw bytes but track taint separately
+            # You might want to create a TaintBytes class for this
+            return data
+
+        # For text mode, check if there's taint from previous sessions
+        if hasattr(self._file, "name") and data:
+            try:
+                from server.db import get_taint_info
+
+                # Check line 0 for now (we'd need to track all lines for full read)
+                logger.info(f"Checking for taint in read(): file={self._file.name}")
+                prev_session_id, taint_nodes = get_taint_info(self._file.name, 0)
+                logger.info(
+                    f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}"
+                )
+
+                if prev_session_id and taint_nodes:
+                    logger.info(
+                        f"Found taint from previous session {prev_session_id}: {taint_nodes}"
+                    )
+                    # Combine existing taint with file taint - the server will handle cross-session nodes
+                    combined_taint = list(set(self._taint_origin + taint_nodes))
+                    logger.info(f"Returning TaintStr with combined taint: {combined_taint}")
+                    return TaintStr(data, combined_taint)
+            except Exception as e:
+                import sys
+
+                print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
+                logger.error(f"Exception in taint info retrieval: {e}")
+        else:
+            logger.info(
+                f"Skipping taint check - file has name: {hasattr(self._file, 'name')}, data length: {len(data) if data else 0}"
+            )
+
+        logger.info(f"Returning TaintStr with default taint: {self._taint_origin}")
+        return TaintStr(data, self._taint_origin)
+
+    def readline(self, size=-1):
+        """Read a line from the file and return tainted data."""
+        from common.logger import logger
+
+        logger.debug(
+            f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}"
+        )
+
+        line = self._file.readline(size)
+        if isinstance(line, bytes):
+            return line
+
+        # Check for existing taint from previous sessions
+        if hasattr(self._file, "name"):
+            try:
+                from server.db import get_taint_info
+
+                logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
+                prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
+                logger.debug(
+                    f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}"
+                )
+
+                if prev_session_id and taint_nodes:
+                    # Combine existing taint with file taint - the server will handle cross-session nodes
+                    combined_taint = list(set(self._taint_origin + taint_nodes))
+                    self._line_no += 1
+                    return TaintStr(line, combined_taint)
+            except Exception as e:
+                # Log but don't fail the read operation
+                import sys
+
+                print(f"Warning: Could not retrieve taint info: {e}", file=sys.stderr)
+
+        self._line_no += 1
+        return TaintStr(line, self._taint_origin)
+
+    def readlines(self, hint=-1):
+        """Read lines from the file and return tainted data."""
+        lines = self._file.readlines(hint)
+        if lines and isinstance(lines[0], bytes):
+            return lines
+        return [TaintStr(line, self._taint_origin) for line in lines]
+
+    def write(self, data):
+        """
+        Write data to the file.
+
+        If the data is tainted, the taint information is preserved
+        and stored in the database for cross-session tracking.
+        """
+        from common.logger import logger
+
+        logger.debug(
+            f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
+        )
+
+        # Extract raw data if tainted
+        raw_data = untaint_if_needed(data)
+
+        # Store taint information in database if we have a session ID and file name
+        if self._session_id and hasattr(self._file, "name"):
+            taint_nodes = get_taint_origins(data)
+            logger.debug(f"Writing with taint nodes: {taint_nodes}")
+            if taint_nodes:
+                # Store taint for the current line being written
+                try:
+                    from server.db import store_taint_info
+
+                    store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
+                except Exception as e:
+                    # Log but don't fail the write operation
+                    import sys
+
+                    print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
+
+                # Increment line number for each newline in the data
+                newline_count = raw_data.count("\n") if isinstance(raw_data, str) else 0
+                self._line_no += max(1, newline_count)
+
+        return self._file.write(raw_data)
+
+    def writelines(self, lines):
+        """Write multiple lines to the file."""
+        raw_lines = []
+        for line in lines:
+            # Store taint for each line
+            if self._session_id and hasattr(self._file, "name"):
+                taint_nodes = get_taint_origins(line)
+                if taint_nodes:
+                    try:
+                        from server.db import store_taint_info
+
+                        store_taint_info(
+                            self._session_id, self._file.name, self._line_no, taint_nodes
+                        )
+                    except Exception as e:
+                        import sys
+
+                        print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
+            self._line_no += 1
+            raw_lines.append(untaint_if_needed(line))
+        return self._file.writelines(raw_lines)
+
+    def __iter__(self):
+        """Iterate over lines in the file, returning tainted strings."""
+        return self
+
+    def __next__(self):
+        """Get next line for iteration."""
+        line = self._file.__next__()
+        if isinstance(line, bytes):
+            return line
+        return TaintStr(line, self._taint_origin)
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+    def close(self):
+        """Close the underlying file."""
+        if not self._closed:
+            self._file.close()
+            self._closed = True
+
+    def flush(self):
+        """Flush the file buffer."""
+        return self._file.flush()
+
+    def seek(self, offset, whence=0):
+        """Seek to a position in the file."""
+        return self._file.seek(offset, whence)
+
+    def tell(self):
+        """Get current file position."""
+        return self._file.tell()
+
+    def fileno(self):
+        """Get the file descriptor."""
+        return self._file.fileno()
+
+    def isatty(self):
+        """Check if the file is a TTY."""
+        return self._file.isatty()
+
+    def truncate(self, size=None):
+        """Truncate the file."""
+        return self._file.truncate(size)
+
+    @property
+    def closed(self):
+        """Check if the file is closed."""
+        return self._closed
+
+    @property
+    def mode(self):
+        """Get the file mode."""
+        return self._mode
+
+    @property
+    def name(self):
+        """Get the file name."""
+        return getattr(self._file, "name", None)
+
+    @property
+    def encoding(self):
+        """Get the file encoding."""
+        return getattr(self._file, "encoding", None)
+
+    @property
+    def errors(self):
+        """Get the error handling mode."""
+        return getattr(self._file, "errors", None)
+
+    @property
+    def newlines(self):
+        """Get the newlines mode."""
+        return getattr(self._file, "newlines", None)
+
+    def readable(self):
+        """Check if the file is readable."""
+        return self._file.readable()
+
+    def writable(self):
+        """Check if the file is writable."""
+        return self._file.writable()
+
+    def seekable(self):
+        """Check if the file is seekable."""
+        return self._file.seekable()
+
+    def __repr__(self):
+        """String representation."""
+        return f"TaintFile({self._file!r}, taint_origin={self._taint_origin})"
+
+
+def open_with_taint(filename, mode="r", taint_origin=None, session_id=None, **kwargs):
+    """
+    Convenience function to open a file with taint tracking.
+
+    Usage:
+        with open_with_taint('data.txt', taint_origin='user_input') as f:
+            content = f.read()  # content will be a TaintStr
+
+    Args:
+        filename: Path to the file
+        mode: File mode
+        taint_origin: Taint origin for the file
+        session_id: The session ID for cross-session tracking
+        **kwargs: Additional arguments to pass to open()
+
+    Returns:
+        TaintFile object
+    """
+    return TaintFile.open(filename, mode, taint_origin, session_id, **kwargs)
+
+
 # Helper to detect OpenAI SDK objects (Response, Assistant, etc.)
 def is_openai_sdk_object(obj):
     """
@@ -1376,6 +1712,8 @@ def taint_wrap(obj, taint_origin=None, _seen=None):
         )
     if callable(obj) and not isinstance(obj, type):
         return TaintedCallable(obj, taint_origin=taint_origin)
+    if isinstance(obj, io.IOBase):
+        return TaintFile(obj, taint_origin=taint_origin)
     if hasattr(obj, "__dict__") and not isinstance(obj, type):
         for attr in list(vars(obj)):
             try:
