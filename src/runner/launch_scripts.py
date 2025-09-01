@@ -9,6 +9,9 @@ import socket
 import json
 import traceback
 from common.logger import logger
+from forbiddenfruit import curse
+from runner import BUILT_IN_OVERRIDES
+
 
 project_root = {project_root}
 packages_in_project_root = {packages_in_project_root}
@@ -65,6 +68,13 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     except Exception as e:
         logger.error(f"Exception set up tracing:")
         traceback.print_exc()
+
+for override_tuple in BUILT_IN_OVERRIDES:
+    klass, attribute, value = override_tuple
+    curse(klass, attribute, value)
+
+from runner.taint_wrappers import TaintStr, Position
+xx = "--".join([TaintStr("hello"), TaintStr("hello", random_pos=[Position(0,4)])])
 """
 
 

@@ -192,15 +192,42 @@ def is_openai_response(obj):
 
 
 class Position:
+    """
+    Represents a position range within a string for tracking tainted/random data.
+
+    This class tracks start and stop positions within strings to mark ranges
+    that contain sensitive, random, or tainted data. Used by TaintStr to maintain
+    position information through string operations.
+
+    Attributes:
+        start (int): The starting position (inclusive) of the range
+        stop (int): The ending position (exclusive) of the range
+    """
+
     def __init__(self, start: int, stop: int):
         self.start = start
         self.stop = stop
 
     def shift(self, offset: int):
+        """
+        Shift both start and stop positions by the given offset.
+
+        Args:
+            offset (int): The amount to shift positions by
+        """
         self.start += offset
         self.stop += offset
 
     def set_pos(self, new_pos: list | tuple):
+        """
+        Set new start and stop positions from a list or tuple.
+
+        Args:
+            new_pos (list | tuple): Two-element sequence containing [start, stop] positions
+
+        Raises:
+            AssertionError: If new_pos doesn't have exactly 2 elements or positions are invalid
+        """
         assert len(new_pos) == 2, "length of pos must be 2"
         assert new_pos[0] <= new_pos[1], "pos must be increasing"
         self.start, self.stop = new_pos
@@ -237,7 +264,7 @@ class TaintStr(str):
             obj._taint_origin = []
         elif isinstance(taint_origin, (int, str)):
             obj._taint_origin = [taint_origin]
-        elif isinstance(taint_origin, list):
+        elif isinstance(taint_origin, (list, set)):
             obj._taint_origin = list(taint_origin)
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
@@ -318,26 +345,29 @@ class TaintStr(str):
         return TaintStr(result, list(nodes), random_pos=positions)
 
     def encode(self, *args, **kwargs):
-        return str(self).encode(*args, **kwargs)
+        return self.get_raw().encode(*args, **kwargs)
 
     def decode(self, *args, **kwargs):
-        return str(self).decode(*args, **kwargs)
+        return self.get_raw().decode(*args, **kwargs)
 
-    def join(self, iterable):
-        joined = str(self).join([str(x) for x in iterable])
-        curr_offs = 0
-        random_positions = []
-        for value in iterable:
-            shift_position_taints(value, curr_offs)
-            curr_offs += len(str(value)) + len(str(self))
-            random_positions.extend(get_random_positions(value))
-        nodes = set(get_taint_origins(self))
-        for x in iterable:
-            nodes.update(get_taint_origins(x))
-        return TaintStr(joined, list(nodes), random_pos=random_positions)
+    # def join(self, iterable):
+    #     joined = self.get_raw().join([
+    #         x.get_raw() if hasattr(x, "get_raw") else x for x in iterable
+    #     ])
+    #     curr_offs = 0
+    #     random_positions = []
+    #     for value in iterable:
+    #         shift_position_taints(value, curr_offs)
+    #         curr_offs += len(value) + len(self)
+    #         random_positions.extend(get_random_positions(value))
+    #     nodes = set(get_taint_origins(self))
+    #     for x in iterable:
+    #         nodes.update(get_taint_origins(x))
+    #     return TaintStr(joined, list(nodes), random_pos=random_positions)
 
     def __str__(self):
-        return str.__str__(self)
+        # return str.__str__(self)
+        return self
 
     # we don't want to change repr since this can alter behavior e.g.
     # in the case of this: '%r' % some_tainted_str
@@ -352,7 +382,8 @@ class TaintStr(str):
         )
 
     def get_raw(self):
-        return str(self)
+        # return str(self)
+        return super().__str__()
 
     # Add more methods for compatibility
     def upper(self, *args, **kwargs):
@@ -580,6 +611,20 @@ class TaintStr(str):
 
 
 class TaintInt(int):
+    """
+    A taint-aware integer class that tracks taint origins through arithmetic operations.
+
+    TaintInt extends the built-in int class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through integer arithmetic operations.
+
+    The class maintains taint origin information and propagates it through
+    all arithmetic operations like addition, multiplication, bitwise operations, etc.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+    """
+
     def __new__(cls, value, taint_origin=None):
         obj = int.__new__(cls, value)
         if taint_origin is None:
@@ -819,6 +864,20 @@ class TaintInt(int):
 
 
 class TaintFloat(float):
+    """
+    A taint-aware float class that tracks taint origins through arithmetic operations.
+
+    TaintFloat extends the built-in float class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through floating-point arithmetic operations.
+
+    The class maintains taint origin information and propagates it through
+    all arithmetic operations like addition, multiplication, division, etc.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+    """
+
     def __new__(cls, value, taint_origin=None):
         obj = float.__new__(cls, value)
         if taint_origin is None:
@@ -943,6 +1002,21 @@ class TaintFloat(float):
 
 
 class TaintList(list):
+    """
+    A taint-aware list class that tracks taint origins through list operations.
+
+    TaintList extends the built-in list class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through list operations like append, extend, insert, etc.
+
+    The class maintains taint origin information from both the list itself and
+    all items contained within it. When items are added or removed, the taint
+    information is automatically updated.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers from the list and its items
+    """
+
     def __init__(self, value, taint_origin=None):
         list.__init__(self, value)
         if taint_origin is None:
@@ -1020,6 +1094,21 @@ class TaintList(list):
 
 
 class TaintDict(dict):
+    """
+    A taint-aware dictionary class that tracks taint origins through dict operations.
+
+    TaintDict extends the built-in dict class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through dictionary operations like setitem, update, pop, etc.
+
+    The class maintains taint origin information from both the dictionary itself and
+    all values contained within it. When items are added or removed, the taint
+    information is automatically updated.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers from the dict and its values
+    """
+
     def __init__(self, value, taint_origin=None):
         dict.__init__(self, value)
         if taint_origin is None:
@@ -1422,18 +1511,18 @@ def inject_random_marker_str(value: str | TaintStr, level: str = "str") -> str |
         last_end = 0
         pos: Position
         for pos in value._random_positions:
-            modified_string.append(value[last_end : pos.start])
+            modified_string.append(value[last_end : pos.start].get_raw())
             if level == "str":
-                modified_string.append(">>" + value[pos.start : pos.stop] + "<<")
+                modified_string.append(">>" + value[pos.start : pos.stop].get_raw() + "<<")
             elif level == "char":
                 modified_string.append(
-                    "".join([f">>{char}<<" for char in value[pos.start : pos.stop]])
+                    "".join([f">>{char.get_raw()}<<" for char in value[pos.start : pos.stop]])
                 )
             else:
                 raise ValueError(f"Unknown level {level}")
             last_end = pos.stop
-        modified_string.append(value[last_end : len(value)])
-        value = TaintStr("").join(modified_string)
+        modified_string.append(value[last_end : len(value)].get_raw())
+        value = "".join(modified_string)
     return value
 
 
@@ -1441,15 +1530,30 @@ def remove_random_marker(
     val: str | TaintStr, level: str = "str"
 ) -> tuple[str | TaintStr, list[Position]]:
     """
-    This function removes random markers << and >> from the string
-    by checking for regex patterns of the form <<str>>. The function
-    also finds the positions of the enclosed str's in the new string without
-    the markers.
-    Example: Hell<<o>> this <<is a>> string -> Hello this is a string, [4,4], [11,15]
+    Remove random markers from a string and extract position information.
 
-    TODO rewrite and args
+    This function removes >> and << markers that were inserted by inject_random_marker
+    functions and returns both the clean string and Position objects representing
+    where the marked content was located in the cleaned string.
+
+    Args:
+        val (str | TaintStr): The string containing random markers to remove
+        level (str): The marker level to process - "str" for >>content<< markers,
+                     "char" for character-level >>c<< markers. Default is "str"
+
+    Returns:
+        tuple[str | TaintStr, list[Position]]: A tuple containing:
+            - The cleaned string with markers removed
+            - List of Position objects indicating where marked content is located
+
+    Example:
+        >>> remove_random_marker("Hell>>o<< this >>is a<< string")
+        ('Hello this is a string', [Position(4, 5), Position(11, 15)])
     """
-    input_str = str(val)
+    if isinstance(val, TaintStr):
+        input_str = val.get_raw()
+    else:
+        input_str = val
 
     # Find all matches of <<content>>
     if level == "str":
@@ -1485,3 +1589,69 @@ def remove_random_marker(
     result_parts.append(input_str[last_end:])
     result_str = "".join(result_parts)
     return result_str, positions
+
+
+def cursed_join(sep: str, elements: list[str]) -> str:
+    """
+    Join string elements with a separator while preserving taint tracking.
+
+    This function joins a list of strings with a separator, similar to str.join(),
+    but maintains taint information and random position tracking throughout the
+    operation. It uses byte-level joining for performance and handles taint
+    propagation from both the separator and all elements.
+
+    Args:
+        sep (str): The separator string to join elements with
+        elements (list[str]): List of string elements to join
+
+    Returns:
+        str | TaintStr: The joined string, returned as TaintStr if any element
+                        or separator has taint information, otherwise regular str
+    """
+    joined_bytes = _bytes_join(sep.encode(), [elem.encode() for elem in elements])
+    final_string = joined_bytes.decode()
+
+    nodes = set(get_taint_origins(sep))
+    curr_offs = 0
+    random_positions = []
+    for value in elements:
+        shift_position_taints(value, curr_offs)
+        curr_offs += len(value) + len(sep)
+        random_positions.extend(get_random_positions(value))
+        nodes.update(get_taint_origins(value))
+
+    if nodes != {} and random_positions != []:
+        return TaintStr(final_string, taint_origin=nodes, random_pos=random_positions)
+    return final_string
+
+
+def _bytes_join(sep: bytes, elements: list[bytes]) -> bytes:
+    """
+    Efficiently join byte sequences with a separator using a pre-allocated buffer.
+
+    This function performs byte-level joining of elements with a separator,
+    providing better performance than repeated concatenation by pre-allocating
+    a buffer of the exact required size and copying data directly.
+
+    Args:
+        sep (bytes): The separator bytes to join elements with
+        elements (list[bytes]): List of byte sequences to join
+
+    Returns:
+        bytes: The joined byte sequence, or empty bytes if total length is 0 or negative
+    """
+    # create a mutable buffer that is long enough to hold the result
+    total_length = sum(len(elem) for elem in elements)
+    total_length += (len(elements) - 1) * len(sep)
+    if total_length <= 0:
+        return bytearray(0)
+    result = bytearray(total_length)
+    # copy all characters from the inputs to the result
+    insert_idx = 0
+    for elem in elements:
+        result[insert_idx : insert_idx + len(elem)] = elem
+        insert_idx += len(elem)
+        if insert_idx < total_length:
+            result[insert_idx : insert_idx + len(sep)] = sep
+            insert_idx += len(sep)
+    return bytes(result)
