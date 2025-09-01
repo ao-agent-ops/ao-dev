@@ -1516,7 +1516,7 @@ def inject_random_marker_str(value: str | TaintStr, level: str = "str") -> str |
                 modified_string.append(">>" + value[pos.start : pos.stop].get_raw() + "<<")
             elif level == "char":
                 modified_string.append(
-                    "".join([f">>{char.get_raw()}<<" for char in value[pos.start : pos.stop]])
+                    "".join([f">>{char}<<" for char in value[pos.start : pos.stop].get_raw()])
                 )
             else:
                 raise ValueError(f"Unknown level {level}")
@@ -1620,7 +1620,7 @@ def cursed_join(sep: str, elements: list[str]) -> str:
         random_positions.extend(get_random_positions(value))
         nodes.update(get_taint_origins(value))
 
-    if nodes != {} and random_positions != []:
+    if len(nodes) > 0:
         return TaintStr(final_string, taint_origin=nodes, random_pos=random_positions)
     return final_string
 

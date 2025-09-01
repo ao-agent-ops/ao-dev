@@ -39,6 +39,7 @@
       // "args": ["./example_workflows/debug_examples/openai_chat.py"],
       // "args": ["./example_workflows/debug_examples/openai_async_agents.py"],
       // "args": ["./src/runner/monkey_patching/patches/uuid_patches.py"],
+      // "args": ["./src/runner/monkey_patching/patches/uuid_patches.py"],
       "console": "integratedTerminal",
       "justMyCode": false
     },

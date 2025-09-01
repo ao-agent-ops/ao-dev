@@ -72,9 +72,6 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
 for override_tuple in BUILT_IN_OVERRIDES:
     klass, attribute, value = override_tuple
     curse(klass, attribute, value)
-
-from runner.taint_wrappers import TaintStr, Position
-xx = "--".join([TaintStr("hello"), TaintStr("hello", random_pos=[Position(0,4)])])
 """
 
 
