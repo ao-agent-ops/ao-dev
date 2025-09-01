@@ -89,6 +89,9 @@ def compute_acc_by_diff(exec_results,diff_json_path):
     results = [res['res'] for res in exec_results]
     contents = load_json(diff_json_path)
     simple_results, moderate_results, challenging_results = [], [], []
+    
+    # Only take the first 5 questions
+    # contents = contents[:5]
 
     for i,content in enumerate(contents):
         if content['difficulty'] == 'simple':
