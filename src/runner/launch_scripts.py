@@ -66,8 +66,8 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
         set_parent_session_id(session_id)
         set_server_connection(server_conn)
 
-        # Apply monkey patches.
-        apply_all_monkey_patches()
+        # # Apply monkey patches.
+        # apply_all_monkey_patches()
     except Exception as e:
         logger.error(f"Exception set up tracing:")
         traceback.print_exc()

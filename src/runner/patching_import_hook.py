@@ -1,13 +1,67 @@
 from types import ModuleType
-import ast
 import sys
-import importlib.abc
-import functools
 import inspect
-from importlib.machinery import FileFinder, SourceFileLoader, all_suffixes, SOURCE_SUFFIXES
+import functools
+from importlib import reload, import_module
+from importlib.machinery import (
+    FileFinder,
+    PathFinder,
+    SourceFileLoader,
+    BuiltinImporter,
+    SOURCE_SUFFIXES,
+)
 from importlib.util import spec_from_loader
 from common.logger import logger
 from forbiddenfruit import curse
+
+
+MODULE_WHITELIST = ["json", "re", "uuid"]
+
+MODULE_BLACKLIST = [
+    "os",
+    "sys",
+    "runpy",
+    "importlib",
+    "_io",
+    "collections",
+    "inspect",
+    "multiprocessing",
+    "functools",
+    "tempfile",
+    "types",
+    "typing",
+]
+
+ATTR_BLACKLIST = [
+    "aiter",
+    "anext",
+    "acii",
+    "breakpoint",
+    "callable",
+    "chr",
+    "compile",
+    "copyright",
+    "credits",
+    "delattr",
+    "dir",
+    "eval",
+    "exec",
+    "execfile",
+    "getattr",
+    "globals",
+    "hasattr",
+    "isinstance",
+    "issubclass",
+    "iter",
+    "locals",
+    "next",
+    "oct",
+    "open",
+    "runfile",
+    "setattr",
+]
+
+_original_functions = {}
 
 
 def get_all_taint(*args, **kwargs):
@@ -20,9 +74,6 @@ def remove_taint(*args, **kwargs):
 
 def apply_taint(output, taint):
     return output
-
-
-_original_functions = {}
 
 
 def create_taint_wrapper(original_func):
@@ -43,14 +94,13 @@ def create_taint_wrapper(original_func):
     return patched_function
 
 
-MODULE_WHITELIST = [
-    "str",
-    "json",
-    "re",
-]
-
-
 def patch_module_callables(module, visited=None):
+    if isinstance(module, ModuleType):
+        module_name = module.__name__
+        parent_name = module_name.rpartition(".")[0] if "." in module_name else module_name
+        if parent_name in MODULE_BLACKLIST:
+            return
+
     if visited is None:
         visited = set()
 
@@ -62,13 +112,10 @@ def patch_module_callables(module, visited=None):
         if attr_name.startswith("_"):
             continue
 
-        attr = getattr(module, attr_name)
+        if attr_name in ATTR_BLACKLIST:
+            continue
 
-        if isinstance(module, ModuleType):
-            module_name = module.__name__
-            parent_name = module_name.rpartition(".")[0] if "." in module_name else module_name
-            if not parent_name in MODULE_WHITELIST:
-                return
+        attr = getattr(module, attr_name)
 
         if inspect.isfunction(attr):
             # Patch functions
@@ -107,17 +154,19 @@ class TaintModuleLoader(SourceFileLoader):
         patch_module_callables(module=module)
 
 
+class TaintBuiltinLoader(BuiltinImporter):
+    def exec_module(self, module):
+        """Execute the module."""
+        super().exec_module(module)
+        patch_module_callables(module=module)
+
+
 class TaintImportHook:
     def find_spec(self, fullname, path, target=None):
 
         if "_" == fullname[:1]:
             logger.debug(f"Skipping attaching TaintImportHook to: {fullname}")
             return None
-
-        logger.debug(
-            f"Attaching TaintImportHook to: {fullname}. "
-            f"Start looking in {'sys.path' if path is None else path}"
-        )
 
         if path is None:
             path = sys.path
@@ -129,8 +178,21 @@ class TaintImportHook:
             # Try to find the module in this directory
             spec = finder.find_spec(fullname)
             # return spec
-            if spec and spec.origin:  # and isinstance(spec.loader, SourceFileLoader):
+            if spec and spec.origin and isinstance(spec.loader, SourceFileLoader):
                 return spec_from_loader(fullname, TaintModuleLoader(fullname, spec.origin))
+
+        finder = PathFinder()
+        # Try to find the module in this directory
+        spec = finder.find_spec(fullname)
+        # return spec
+        if spec and spec.origin and isinstance(spec.loader, SourceFileLoader):
+            return spec_from_loader(fullname, TaintModuleLoader(fullname, spec.origin))
+
+        builtin_importer = BuiltinImporter()
+        spec = builtin_importer.find_spec(fullname=fullname)
+        if spec and spec.origin:
+            return spec_from_loader(fullname, TaintBuiltinLoader())
+
         return None
 
 
@@ -144,3 +206,7 @@ class TaintImportHook:
 def install_patch_hook():
     if not any(isinstance(mod, TaintImportHook) for mod in sys.meta_path):
         sys.meta_path.insert(0, TaintImportHook())
+
+    for module_name in MODULE_WHITELIST:
+        mod = import_module(module_name)
+        reload(mod)
