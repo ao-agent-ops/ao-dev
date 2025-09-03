@@ -139,6 +139,9 @@ class FStringImportLoader(importlib.abc.SourceLoader):
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
 
+    def exec_module(self, module):
+        return super().exec_module(module)
+
     def source_to_code(self, data, path, *, _optimize=-1):
         logger.debug(f"Rewriting AST for {self.fullname} at {path}")
         tree = ast.parse(data, filename=path)
