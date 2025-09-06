@@ -8,7 +8,7 @@ from runner.monkey_patching.patches.openai_patches import openai_patch, async_op
 from runner.monkey_patching.patches.anthropic_patches import anthropic_patch
 from runner.monkey_patching.patches.vertexai_patches import vertexai_patch
 from runner.monkey_patching.patches.uuid_patches import uuid_patch
-from runner.monkey_patching.patches.builtin_patches import str_patch, re_patch, json_patch
+from runner.monkey_patching.patches.builtin_patches import str_patch
 from runner.monkey_patching.patches.file_patches import apply_file_patches
 
 
@@ -73,9 +73,7 @@ def apply_all_monkey_patches():
 # are NOT included here and should only be called from within the OpenAI.__init__ patch.
 
 CUSTOM_PATCH_FUNCTIONS = [
-    re_patch,
     str_patch,
-    json_patch,
     uuid_patch,
     apply_file_patches,
     openai_patch,

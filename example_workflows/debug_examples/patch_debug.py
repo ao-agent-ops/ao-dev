@@ -2,7 +2,6 @@ from runner.taint_wrappers import TaintStr
 import re
 import json
 
-from forbiddenfruit import curse
 
 def f(s):
     return s + "hello"
