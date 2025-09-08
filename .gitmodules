@@ -1,3 +1,6 @@
 [submodule "example_workflows/DeepResearch/MiroFlow"]
 	path = example_workflows/DeepResearch/MiroFlow
 	url = git@github.com:MiroMindAI/MiroFlow.git
+[submodule "example_workflows/chess_text2sql/CHESS"]
+	path = example_workflows/chess_text2sql/CHESS
+	url = https://github.com/agops-project/ShayanTalaei-CHESS
