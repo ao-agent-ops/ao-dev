@@ -191,7 +191,6 @@ class DevelopShim:
                 sys.exit(1)
 
     def _is_debugpy_session(self) -> bool:
-        return False
         """Detect if we're running under debugpy (VSCode debugging)."""
         # Check if debugpy is in the call stack or if we're launched through debugpy
         try:

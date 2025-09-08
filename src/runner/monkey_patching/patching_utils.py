@@ -144,11 +144,10 @@ def get_input_dict(func, *args, **kwargs):
 
 def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
     """Send graph node and edge updates to the server."""
-    # Get caller location TODO: Do we need this?
     frame = inspect.currentframe()
-    caller = frame and frame.f_back
-    file_name = caller.f_code.co_filename if caller else "unknown"
-    line_no = caller.f_lineno if caller else 0
+    user_program_frame = inspect.getouterframes(frame)[2]
+    line_no = user_program_frame.lineno
+    file_name = user_program_frame.filename
     codeLocation = f"{file_name}:{line_no}"
 
     # Get strings to display in UI.

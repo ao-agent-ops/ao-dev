@@ -26,7 +26,119 @@ def _get_input_openai_chat_completions_create(
 
     # Get the last user message as the primary input
     last_message = messages[-1]
-    content = last_message.get("content", "")
+
+    # Extract content as string based on message type using role field
+    if last_message.get("role") == "developer":
+        # content can be str or Iterable[ChatCompletionContentPartTextParam]
+        content_value = last_message.get("content", "")
+        if isinstance(content_value, str):
+            content = content_value
+        elif hasattr(content_value, "__iter__") and not isinstance(content_value, str):
+            text_parts = []
+            for part in content_value:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    text_parts.append(part.get("text", ""))
+            content = " ".join(text_parts)
+        else:
+            content = str(content_value)
+
+    elif last_message.get("role") == "system":
+        # content can be str or Iterable[ChatCompletionContentPartTextParam]
+        content_value = last_message.get("content", "")
+        if isinstance(content_value, str):
+            content = content_value
+        elif hasattr(content_value, "__iter__") and not isinstance(content_value, str):
+            text_parts = []
+            for part in content_value:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    text_parts.append(part.get("text", ""))
+            content = " ".join(text_parts)
+        else:
+            content = str(content_value)
+
+    elif last_message.get("role") == "user":
+        # content can be str or Iterable[ChatCompletionContentPartParam]
+        content_value = last_message.get("content", "")
+        if isinstance(content_value, str):
+            content = content_value
+        elif hasattr(content_value, "__iter__") and not isinstance(content_value, str):
+            text_parts = []
+            for part in content_value:
+                if isinstance(part, dict):
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif part.get("type") == "image":
+                        text_parts.append("[Image]")
+                    elif part.get("type") == "input_audio":
+                        text_parts.append("[Audio]")
+                    elif part.get("type") == "file":
+                        file_info = part.get("file", {})
+                        filename = file_info.get("filename", "file")
+                        text_parts.append(f"[File: {filename}]")
+            content = " ".join(text_parts) if text_parts else str(content_value)
+        else:
+            content = str(content_value)
+
+    elif last_message.get("role") == "assistant":
+        # content can be str, Iterable[ContentArrayOfContentPart], or None
+        content_value = last_message.get("content")
+        if isinstance(content_value, str):
+            content = content_value
+        elif content_value is None:
+            # Check for function_call or tool_calls as fallback
+            if last_message.get("function_call"):
+                func_call = last_message.get("function_call", {})
+                content = f"Function call: {func_call.get('name', 'unknown')} with args: {func_call.get('arguments', '')}"
+            elif last_message.get("tool_calls"):
+                tool_calls = last_message.get("tool_calls", [])
+                call_descriptions = []
+                for tool_call in tool_calls:
+                    if hasattr(tool_call, "function") and hasattr(tool_call.function, "name"):
+                        call_descriptions.append(f"{tool_call.function.name}")
+                    elif isinstance(tool_call, dict) and "function" in tool_call:
+                        call_descriptions.append(f"{tool_call['function'].get('name', 'unknown')}")
+                content = f"Tool calls: {', '.join(call_descriptions)}" if call_descriptions else ""
+            else:
+                content = ""
+        elif hasattr(content_value, "__iter__") and not isinstance(content_value, str):
+            text_parts = []
+            for part in content_value:
+                if isinstance(part, dict):
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif part.get("type") == "refusal":
+                        text_parts.append(part.get("refusal", ""))
+            content = " ".join(text_parts) if text_parts else str(content_value)
+        else:
+            content = str(content_value)
+
+    elif last_message.get("role") == "tool":
+        # content can be str or Iterable[ChatCompletionContentPartTextParam]
+        content_value = last_message.get("content", "")
+        if isinstance(content_value, str):
+            content = content_value
+        elif hasattr(content_value, "__iter__") and not isinstance(content_value, str):
+            text_parts = []
+            for part in content_value:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    text_parts.append(part.get("text", ""))
+            content = " ".join(text_parts)
+        else:
+            content = str(content_value)
+
+    elif last_message.get("role") == "function":
+        # content is Optional[str]
+        content_value = last_message.get("content")
+        if content_value is None:
+            content = ""
+        elif isinstance(content_value, str):
+            content = content_value
+        else:
+            content = str(content_value)
+
+    else:
+        # Fallback for unknown message types
+        content = str(last_message.get("content", ""))
 
     # For now, no attachment support in chat completions
     return content, [], []

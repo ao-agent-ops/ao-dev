@@ -6,6 +6,13 @@ import os
 import re
 import pytest
 import responses
+from common.utils import scan_user_py_files_and_modules
+from runner.fstring_rewriter import (
+    install_fstring_rewriter,
+    set_user_py_files,
+    set_module_to_user_file,
+)
+from runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 
 # Set dummy API keys globally
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy-key")
@@ -35,6 +42,24 @@ def block_external_http():
         )
 
         yield rsps
+
+
+def pytest_configure(config):
+    """Configure pytest to set up f-string rewriting."""
+    # Get the project root directory (parent of tests directory)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+
+    # Scan for all Python files in the project
+    user_py_files, file_to_module, module_to_file = scan_user_py_files_and_modules(project_root)
+
+    # Set up the f-string rewriter
+    set_user_py_files(user_py_files, file_to_module)
+    set_module_to_user_file(module_to_file)
+    install_fstring_rewriter()
+
+    # apply the monkey patches
+    apply_all_monkey_patches()
 
 
 @pytest.fixture

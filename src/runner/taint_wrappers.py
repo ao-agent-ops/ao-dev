@@ -1,14 +1,62 @@
 import collections.abc
+import ast
+import re
 import io
 
 
 # Utility functions
-def untaint_if_needed(val, _seen=None):
+def erase_random_substring(val):
+    """
+    Remove random/tainted portions from a tainted string, keeping only clean parts.
+
+    This function processes TaintStr objects that contain position markers indicating
+    which portions of the string contain random or sensitive data. It extracts and
+    concatenates only the clean (non-random) portions of the string.
+
+    Args:
+        val: The value to process. Can be any type, but only TaintStr objects
+             with _random_positions attribute will be processed. Other types
+             are returned unchanged.
+
+    Returns:
+        str: A clean string with random portions removed, or the original value
+             if it doesn't contain random position tracking.
+
+    Example:
+        >>> tainted = TaintStr("Hello world test", random_pos=[Position(6, 11)])
+        >>> erase_random(tainted)
+        'Hello  test'
+
+    Note:
+        - Automatically sorts positions by start position
+        - Positions should be non-overlapping for correct results
+        - Invalid positions beyond string bounds may cause errors
+    """
+    if not hasattr(val, "_random_positions"):
+        if hasattr(val, "get_raw"):
+            return val.get_raw()
+        return val
+
+    # Sort positions by start position to handle unsorted input
+    sorted_positions = sorted(val._random_positions, key=lambda pos: pos.start)
+
+    last_end = 0
+    raw_string = val.get_raw()
+    clean_string = []
+    for pos in sorted_positions:
+        clean_string.append(raw_string[last_end : pos.start])
+        last_end = pos.stop
+    clean_string.append(raw_string[last_end:])
+    return "".join(clean_string)
+
+
+def untaint_if_needed(val, erase_random: bool = False, _seen=None):
     """
     Recursively remove taint from objects and nested data structures.
 
     Args:
         val: The value to untaint
+        erase_random: If True, removes random substrings that have been marked
         _seen: Set to track visited objects (prevents circular references)
 
     Returns:
@@ -24,22 +72,26 @@ def untaint_if_needed(val, _seen=None):
 
     # If object has get_raw method (tainted), use it
     if hasattr(val, "get_raw"):
-        return untaint_if_needed(val.get_raw(), _seen)
+        if erase_random:
+            raw_val = erase_random_substring(val)  # returns raw string
+        else:
+            raw_val = val.get_raw()
+        return untaint_if_needed(raw_val, erase_random, _seen)
 
     # Handle nested data structures
     if isinstance(val, dict):
-        return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
+        return {k: untaint_if_needed(v, erase_random, _seen) for k, v in val.items()}
     elif isinstance(val, (list, tuple)):
-        result = [untaint_if_needed(item, _seen) for item in val]
+        result = [untaint_if_needed(item, erase_random, _seen) for item in val]
         return tuple(result) if isinstance(val, tuple) else result
     elif isinstance(val, set):
-        return {untaint_if_needed(item, _seen) for item in val}
+        return {untaint_if_needed(item, erase_random, _seen) for item in val}
     elif hasattr(val, "__dict__") and not isinstance(val, type):
         # Handle custom objects with attributes, e.g., (MyObj(a=5, b=1)).
         try:
             new_obj = val.__class__.__new__(val.__class__)
             for attr, value in val.__dict__.items():
-                setattr(new_obj, attr, untaint_if_needed(value, _seen))
+                setattr(new_obj, attr, untaint_if_needed(value, erase_random, _seen))
             return new_obj
         except Exception:
             return val
@@ -50,7 +102,7 @@ def untaint_if_needed(val, _seen=None):
             for slot in val.__slots__:
                 if hasattr(val, slot):
                     value = getattr(val, slot)
-                    setattr(new_obj, slot, untaint_if_needed(value, _seen))
+                    setattr(new_obj, slot, untaint_if_needed(value, erase_random, _seen))
             return new_obj
         except Exception:
             return val
@@ -60,6 +112,15 @@ def untaint_if_needed(val, _seen=None):
 
 
 def is_tainted(obj):
+    """
+    Check if an object has taint information.
+
+    Args:
+        obj: The object to check for taint
+
+    Returns:
+        True if the object has taint origins, False otherwise
+    """
     return hasattr(obj, "_taint_origin") and bool(get_taint_origins(obj))
 
 
@@ -110,6 +171,17 @@ def get_taint_origins(val, _seen=None):
 
 
 def is_openai_response(obj):
+    """
+    Check if an object is an OpenAI SDK response object.
+
+    Uses heuristics to detect OpenAI SDK objects by checking the module and class name.
+
+    Args:
+        obj: The object to check
+
+    Returns:
+        True if the object appears to be from the OpenAI SDK, False otherwise
+    """
     # Heuristic: check for OpenAIObject or openai module, or fallback to user config
     cls = obj.__class__
     mod = cls.__module__
@@ -120,108 +192,384 @@ def is_openai_response(obj):
     return False
 
 
+class Position:
+    """
+    Represents a position range within a string for tracking tainted/random data.
+
+    This class tracks start and stop positions within strings to mark ranges
+    that contain sensitive, random, or tainted data. Used by TaintStr to maintain
+    position information through string operations.
+
+    Attributes:
+        start (int): The starting position (inclusive) of the range
+        stop (int): The ending position (exclusive) of the range
+    """
+
+    def __init__(self, start: int, stop: int):
+        self.start = start
+        self.stop = stop
+
+    def shift(self, offset: int):
+        """
+        Shift both start and stop positions by the given offset.
+
+        Args:
+            offset (int): The amount to shift positions by
+        """
+        self.start += offset
+        self.stop += offset
+
+    def set_pos(self, new_pos: list | tuple):
+        """
+        Set new start and stop positions from a list or tuple.
+
+        Args:
+            new_pos (list | tuple): Two-element sequence containing [start, stop] positions
+
+        Raises:
+            AssertionError: If new_pos doesn't have exactly 2 elements or positions are invalid
+        """
+        assert len(new_pos) == 2, "length of pos must be 2"
+        assert new_pos[0] <= new_pos[1], "pos must be increasing"
+        self.start, self.stop = new_pos
+
+    def __repr__(self):
+        return f"{self.start}:{self.stop}"
+
+
 # Taint-aware str
 class TaintStr(str):
-    def __new__(cls, value, taint_origin=None):
+    """
+    A taint-aware string class that tracks taint origins and random positions.
+
+    TaintStr extends the built-in str class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through string operations.
+
+    The class maintains two types of tracking information:
+    1. _taint_origin: A list of taint origins that mark where the data came from
+    2. _random_positions: A list of Position objects tracking ranges of characters
+                         that contain random or sensitive data
+
+    All string operations are overridden to preserve taint information through
+    transformations like concatenation, slicing, case changes, formatting, etc.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+        _random_positions (list): List of Position objects marking tainted ranges
+    """
+
+    def __new__(cls, value, taint_origin=None, random_pos=None):
         obj = str.__new__(cls, value)
         if taint_origin is None:
             obj._taint_origin = []
         elif isinstance(taint_origin, (int, str)):
             obj._taint_origin = [taint_origin]
-        elif isinstance(taint_origin, list):
+        elif isinstance(taint_origin, (list, set)):
             obj._taint_origin = list(taint_origin)
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+
+        if random_pos is None:
+            obj._random_positions = []
+        elif isinstance(random_pos, Position):
+            obj._random_positions = [random_pos]
+        elif isinstance(random_pos, list):
+            obj._random_positions = list(random_pos)
+        else:
+            raise NotImplementedError(
+                f"Creating TaintStr with {random_pos} as random pos not implemented"
+            )
         return obj
 
     def __add__(self, other):
         result = str.__add__(self, other)
+        shift_position_taints(other, len(self))
         nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
-        return TaintStr(result, list(nodes))
+        random_positions = get_random_positions(self) + get_random_positions(other)
+        return TaintStr(result, taint_origin=list(nodes), random_pos=random_positions)
 
     def __radd__(self, other):
         result = str.__add__(other, self)
-        nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
-        return TaintStr(result, list(nodes))
+        shift_position_taints(self, len(other))
+        nodes = set(get_taint_origins(other)) | set(get_taint_origins(self))
+        random_positions = get_random_positions(other) + get_random_positions(self)
+        return TaintStr(result, taint_origin=list(nodes), random_pos=random_positions)
 
     def __format__(self, format_spec):
         result = str.__format__(self, format_spec)
-        return TaintStr(result, self._taint_origin)
+        return TaintStr(result, self._taint_origin, self._random_positions)
 
     def __getitem__(self, key):
         result = str.__getitem__(self, key)
-        return TaintStr(result, self._taint_origin)
+        pos: Position
+        updated_positions = []
+        for pos in get_random_positions(self):
+            if isinstance(key, slice):
+                zero_point = 0
+                if key.start is not None:
+                    if key.start >= 0:
+                        zero_point = key.start
+                    else:
+                        zero_point = max(0, len(self) + key.start)
+                indices_key = list(range(0, len(self)))[key]
+                overlap = [i for i in range(pos.start, pos.stop) if i in indices_key]
+                if overlap != []:
+                    updated_positions.append(
+                        Position(min(overlap) - zero_point, max(overlap) - zero_point + 1)
+                    )
+            else:
+                # key: int
+                if key >= pos.start and key < pos.stop:
+                    updated_positions.append(Position(0, 1))
+        return TaintStr(result, taint_origin=self._taint_origin, random_pos=updated_positions)
 
     def __mod__(self, other):
-        result = str.__mod__(self, other)
+        result = str.__mod__(inject_random_marker(self), inject_random_marker(other))
         if result is NotImplemented:
             return NotImplemented
+        result, positions = remove_random_marker(result)
         nodes = set(get_taint_origins(self))
         if isinstance(other, (tuple, list)):
             for o in other:
                 nodes.update(get_taint_origins(o))
         else:
             nodes.update(get_taint_origins(other))
-        return TaintStr(result, list(nodes))
+        return TaintStr(result, list(nodes), random_pos=positions)
 
     def __rmod__(self, other):
-        result = str.__mod__(other, self)
+        result = str.__mod__(inject_random_marker(other), inject_random_marker(self))
         if result is NotImplemented:
             return NotImplemented
+        result, positions = remove_random_marker(result)
         nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
-        return TaintStr(result, list(nodes))
+        return TaintStr(result, list(nodes), random_pos=positions)
 
     def encode(self, *args, **kwargs):
-        return str(self).encode(*args, **kwargs)
+        return self.get_raw().encode(*args, **kwargs)
 
     def decode(self, *args, **kwargs):
-        return str(self).decode(*args, **kwargs)
+        return self.get_raw().decode(*args, **kwargs)
 
-    def join(self, iterable):
-        joined = str(self).join([str(x) for x in iterable])
-        nodes = set(get_taint_origins(self))
-        for x in iterable:
-            nodes.update(get_taint_origins(x))
-        return TaintStr(joined, list(nodes))
+    # def join(self, iterable):
+    #     joined = self.get_raw().join([
+    #         x.get_raw() if hasattr(x, "get_raw") else x for x in iterable
+    #     ])
+    #     curr_offs = 0
+    #     random_positions = []
+    #     for value in iterable:
+    #         shift_position_taints(value, curr_offs)
+    #         curr_offs += len(value) + len(self)
+    #         random_positions.extend(get_random_positions(value))
+    #     nodes = set(get_taint_origins(self))
+    #     for x in iterable:
+    #         nodes.update(get_taint_origins(x))
+    #     return TaintStr(joined, list(nodes), random_pos=random_positions)
 
     def __str__(self):
-        return str.__str__(self)
+        # return str.__str__(self)
+        return self
 
+    # we don't want to change repr since this can alter behavior e.g.
+    # in the case of this: '%r' % some_tainted_str
     def __repr__(self):
-        return f"TaintStr({super().__repr__()}, taint_origin={self._taint_origin})"
+        return super().__repr__()
+
+    # this is for debugging
+    def taint_repr(self):
+        return (
+            f"TaintStr({super().__repr__()}, taint_origin={self._taint_origin}"
+            f", random_positions={self._random_positions})"
+        )
 
     def get_raw(self):
-        return str(self)
+        # return str(self)
+        return super().__str__()
 
     # Add more methods for compatibility
     def upper(self, *args, **kwargs):
-        return TaintStr(str.upper(self, *args, **kwargs), self._taint_origin)
+        return TaintStr(
+            str.upper(self, *args, **kwargs), self._taint_origin, self._random_positions
+        )
 
     def lower(self, *args, **kwargs):
-        return TaintStr(str.lower(self, *args, **kwargs), self._taint_origin)
+        return TaintStr(
+            str.lower(self, *args, **kwargs), self._taint_origin, self._random_positions
+        )
 
     def strip(self, *args, **kwargs):
-        return TaintStr(str.strip(self, *args, **kwargs), self._taint_origin)
+        marked_self = inject_random_marker_str(self)
+        result = str.strip(marked_self, *args, **kwargs)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
 
     def lstrip(self, *args, **kwargs):
-        return TaintStr(str.lstrip(self, *args, **kwargs), self._taint_origin)
+        marked_self = inject_random_marker_str(self)
+        result = str.lstrip(marked_self, *args, **kwargs)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
 
     def rstrip(self, *args, **kwargs):
-        return TaintStr(str.rstrip(self, *args, **kwargs), self._taint_origin)
+        marked_self = inject_random_marker_str(self)
+        result = str.rstrip(marked_self, *args, **kwargs)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
 
     def replace(self, old, new, *args, **kwargs):
-        result = str.replace(self, old, new, *args, **kwargs)
+        marked_self = inject_random_marker(self)
+        result = str.replace(
+            marked_self, inject_random_marker(old), inject_random_marker(new), *args, **kwargs
+        )
+        result, positions = remove_random_marker(result)
         nodes = set(get_taint_origins(self)) | set(get_taint_origins(new))
-        return TaintStr(result, list(nodes))
+        return TaintStr(result, list(nodes), random_pos=positions)
 
     def split(self, *args, **kwargs):
-        return [TaintStr(s, self._taint_origin) for s in str.split(self, *args, **kwargs)]
+        marked_self = inject_random_marker(self, level="char")
+        result_split = str.split(marked_self, *args, **kwargs)
+        result = []
+        for marked_element in result_split:
+            element, positions = remove_random_marker(marked_element, level="char")
+            result.append(TaintStr(element, taint_origin=self._taint_origin, random_pos=positions))
+        return result
 
     def capitalize(self, *args, **kwargs):
-        return TaintStr(str.capitalize(self, *args, **kwargs), self._taint_origin)
+        return TaintStr(
+            str.capitalize(self, *args, **kwargs), self._taint_origin, self._random_positions
+        )
 
     def title(self, *args, **kwargs):
-        return TaintStr(str.title(self, *args, **kwargs), self._taint_origin)
+        return TaintStr(
+            str.title(self, *args, **kwargs), self._taint_origin, self._random_positions
+        )
+
+    def center(self, width, fillchar=" "):
+        """
+        Return a centered string of specified width with taint tracking preserved.
+
+        Args:
+            width (int): The total width of the resulting string
+            fillchar (str): Character to use for padding (default: space)
+
+        Returns:
+            TaintStr: Centered string with preserved taint information and adjusted positions
+        """
+        marked_self = inject_random_marker_str(self)
+        add_chars = len(marked_self) - len(self)
+        result = str.center(marked_self, width + add_chars, fillchar)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
+
+    def ljust(self, width, fillchar=" "):
+        """
+        Return a left-justified string of specified width with taint tracking preserved.
+
+        Args:
+            width (int): The total width of the resulting string
+            fillchar (str): Character to use for padding (default: space)
+
+        Returns:
+            TaintStr: Left-justified string with preserved taint information and adjusted positions
+        """
+        marked_self = inject_random_marker_str(self)
+        add_chars = len(marked_self) - len(self)
+        result = str.ljust(marked_self, width + add_chars, fillchar)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
+
+    def rjust(self, width, fillchar=" "):
+        """
+        Return a right-justified string of specified width with taint tracking preserved.
+
+        Args:
+            width (int): The total width of the resulting string
+            fillchar (str): Character to use for padding (default: space)
+
+        Returns:
+            TaintStr: Right-justified string with preserved taint information and adjusted positions
+        """
+        marked_self = inject_random_marker_str(self)
+        add_chars = len(marked_self) - len(self)
+        result = str.rjust(marked_self, width + add_chars, fillchar)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
+
+    def zfill(self, width):
+        """
+        Return a zero-padded numeric string of specified width with taint tracking preserved.
+
+        Pads the string with zeros on the left to fill the specified width.
+        For signed strings, the sign is placed before the zeros.
+
+        Args:
+            width (int): The total width of the resulting string
+
+        Returns:
+            TaintStr: Zero-padded string with preserved taint information and adjusted positions
+        """
+        marked_self = inject_random_marker_str(self)
+        add_chars = len(marked_self) - len(self)
+        result = str.zfill(marked_self, width + add_chars)
+        result, positions = remove_random_marker(result)
+        return TaintStr(result, self._taint_origin, random_pos=positions)
+
+    def partition(self, sep):
+        """
+        Partition the string at the first occurrence of the separator with taint tracking preserved.
+
+        Splits the string into three parts: the part before the separator, the separator
+        itself, and the part after the separator. If the separator is not found, returns
+        the original string, an empty separator, and an empty string.
+
+        Args:
+            sep (str): The separator string to search for
+
+        Returns:
+            tuple: Three-element tuple (before, separator, after) where before and after
+                   are TaintStr objects with preserved taint information, and separator
+                   is a regular string
+        """
+        marked_self = inject_random_marker(self, level="char")
+        before, separator, after = str.partition(marked_self, inject_random_marker(sep))
+
+        # Process each part
+        before, before_positions = remove_random_marker(before, level="char")
+        after, after_positions = remove_random_marker(after, level="char")
+
+        return (
+            TaintStr(before, self._taint_origin, random_pos=before_positions),
+            separator,
+            TaintStr(after, self._taint_origin, random_pos=after_positions),
+        )
+
+    def rpartition(self, sep):
+        """
+        Partition the string at the last occurrence of the separator with taint tracking preserved.
+
+        Splits the string into three parts: the part before the separator, the separator
+        itself, and the part after the separator. If the separator is not found, returns
+        an empty string, an empty separator, and the original string.
+
+        Args:
+            sep (str): The separator string to search for
+
+        Returns:
+            tuple: Three-element tuple (before, separator, after) where before and after
+                   are TaintStr objects with preserved taint information, and separator
+                   is a regular string
+        """
+        marked_self = inject_random_marker(self, level="char")
+        before, separator, after = str.rpartition(marked_self, inject_random_marker(sep))
+
+        # Process each part
+        before, before_positions = remove_random_marker(before, level="char")
+        after, after_positions = remove_random_marker(after, level="char")
+
+        return (
+            TaintStr(before, self._taint_origin, random_pos=before_positions),
+            separator,
+            TaintStr(after, self._taint_origin, random_pos=after_positions),
+        )
 
     def startswith(self, *args, **kwargs):
         return str.startswith(self, *args, **kwargs)
@@ -264,6 +612,20 @@ class TaintStr(str):
 
 
 class TaintInt(int):
+    """
+    A taint-aware integer class that tracks taint origins through arithmetic operations.
+
+    TaintInt extends the built-in int class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through integer arithmetic operations.
+
+    The class maintains taint origin information and propagates it through
+    all arithmetic operations like addition, multiplication, bitwise operations, etc.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+    """
+
     def __new__(cls, value, taint_origin=None):
         obj = int.__new__(cls, value)
         if taint_origin is None:
@@ -503,6 +865,20 @@ class TaintInt(int):
 
 
 class TaintFloat(float):
+    """
+    A taint-aware float class that tracks taint origins through arithmetic operations.
+
+    TaintFloat extends the built-in float class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through floating-point arithmetic operations.
+
+    The class maintains taint origin information and propagates it through
+    all arithmetic operations like addition, multiplication, division, etc.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+    """
+
     def __new__(cls, value, taint_origin=None):
         obj = float.__new__(cls, value)
         if taint_origin is None:
@@ -627,6 +1003,21 @@ class TaintFloat(float):
 
 
 class TaintList(list):
+    """
+    A taint-aware list class that tracks taint origins through list operations.
+
+    TaintList extends the built-in list class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through list operations like append, extend, insert, etc.
+
+    The class maintains taint origin information from both the list itself and
+    all items contained within it. When items are added or removed, the taint
+    information is automatically updated.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers from the list and its items
+    """
+
     def __init__(self, value, taint_origin=None):
         list.__init__(self, value)
         if taint_origin is None:
@@ -704,6 +1095,21 @@ class TaintList(list):
 
 
 class TaintDict(dict):
+    """
+    A taint-aware dictionary class that tracks taint origins through dict operations.
+
+    TaintDict extends the built-in dict class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through dictionary operations like setitem, update, pop, etc.
+
+    The class maintains taint origin information from both the dictionary itself and
+    all values contained within it. When items are added or removed, the taint
+    information is automatically updated.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers from the dict and its values
+    """
+
     def __init__(self, value, taint_origin=None):
         dict.__init__(self, value)
         if taint_origin is None:
@@ -905,142 +1311,6 @@ class TaintedCallable:
         return self._wrapped
 
 
-# Helper to detect OpenAI SDK objects (Response, Assistant, etc.)
-def is_openai_sdk_object(obj):
-    cls = obj.__class__
-    mod = cls.__module__
-    # Covers openai.types.responses.response, openai.types.beta.assistant, etc.
-    return mod.startswith("openai.types.")
-
-
-def taint_wrap(obj, taint_origin=None, _seen=None):
-    if _seen is None:
-        _seen = set()
-    obj_id = id(obj)
-    if obj_id in _seen:
-        return obj
-    _seen.add(obj_id)
-
-    if is_tainted(obj):
-        return obj
-    if isinstance(obj, str):
-        return TaintStr(obj, taint_origin=taint_origin)
-    if isinstance(obj, int):
-        return TaintInt(obj, taint_origin=taint_origin)
-    if isinstance(obj, float):
-        return TaintFloat(obj, taint_origin=taint_origin)
-    if is_openai_sdk_object(obj):
-        return TaintedOpenAIObject(obj, taint_origin=taint_origin)
-    if isinstance(obj, collections.abc.Mapping):
-        return TaintDict(
-            {k: taint_wrap(v, taint_origin=taint_origin, _seen=_seen) for k, v in obj.items()},
-            taint_origin=taint_origin,
-        )
-    if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, (str, bytes, bytearray)):
-        return TaintList(
-            [taint_wrap(x, taint_origin=taint_origin, _seen=_seen) for x in obj],
-            taint_origin=taint_origin,
-        )
-    if callable(obj) and not isinstance(obj, type):
-        return TaintedCallable(obj, taint_origin=taint_origin)
-    if isinstance(obj, io.IOBase):
-        return TaintFile(obj, taint_origin=taint_origin)
-    if hasattr(obj, "__dict__") and not isinstance(obj, type):
-        for attr in list(vars(obj)):
-            try:
-                setattr(
-                    obj,
-                    attr,
-                    taint_wrap(getattr(obj, attr), taint_origin=taint_origin, _seen=_seen),
-                )
-            except Exception:
-                pass
-        return obj
-    if hasattr(obj, "__slots__"):
-        for slot in obj.__slots__:
-            try:
-                val = getattr(obj, slot)
-                setattr(obj, slot, taint_wrap(val, taint_origin=taint_origin, _seen=_seen))
-            except Exception:
-                pass
-        return obj
-    return obj
-
-
-class TaintStringContext:
-    """
-    Context manager for taint-aware string operations.
-    This provides a way to temporarily intercept string operations to preserve taint.
-    """
-
-    def __init__(self):
-        self.original_str = str
-        self.original_format = str.format
-        self._taint_stack = []
-
-    def __enter__(self):
-        # Store current taint context
-        self._taint_stack.append(set())
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        # Restore previous taint context
-        if self._taint_stack:
-            self._taint_stack.pop()
-
-    def add_taint(self, taint_origin):
-        """Add taint origin to current context."""
-        if self._taint_stack:
-            if isinstance(taint_origin, (list, tuple)):
-                self._taint_stack[-1].update(taint_origin)
-            elif isinstance(taint_origin, (str, int)):
-                self._taint_stack[-1].add(taint_origin)
-
-    def get_current_taint(self):
-        """Get current taint origins."""
-        if self._taint_stack:
-            return list(self._taint_stack[-1])
-        return []
-
-
-def taint_format(template, *args, **kwargs):
-    """
-    Taint-aware string formatting that preserves taint information.
-    Usage:
-        tainted = TaintStr("42", ["node1"])
-        result = taint_format("The answer is {}", tainted)
-        # result is a TaintStr with taint from 'node1'
-    """
-    # Collect all taint origins from args and kwargs
-    all_origins = set()
-    for arg in args:
-        origins = get_taint_origins(arg)
-        all_origins.update(origins)
-    for value in kwargs.values():
-        origins = get_taint_origins(value)
-        all_origins.update(origins)
-    # Format the string normally
-    formatted = template.format(*args, **kwargs)
-    # Return as TaintStr with combined origins
-    return TaintStr(formatted, list(all_origins))
-
-
-def taint_format_advanced(template, *args, **kwargs):
-    """
-    Advanced taint-aware formatting that can handle complex cases.
-    """
-    with TaintStringContext() as ctx:
-        # Add taint from all arguments
-        for arg in args:
-            ctx.add_taint(get_taint_origins(arg))
-        for value in kwargs.values():
-            ctx.add_taint(get_taint_origins(value))
-        # Format the string
-        result = template.format(*args, **kwargs)
-        # Return with combined taint
-        return TaintStr(result, ctx.get_current_taint())
-
-
 class TaintFile:
     """
     A file-like object that preserves taint information during file operations.
@@ -1079,10 +1349,11 @@ class TaintFile:
             self._taint_origin = list(taint_origin)
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
-    
+
     def _get_current_session_id(self):
         """Get the current session ID from environment or context"""
         import os
+
         return os.environ.get("AGENT_COPILOT_SESSION_ID", None)
 
     @classmethod
@@ -1109,57 +1380,74 @@ class TaintFile:
         """Read from the file and return tainted data."""
         from common.logger import logger
         import os
-        logger.info(f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
+
+        logger.info(
+            f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
+        )
         logger.info(f"Current environment session: {os.environ.get('AGENT_COPILOT_SESSION_ID')}")
-        
+
         data = self._file.read(size)
         if isinstance(data, bytes):
             # For binary mode, we return raw bytes but track taint separately
             # You might want to create a TaintBytes class for this
             return data
-        
+
         # For text mode, check if there's taint from previous sessions
         if hasattr(self._file, "name") and data:
             try:
                 from server.db import get_taint_info
+
                 # Check line 0 for now (we'd need to track all lines for full read)
                 logger.info(f"Checking for taint in read(): file={self._file.name}")
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, 0)
-                logger.info(f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}")
-                
+                logger.info(
+                    f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}"
+                )
+
                 if prev_session_id and taint_nodes:
-                    logger.info(f"Found taint from previous session {prev_session_id}: {taint_nodes}")
+                    logger.info(
+                        f"Found taint from previous session {prev_session_id}: {taint_nodes}"
+                    )
                     # Combine existing taint with file taint - the server will handle cross-session nodes
                     combined_taint = list(set(self._taint_origin + taint_nodes))
                     logger.info(f"Returning TaintStr with combined taint: {combined_taint}")
                     return TaintStr(data, combined_taint)
             except Exception as e:
                 import sys
+
                 print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
                 logger.error(f"Exception in taint info retrieval: {e}")
         else:
-            logger.info(f"Skipping taint check - file has name: {hasattr(self._file, 'name')}, data length: {len(data) if data else 0}")
-        
+            logger.info(
+                f"Skipping taint check - file has name: {hasattr(self._file, 'name')}, data length: {len(data) if data else 0}"
+            )
+
         logger.info(f"Returning TaintStr with default taint: {self._taint_origin}")
         return TaintStr(data, self._taint_origin)
 
     def readline(self, size=-1):
         """Read a line from the file and return tainted data."""
         from common.logger import logger
-        logger.debug(f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}")
-        
+
+        logger.debug(
+            f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}"
+        )
+
         line = self._file.readline(size)
         if isinstance(line, bytes):
             return line
-        
+
         # Check for existing taint from previous sessions
         if hasattr(self._file, "name"):
             try:
                 from server.db import get_taint_info
+
                 logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
-                logger.debug(f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}")
-                
+                logger.debug(
+                    f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}"
+                )
+
                 if prev_session_id and taint_nodes:
                     # Combine existing taint with file taint - the server will handle cross-session nodes
                     combined_taint = list(set(self._taint_origin + taint_nodes))
@@ -1168,11 +1456,12 @@ class TaintFile:
             except Exception as e:
                 # Log but don't fail the read operation
                 import sys
+
                 print(f"Warning: Could not retrieve taint info: {e}", file=sys.stderr)
-        
+
         self._line_no += 1
         return TaintStr(line, self._taint_origin)
-    
+
     def readlines(self, hint=-1):
         """Read lines from the file and return tainted data."""
         lines = self._file.readlines(hint)
@@ -1188,11 +1477,14 @@ class TaintFile:
         and stored in the database for cross-session tracking.
         """
         from common.logger import logger
-        logger.debug(f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}")
-        
+
+        logger.debug(
+            f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
+        )
+
         # Extract raw data if tainted
         raw_data = untaint_if_needed(data)
-        
+
         # Store taint information in database if we have a session ID and file name
         if self._session_id and hasattr(self._file, "name"):
             taint_nodes = get_taint_origins(data)
@@ -1201,16 +1493,18 @@ class TaintFile:
                 # Store taint for the current line being written
                 try:
                     from server.db import store_taint_info
+
                     store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
                 except Exception as e:
                     # Log but don't fail the write operation
                     import sys
+
                     print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
-                
+
                 # Increment line number for each newline in the data
-                newline_count = raw_data.count('\n') if isinstance(raw_data, str) else 0
+                newline_count = raw_data.count("\n") if isinstance(raw_data, str) else 0
                 self._line_no += max(1, newline_count)
-        
+
         return self._file.write(raw_data)
 
     def writelines(self, lines):
@@ -1223,9 +1517,13 @@ class TaintFile:
                 if taint_nodes:
                     try:
                         from server.db import store_taint_info
-                        store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
+
+                        store_taint_info(
+                            self._session_id, self._file.name, self._line_no, taint_nodes
+                        )
                     except Exception as e:
                         import sys
+
                         print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
             self._line_no += 1
             raw_lines.append(untaint_if_needed(line))
@@ -1346,3 +1644,286 @@ def open_with_taint(filename, mode="r", taint_origin=None, session_id=None, **kw
         TaintFile object
     """
     return TaintFile.open(filename, mode, taint_origin, session_id, **kwargs)
+
+
+# Helper to detect OpenAI SDK objects (Response, Assistant, etc.)
+def is_openai_sdk_object(obj):
+    """
+    Check if an object is from the OpenAI SDK types module.
+
+    This is a more specific check than is_openai_response, looking specifically
+    for objects from the openai.types module hierarchy.
+
+    Args:
+        obj: The object to check
+
+    Returns:
+        True if the object is from openai.types.*, False otherwise
+    """
+    cls = obj.__class__
+    mod = cls.__module__
+    # Covers openai.types.responses.response, openai.types.beta.assistant, etc.
+    return mod.startswith("openai.types.")
+
+
+def taint_wrap(obj, taint_origin=None, _seen=None):
+    """
+    Recursively wrap an object and its nested structures with taint information.
+
+    This function takes any object and wraps it with appropriate tainted versions
+    (TaintStr, TaintInt, TaintFloat, etc.) while preserving the original structure.
+    It handles nested data structures like lists, dictionaries, and custom objects.
+
+    Args:
+        obj: The object to wrap with taint information
+        taint_origin: The taint origin(s) to assign to the wrapped object
+        _seen: Set to track visited objects (prevents circular references)
+
+    Returns:
+        The wrapped object with taint information, or the original object if
+        no appropriate tainted wrapper exists
+    """
+    if _seen is None:
+        _seen = set()
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return obj
+    _seen.add(obj_id)
+
+    if is_tainted(obj):
+        return obj
+    if isinstance(obj, str):
+        return TaintStr(obj, taint_origin=taint_origin)
+    if isinstance(obj, int):
+        return TaintInt(obj, taint_origin=taint_origin)
+    if isinstance(obj, float):
+        return TaintFloat(obj, taint_origin=taint_origin)
+    if is_openai_sdk_object(obj):
+        return TaintedOpenAIObject(obj, taint_origin=taint_origin)
+    if isinstance(obj, collections.abc.Mapping):
+        return TaintDict(
+            {k: taint_wrap(v, taint_origin=taint_origin, _seen=_seen) for k, v in obj.items()},
+            taint_origin=taint_origin,
+        )
+    if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+        return TaintList(
+            [taint_wrap(x, taint_origin=taint_origin, _seen=_seen) for x in obj],
+            taint_origin=taint_origin,
+        )
+    if callable(obj) and not isinstance(obj, type):
+        return TaintedCallable(obj, taint_origin=taint_origin)
+    if isinstance(obj, io.IOBase):
+        return TaintFile(obj, taint_origin=taint_origin)
+    if hasattr(obj, "__dict__") and not isinstance(obj, type):
+        for attr in list(vars(obj)):
+            try:
+                setattr(
+                    obj,
+                    attr,
+                    taint_wrap(getattr(obj, attr), taint_origin=taint_origin, _seen=_seen),
+                )
+            except Exception:
+                pass
+        return obj
+    if hasattr(obj, "__slots__"):
+        for slot in obj.__slots__:
+            try:
+                val = getattr(obj, slot)
+                setattr(obj, slot, taint_wrap(val, taint_origin=taint_origin, _seen=_seen))
+            except Exception:
+                pass
+        return obj
+    return obj
+
+
+def taint_format(template, *args, **kwargs):
+    """
+    Taint-aware string formatting that preserves taint information.
+    Usage:
+        tainted = TaintStr("42", ["node1"])
+        result = taint_format("The answer is {}", tainted)
+        # result is a TaintStr with taint from 'node1'
+    """
+    # Collect all taint origins from args and kwargs
+    all_origins = set()
+    for arg in args:
+        origins = get_taint_origins(arg)
+        all_origins.update(origins)
+    for value in kwargs.values():
+        origins = get_taint_origins(value)
+        all_origins.update(origins)
+    # Format the string normally
+    formatted = template.format(*args, **kwargs)
+    # Return as TaintStr with combined origins
+    return TaintStr(formatted, list(all_origins))
+
+
+def is_random_taint(taint_origin):
+    """Check if a taint origin represents a random taint with position information."""
+    return isinstance(taint_origin, str) and "[random]" in taint_origin
+
+
+def extract_position_from_random_taint(taint_origin):
+    """Extract position list from a random taint origin."""
+    return ast.literal_eval(taint_origin.split("[random]")[1])
+
+
+def shift_position_taints(obj: str | TaintStr, offs: int) -> list:
+    """
+    Shift position taints in an object's random positions by a given offset.
+
+    Args:
+        obj: The object to extract and adjust positions from
+        offs: The offset to add to position-based taints
+    """
+    if isinstance(obj, TaintStr) and get_random_positions(obj) != []:
+        pos: Position
+        for pos in obj._random_positions:
+            pos.shift(offs)
+
+
+def get_random_positions(val: str | TaintStr) -> list:
+    """
+    Extract random position objects from a TaintStr or regular string.
+
+    Args:
+        val: The string or TaintStr to extract random positions from
+
+    Returns:
+        List of Position objects representing random position tracking information.
+        Returns empty list if val is not a TaintStr or has no random positions.
+    """
+    if isinstance(val, TaintStr) and val._random_positions is not None:
+        return val._random_positions
+    else:
+        return []
+
+
+def inject_random_marker(value: list | tuple, level: str = "str") -> list | tuple:
+    """
+    Inject random markers around tainted positions in strings within a collection.
+
+    This function processes lists, tuples, and individual strings/TaintStr objects,
+    adding >> and << markers around random positions to visualize taint tracking.
+
+    Args:
+        value: A list, tuple, string, or TaintStr to process
+        level: Insert the modifiers at the string or char level. Default is str
+
+    Returns:
+        The same type as input with random markers injected around tainted positions
+    """
+    if isinstance(value, (str, TaintStr)):
+        return inject_random_marker_str(value, level=level)
+    elif isinstance(value, (list, tuple)):
+        injected = [
+            (
+                inject_random_marker_str(element, level=level)
+                if isinstance(element, (str, TaintStr))
+                else element
+            )
+            for element in value
+        ]
+        return type(value)(injected)
+    else:
+        return value
+
+
+def inject_random_marker_str(value: str | TaintStr, level: str = "str") -> str | TaintStr:
+    """
+    Inject random markers around tainted positions in a single string.
+
+    This function adds >> and << markers around positions tracked by Position objects
+    in a TaintStr, making it easier to visualize which parts of the string are tainted.
+
+    Args:
+        value: A string or TaintStr to inject markers into
+        level: Insert the modifiers at the string or char level. Default is str
+
+    Returns:
+        The string with >> and << markers around tainted positions, or the original
+        string if no random positions are tracked
+    """
+    modified_string = []
+    if isinstance(value, TaintStr) and get_random_positions(value) != []:
+        last_end = 0
+        pos: Position
+        for pos in value._random_positions:
+            modified_string.append(value[last_end : pos.start].get_raw())
+            if level == "str":
+                modified_string.append(">>" + value[pos.start : pos.stop].get_raw() + "<<")
+            elif level == "char":
+                modified_string.append(
+                    "".join([f">>{char}<<" for char in value[pos.start : pos.stop].get_raw()])
+                )
+            else:
+                raise ValueError(f"Unknown level {level}")
+            last_end = pos.stop
+        modified_string.append(value[last_end : len(value)].get_raw())
+        value = "".join(modified_string)
+    return value
+
+
+def remove_random_marker(
+    val: str | TaintStr, level: str = "str"
+) -> tuple[str | TaintStr, list[Position]]:
+    """
+    Remove random markers from a string and extract position information.
+
+    This function removes >> and << markers that were inserted by inject_random_marker
+    functions and returns both the clean string and Position objects representing
+    where the marked content was located in the cleaned string.
+
+    Args:
+        val (str | TaintStr): The string containing random markers to remove
+        level (str): The marker level to process - "str" for >>content<< markers,
+                     "char" for character-level >>c<< markers. Default is "str"
+
+    Returns:
+        tuple[str | TaintStr, list[Position]]: A tuple containing:
+            - The cleaned string with markers removed
+            - List of Position objects indicating where marked content is located
+
+    Example:
+        >>> remove_random_marker("Hell>>o<< this >>is a<< string")
+        ('Hello this is a string', [Position(4, 5), Position(11, 15)])
+    """
+    if isinstance(val, TaintStr):
+        input_str = val.get_raw()
+    else:
+        input_str = val
+
+    # Find all matches of <<content>>
+    if level == "str":
+        pattern = r">>([^<>]*)<<"
+    elif level == "char":
+        input_str = input_str.lstrip("<<")
+        input_str = input_str.rstrip(">>")
+        pattern = r"((?:>>[^<>]<<)+)"
+    else:
+        raise ValueError(f"Unknown level {level}")
+    matches = list(re.finditer(pattern, input_str))
+
+    if not matches:
+        return val, []
+
+    result_parts = []
+    positions = []
+    last_end = 0
+
+    for match in matches:
+        result_parts.append(input_str[last_end : match.start()])
+        content = match.group(1)
+        current_pos = len("".join(result_parts))
+        if level == "char":
+            # Handle broken character-level sequences
+            # Remove all >> and << markers, then extract remaining characters
+            content = re.sub(r">>|<<", "", content)
+        result_parts.append(content)
+        if content:  # Only create position if there's actual content
+            positions.append(Position(current_pos, current_pos + len(content)))
+        last_end = match.end()
+
+    result_parts.append(input_str[last_end:])
+    result_str = "".join(result_parts)
+    return result_str, positions

@@ -12,7 +12,7 @@ main_agent:
     - tool-code
     - tool-reasoning
     - tool-transcribe
-  max_turns: 3  # Maximum number of turns for main agent execution
+  max_turns: 2  # Maximum number of turns for main agent execution
 # Trival reproduce of OWL:
 sub_agents:
   agent-browsing:
@@ -21,7 +21,7 @@ sub_agents:
       - tool-vqa
       - tool-reading
       - tool-code
-    max_turns: 3
+    max_turns: 1
 
 o3_hint: true
 o3_final_answer: true

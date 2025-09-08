@@ -108,7 +108,7 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
         
-        make pytest
+        pytest -v -s tests/
 
     - name: Clean up shim server
       run: |

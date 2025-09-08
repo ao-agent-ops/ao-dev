@@ -79,6 +79,10 @@ class CacheManager:
     def get_in_out(self, input_dict, api_type, cache=True):
         from runner.context_manager import get_session_id
 
+        # this is tainted
+        hash_tuple = get_input(input_dict, api_type)
+        hash_tuple = untaint_if_needed(hash_tuple, erase_random=True)
+
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
         prompt, attachments, tools = get_input(input_dict, api_type)
@@ -91,7 +95,10 @@ class CacheManager:
             "tools": tools,
         }
         input_pickle = dill.dumps(cacheable_input)
-        input_hash = db.hash_input(input_pickle)
+
+        # for the hash, use the input without any marked randomness
+        hash_pickle = dill.dumps(hash_tuple)
+        input_hash = db.hash_input(hash_pickle)
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()

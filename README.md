@@ -51,14 +51,6 @@ aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
 
 ![Running Example](media/execute_example.gif)
 
-### Start and stop server
-Currently, you need to manually start and stop our server. Just do:
-
- - `aco-server start`
- - `aco-server stop`
-
-If you make changes to the server code, you can also do `aco-server restart` so the changes are reflected in the running server. If you want to clear all recorded runs and cached LLM calls, do `aco-server clear`.
-
 
 ## Further resources
 
@@ -78,11 +70,18 @@ pip install -e ".[dev]"
 pre-commit install
 cd src/user_interface && npm install
 ```
-In [Makefile](./Makefile), there are commands that need to run smoothly before pushing any code. Execute the following commands:
-```bash
-make black
-make pytest
-```
+
+### Server commands and log
+To manually start and stop our server. Just do:
+
+ - `aco-server start`
+ - `aco-server stop`
+
+If you make changes to the server code, you can also do `aco-server restart` so the changes are reflected in the running server. If you want to clear all recorded runs and cached LLM calls, do `aco-server clear`.
+
+If the server isn't running already, it will automatically be started upon running `aco-launch`.
+
+The server logs can be found in `~/.cache/agent-copilot/logs/server.log`.
 
 ### Architecture
 
