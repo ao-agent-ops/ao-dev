@@ -6,9 +6,20 @@ import tempfile
 
 from runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
 
+# Add parent directory to path for test utils import
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from test_utils import cleanup_taint_db
+
 
 class TestTaintFile:
     """Test suite for TaintFile class."""
+
+    def setup_method(self):
+        """Clean up taint database before each test method"""
+        cleanup_taint_db()
 
     def test_creation(self):
         """Test TaintFile creation and initialization."""
@@ -380,6 +391,8 @@ class TestTaintFile:
 
     def test_taint_preservation_complex(self):
         """Test complex taint preservation scenarios."""
+        # Clean up any existing taint data before the test
+        cleanup_taint_db()
         with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp:
             tmp_path = tmp.name
             tmp.write("initial content\n")
