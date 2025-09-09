@@ -3,9 +3,6 @@
 
 
 _SETUP_TRACING_SETUP = """
-from runner.patching_import_hook import install_patch_hook
-install_patch_hook()
-
 import os
 import sys
 import runpy
@@ -25,18 +22,18 @@ packages_in_project_root = {packages_in_project_root}
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# # Rewrite AST to support f-strings
-# from runner.fstring_rewriter import install_fstring_rewriter, set_module_to_user_file
+from runner.patching_import_hook import install_patch_hook, set_module_to_user_file
 
-# from common.utils import scan_user_py_files_and_modules
+# Rewrite AST to support f-strings
+from common.utils import scan_user_py_files_and_modules
 
-# _, _, module_to_file = scan_user_py_files_and_modules(project_root)
-# for additional_package in packages_in_project_root:
-#     _, _, additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
-#     module_to_file = {{**module_to_file, **additional_package_module_to_file}}
+_, _, module_to_file = scan_user_py_files_and_modules(project_root)
+for additional_package in packages_in_project_root:
+    _, _, additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
+    module_to_file = {{**module_to_file, **additional_package_module_to_file}}
 
-# set_module_to_user_file(module_to_file)
-# install_fstring_rewriter()
+set_module_to_user_file(module_to_file)
+install_patch_hook()
 
 # Connect to server and pply monkey patches if enabled via environment variable.
 from runner.context_manager import set_parent_session_id, set_server_connection

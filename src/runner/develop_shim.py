@@ -11,7 +11,7 @@ import tempfile
 import runpy
 import importlib.util
 from typing import Optional, List
-from runner.fstring_rewriter import install_fstring_rewriter, set_user_py_files
+from runner.patching_import_hook import set_module_to_user_file, install_patch_hook
 from common.logger import logger
 from common.utils import scan_user_py_files_and_modules
 from runner.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
@@ -312,9 +312,9 @@ class DevelopShim:
 
         # Scan for all .py files in the user's project root
         # This ensures AST rewriting works for the user's code
-        user_py_files, file_to_module, _ = scan_user_py_files_and_modules(self.project_root)
-        set_user_py_files(user_py_files, file_to_module)
-        install_fstring_rewriter()
+        _, _, module_to_file = scan_user_py_files_and_modules(self.project_root)
+        set_module_to_user_file(module_to_file)
+        install_patch_hook()
 
         # Save original state
         original_path = sys.path.copy()

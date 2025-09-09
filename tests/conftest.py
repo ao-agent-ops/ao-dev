@@ -7,11 +7,7 @@ import re
 import pytest
 import responses
 from common.utils import scan_user_py_files_and_modules
-from runner.fstring_rewriter import (
-    install_fstring_rewriter,
-    set_user_py_files,
-    set_module_to_user_file,
-)
+from runner.patching_import_hook import set_module_to_user_file, install_patch_hook
 from runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 
 # Set dummy API keys globally
@@ -51,12 +47,9 @@ def pytest_configure(config):
     project_root = os.path.dirname(current_dir)
 
     # Scan for all Python files in the project
-    user_py_files, file_to_module, module_to_file = scan_user_py_files_and_modules(project_root)
-
-    # Set up the f-string rewriter
-    set_user_py_files(user_py_files, file_to_module)
+    _, _, module_to_file = scan_user_py_files_and_modules(project_root)
     set_module_to_user_file(module_to_file)
-    install_fstring_rewriter()
+    install_patch_hook()
 
     # apply the monkey patches
     apply_all_monkey_patches()

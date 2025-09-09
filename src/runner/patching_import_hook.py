@@ -17,9 +17,11 @@ imports, and respects blacklists to prevent patching system-critical modules.
 
 from types import ModuleType
 import sys
+import ast
 import inspect
 import functools
 from importlib import reload, import_module
+from importlib.abc import MetaPathFinder, SourceLoader
 from importlib.machinery import (
     PathFinder,
     SourceFileLoader,
@@ -28,6 +30,12 @@ from importlib.machinery import (
 from importlib.util import spec_from_loader
 from forbiddenfruit import curse
 from runner.taint_wrappers import get_taint_origins, taint_wrap, untaint_if_needed
+from runner.fstring_rewriter import (
+    FStringTransformer,
+    taint_fstring_join,
+    taint_format_string,
+    taint_percent_format,
+)
 from common.logger import logger
 import threading
 from contextlib import contextmanager
@@ -43,7 +51,22 @@ from .patch_constants import (
 _thread_local = threading.local()
 
 # Cache of original functions to avoid re-wrapping
-_original_functions = {}
+_user_py_files = set()
+_user_file_to_module = dict()
+_module_to_user_file = dict()
+_original_functions = dict()
+
+
+def set_user_py_files(py_files, file_to_module=None):
+    global _user_py_files, _user_file_to_module
+    _user_py_files = py_files
+    if file_to_module is not None:
+        _user_file_to_module = file_to_module
+
+
+def set_module_to_user_file(module_to_user_file: dict):
+    global _module_to_user_file
+    _module_to_user_file = module_to_user_file
 
 
 @contextmanager
@@ -89,9 +112,12 @@ def get_all_taint(*args, **kwargs):
     Returns:
         set: Set of all taint origins found in the arguments
     """
-    args_taint_origins = get_taint_origins(args)
-    kwargs_taint_origins = get_taint_origins(kwargs)
-    taints = set(args_taint_origins) | set(kwargs_taint_origins)
+    try:
+        args_taint_origins = get_taint_origins(args)
+        kwargs_taint_origins = get_taint_origins(kwargs)
+        taints = set(args_taint_origins) | set(kwargs_taint_origins)
+    except Exception:
+        taints = set()
     return taints
 
 
@@ -122,7 +148,9 @@ def apply_taint(output, taint_origin: set):
     Returns:
         The tainted version of the output
     """
-    return taint_wrap(output, taint_origin=taint_origin)
+    if taint_origin:
+        return taint_wrap(output, taint_origin=taint_origin)
+    return output
 
 
 def create_taint_wrapper(original_func):
@@ -141,6 +169,10 @@ def create_taint_wrapper(original_func):
     Returns:
         callable: A taint-aware wrapper function that preserves the original's signature
     """
+    # Don't patch generator functions - they have special semantics that need to be preserved
+    if inspect.isgeneratorfunction(original_func):
+        return original_func
+
     if getattr(original_func, "_is_taint_wrapped", False):
         return original_func
 
@@ -194,6 +226,48 @@ def create_taint_wrapper(original_func):
         return patched_function
 
 
+def has_lazy_imports(module) -> bool:
+    """
+    Check if module uses lazy imports that could interfere with taint tracking.
+
+    Detects common third-party lazy import patterns that can cause
+    "dictionary changed size during iteration" errors.
+
+    Args:
+        module: The module to check
+
+    Returns:
+        bool: True if lazy imports are detected, False otherwise
+    """
+    if not hasattr(module, "__dict__"):
+        return False
+
+    # Check for common lazy import function names that actually exist
+    lazy_import_indicators = {
+        "lazy_import",  # websockets and other libraries use this
+        "__lazy_import__",
+        "_lazy_import",
+    }
+
+    try:
+        # Use list() to create a snapshot and avoid "dictionary changed size during iteration"
+        items = list(module.__dict__.items())
+    except RuntimeError:
+        # If we can't even create a snapshot, this module is definitely problematic
+        return True
+
+    for name, value in items:
+        # Direct function name match
+        if name in lazy_import_indicators:
+            return True
+        # Check if it's a callable with lazy_import in the name
+        if callable(value) and hasattr(value, "__name__"):
+            if value.__name__ in lazy_import_indicators:
+                return True
+
+    return False
+
+
 def patch_module_callables(module, visited=None):
     """
     Recursively patch all callables in a module with taint tracking.
@@ -214,6 +288,13 @@ def patch_module_callables(module, visited=None):
         module: The module to patch (ModuleType or other object)
         visited (set, optional): Set of already visited module IDs to prevent cycles
     """
+    # Skip patching modules with lazy imports to avoid runtime dictionary modification issues
+    if has_lazy_imports(module):
+        logger.debug(
+            f"Skipping patching for module {getattr(module, '__name__', 'unknown')} - uses lazy imports"
+        )
+        return
+
     if isinstance(module, ModuleType):
         module_name = module.__name__
         parent_name = module_name.lstrip(".").split(".")[0]
@@ -387,6 +468,32 @@ class TaintBuiltinLoader(BuiltinImporter):
         patch_module_callables(module=module)
 
 
+class FStringImportLoader(SourceLoader):
+    def __init__(self, fullname, path):
+        self.fullname = fullname
+        self.path = path
+
+    def get_filename(self, fullname):
+        return self.path
+
+    def get_data(self, path):
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def exec_module(self, module):
+        super().exec_module(module)
+        # NOTE This does not even get triggered!!
+        # We are not patching functions in the user-code...
+        patch_module_callables(module=module)
+
+    def source_to_code(self, data, path, *, _optimize=-1):
+        logger.debug(f"Rewriting AST for {self.fullname} at {path}")
+        tree = ast.parse(data, filename=path)
+        tree = FStringTransformer().visit(tree)
+        ast.fix_missing_locations(tree)
+        return compile(tree, path, "exec")
+
+
 class TaintImportHook:
     """
     Custom import hook that intercepts module loading for taint tracking.
@@ -433,6 +540,16 @@ class TaintImportHook:
         return None
 
 
+class FStringImportFinder(MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        # Only handle modules that correspond to user files
+        for mod_name, file_path in _module_to_user_file.items():
+            if mod_name == fullname:
+                logger.debug(f"Will rewrite: {fullname} from {file_path}")
+                return spec_from_loader(fullname, FStringImportLoader(fullname, file_path))
+        return None
+
+
 def install_patch_hook():
     """
     Install the taint tracking import hook into the Python import system.
@@ -446,6 +563,17 @@ def install_patch_hook():
     if not any(isinstance(mod, TaintImportHook) for mod in sys.meta_path):
         sys.meta_path.insert(0, TaintImportHook())
 
+    # put the f-string re-write first to make sure we re-write the f-strings in
+    # the files/modules we want to
+    if not any(isinstance(f, FStringImportFinder) for f in sys.meta_path):
+        sys.meta_path.insert(0, FStringImportFinder())
+
     for module_name in MODULE_WHITELIST:
         mod = import_module(module_name)
         reload(mod)
+
+    import builtins
+
+    builtins.taint_fstring_join = taint_fstring_join
+    builtins.taint_format_string = taint_format_string
+    builtins.taint_percent_format = taint_percent_format

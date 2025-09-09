@@ -2,6 +2,7 @@ import ast
 import re
 import io
 import inspect
+from typing import Any, Set
 
 from .patch_constants import CPYTHON_MODS
 
@@ -10,6 +11,34 @@ obj_id_to_taint_origin = {}
 
 
 # Utility functions
+def safe_update_set(target_set: Set[Any], obj: Any) -> Set[Any]:
+    """
+    Safely update a set with items from an iterable, skipping unhashable items.
+
+    This function attempts to add items from an iterable to a target set,
+    gracefully handling TypeError exceptions that occur when trying to add
+    unhashable items (like AST nodes, complex objects, etc.).
+
+    Args:
+        target_set: The set to update with new items
+        obj: An iterable containing items to add to the set
+
+    Returns:
+        The updated target set
+
+    Note:
+        This function modifies the target_set in place and also returns it.
+        Unhashable items are silently skipped to prevent crashes during
+        taint origin extraction from complex nested objects.
+    """
+    try:
+        target_set.update(set(obj))
+    except TypeError:
+        # Skip unhashable items like AST nodes, complex objects, etc.
+        pass
+    return target_set
+
+
 def erase_random_substring(val):
     """
     Remove random/tainted portions from a tainted string, keeping only clean parts.
@@ -164,27 +193,36 @@ def get_taint_origins(val, _seen=None, _depth=0, _max_depth=10):
 
     if isinstance(val, (list, tuple, set)):
         for v in val:
-            origins.update(get_taint_origins(v, _seen, _depth + 1, _max_depth))
+            # origins.update(set(get_taint_origins(v, _seen, _depth + 1, _max_depth)))
+            origins = safe_update_set(origins, get_taint_origins(v, _seen, _depth + 1, _max_depth))
     elif isinstance(val, dict):
         for v in val.values():
-            origins.update(get_taint_origins(v, _seen, _depth + 1, _max_depth))
+            # origins.update(set(get_taint_origins(v, _seen, _depth + 1, _max_depth)))
+            origins = safe_update_set(origins, get_taint_origins(v, _seen, _depth + 1, _max_depth))
     elif hasattr(val, "__dict__") and not isinstance(val, type):
         # Handle custom objects with attributes
         for attr_name, attr_val in val.__dict__.items():
             if attr_name.startswith("_"):
                 continue
-            origins.update(get_taint_origins(attr_val, _seen, _depth + 1, _max_depth))
+            # origins.update(set(get_taint_origins(attr_val, _seen, _depth + 1, _max_depth)))
+            origins = safe_update_set(
+                origins, get_taint_origins(attr_val, _seen, _depth + 1, _max_depth)
+            )
     elif hasattr(val, "__slots__"):
         # Handle objects with __slots__
         for slot in val.__slots__:
             if hasattr(val, slot):
                 slot_val = getattr(val, slot)
-                origins.update(get_taint_origins(slot_val, _seen, _depth + 1, _max_depth))
+                origins = safe_update_set(
+                    origins, get_taint_origins(slot_val, _seen, _depth + 1, _max_depth)
+                )
+                # origins.update(set(get_taint_origins(slot_val, _seen, _depth + 1, _max_depth)))
 
     # this is an object that doesn't have __dict__ or __slots__ so
     # probably a CPython object w/o __dict__ such as re.Match()
     if obj_id in obj_id_to_taint_origin:
-        origins.update(set(obj_id_to_taint_origin[obj_id]))
+        origins = safe_update_set(origins, set(obj_id_to_taint_origin[obj_id]))
+        # origins.update(set(obj_id_to_taint_origin[obj_id]))
 
     return list(origins)
 
@@ -1672,6 +1710,11 @@ def taint_wrap(obj, taint_origin=None, _seen=None, _depth: int = 0, _max_depth: 
 
     if is_tainted(obj):
         return obj
+    if hasattr(obj, "__class__") and hasattr(obj.__class__, "__mro__"):
+        import enum
+
+        if issubclass(obj.__class__, enum.Enum):
+            return obj  # Don't wrap any enum members (including StrEnum)
     if isinstance(obj, str):
         return TaintStr(obj, taint_origin=taint_origin)
     if isinstance(obj, bool):
