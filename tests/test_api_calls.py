@@ -23,15 +23,9 @@ from get_api_objects import (
 from server.cache_manager import CACHE
 
 
-# expected_calls = {
-#     "openai": {"llm": 4, "http": 1}, # HTTP calls depends on version ...
-#     "anthropic": {"llm": 4, "http": 0},
-# }
-
-
 def print_server_logs():
     """Print recent server logs for debugging."""
-    log_file = os.path.join(ACO_LOG_PATH, "server.log")
+    log_file = ACO_LOG_PATH
     print(f"Looking for server logs at: {log_file}")
     if os.path.exists(log_file):
         try:
@@ -52,15 +46,6 @@ def print_server_logs():
             print(f"Log directory exists, files: {os.listdir(log_dir)}")
         else:
             print(f"Log directory does not exist: {log_dir}")
-
-        # Also check for other possible log locations
-        import glob
-
-        possible_logs = glob.glob(os.path.join(ACO_LOG_PATH, "*.log"))
-        if possible_logs:
-            print(f"Other log files found: {possible_logs}")
-        else:
-            print("No log files found in the log directory")
 
 
 def wait_for_server():

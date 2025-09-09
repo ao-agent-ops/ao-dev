@@ -102,6 +102,7 @@ class CacheManager:
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
+        logger.debug(f"Cache lookup: session_id={session_id}, input_hash={input_hash}")
 
         row = db.query_one(
             "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?",

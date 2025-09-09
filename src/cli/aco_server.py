@@ -5,7 +5,7 @@ import subprocess
 import os
 from argparse import ArgumentParser
 from common.logger import logger
-from common.constants import HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT, ACO_LOG_PATH
+from common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
 from server.develop_server import DevelopServer, send_json
 
 
@@ -14,7 +14,7 @@ def launch_daemon_server() -> None:
     Launch the develop server as a detached daemon process with proper stdio handling.
     """
     # Create log file path
-    log_file = os.path.join(ACO_LOG_PATH, "server.log")
+    log_file = ACO_LOG_PATH
 
     # Ensure log directory exists
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
