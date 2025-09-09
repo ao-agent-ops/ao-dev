@@ -51,6 +51,6 @@ git submodule add https://github.com/agops-project/SOMETHING.git example_workflo
 
 ## Complex workflows
 
- - `DeepResearch`: MiroFlow open-source deep research agent.
+ - `miroflow_deep_research`: MiroFlow open-source deep research agent.
 
  - `ours_swe_bench`: SWE-bench benchmark with our own agent created by Claude code.
