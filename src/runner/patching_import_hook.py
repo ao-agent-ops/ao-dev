@@ -29,7 +29,12 @@ from importlib.machinery import (
 )
 from importlib.util import spec_from_loader
 from forbiddenfruit import curse
-from runner.taint_wrappers import get_taint_origins, taint_wrap, untaint_if_needed
+from runner.taint_wrappers import (
+    get_taint_origins,
+    taint_wrap,
+    untaint_if_needed,
+    inject_random_marker,
+)
 from runner.fstring_rewriter import (
     FStringTransformer,
     taint_fstring_join,
@@ -41,7 +46,6 @@ import threading
 from contextlib import contextmanager
 from .patch_constants import (
     MODULE_WHITELIST,
-    MODULE_BLACKLIST,
     MODULE_ATTR_BLACKLIST,
     CLS_ATTR_BLACKLIST,
 )
@@ -117,6 +121,7 @@ def get_all_taint(*args, **kwargs):
         kwargs_taint_origins = get_taint_origins(kwargs)
         taints = set(args_taint_origins) | set(kwargs_taint_origins)
     except Exception:
+        logger.debug(f"Failed to get taint for args, kwargs {args} {kwargs}")
         taints = set()
     return taints
 
@@ -213,6 +218,7 @@ def create_taint_wrapper(original_func):
                 # TODO, the orig func could also return taint. if that is the case,
                 # we should ignore the high-level taint because the sub-func is more precise
                 taint = get_all_taint(*args, **kwargs)
+                args, kwargs = inject_random_marker((args, kwargs))
                 output = original_func(*args, **kwargs)
                 # it could be that the returned function is also patched. this can lead to unforeseen side-effects
                 # so we recursively unwrap it
@@ -298,8 +304,7 @@ def patch_module_callables(module, visited=None):
     if isinstance(module, ModuleType):
         module_name = module.__name__
         parent_name = module_name.lstrip(".").split(".")[0]
-        any_under = any(sub.startswith("_") for sub in module_name.split("."))
-        if module_name in MODULE_BLACKLIST or parent_name in MODULE_BLACKLIST or any_under:
+        if not parent_name in MODULE_WHITELIST:
             return
 
     if visited is None:
@@ -314,7 +319,7 @@ def patch_module_callables(module, visited=None):
             continue
 
         if f"{module_name}.{attr_name}" in MODULE_ATTR_BLACKLIST:
-            # logger.info(f"{module_name}.{attr_name} in MODULE_ATTR_BLACKLIST. Skipped.")
+            logger.info(f"{module_name}.{attr_name} in MODULE_ATTR_BLACKLIST. Skipped.")
             continue
 
         # Safely get attribute, avoiding lazy import triggers during patching
@@ -338,28 +343,15 @@ def patch_module_callables(module, visited=None):
             if hasattr(attr, "__wrapped__"):  # already patched
                 continue
 
-            # logger.info(f"Patched {module_name}.{attr_name}")
+            logger.info(f"Patched {module_name}.{attr_name}")
             setattr(module, attr_name, create_taint_wrapper(attr))
         elif inspect.isclass(attr):
-            if any(
-                mro.__module__ in MODULE_BLACKLIST
-                for mro in attr.__mro__
-                if mro.__name__ != "object"
-            ):
-                continue
-
-            if attr.__module__.lstrip(".").split(".")[0] in MODULE_BLACKLIST:
-                continue
-
             # Patch class methods
             patch_class_methods(attr)
         elif inspect.ismodule(attr):
             # Recurse into submodules
             patch_module_callables(attr, visited)
         elif callable(attr):
-            if attr.__module__ in MODULE_BLACKLIST:
-                continue
-
             if attr.__class__.__name__ == "builtin_function_or_method":
                 setattr(module, attr_name, create_taint_wrapper(attr))
                 continue

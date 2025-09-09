@@ -158,7 +158,7 @@ def is_tainted(obj):
     return hasattr(obj, "_taint_origin") and bool(get_taint_origins(obj))
 
 
-def get_taint_origins(val, _seen=None, _depth=0, _max_depth=10):
+def get_taint_origins(val, _seen=None, _depth=0, _max_depth=100):
     """
     Return a flat list of all taint origins for the input, including nested objects.
 
@@ -1241,12 +1241,16 @@ class TaintedOpenAIObject:
 
     def __getattr__(self, name):
         value = getattr(self._wrapped, name)
-        wrapped_value = taint_wrap(value, taint_origin=self._taint_origin)
-        return wrapped_value
+        if self._taint_origin:
+            wrapped_value = taint_wrap(value, taint_origin=self._taint_origin)
+            return wrapped_value
+        return value
 
     def __getitem__(self, key):
         value = self._wrapped[key]
-        return taint_wrap(value, taint_origin=self._taint_origin)
+        if self._taint_origin:
+            return taint_wrap(value, taint_origin=self._taint_origin)
+        return value
 
     def __repr__(self):
         return f"TaintedOpenAIObject({repr(self._wrapped)}, taint_origin={self._taint_origin})"
@@ -1716,7 +1720,8 @@ def taint_wrap(obj, taint_origin=None, _seen=None, _depth: int = 0, _max_depth: 
         if issubclass(obj.__class__, enum.Enum):
             return obj  # Don't wrap any enum members (including StrEnum)
     if isinstance(obj, str):
-        return TaintStr(obj, taint_origin=taint_origin)
+        obj, random_pos = remove_random_marker(obj, level="str")
+        return TaintStr(obj, taint_origin=taint_origin, random_pos=random_pos)
     if isinstance(obj, bool):
         # Don't wrap booleans, return as-is
         return obj
@@ -1729,7 +1734,13 @@ def taint_wrap(obj, taint_origin=None, _seen=None, _depth: int = 0, _max_depth: 
     if isinstance(obj, dict):
         return TaintDict(
             {
-                k: taint_wrap(
+                taint_wrap(
+                    k,
+                    taint_origin=taint_origin,
+                    _seen=_seen,
+                    _depth=_depth + 1,
+                    _max_depth=_max_depth,
+                ): taint_wrap(
                     v,
                     taint_origin=taint_origin,
                     _seen=_seen,
@@ -1838,11 +1849,6 @@ def is_random_taint(taint_origin):
     return isinstance(taint_origin, str) and "[random]" in taint_origin
 
 
-def extract_position_from_random_taint(taint_origin):
-    """Extract position list from a random taint origin."""
-    return ast.literal_eval(taint_origin.split("[random]")[1])
-
-
 def shift_position_taints(obj: str | TaintStr, offs: int) -> list:
     """
     Shift position taints in an object's random positions by a given offset.
@@ -1874,32 +1880,112 @@ def get_random_positions(val: str | TaintStr) -> list:
         return []
 
 
-def inject_random_marker(value: list | tuple, level: str = "str") -> list | tuple:
+def inject_random_marker(
+    value, level: str = "str", _seen=None, _depth: int = 0, _max_depth: int = 100
+):
     """
-    Inject random markers around tainted positions in strings within a collection.
+    Recursively inject random markers around tainted positions in any object.
 
-    This function processes lists, tuples, and individual strings/TaintStr objects,
-    adding >> and << markers around random positions to visualize taint tracking.
+    This function processes any object and injects >> and << markers around random
+    positions in TaintStr objects that have position tracking. The object structure
+    is preserved and returned in the same form as the input.
 
     Args:
-        value: A list, tuple, string, or TaintStr to process
+        value: Any object to process for marker injection
         level: Insert the modifiers at the string or char level. Default is str
+        _seen: Set to track visited objects (prevents circular references)
+        _depth: Current recursion depth
+        _max_depth: Maximum recursion depth
 
     Returns:
         The same type as input with random markers injected around tainted positions
     """
-    if isinstance(value, (str, TaintStr)):
+    if _depth > _max_depth:
+        return value
+
+    if _seen is None:
+        _seen = set()
+
+    # Handle TaintStr with positions - this is the core case
+    # Don't use circular reference protection for TaintStr as they convert to regular strings
+    if isinstance(value, TaintStr) and get_random_positions(value):
         return inject_random_marker_str(value, level=level)
-    elif isinstance(value, (list, tuple)):
+    # Handle regular strings - no markers needed
+    elif isinstance(value, str):
+        return value
+
+    # For complex objects, use circular reference protection
+    obj_id = id(value)
+    if obj_id in _seen:
+        return value
+    _seen.add(obj_id)
+
+    # Handle lists and tuples
+    if isinstance(value, (list, tuple)):
         injected = [
-            (
-                inject_random_marker_str(element, level=level)
-                if isinstance(element, (str, TaintStr))
-                else element
+            inject_random_marker(
+                element, level=level, _seen=_seen, _depth=_depth + 1, _max_depth=_max_depth
             )
             for element in value
         ]
         return type(value)(injected)
+    # Handle dictionaries
+    if isinstance(value, dict):
+        injected = {
+            k: inject_random_marker(
+                v, level=level, _seen=_seen, _depth=_depth + 1, _max_depth=_max_depth
+            )
+            for k, v in value.items()
+        }
+        return type(value)(injected)
+    # Handle sets
+    if isinstance(value, set):
+        injected = {
+            inject_random_marker(
+                item, level=level, _seen=_seen, _depth=_depth + 1, _max_depth=_max_depth
+            )
+            for item in value
+        }
+        return injected
+    # Handle custom objects with __dict__
+    if hasattr(value, "__dict__") and not isinstance(value, type):
+        # Create a copy to avoid modifying the original
+        try:
+            new_obj = value.__class__.__new__(value.__class__)
+            for attr, attr_val in value.__dict__.items():
+                setattr(
+                    new_obj,
+                    attr,
+                    inject_random_marker(
+                        attr_val, level=level, _seen=_seen, _depth=_depth + 1, _max_depth=_max_depth
+                    ),
+                )
+            return new_obj
+        except Exception:
+            # If we can't copy, return original
+            return value
+    # Handle objects with __slots__
+    if hasattr(value, "__slots__"):
+        try:
+            new_obj = value.__class__.__new__(value.__class__)
+            for slot in value.__slots__:
+                if hasattr(value, slot):
+                    slot_val = getattr(value, slot)
+                    setattr(
+                        new_obj,
+                        slot,
+                        inject_random_marker(
+                            slot_val,
+                            level=level,
+                            _seen=_seen,
+                            _depth=_depth + 1,
+                            _max_depth=_max_depth,
+                        ),
+                    )
+            return new_obj
+        except Exception:
+            return value
+    # For all other types (primitives, functions, etc.), return as-is
     else:
         return value
 

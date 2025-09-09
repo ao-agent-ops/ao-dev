@@ -1,20 +1,18 @@
 import re
 import sys
 from runner.taint_wrappers import TaintStr, Position, get_taint_origins, get_random_positions
-from runner.monkey_patching.patches.builtin_patches import re_patch
 
 
 def test_basic_setup():
     """Test that we can import and apply patches without errors."""
     print("Testing basic setup...")
-    re_patch()
+
     print("✓ Patches applied successfully")
 
 
 def test_pattern_search():
     """Test Pattern.search() with tainted strings and position tracking."""
     print("Testing Pattern.search()...")
-    re_patch()
 
     # Create tainted string with specific position tracking
     tainted = TaintStr(
@@ -46,7 +44,6 @@ def test_pattern_search():
 def test_re_search():
     """Test module-level re.search() with tainted strings and position tracking."""
     print("Testing re.search()...")
-    re_patch()
 
     tainted = TaintStr("Hello world", taint_origin=["api_response"], random_pos=[Position(6, 11)])
     match = re.search(r"world", tainted)
@@ -71,7 +68,6 @@ def test_re_search():
 def test_findall():
     """Test findall() with tainted strings and position tracking."""
     print("Testing findall()...")
-    re_patch()
 
     tainted = TaintStr(
         "abc 123 def 456",
@@ -102,7 +98,6 @@ def test_findall():
 def test_split():
     """Test split() with tainted strings."""
     print("Testing split()...")
-    re_patch()
 
     tainted = TaintStr("one,two,three", taint_origin=["csv_data"], random_pos=[Position(4, 7)])
     results = re.split(r",", tainted)
@@ -126,7 +121,6 @@ def test_split():
 def test_sub():
     """Test sub() with tainted strings."""
     print("Testing sub()...")
-    re_patch()
 
     tainted = TaintStr("Hello world", taint_origin=["input1"], random_pos=[Position(6, 11)])
     replacement = TaintStr("universe", taint_origin=["input2"])
@@ -146,7 +140,6 @@ def test_sub():
 def test_groups():
     """Test Match.groups() with tainted strings and position tracking."""
     print("Testing Match.groups()...")
-    re_patch()
 
     tainted = TaintStr(
         "John: 25, Jane: 30",
@@ -181,7 +174,6 @@ def test_groups():
 def test_groupdict():
     """Test Match.groupdict() with tainted strings and position tracking."""
     print("Testing Match.groupdict()...")
-    re_patch()
 
     tainted = TaintStr(
         "John: 25", taint_origin=["form_input"], random_pos=[Position(0, 4), Position(6, 8)]
@@ -217,7 +209,6 @@ def test_groupdict():
 def test_isinstance_compatibility():
     """Test that Match objects still pass isinstance checks."""
     print("Testing isinstance compatibility...")
-    re_patch()
 
     tainted = TaintStr("test string", taint_origin=["test"])
     match = re.search(r"test", tainted)
@@ -233,7 +224,6 @@ def test_isinstance_compatibility():
 def test_complex_patterns():
     """Test complex regex patterns with multiple nested groups."""
     print("Testing complex patterns...")
-    re_patch()
 
     # Test nested groups
     tainted = TaintStr(
@@ -261,7 +251,6 @@ def test_complex_patterns():
 def test_empty_and_none_cases():
     """Test edge cases with empty matches and None values."""
     print("Testing empty and None cases...")
-    re_patch()
 
     # Test no match case
     tainted = TaintStr("hello", taint_origin=["test"])
@@ -294,7 +283,6 @@ def test_empty_and_none_cases():
 def test_function_callbacks():
     """Test sub/subn with function callbacks."""
     print("Testing function callbacks...")
-    re_patch()
 
     def callback(match):
         # Function should receive tainted match object
@@ -317,7 +305,6 @@ def test_function_callbacks():
 def test_overlapping_positions():
     """Test complex position tracking with overlapping taint areas."""
     print("Testing overlapping positions...")
-    re_patch()
 
     # Create string with multiple random position areas
     tainted = TaintStr(
@@ -343,7 +330,6 @@ def test_overlapping_positions():
 def test_nested_operations():
     """Test nested regex operations on already-tainted results."""
     print("Testing nested operations...")
-    re_patch()
 
     # First operation
     tainted = TaintStr("name=john;age=25;city=ny", taint_origin=["config_data"])
@@ -371,7 +357,6 @@ def test_nested_operations():
 def test_large_strings():
     """Test performance with large strings."""
     print("Testing large strings...")
-    re_patch()
 
     # Create large tainted string
     large_content = "word " * 10000  # 50k characters
@@ -396,7 +381,6 @@ def test_large_strings():
 def test_special_characters():
     """Test regex with special characters and unicode."""
     print("Testing special characters...")
-    re_patch()
 
     # Test unicode characters
     tainted = TaintStr("Hello 世界! Price: $50.99 🎉", taint_origin=["unicode_data"])
@@ -418,7 +402,6 @@ def test_special_characters():
 def test_compiled_vs_string_patterns():
     """Test both compiled patterns and string patterns."""
     print("Testing compiled vs string patterns...")
-    re_patch()
 
     tainted = TaintStr("test123", taint_origin=["pattern_test"])
 
@@ -443,7 +426,6 @@ def test_compiled_vs_string_patterns():
 def test_subn_with_count():
     """Test subn function that returns count of substitutions."""
     print("Testing subn with count...")
-    re_patch()
 
     tainted = TaintStr("foo bar foo baz foo", taint_origin=["subn_test"])
     replacement = TaintStr("FOO", taint_origin=["replacement"])
@@ -466,7 +448,6 @@ def test_subn_with_count():
 def test_error_conditions():
     """Test error conditions and malformed inputs."""
     print("Testing error conditions...")
-    re_patch()
 
     try:
         # Test invalid regex
@@ -490,7 +471,6 @@ def test_error_conditions():
 def test_expand_method():
     """Test Match.expand() method with templates."""
     print("Testing Match.expand()...")
-    re_patch()
 
     tainted = TaintStr("Name: John, Age: 25", taint_origin=["template_data"])
     template = TaintStr("Hello \\1, you are \\2 years old", taint_origin=["template"])
@@ -515,7 +495,6 @@ def test_expand_method():
 def test_memory_cleanup():
     """Test that taint context tracks match objects properly."""
     print("Testing memory cleanup...")
-    re_patch()
 
     from runner.monkey_patching.patches.builtin_patches import _match_taint_context
 
@@ -544,7 +523,6 @@ def test_memory_cleanup():
 def test_edge_case_scenarios():
     """Test various edge cases and corner scenarios."""
     print("Testing edge case scenarios...")
-    re_patch()
 
     # Test 1: Zero-length matches
     tainted = TaintStr("abc", taint_origin=["zero_test"])
@@ -608,7 +586,6 @@ def test_edge_case_scenarios():
 def test_pattern_match():
     """Test Pattern.match() with position tracking."""
     print("Testing Pattern.match() position tracking...")
-    re_patch()
 
     tainted = TaintStr(
         "hello world test", taint_origin=["match_test"], random_pos=[Position(6, 11)]
@@ -637,7 +614,6 @@ def test_pattern_match():
 def test_pattern_fullmatch():
     """Test Pattern.fullmatch() with position tracking."""
     print("Testing Pattern.fullmatch() position tracking...")
-    re_patch()
 
     tainted = TaintStr("test123", taint_origin=["fullmatch_test"], random_pos=[Position(0, 4)])
     pattern = re.compile(r"test\d+")
@@ -664,7 +640,6 @@ def test_pattern_fullmatch():
 def test_pattern_finditer():
     """Test Pattern.finditer() with position tracking."""
     print("Testing Pattern.finditer() position tracking...")
-    re_patch()
 
     tainted = TaintStr(
         "word1 word2 word3", taint_origin=["finditer_test"], random_pos=[Position(6, 11)]
@@ -695,7 +670,6 @@ def test_pattern_finditer():
 def test_re_match():
     """Test re.match() with position tracking."""
     print("Testing re.match() position tracking...")
-    re_patch()
 
     tainted = TaintStr(
         "start middle end", taint_origin=["re_match_test"], random_pos=[Position(6, 12)]
@@ -723,7 +697,6 @@ def test_re_match():
 def test_re_fullmatch():
     """Test re.fullmatch() with position tracking."""
     print("Testing re.fullmatch() position tracking...")
-    re_patch()
 
     tainted = TaintStr("complete", taint_origin=["re_fullmatch_test"], random_pos=[Position(2, 6)])
 
@@ -749,7 +722,6 @@ def test_re_fullmatch():
 def test_re_finditer():
     """Test re.finditer() with position tracking."""
     print("Testing re.finditer() position tracking...")
-    re_patch()
 
     tainted = TaintStr(
         "cat dog cat bird cat",
@@ -780,7 +752,6 @@ def test_re_finditer():
 def test_nested_group_position_tracking():
     """Test position tracking with complex nested groups."""
     print("Testing nested group position tracking...")
-    re_patch()
 
     # Test complex nested pattern with position tracking
     tainted = TaintStr(
@@ -837,7 +808,6 @@ def test_nested_group_position_tracking():
 def test_overlapping_groups_position_tracking():
     """Test position tracking with overlapping and optional groups."""
     print("Testing overlapping groups position tracking...")
-    re_patch()
 
     # Pattern with optional groups that may overlap
     tainted = TaintStr(
@@ -871,7 +841,6 @@ def test_overlapping_groups_position_tracking():
 def test_zero_width_assertions_position_tracking():
     """Test position tracking with zero-width assertions and lookheads."""
     print("Testing zero-width assertions position tracking...")
-    re_patch()
 
     # Test positive lookahead
     tainted = TaintStr("password123", taint_origin=["lookahead_test"], random_pos=[Position(8, 11)])
@@ -913,13 +882,10 @@ def test_zero_width_assertions_position_tracking():
 
 
 def test_multiple_patch_calls():
-    """Test that calling re_patch() multiple times doesn't break anything."""
+    """Test that calling  multiple times doesn't break anything."""
     print("Testing multiple patch calls...")
 
     # Apply patches multiple times
-    re_patch()
-    re_patch()
-    re_patch()
 
     # Should still work correctly
     tainted = TaintStr("test multiple patches", taint_origin=["multi_patch_test"])
