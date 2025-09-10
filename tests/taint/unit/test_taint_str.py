@@ -12,25 +12,25 @@ class TestTaintStr:
         """Test TaintStr creation with various taint origins."""
         # Test with no taint
         s1 = TaintStr("hello")
-        assert str(s1) == "hello"
+        assert s1.get_raw() == "hello"
         assert s1._taint_origin == []
         assert not is_tainted(s1)
 
         # Test with single string taint
         s2 = TaintStr("world", taint_origin="source1")
-        assert str(s2) == "world"
+        assert s2.get_raw() == "world"
         assert s2._taint_origin == ["source1"]
         assert is_tainted(s2)
 
         # Test with single int taint
         s3 = TaintStr("test", taint_origin=42)
-        assert str(s3) == "test"
+        assert s3.get_raw() == "test"
         assert s3._taint_origin == [42]
         assert is_tainted(s3)
 
         # Test with list taint
         s4 = TaintStr("data", taint_origin=["source1", "source2"])
-        assert str(s4) == "data"
+        assert s4.get_raw() == "data"
         assert s4._taint_origin == ["source1", "source2"]
         assert is_tainted(s4)
 
@@ -45,17 +45,17 @@ class TestTaintStr:
 
         # TaintStr + TaintStr
         result = s1 + s2
-        assert str(result) == "hello world"
+        assert result.get_raw() == "hello world"
         assert set(get_taint_origins(result)) == {"source1", "source2"}
 
         # TaintStr + str
         result = s1 + " there"
-        assert str(result) == "hello there"
+        assert result.get_raw() == "hello there"
         assert get_taint_origins(result) == ["source1"]
 
         # str + TaintStr (radd)
         result = "Hi " + s2
-        assert str(result) == "Hi  world"
+        assert result.get_raw() == "Hi  world"
         assert get_taint_origins(result) == ["source2"]
 
     def test_format(self):
@@ -64,7 +64,7 @@ class TestTaintStr:
 
         # Test __format__
         result = format(s, ">10")
-        assert str(result) == "      test"
+        assert result.get_raw() == "      test"
         assert get_taint_origins(result) == ["source1"]
 
     def test_getitem(self):
@@ -73,17 +73,17 @@ class TestTaintStr:
 
         # Single character
         result = s[0]
-        assert str(result) == "h"
+        assert result.get_raw() == "h"
         assert get_taint_origins(result) == ["source1"]
 
         # Slice
         result = s[0:5]
-        assert str(result) == "hello"
+        assert result.get_raw() == "hello"
         assert get_taint_origins(result) == ["source1"]
 
         # Negative index
         result = s[-5:]
-        assert str(result) == "world"
+        assert result.get_raw() == "world"
         assert get_taint_origins(result) == ["source1"]
 
     def test_mod_operator(self):
@@ -93,7 +93,7 @@ class TestTaintStr:
         # Single argument
         arg = TaintStr("World", taint_origin="arg1")
         result = s % arg
-        assert str(result) == "Hello World"
+        assert result.get_raw() == "Hello World"
         assert set(get_taint_origins(result)) == {"template", "arg1"}
 
         # Multiple arguments (tuple)
@@ -101,14 +101,14 @@ class TestTaintStr:
         arg1 = TaintStr("Hello", taint_origin="arg1")
         arg2 = TaintStr("World", taint_origin="arg2")
         result = s2 % (arg1, arg2)
-        assert str(result) == "Hello World"
+        assert result.get_raw() == "Hello World"
         assert set(get_taint_origins(result)) == {"template2", "arg1", "arg2"}
 
         # rmod
         template = "Hello %s"
         arg = TaintStr("World", taint_origin="arg1")
         result = template % arg
-        assert str(result) == "Hello World"
+        assert result.get_raw() == "Hello World"
         assert get_taint_origins(result) == ["arg1"]
 
     def test_encode_decode(self):
@@ -126,13 +126,13 @@ class TestTaintStr:
 
         # Join normal strings
         result = sep.join(["a", "b", "c"])
-        assert str(result) == "a-b-c"
+        assert result.get_raw() == "a-b-c"
         assert get_taint_origins(result) == ["separator"]
 
         # Join tainted strings
         items = [TaintStr("x", taint_origin="item1"), TaintStr("y", taint_origin="item2"), "z"]
         result = sep.join(items)
-        assert str(result) == "x-y-z"
+        assert result.get_raw() == "x-y-z"
         assert set(get_taint_origins(result)) == {"separator", "item1", "item2"}
 
     def test_case_methods(self):
@@ -141,22 +141,22 @@ class TestTaintStr:
 
         # upper
         result = s.upper()
-        assert str(result) == "HELLO WORLD"
+        assert result.get_raw() == "HELLO WORLD"
         assert get_taint_origins(result) == ["source1"]
 
         # lower
         result = s.lower()
-        assert str(result) == "hello world"
+        assert result.get_raw() == "hello world"
         assert get_taint_origins(result) == ["source1"]
 
         # capitalize
         result = s.capitalize()
-        assert str(result) == "Hello world"
+        assert result.get_raw() == "Hello world"
         assert get_taint_origins(result) == ["source1"]
 
         # title
         result = s.title()
-        assert str(result) == "Hello World"
+        assert result.get_raw() == "Hello World"
         assert get_taint_origins(result) == ["source1"]
 
     def test_strip_methods(self):
@@ -165,17 +165,17 @@ class TestTaintStr:
 
         # strip
         result = s.strip()
-        assert str(result) == "hello world"
+        assert result.get_raw() == "hello world"
         assert get_taint_origins(result) == ["source1"]
 
         # lstrip
         result = s.lstrip()
-        assert str(result) == "hello world  "
+        assert result.get_raw() == "hello world  "
         assert get_taint_origins(result) == ["source1"]
 
         # rstrip
         result = s.rstrip()
-        assert str(result) == "  hello world"
+        assert result.get_raw() == "  hello world"
         assert get_taint_origins(result) == ["source1"]
 
     def test_replace(self):
@@ -184,12 +184,12 @@ class TestTaintStr:
         replacement = TaintStr("universe", taint_origin="source2")
 
         result = s.replace("world", replacement)
-        assert str(result) == "hello universe"
+        assert result.get_raw() == "hello universe"
         assert set(get_taint_origins(result)) == {"source1", "source2"}
 
         # Replace with normal string
         result = s.replace("world", "there")
-        assert str(result) == "hello there"
+        assert result.get_raw() == "hello there"
         assert get_taint_origins(result) == ["source1"]
 
     def test_split(self):
@@ -199,7 +199,7 @@ class TestTaintStr:
         result = s.split("-")
         assert len(result) == 3
         assert all(isinstance(part, TaintStr) for part in result)
-        assert [str(part) for part in result] == ["hello", "world", "test"]
+        assert [part.get_raw() for part in result] == ["hello", "world", "test"]
         assert all(get_taint_origins(part) == ["source1"] for part in result)
 
     def test_search_methods(self):
@@ -246,7 +246,7 @@ class TestTaintStr:
         s = TaintStr("hello", taint_origin="source1")
 
         assert str(s) == "hello"
-        assert repr(s) == "TaintStr('hello', taint_origin=['source1'])"
+        assert repr(s) == "'hello'"
 
     def test_get_raw(self):
         """Test get_raw method."""

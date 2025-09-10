@@ -3,7 +3,12 @@ import importlib.abc
 import importlib.util
 import sys
 from common.logger import logger
-from runner.taint_wrappers import TaintStr, get_taint_origins
+from runner.taint_wrappers import (
+    TaintStr,
+    get_taint_origins,
+    inject_random_marker,
+    remove_random_marker,
+)
 
 
 _user_py_files = set()
@@ -24,40 +29,47 @@ def set_module_to_user_file(module_to_user_file: dict):
 
 
 def taint_fstring_join(*args):
+    # Inject random markers into args to track position information
+    args = inject_random_marker(args)
     result = "".join(str(a) for a in args)
+    result, positions = remove_random_marker(result)
     all_origins = set()
     for a in args:
         all_origins.update(get_taint_origins(a))
-    if all_origins:
-        return TaintStr(result, list(all_origins))
+    if all_origins or positions:
+        return TaintStr(result, list(all_origins), random_pos=positions)
     return result
 
 
 def taint_format_string(format_string, *args, **kwargs):
+    args = inject_random_marker(args)
+    kwargs = {key: inject_random_marker(value) for key, value in kwargs.items()}
     result = format_string.format(*args, **kwargs)
+    result, positions = remove_random_marker(result)
     all_origins = set()
     for a in args:
         all_origins.update(get_taint_origins(a))
     for v in kwargs.values():
         all_origins.update(get_taint_origins(v))
-    if all_origins:
-        return TaintStr(result, list(all_origins))
+    if all_origins or positions:
+        return TaintStr(result, list(all_origins), random_pos=positions)
     return result
 
 
 def taint_percent_format(format_string, values):
-    try:
-        result = format_string % values
-    except Exception:
-        return format_string % values  # fallback, may raise
+    # first we insert markers into the values that mark start/end of a random string
+    marked_values = inject_random_marker(values)
+    format_string = inject_random_marker(format_string)
+    result = format_string % marked_values
+    result, positions = remove_random_marker(result)
     all_origins = set(get_taint_origins(format_string))
     if isinstance(values, (tuple, list)):
         for v in values:
             all_origins.update(get_taint_origins(v))
     else:
         all_origins.update(get_taint_origins(values))
-    if all_origins:
-        return TaintStr(result, list(all_origins))
+    if all_origins or positions:
+        return TaintStr(result, list(all_origins), random_pos=positions)
     return result
 
 
@@ -155,3 +167,4 @@ def install_fstring_rewriter():
 
     builtins.taint_fstring_join = taint_fstring_join
     builtins.taint_format_string = taint_format_string
+    builtins.taint_percent_format = taint_percent_format

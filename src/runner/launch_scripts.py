@@ -10,6 +10,7 @@ import json
 import traceback
 from common.logger import logger
 
+
 project_root = {project_root}
 packages_in_project_root = {packages_in_project_root}
 

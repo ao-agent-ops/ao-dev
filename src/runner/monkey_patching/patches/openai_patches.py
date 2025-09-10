@@ -483,7 +483,7 @@ def patch_async_openai_chat_completions_create(completions):
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(result, taint_origin=[node_id])
 
     # Install patch.
     completions.create = patched_function.__get__(completions, AsyncCompletions)

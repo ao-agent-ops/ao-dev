@@ -1,3 +1,15 @@
-[submodule "example_workflows/DeepResearch/MiroFlow"]
-	path = example_workflows/DeepResearch/MiroFlow
-	url = git@github.com:MiroMindAI/MiroFlow.git
+[submodule "example_workflows/chess_text2sql/CHESS"]
+	path = example_workflows/chess_text2sql/CHESS
+	url = https://github.com/agops-project/ShayanTalaei-CHESS
+[submodule "example_workflows/ours_human_eval/human-eval"]
+	path = example_workflows/ours_human_eval/human-eval
+	url = https://github.com/agops-project/openai-human-eval
+[submodule "example_workflows/ours_doc_bench/doc_bench"]
+	path = example_workflows/ours_doc_bench/doc_bench
+	url = https://github.com/agops-project/Anni-Zou-DocBench
+[submodule "example_workflows/ours_swe_bench/SWE-bench"]
+	path = example_workflows/ours_swe_bench/SWE-bench
+	url = https://github.com/agops-project/SWE-bench-SWE-bench
+[submodule "example_workflows/miroflow_deep_research/MiroFlow"]
+	path = example_workflows/miroflow_deep_research/MiroFlow
+	url = https://github.com/agops-project/MiroMindAI-MiroFlow

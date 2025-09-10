@@ -196,6 +196,10 @@ src/user_interface/dist
 *.sqlite3
 *.sqlite
 
+# Example workflows
+example_workflows/debug_examples/content.txt
+example_workflows/debug_examples/extended_content.txt
+
 # CodeQL
 codeql-cli
 codeql-repo
@@ -221,3 +225,7 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # Claude code
 **/.claude
+**/Claude.md
+
+# Bird
+**/bird/llm/data

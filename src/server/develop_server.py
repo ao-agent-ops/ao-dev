@@ -4,6 +4,7 @@ import os
 import json
 import threading
 import subprocess
+import time
 import uuid
 import subprocess
 import shlex
@@ -12,7 +13,7 @@ from typing import Optional
 from server.edit_manager import EDIT
 from server.cache_manager import CACHE
 from common.logger import logger
-from common.constants import ACO_CONFIG, HOST, PORT
+from common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
 from server.telemetry.server_logger import log_server_message, log_shim_control_registration
 
 
@@ -162,11 +163,42 @@ class DevelopServer:
             return label
         return f"{label} ({len(matches)})"
 
+    def _find_session_with_node(self, node_id: str) -> Optional[str]:
+        """Find which session contains a specific node ID"""
+        for session_id, graph in self.session_graphs.items():
+            for node in graph["nodes"]:
+                if node["id"] == node_id:
+                    return session_id
+        return None
+
     def handle_add_node(self, msg: dict) -> None:
         sid = msg["session_id"]
         node = msg["node"]
         incoming_edges = msg.get("incoming_edges", [])
 
+        # Check if any incoming edges reference nodes from other sessions
+        cross_session_sources = []
+        target_sessions = set()
+
+        for source in incoming_edges:
+            # Find which session contains this source node
+            source_session = self._find_session_with_node(source)
+            if source_session:
+                target_sessions.add(source_session)
+                cross_session_sources.append(source)
+                logger.info(f"Found cross-session edge: node {source} in session {source_session}")
+
+        # If we have cross-session references, add the node to those sessions instead of current session
+        if target_sessions:
+            logger.info(f"Adding node {node['id']} to cross-session targets: {target_sessions}")
+            for target_sid in target_sessions:
+                self._add_node_to_session(target_sid, node, cross_session_sources)
+        else:
+            # No cross-session references, add to current session as normal
+            self._add_node_to_session(sid, node, incoming_edges)
+
+    def _add_node_to_session(self, sid: str, node: dict, incoming_edges: list) -> None:
+        """Add a node to a specific session's graph"""
         # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
         for n in graph["nodes"]:
@@ -177,24 +209,28 @@ class DevelopServer:
             tab_title = self._determine_unique_tab_title(node["label"], sid)
             node["tab_title"] = tab_title
             graph["nodes"].append(node)
+            logger.info(f"Added node {node['id']} to session {sid}")
 
-        # Add incoming edges
+        # Add incoming edges (only if source nodes exist in the graph)
+        existing_node_ids = {n["id"] for n in graph["nodes"]}
         for source in incoming_edges:
-            target = node["id"]
-            edge_id = f"e{source}-{target}"
-            full_edge = {"id": edge_id, "source": source, "target": target}
-            graph["edges"].append(full_edge)
+            if source in existing_node_ids:
+                target = node["id"]
+                edge_id = f"e{source}-{target}"
+                full_edge = {"id": edge_id, "source": source, "target": target}
+                graph["edges"].append(full_edge)
+                logger.info(f"Added edge {edge_id} in session {sid}")
+            else:
+                logger.debug(f"Skipping edge from non-existent node {source} to {node['id']}")
 
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
         color_preview = node_colors[-6:]  # Only display last 6 colors
         CACHE.update_color_preview(sid, color_preview)
-
         # Broadcast color preview update to all UIs
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": sid, "color_preview": color_preview}
         )
-
         self.broadcast_to_all_uis(
             {
                 "type": "graph_update",
@@ -417,7 +453,8 @@ class DevelopServer:
         self.broadcast_to_all_uis(
             {"type": "graph_update", "session_id": None, "payload": {"nodes": [], "edges": []}}
         )
-        logger.info("All database records and in-memory state cleared.")
+        os.remove(ACO_LOG_PATH)
+        logger.info("Database, log file and in-memory state cleared.")
 
     # ============================================================
     # Message rounting logic.
@@ -563,7 +600,23 @@ class DevelopServer:
         """Main server loop: accept clients and spawn handler threads."""
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_sock.bind((HOST, PORT))  # BUG: OSError: [Errno 48] Address already in use
+
+        # Try binding with retry logic and better error handling
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self.server_sock.bind((HOST, PORT))
+                break
+            except OSError as e:
+                if e.errno == 48 and attempt < max_retries - 1:  # Address already in use
+                    logger.warning(
+                        f"Port {PORT} in use, retrying in 2 seconds... (attempt {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(2)
+                    continue
+                else:
+                    raise
+
         self.server_sock.listen()
         logger.info(f"Develop server listening on {HOST}:{PORT}")
 
