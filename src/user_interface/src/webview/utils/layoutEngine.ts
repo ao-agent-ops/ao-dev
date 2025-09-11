@@ -27,7 +27,7 @@ export class LayoutEngine {
   const visualLayers = calculateVisualLayers(layers, width, { nodeWidth: this.nodeWidth, nodeHeight: this.nodeHeight, layerSpacing: this.layerSpacing, nodeSpacing: this.nodeSpacing });
 
   // NEW (modular): cascade drop for internal nodes with skip-layer children
-  applyCenterBandCascade(visualLayers, width, this.nodeWidth, this.nodeHeight, this.nodeSpacing);
+  applyCenterBandCascade(visualLayers, width, this.nodeWidth, this.nodeHeight, this.nodeSpacing, this.layerSpacing);
 
   const bands = calculateBandsMod(LayoutNodes, visualLayers, { nodeWidth: this.nodeWidth, nodeHeight: this.nodeHeight, nodeSpacing: this.nodeSpacing, layerSpacing: this.layerSpacing, bandSpacing: this.bandSpacing, containerWidth: width });
   const routedEdges = calculateEdges(LayoutNodes, bands, width, this.layerSpacing, this.nodeHeight, this.nodeSpacing);

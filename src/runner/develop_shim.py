@@ -5,6 +5,8 @@ import json
 import threading
 import subprocess
 import time
+import psutil
+import debugpy
 import signal
 import select
 import tempfile
@@ -196,8 +198,6 @@ class DevelopShim:
         try:
             # even if you did not install it, VSCode makes this available at runtime
             # but for linting, you can install it with pip
-            import debugpy
-
             # Check if debugpy is active
             return debugpy.is_client_connected() or hasattr(debugpy, "_client")
         except ImportError:
@@ -219,8 +219,6 @@ class DevelopShim:
     def _get_parent_cmdline(self) -> List[str]:
         """Get the command line of the parent process."""
         try:
-            import psutil
-
             current_process = psutil.Process()
             parent = current_process.parent()
             if parent:

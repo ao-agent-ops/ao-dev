@@ -90,6 +90,7 @@ export interface BandInfo {
   x: number;
   side: 'left' | 'right';
   level: number;
+  color?: string;
 }
 
 export interface GraphLayout {
@@ -105,6 +106,7 @@ export interface RoutedEdge extends GraphEdge {
   targetHandle: string;
   band?: string;
   type: 'direct' | 'band';
+  color?: string;
 }
 
 export interface LayoutNode {

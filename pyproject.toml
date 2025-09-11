@@ -31,7 +31,7 @@ description = "A development tool for LLM call visualization and debugging"
 readme = "README.md"
 requires-python = ">=3.10"
 
-dependencies = ["pyyaml", "dill", "forbiddenfruit"]
+dependencies = ["pyyaml", "dill", "forbiddenfruit", "debugpy", "psutil"]
 
 [project.optional-dependencies]
 dev = [

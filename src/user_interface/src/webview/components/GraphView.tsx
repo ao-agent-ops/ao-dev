@@ -14,6 +14,7 @@ import { LayoutEngine } from '../utils/layoutEngine';
 import { sendNodeUpdate, sendMessage, sendReset } from '../utils/messaging';
 import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
+import { FLOW_CONTAINER_MARGIN_TOP } from '../utils/layout/core/constants';
 import erasePng from '../assets/erase.png';
 import tagPng from '../assets/tag.png';
 
@@ -63,9 +64,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
     const layout = layoutEngine.layoutGraph(initialNodes, initialEdges, containerWidth);
     
     // Calculate if we have left bands that need negative positioning
-    const hasLeftBands = layout.edges.some(edge => 
-      edge.band && edge.band.includes('Left')
-    );
+  const hasLeftBands = layout.edges.some(edge => edge.band?.includes('Left'));
     
     // Find the minimum X position to adjust for left bands
     let minX = 0;
@@ -99,7 +98,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
       };
     });
 
-    const flowEdges: Edge[] = layout.edges.map((edge) => {
+  const flowEdges: Edge[] = layout.edges.map((edge) => {
       // Adjust edge points if needed
       const adjustedPoints = edge.points.map(point => ({
         x: point.x + xOffset,
@@ -113,7 +112,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
         type: "custom",
-        data: { points: adjustedPoints },
+    data: { points: adjustedPoints, color: edge.color },
         animated: false,
       };
     });
@@ -223,7 +222,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
               className={styles.flowContainer}
               style={{
                 height: `${containerHeight}px`,
-                marginTop: "0px",
+                marginTop: `${FLOW_CONTAINER_MARGIN_TOP}px`,
                 paddingTop: "0px",
               }}
             >
