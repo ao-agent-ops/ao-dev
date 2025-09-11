@@ -62,7 +62,7 @@ def main(
 ):
     dotenv.load_dotenv()
     with hydra.initialize_config_dir(
-        config_dir=os.path.abspath("./example_workflows/DeepResearch/config"), version_base=None
+        config_dir=os.path.abspath("./example_workflows/miroflow_deep_research/config"), version_base=None
     ):
         cfg = hydra.compose(config_name="config")
         logger = bootstrap_logger()

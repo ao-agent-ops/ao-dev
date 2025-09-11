@@ -8,7 +8,7 @@ from runner.monkey_patching.patches.openai_patches import openai_patch, async_op
 from runner.monkey_patching.patches.anthropic_patches import anthropic_patch
 from runner.monkey_patching.patches.vertexai_patches import vertexai_patch
 from runner.monkey_patching.patches.uuid_patches import uuid_patch
-from runner.monkey_patching.patches.builtin_patches import str_patch, re_patch
+from runner.monkey_patching.patches.builtin_patches import str_patch
 from runner.monkey_patching.patches.file_patches import apply_file_patches
 
 
@@ -30,37 +30,11 @@ def patch_by_path(dotted_path, *, notify=False):
     return original
 
 
-def _import_from_qualified_name(qualified_name):
-    """Import a function or method from a fully qualified name."""
-    parts = qualified_name.split(".")
-    module_path = ".".join(parts[:-1])
-    module = importlib.import_module(module_path)
-    # Support class methods: e.g., some.module.Class.method
-    obj = module
-    for part in parts[len(module_path.split(".")) :]:
-        obj = getattr(obj, part)
-    return obj, module, parts
-
-
 def apply_all_monkey_patches():
     """
     Apply all monkey patches as specified in the YAML config and custom patch list.
     This includes generic patches (from YAML) and custom patch functions.
     """
-    # 1. Apply generic patches from YAML config
-    # TODO cached_functions used to be in config.yaml but not anymore.
-    # not sure how this example should run.
-    # for qualified_name in cached_functions:
-    #     func, module, parts = _import_from_qualified_name(qualified_name)
-    #     # Patch the function/method in its parent (module or class)
-    #     parent = module
-    #     if len(parts) > 1:
-    #         # If it's a class method, get the class
-    #         for part in parts[1:-1]:
-    #             parent = getattr(parent, part)
-    #     setattr(parent, parts[-1], no_notify_patch(func))
-
-    # 2. Apply custom patches (these handle their own logic and server notification)
     for patch_func in CUSTOM_PATCH_FUNCTIONS:
         patch_func()
 
@@ -75,7 +49,6 @@ def apply_all_monkey_patches():
 CUSTOM_PATCH_FUNCTIONS = [
     str_patch,
     uuid_patch,
-    re_patch,
     apply_file_patches,
     openai_patch,
     async_openai_patch,

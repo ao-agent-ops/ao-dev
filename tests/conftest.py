@@ -55,6 +55,20 @@ def pytest_configure(config):
     apply_all_monkey_patches()
 
 
+@pytest.fixture(autouse=True)
+def cleanup_taint_registry():
+    """Clean up global taint registry between tests to prevent state leakage."""
+    from runner.taint_wrappers import obj_id_to_taint_origin
+
+    # Clean up before test
+    obj_id_to_taint_origin.clear()
+
+    yield
+
+    # Clean up after test
+    obj_id_to_taint_origin.clear()
+
+
 @pytest.fixture
 def http_calls(block_external_http):
     """Access HTTP call information in tests."""

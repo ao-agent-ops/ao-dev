@@ -14,18 +14,17 @@ from typing import Optional, List
 from runner.patching_import_hook import set_module_to_user_file, install_patch_hook
 from common.logger import logger
 from common.utils import scan_user_py_files_and_modules
+from common.constants import (
+    HOST,
+    PORT,
+    CONNECTION_TIMEOUT,
+    SERVER_START_TIMEOUT,
+    PROCESS_TERMINATE_TIMEOUT,
+    MESSAGE_POLL_INTERVAL,
+    SERVER_START_WAIT,
+)
 from runner.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 from cli.aco_server import launch_daemon_server
-
-
-# Configuration constants
-HOST = "127.0.0.1"
-PORT = 5959
-CONNECTION_TIMEOUT = 5
-SERVER_START_TIMEOUT = 2
-PROCESS_TERMINATE_TIMEOUT = 5
-MESSAGE_POLL_INTERVAL = 0.1
-SERVER_START_WAIT = 1
 
 
 # Utility functions for path computation

@@ -19,12 +19,7 @@ information about tainted data within the resulting strings.
 
 import ast
 from common.logger import logger
-from runner.taint_wrappers import (
-    TaintStr,
-    get_taint_origins,
-    inject_random_marker,
-    remove_random_marker,
-)
+from runner.taint_wrappers import TaintStr, get_taint_origins
 
 
 def taint_fstring_join(*args):
@@ -36,11 +31,9 @@ def taint_fstring_join(*args):
     taint information and tracking positional data from tainted sources.
 
     The function:
-    1. Injects markers around tainted portions to track positions
-    2. Joins all arguments into a single string
-    3. Removes markers and extracts position information
-    4. Collects taint origins from all arguments
-    5. Returns a TaintStr if any taint or positions exist
+    1. Joins all arguments into a single string
+    2. Collects taint origins from all arguments
+    3. Returns a TaintStr if any taint exists
 
     Args:
         *args: Variable number of arguments to join (values from f-string expressions)
@@ -53,14 +46,12 @@ def taint_fstring_join(*args):
         # Becomes: taint_fstring_join("Hello ", name, ", you have ", count, " items")
     """
     # Inject random markers into args to track position information
-    args = inject_random_marker(args)
     result = "".join(str(a) for a in args)
-    result, positions = remove_random_marker(result)
     all_origins = set()
     for a in args:
         all_origins.update(get_taint_origins(a))
-    if all_origins or positions:
-        return TaintStr(result, list(all_origins), random_pos=positions)
+    if all_origins:
+        return TaintStr(result, list(all_origins))
     return result
 
 
@@ -74,11 +65,9 @@ def taint_format_string(format_string, *args, **kwargs):
     tainted data.
 
     The function:
-    1. Injects markers around tainted arguments to track their positions
-    2. Performs the string formatting operation
-    3. Removes markers and extracts position information
-    4. Collects taint origins from format string and all arguments
-    5. Returns a TaintStr if any taint exists
+    1. Performs the string formatting operation
+    2. Collects taint origins from format string and all arguments
+    3. Returns a TaintStr if any taint exists
 
     Args:
         format_string (str): The format string template
@@ -92,17 +81,14 @@ def taint_format_string(format_string, *args, **kwargs):
         # Original: "Hello {}, you have {} items".format(name, count)
         # Becomes: taint_format_string("Hello {}, you have {} items", name, count)
     """
-    args = inject_random_marker(args)
-    kwargs = {key: inject_random_marker(value) for key, value in kwargs.items()}
     result = format_string.format(*args, **kwargs)
-    result, positions = remove_random_marker(result)
     all_origins = set()
     for a in args:
         all_origins.update(get_taint_origins(a))
     for v in kwargs.values():
         all_origins.update(get_taint_origins(v))
-    if all_origins or positions:
-        return TaintStr(result, list(all_origins), random_pos=positions)
+    if all_origins:
+        return TaintStr(result, list(all_origins))
     return result
 
 
@@ -133,18 +119,15 @@ def taint_percent_format(format_string, values):
         # Becomes: taint_percent_format("Hello %s, you have %d items", (name, count))
     """
     # first we insert markers into the values that mark start/end of a random string
-    marked_values = inject_random_marker(values)
-    format_string = inject_random_marker(format_string)
-    result = format_string % marked_values
-    result, positions = remove_random_marker(result)
+    result = format_string % values
     all_origins = set(get_taint_origins(format_string))
     if isinstance(values, (tuple, list)):
         for v in values:
             all_origins.update(get_taint_origins(v))
     else:
         all_origins.update(get_taint_origins(values))
-    if all_origins or positions:
-        return TaintStr(result, list(all_origins), random_pos=positions)
+    if all_origins:
+        return TaintStr(result, list(all_origins))
     return result
 
 

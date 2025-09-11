@@ -16,6 +16,7 @@ imports, and respects blacklists to prevent patching system-critical modules.
 """
 
 from types import ModuleType
+import random
 import sys
 import ast
 import inspect
@@ -33,7 +34,6 @@ from runner.taint_wrappers import (
     get_taint_origins,
     taint_wrap,
     untaint_if_needed,
-    inject_random_marker,
 )
 from runner.fstring_rewriter import (
     FStringTransformer,
@@ -49,6 +49,7 @@ from .patch_constants import (
     MODULE_ATTR_BLACKLIST,
     CLS_ATTR_BLACKLIST,
 )
+from common.constants import ACO_RANDOM_SEED
 
 
 # Thread-local storage for taint propagation control
@@ -218,7 +219,6 @@ def create_taint_wrapper(original_func):
                 # TODO, the orig func could also return taint. if that is the case,
                 # we should ignore the high-level taint because the sub-func is more precise
                 taint = get_all_taint(*args, **kwargs)
-                args, kwargs = inject_random_marker((args, kwargs))
                 output = original_func(*args, **kwargs)
                 # it could be that the returned function is also patched. this can lead to unforeseen side-effects
                 # so we recursively unwrap it
@@ -268,8 +268,11 @@ def has_lazy_imports(module) -> bool:
             return True
         # Check if it's a callable with lazy_import in the name
         if callable(value) and hasattr(value, "__name__"):
-            if value.__name__ in lazy_import_indicators:
-                return True
+            try:
+                if value.__name__ in lazy_import_indicators:
+                    return True
+            except TypeError:  # value.__name__ might not be hashable
+                return False
 
     return False
 
@@ -564,6 +567,24 @@ def install_patch_hook():
         mod = import_module(module_name)
         reload(mod)
 
+    # Set random seeds
+    try:
+        from numpy.random import seed
+
+        seed(ACO_RANDOM_SEED)
+    except:
+        logger.debug("Failed to set the numpy seed")
+
+    try:
+        from torch import manual_seed
+
+        manual_seed(ACO_RANDOM_SEED)
+    except:
+        logger.debug("Failed to set the torch seed")
+
+    random.seed(ACO_RANDOM_SEED)
+
+    # Make taint functions available in bultins
     import builtins
 
     builtins.taint_fstring_join = taint_fstring_join

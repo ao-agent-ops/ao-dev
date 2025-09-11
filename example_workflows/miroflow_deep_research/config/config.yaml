@@ -1,11 +1,12 @@
-# conf/config.yaml
+# config/config.yaml
 defaults:
   - llm: claude_openrouter
   - agent: miroflow
+  - benchmark: gaia-validation
   - pricing: _default
   # disable hydra logging
   # see https://github.com/facebookresearch/hydra/issues/2902#issuecomment-2147121325
-  # - override hydra/hydra_logging: disabled
+  - override hydra/hydra_logging: disabled
   - override hydra/job_logging: none
   - _self_  # Allow defining variables at the top of this file
 
@@ -29,8 +30,17 @@ env:
   https_proxy: "${oc.env:HTTPS_PROXY,???}"
   # points to where data is
   data_dir: "${oc.env:DATA_DIR,???}"
-  
+  # configs for searching tool
+  remove_snippets: "${oc.env:REMOVE_SNIPPETS,false}"
+  remove_knowledge_graph: "${oc.env:REMOVE_KNOWLEDGE_GRAPH,false}"
+  remove_answer_box: "${oc.env:REMOVE_ANSWER_BOX,false}"
+  # whether using chinese context
+  chinese_context: "${oc.env:CHINESE_CONTEXT,false}"
 
 # Can define some top-level or default parameters here
 project_name: "miroflow"
-output_dir: logs/${llm.provider}_${llm.model_name} 
+output_dir: ./example_workflows/miroflow_deep_research/logs/${benchmark.name}/${llm.provider}_${llm.model_name} 
+
+hydra:
+  run:
+    dir: ${output_dir}

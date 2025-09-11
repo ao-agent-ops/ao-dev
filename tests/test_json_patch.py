@@ -5,9 +5,6 @@ from runner.taint_wrappers import (
     TaintDict,
     TaintList,
     get_taint_origins,
-    Position,
-    inject_random_marker,
-    get_random_positions,
 )
 
 
@@ -104,13 +101,11 @@ class TestJsonLoads:
         assert result["text"] == "Hello\nWorld\t!"
         assert get_taint_origins(result["text"]) == ["test"]
 
-    def test_loads_with_random_positions(self):
-        """Test that random positions are preserved through json.loads."""
+    def test_loads_with_tainted_json(self):
+        """Test that taint is preserved through json.loads."""
 
-        # Create TaintStr with random positions
-        json_str = TaintStr(
-            '{"secret": "password123"}', taint_origin=["user"], random_pos=[Position(12, 23)]
-        )
+        # Create TaintStr with taint
+        json_str = TaintStr('{"secret": "password123"}', taint_origin=["user"])
         result = json.loads(json_str)
 
         # Check that the secret value has taint
@@ -193,21 +188,17 @@ class TestJsonDumps:
         assert isinstance(result, TaintStr)
         assert get_taint_origins(result) == ["api"]
 
-    def test_dumps_with_random_positions(self):
-        """Test that position tracking works through json.dumps."""
+    def test_dumps_with_tainted_data(self):
+        """Test that taint works through json.dumps."""
 
-        # Create object with TaintStr that has random positions
-        obj = {
-            "data": TaintStr("sensitive123", taint_origin=["user"], random_pos=[Position(9, 12)])
-        }
+        # Create object with TaintStr that has taint
+        obj = {"data": TaintStr("sensitive123", taint_origin=["user"])}
 
         result = json.dumps(obj)
 
-        # Should have taint and some position tracking
+        # Should have taint
         assert isinstance(result, TaintStr)
         assert get_taint_origins(result) == ["user"]
-        # Position tracking through JSON serialization is complex,
-        # but at minimum we should preserve taint origins
 
 
 class TestJsonRoundTrip:
@@ -360,289 +351,6 @@ class TestJsonIntegrationWithOtherPatches:
         assert '"flag": true' in json_str or '"flag":true' in json_str
 
 
-class TestJsonPositionTracking:
-    """Test random position tracking through JSON operations."""
-
-    def test_loads_position_tracking_simple(self):
-        """Test that position tracking works through json.loads for simple objects."""
-
-        # Create JSON string with random positions marked
-        json_str = TaintStr(
-            '{"message": "hello"}', taint_origin=["test"], random_pos=[Position(13, 18)]
-        )  # "hello" part
-
-        result = json.loads(json_str)
-
-        # The message field should be a TaintStr
-        assert isinstance(result["message"], TaintStr)
-        assert result["message"] == "hello"
-        assert get_taint_origins(result["message"]) == ["test"]
-
-        # Test that position tracking survives the JSON parsing
-        # The resulting TaintStr should have some position information
-        message_positions = get_random_positions(result["message"])
-        assert (
-            message_positions is not None
-        ), "Position tracking should be preserved through json.loads"
-
-        # Test using inject_random_marker to verify positions work
-        marked_message = inject_random_marker(result["message"])
-        assert (
-            ">>" in marked_message and "<<" in marked_message
-        ), "Position markers should be injected"
-
-    def test_dumps_position_tracking_detailed(self):
-        """Test detailed position tracking through json.dumps."""
-
-        # Create object with TaintStr that has specific random positions
-        message = TaintStr(
-            "sensitive_data", taint_origin=["user"], random_pos=[Position(0, 9)]
-        )  # "sensitive" part
-        obj = {"data": message}
-
-        result = json.dumps(obj)
-
-        # Should be TaintStr with position tracking
-        assert isinstance(result, TaintStr)
-        assert get_taint_origins(result) == ["user"]
-        # Should have some position tracking (exact positions depend on JSON structure)
-        assert hasattr(result, "_random_positions")
-
-        # Test that positions are actually tracked
-        result_positions = get_random_positions(result)
-        assert result_positions is not None, "JSON dumps should preserve position tracking"
-        assert len(result_positions) > 0, "Should have at least some position information"
-
-        # Test marker injection on the result
-        marked_result = inject_random_marker(result)
-        assert (
-            ">>" in marked_result and "<<" in marked_result
-        ), "Should be able to inject markers into JSON result"
-
-        # Verify the marked result is still valid JSON structure (markers should be around sensitive parts)
-        assert (
-            '"data":' in marked_result or '"data": ' in marked_result
-        ), "JSON structure should remain"
-
-    def test_roundtrip_position_preservation(self):
-        """Test that position information survives loads→dumps→loads cycle."""
-
-        # Start with JSON containing position-tracked data
-        original = TaintStr(
-            '{"secret": "password123"}', taint_origin=["input"], random_pos=[Position(12, 23)]
-        )  # "password123"
-
-        # Round 1: loads
-        obj1 = json.loads(original)
-        assert isinstance(obj1["secret"], TaintStr)
-        assert get_taint_origins(obj1["secret"]) == ["input"]
-
-        # Test position preservation after loads
-        secret1_positions = get_random_positions(obj1["secret"])
-        assert secret1_positions is not None, "Positions should survive json.loads"
-        marked_secret1 = inject_random_marker(obj1["secret"])
-        assert (
-            ">>" in marked_secret1 and "<<" in marked_secret1
-        ), "Should be able to mark secret after loads"
-
-        # Round 2: dumps
-        json1 = json.dumps(obj1)
-        assert isinstance(json1, TaintStr)
-        assert get_taint_origins(json1) == ["input"]
-
-        # Test position preservation after dumps
-        json1_positions = get_random_positions(json1)
-        assert json1_positions is not None, "Positions should survive json.dumps"
-        marked_json1 = inject_random_marker(json1)
-        assert (
-            ">>" in marked_json1 and "<<" in marked_json1
-        ), "Should be able to mark JSON after dumps"
-
-        # Round 3: loads again
-        obj2 = json.loads(json1)
-        assert isinstance(obj2["secret"], TaintStr)
-        assert get_taint_origins(obj2["secret"]) == ["input"]
-
-        # Test final position preservation
-        secret2_positions = get_random_positions(obj2["secret"])
-        assert secret2_positions is not None, "Positions should survive full roundtrip"
-        marked_secret2 = inject_random_marker(obj2["secret"])
-        assert (
-            ">>" in marked_secret2 and "<<" in marked_secret2
-        ), "Should be able to mark secret after full roundtrip"
-
-    def test_loads_multiple_position_tracking(self):
-        """Test position tracking with multiple tracked regions in JSON."""
-
-        # Create JSON with multiple position-tracked regions
-        json_str = TaintStr(
-            '{"user": "alice", "pass": "secret123", "email": "alice@test.com"}',
-            taint_origin=["multi_test"],
-            random_pos=[
-                Position(10, 15),
-                Position(27, 36),
-                Position(49, 63),
-            ],  # "alice", "secret123", "alice@test.com"
-        )
-
-        result = json.loads(json_str)
-
-        # All string values should be TaintStr with position tracking
-        for key in ["user", "pass", "email"]:
-            assert isinstance(result[key], TaintStr)
-            assert get_taint_origins(result[key]) == ["multi_test"]
-
-            # Each should have position information
-            positions = get_random_positions(result[key])
-            assert positions is not None, f"Field '{key}' should have position tracking"
-
-            # Each should be markable
-            marked = inject_random_marker(result[key])
-            assert ">>" in marked and "<<" in marked, f"Field '{key}' should be markable"
-
-    def test_dumps_complex_position_tracking(self):
-        """Test position tracking through dumps with complex nested objects."""
-
-        # Create complex object with multiple tainted strings at different levels
-        user_data = TaintStr(
-            "john_doe", taint_origin=["user"], random_pos=[Position(0, 4)]
-        )  # "john"
-        credentials = {
-            "username": user_data,
-            "api_key": TaintStr(
-                "key_12345", taint_origin=["api"], random_pos=[Position(4, 9)]
-            ),  # "12345"
-            "metadata": {
-                "session": TaintStr(
-                    "sess_abcdef", taint_origin=["session"], random_pos=[Position(5, 11)]
-                )  # "abcdef"
-            },
-        }
-
-        result = json.dumps(credentials)
-
-        # Should be tainted and have positions
-        assert isinstance(result, TaintStr)
-        taint_origins = get_taint_origins(result)
-        assert set(taint_origins) == {"user", "api", "session"}
-
-        # Should have position tracking
-        positions = get_random_positions(result)
-        assert positions is not None, "Complex JSON should preserve position tracking"
-        assert len(positions) > 0, "Should have multiple position ranges"
-
-        # Should be markable
-        marked = inject_random_marker(result)
-        assert ">>" in marked and "<<" in marked, "Complex JSON should be markable"
-
-        # Verify it contains the expected data
-        assert "john_doe" in result
-        assert "key_12345" in result
-        assert "sess_abcdef" in result
-
-    def test_position_tracking_with_special_characters(self):
-        """Test position tracking with JSON containing special characters."""
-
-        # JSON with escaped characters and unicode
-        json_str = TaintStr(
-            '{"message": "Hello\\nWorld", "unicode": "café", "quote": "Say \\"hi\\""}',
-            taint_origin=["special"],
-            random_pos=[
-                Position(13, 25),
-                Position(40, 44),
-                Position(57, 67),
-            ],  # "Hello\\nWorld", "café", "Say \\"hi\\""
-        )
-
-        result = json.loads(json_str)
-
-        # Check each field
-        assert isinstance(result["message"], TaintStr)
-        assert result["message"] == "Hello\nWorld"  # Unescaped
-        assert get_random_positions(result["message"]) is not None
-
-        assert isinstance(result["unicode"], TaintStr)
-        assert result["unicode"] == "café"
-        assert get_random_positions(result["unicode"]) is not None
-
-        assert isinstance(result["quote"], TaintStr)
-        assert result["quote"] == 'Say "hi"'  # Unescaped
-        assert get_random_positions(result["quote"]) is not None
-
-        # All should be markable
-        for field in result.values():
-            if isinstance(field, TaintStr):
-                marked = inject_random_marker(field)
-                assert ">>" in marked and "<<" in marked
-
-    def test_dumps_array_position_tracking(self):
-        """Test position tracking with arrays containing tainted strings."""
-
-        # Array with multiple tainted elements
-        array_data = [
-            TaintStr("item_one", taint_origin=["item1"], random_pos=[Position(0, 4)]),  # "item"
-            "clean_item",
-            TaintStr("item_three", taint_origin=["item3"], random_pos=[Position(5, 10)]),  # "three"
-            {
-                "nested": TaintStr(
-                    "nested_val", taint_origin=["nested"], random_pos=[Position(7, 10)]
-                )
-            },  # "val"
-        ]
-
-        result = json.dumps(array_data)
-
-        # Should be tainted
-        assert isinstance(result, TaintStr)
-        taint_origins = get_taint_origins(result)
-        assert set(taint_origins) == {"item1", "item3", "nested"}
-
-        # Should have positions
-        positions = get_random_positions(result)
-        assert positions is not None
-        assert len(positions) > 0
-
-        # Should be markable
-        marked = inject_random_marker(result)
-        assert ">>" in marked and "<<" in marked
-
-        # Should contain all the data
-        assert "item_one" in result
-        assert "clean_item" in result
-        assert "item_three" in result
-        assert "nested_val" in result
-
-    def test_position_tracking_edge_cases(self):
-        """Test position tracking edge cases like empty strings, null values."""
-
-        # JSON with empty string and null
-        json_str = TaintStr(
-            '{"empty": "", "null_val": null, "data": "actual_data"}',
-            taint_origin=["edge_case"],
-            random_pos=[Position(11, 11), Position(41, 52)],  # empty string position, "actual_data"
-        )
-
-        result = json.loads(json_str)
-
-        # Empty string should still be TaintStr with positions
-        assert isinstance(result["empty"], TaintStr)
-        assert result["empty"] == ""
-        assert get_random_positions(result["empty"]) is not None
-
-        # Null should remain None
-        assert result["null_val"] is None
-
-        # Data should be tainted
-        assert isinstance(result["data"], TaintStr)
-        assert result["data"] == "actual_data"
-        positions = get_random_positions(result["data"])
-        assert positions is not None
-
-        # Data should be markable
-        marked = inject_random_marker(result["data"])
-        assert ">>" in marked and "<<" in marked
-
-
 class TestJsonEdgeCasesExtended:
     """Extended edge case testing for JSON patches."""
 
@@ -787,13 +495,11 @@ class TestJsonEdgeCasesExtended:
         assert isinstance(json_str, TaintStr)
         assert get_taint_origins(json_str) == ["performance"]
 
-    def test_position_tracking_with_whitespace(self):
-        """Test position tracking with various JSON formatting."""
+    def test_taint_with_whitespace(self):
+        """Test taint with various JSON formatting."""
 
         # Test with different formatting styles
-        compact = TaintStr(
-            '{"key":"value"}', taint_origin=["compact"], random_pos=[Position(8, 13)]
-        )  # "value"
+        compact = TaintStr('{"key":"value"}', taint_origin=["compact"])
 
         pretty = TaintStr(
             """
@@ -802,8 +508,7 @@ class TestJsonEdgeCasesExtended:
         }
         """.strip(),
             taint_origin=["pretty"],
-            random_pos=[Position(15, 18)],
-        )  # "value" in pretty format
+        )
 
         result1 = json.loads(compact)
         result2 = json.loads(pretty)
@@ -900,16 +605,12 @@ class TestJsonEdgeCasesExtended:
             with pytest.raises(json.JSONDecodeError):
                 json.loads(malformed)
 
-    def test_dumps_with_position_tracking_complex(self):
-        """Test complex position tracking scenarios in dumps."""
+    def test_dumps_with_taint_complex(self):
+        """Test complex taint scenarios in dumps."""
 
-        # Create object with multiple TaintStr values having different position tracking
-        secret1 = TaintStr(
-            "password123", taint_origin=["user1"], random_pos=[Position(8, 11)]
-        )  # "123" part
-        secret2 = TaintStr(
-            "token_abc", taint_origin=["user2"], random_pos=[Position(6, 9)]
-        )  # "abc" part
+        # Create object with multiple TaintStr values having different taint
+        secret1 = TaintStr("password123", taint_origin=["user1"])
+        secret2 = TaintStr("token_abc", taint_origin=["user2"])
 
         obj = {"credentials": {"password": secret1, "token": secret2}, "public": "not_secret"}
 
@@ -919,10 +620,6 @@ class TestJsonEdgeCasesExtended:
         assert isinstance(result, TaintStr)
         taint_origins = get_taint_origins(result)
         assert set(taint_origins) == {"user1", "user2"}
-
-        # Should have position tracking from marker injection
-        assert hasattr(result, "_random_positions")
-        # The exact positions will depend on JSON formatting, but should have some
 
     def test_json_with_different_separators(self):
         """Test JSON dumps with custom separators."""
@@ -945,16 +642,10 @@ class TestJsonEdgeCasesExtended:
         assert ": " in result2  # Colon with space
         assert ", " in result2 or result2.count(",") == 0  # Comma with space (if there is a comma)
 
-    def test_json_indentation_position_tracking(self):
-        """Test position tracking with JSON indentation."""
+    def test_json_indentation_taint(self):
+        """Test taint with JSON indentation."""
 
-        obj = {
-            "level1": {
-                "level2": TaintStr(
-                    "nested_value", taint_origin=["indent_test"], random_pos=[Position(0, 6)]
-                )  # "nested" part
-            }
-        }
+        obj = {"level1": {"level2": TaintStr("nested_value", taint_origin=["indent_test"])}}
 
         # Test with indentation
         compact = json.dumps(obj)

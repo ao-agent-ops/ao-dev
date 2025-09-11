@@ -2,8 +2,7 @@
 # These templates use placeholders that will be replaced by develop_shim.py.
 
 
-_SETUP_TRACING_SETUP = """
-import os
+_SETUP_TRACING_SETUP = """import os
 import sys
 import runpy
 import socket

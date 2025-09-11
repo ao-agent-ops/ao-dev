@@ -9,12 +9,12 @@ circular imports, and other issues.
 # CPython modules that need special handling for taint tracking
 # These modules have C extensions or special behavior that requires
 # custom taint propagation through the obj_id_to_taint_origin mapping
-CPYTHON_MODS = []
+CPYTHON_MODS = ["re"]
 
 # Modules that are explicitly patched for taint tracking
 # These modules are reloaded after the import hook is installed to
 # ensure they are properly patched with taint wrappers
-MODULE_WHITELIST = ["json"]
+MODULE_WHITELIST = ["json", "re"]
 
 # Specific module attributes that should NOT be patched
 # Format: "module_name.attribute_name"

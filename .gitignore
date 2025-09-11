@@ -232,3 +232,6 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # Bird
 **/bird/llm/data
+
+# MiroFlow
+**/miroflow_deep_research/**/logs
