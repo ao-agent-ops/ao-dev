@@ -16,6 +16,7 @@ imports, and respects blacklists to prevent patching system-critical modules.
 """
 
 from types import ModuleType
+import os
 import random
 import sys
 import ast
@@ -49,7 +50,6 @@ from .patch_constants import (
     MODULE_ATTR_BLACKLIST,
     CLS_ATTR_BLACKLIST,
 )
-from common.constants import ACO_RANDOM_SEED
 
 
 # Thread-local storage for taint propagation control
@@ -568,21 +568,32 @@ def install_patch_hook():
         reload(mod)
 
     # Set random seeds
+    aco_random_seed = os.environ.get("ACO_SEED", None)
+    if not aco_random_seed:
+        raise Exception("ACO random seed not set.")
+    else:
+        try:
+            aco_random_seed = int(aco_random_seed)
+        except:
+            raise Exception("Error converting ACO_SEED to int.")
+
+    logger.debug(f"ACO_SEED was set to {aco_random_seed}")
+
     try:
         from numpy.random import seed
 
-        seed(ACO_RANDOM_SEED)
+        seed(aco_random_seed)
     except:
         logger.debug("Failed to set the numpy seed")
 
     try:
         from torch import manual_seed
 
-        manual_seed(ACO_RANDOM_SEED)
+        manual_seed(aco_random_seed)
     except:
         logger.debug("Failed to set the torch seed")
 
-    random.seed(ACO_RANDOM_SEED)
+    random.seed(aco_random_seed)
 
     # Make taint functions available in bultins
     import builtins

@@ -44,27 +44,27 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     port = int(os.environ.get("AGENT_COPILOT_SERVER_PORT", PORT))
     session_id = os.environ.get("AGENT_COPILOT_SESSION_ID")
     server_conn = None
-    try:
-        # Connect to server, this will be the global server connection for the process.
-        # We currently rely on the OS to close the connection when proc finishes.
-        server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
+    # try:
+    # Connect to server, this will be the global server connection for the process.
+    # We currently rely on the OS to close the connection when proc finishes.
+    server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
 
-        # Handshake. For shim-runner, server doesn't send a response, just start running.
-        handshake = {{
-            "type": "hello",
-            "role": "shim-runner",
-            "script": os.path.basename(os.environ.get("_", "unknown")),
-            "process_id": os.getpid(),
-        }}
-        server_conn.sendall((json.dumps(handshake) + "\\n").encode("utf-8"))
+    # Handshake. For shim-runner, server doesn't send a response, just start running.
+    handshake = {{
+        "type": "hello",
+        "role": "shim-runner",
+        "script": os.path.basename(os.environ.get("_", "unknown")),
+        "process_id": os.getpid(),
+    }}
+    server_conn.sendall((json.dumps(handshake) + "\\n").encode("utf-8"))
 
-        # Register session_id and connection with context manager.
-        set_parent_session_id(session_id)
-        set_server_connection(server_conn)
+    # Register session_id and connection with context manager.
+    set_parent_session_id(session_id)
+    set_server_connection(server_conn)
 
-    except Exception as e:
-        logger.error(f"Exception set up tracing:")
-        traceback.print_exc()
+    # except Exception as e:
+    #     logger.error(f"Exception set up tracing:")
+    #     traceback.print_exc()
 
     # Apply monkey patches.
     apply_all_monkey_patches()

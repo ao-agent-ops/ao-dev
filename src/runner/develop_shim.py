@@ -2,6 +2,7 @@ import sys
 import os
 import socket
 import json
+import random
 import threading
 import subprocess
 import time
@@ -235,12 +236,13 @@ class DevelopShim:
 
         # If we're in a debugpy session, recreate the debugpy command
         if self._is_debugpy_session():
+            python_executable = sys.executable
             parent_cmdline = self._get_parent_cmdline()
             if not parent_cmdline:
-                return original_command
+                # Best guess
+                return f"/usr/bin/env {python_executable} {original_args}"
 
             cmdline_str = " ".join(parent_cmdline)
-            python_executable = sys.executable
 
             # Pattern 1: VSCode launcher - debugpy/launcher PORT -- args
             if "launcher" in cmdline_str and "--" in parent_cmdline:
@@ -566,6 +568,11 @@ class DevelopShim:
 
     def run(self) -> None:
         """Main entry point to run the develop shim."""
+        if not os.environ.get("ACO_SEED", None):
+            aco_random_seed = random.randint(0, 2**31 - 1)
+            logger.debug(f"ACO_SEED not set, setting to {aco_random_seed}")
+            os.environ["ACO_SEED"] = str(aco_random_seed)
+
         # Ensure server is running and connect to it
         ensure_server_running()
         self._connect_to_server()

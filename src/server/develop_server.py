@@ -165,11 +165,12 @@ class DevelopServer:
 
     def _find_session_with_node(self, node_id: str) -> Optional[str]:
         """Find which session contains a specific node ID"""
+        source_sessions = set()
         for session_id, graph in self.session_graphs.items():
             for node in graph["nodes"]:
                 if node["id"] == node_id:
-                    return session_id
-        return None
+                    source_sessions.add(session_id)
+        return source_sessions
 
     def handle_add_node(self, msg: dict) -> None:
         sid = msg["session_id"]
@@ -182,11 +183,14 @@ class DevelopServer:
 
         for source in incoming_edges:
             # Find which session contains this source node
-            source_session = self._find_session_with_node(source)
-            if source_session:
-                target_sessions.add(source_session)
-                cross_session_sources.append(source)
-                logger.info(f"Found cross-session edge: node {source} in session {source_session}")
+            source_sessions = self._find_session_with_node(source)
+            if source_sessions:
+                for source_session in source_sessions:
+                    target_sessions.add(source_session)
+                    cross_session_sources.append(source)
+                    logger.info(
+                        f"Found cross-session edge: node {source} in session {source_session}"
+                    )
 
         # If we have cross-session references, add the node to those sessions instead of current session
         if target_sessions:

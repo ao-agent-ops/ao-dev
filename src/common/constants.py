@@ -46,15 +46,6 @@ COLLECT_TELEMETRY = config.collect_telemetry
 TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
 
-# Random seed configuration
-_random_seed_env = os.getenv("ACO_RANDOM_SEED", "0")
-try:
-    ACO_RANDOM_SEED = int(_random_seed_env)
-except ValueError:
-    raise ValueError(
-        f"ACO_RANDOM_SEED environment variable must be an integer, got: '{_random_seed_env}'"
-    )
-
 # server-related constants
 HOST = "127.0.0.1"
 PORT = 5959

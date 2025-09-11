@@ -4,6 +4,7 @@ Global test configuration - blocks all external HTTP calls and sets dummy API ke
 
 import os
 import re
+import random
 import pytest
 import responses
 from common.utils import scan_user_py_files_and_modules
@@ -45,6 +46,8 @@ def pytest_configure(config):
     # Get the project root directory (parent of tests directory)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
+
+    os.environ["ACO_SEED"] = str(random.randint(0, 2**31 - 1))
 
     # Scan for all Python files in the project
     _, _, module_to_file = scan_user_py_files_and_modules(project_root)
