@@ -193,7 +193,6 @@ class CacheManager:
         """Delete all records from experiments and llm_calls tables."""
         db.execute("DELETE FROM experiments")
         db.execute("DELETE FROM llm_calls")
-        # TODO: Should we delete the entire DB file + all attachments?
 
     def get_session_name(self, session_id):
         # Get all subrun names for this parent session

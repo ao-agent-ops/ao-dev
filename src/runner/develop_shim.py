@@ -34,6 +34,24 @@ def get_runnner_dir():
     return os.path.abspath(os.path.dirname(__file__))
 
 
+def ensure_server_running() -> None:
+    """Ensure the develop server is running, start it if necessary."""
+    try:
+        socket.create_connection((HOST, PORT), timeout=SERVER_START_TIMEOUT).close()
+    except Exception:
+        try:
+            launch_daemon_server()
+        except Exception as e:
+            logger.error(f"Failed to start develop server ({e})")
+            sys.exit(1)
+        time.sleep(SERVER_START_WAIT)
+        try:
+            socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT).close()
+        except Exception:
+            logger.error("Develop server did not start.")
+            sys.exit(1)
+
+
 class DevelopShim:
     """Manages the develop shim that runs user scripts with debugging support."""
 
@@ -172,23 +190,6 @@ class DevelopShim:
             env["AGENT_COPILOT_SESSION_ID"] = self.session_id
 
         return env
-
-    def _ensure_server_running(self) -> None:
-        """Ensure the develop server is running, start it if necessary."""
-        try:
-            socket.create_connection((HOST, PORT), timeout=SERVER_START_TIMEOUT).close()
-        except Exception:
-            try:
-                launch_daemon_server()
-            except Exception as e:
-                logger.error(f"Failed to start develop server ({e})")
-                sys.exit(1)
-            time.sleep(SERVER_START_WAIT)
-            try:
-                socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT).close()
-            except Exception:
-                logger.error("Develop server did not start.")
-                sys.exit(1)
 
     def _is_debugpy_session(self) -> bool:
         """Detect if we're running under debugpy (VSCode debugging)."""
@@ -567,7 +568,7 @@ class DevelopShim:
     def run(self) -> None:
         """Main entry point to run the develop shim."""
         # Ensure server is running and connect to it
-        self._ensure_server_running()
+        ensure_server_running()
         self._connect_to_server()
 
         # Start background thread to listen for server messages
