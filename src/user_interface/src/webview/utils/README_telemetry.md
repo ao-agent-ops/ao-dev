@@ -23,23 +23,7 @@ The telemetry system now has a simplified architecture:
 
 ### Configuration
 
-The telemetry system gets its configuration from:
-
-1. **VS Code Settings** (preferred):
-   ```json
-   {
-     "agent-copilot.telemetry.supabaseUrl": "your-supabase-url",
-     "agent-copilot.telemetry.supabaseKey": "your-anon-key",
-     "agent-copilot.telemetry.userId": "user-identifier"
-   }
-   ```
-
-2. **Environment Variables** (fallback):
-   ```bash
-   SUPABASE_URL=your-supabase-url
-   SUPABASE_ANON_KEY=your-anon-key
-   USER_ID=user-identifier
-   ```
+The telemetry system gets its configuration (DB url/key, user name) from the global config file.
 
 ### Events Tracked
 

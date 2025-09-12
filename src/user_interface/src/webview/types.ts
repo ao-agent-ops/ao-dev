@@ -77,3 +77,48 @@ export interface WorkflowRunDetailsPanelProps {
   log?: string;
   onOpenInTab?: () => void;
 }
+
+//LayoutEngine
+export interface LayerInfo {
+  layer: number;
+  visualLayers: string[][];
+  nodes: LayoutNode[];
+}
+
+export interface BandInfo {
+  name: string;
+  x: number;
+  side: 'left' | 'right';
+  level: number;
+  color?: string;
+}
+
+export interface GraphLayout {
+  positions: Map<string, { x: number; y: number }>;
+  edges: RoutedEdge[];
+  width: number;
+  height: number;
+}
+
+export interface RoutedEdge extends GraphEdge {
+  points: Point[];
+  sourceHandle: string;
+  targetHandle: string;
+  band?: string;
+  type: 'direct' | 'band';
+  color?: string;
+}
+
+export interface LayoutNode {
+  id: string;
+  label: string;
+  parents: string[];
+  children: string[];
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  layer?: number;
+  visualLayer?: number;
+  band?: string;
+}

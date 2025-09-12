@@ -6,6 +6,7 @@ import { NODE_BORDER_WIDTH } from '../utils/layoutConstants';
 
 interface CustomEdgeData {
   points?: Point[];
+  color?: string;
 }
 
 export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
@@ -45,13 +46,7 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
         y: p1.y + dy * factor,
       };
     }
-    
-    d = pts.reduce((acc, p, i) =>
-      i === 0
-        ? `M ${p.x},${p.y}`
-        : `${acc} L ${p.x},${p.y}`,
-      ''
-    );
+    d = pts.reduce((acc, p, i) => (i === 0 ? `M ${p.x},${p.y}` : `${acc} L ${p.x},${p.y}`), '');
   } else {
     // fallback to the built-in smooth path
     [d] = getSmoothStepPath({
@@ -65,11 +60,13 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
     });
   }
 
+  const stroke = data?.color || '#e0e0e0';
+  const markerId = `chevron-arrowhead-${id}`;
   return (
     <svg style={{ overflow: 'visible', position: 'absolute' }}>
       <defs>
         <marker
-          id="chevron-arrowhead"
+          id={markerId}
           markerWidth="10"
           markerHeight="10"
           refX="5"
@@ -80,7 +77,7 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
           <polyline
             points="0,0 5,5 0,10"
             fill="none"
-            stroke="#e0e0e0"
+            stroke={stroke}
             strokeWidth="1"
             strokeLinecap="round"
           />
@@ -90,8 +87,8 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
         id={id}
         className="react-flow__edge-path"
         d={d}
-        markerEnd="url(#chevron-arrowhead)"
-        style={{ stroke: '#e0e0e0', strokeWidth: 2, fill: 'none' }}
+        markerEnd={`url(#${markerId})`}
+        style={{ stroke, strokeWidth: 2, fill: 'none' }}
       />
     </svg>
   );
