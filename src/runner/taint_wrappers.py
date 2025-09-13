@@ -1059,6 +1059,13 @@ class TaintedOpenAIObject:
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
 
+    def dict(self):
+        value = self._wrapped.dict()
+        if self._taint_origin:
+            wrapped_value = taint_wrap(value, taint_origin=self._taint_origin)
+            return wrapped_value
+        return value
+
     def __getattr__(self, name):
         value = getattr(self._wrapped, name)
         if self._taint_origin:

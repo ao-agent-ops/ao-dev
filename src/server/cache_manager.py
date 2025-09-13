@@ -103,6 +103,9 @@ class CacheManager:
         )
 
         if row is None:
+            logger.debug(
+                f"\033[95mCache MISS.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
+            )
             # Insert new row with a new node_id.
             node_id = str(uuid.uuid4())
             if cache:
@@ -112,6 +115,9 @@ class CacheManager:
                 )
             return input_dict, None, node_id
 
+        logger.debug(
+            f"\033[32mCache HIT.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
+        )
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
