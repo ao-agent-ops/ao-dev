@@ -5,10 +5,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-# Tell setuptools to look in src/ for packages
-package-dir = {"" = "src"}
-# Find all packages under src/
-packages = ["cli", "common", "runner", "server"]
+# Map aco to src directory, other packages stay in src
+package-dir = {"aco" = "src", "" = "src"}
+packages = ["aco", "cli", "common", "runner", "server"]
 
 [project.scripts]
 # Console commands for the agent-copilot package
@@ -25,8 +24,8 @@ server = "cli.aco_server:main"
 line-length = 100
 
 [project]
-name = "agent-copilot"
-version = "0.1.0"
+name = "aco"
+version = "0.0.1"
 description = "A development tool for LLM call visualization and debugging"
 readme = "README.md"
 requires-python = ">=3.10"
