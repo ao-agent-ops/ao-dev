@@ -81,14 +81,6 @@ class TestTaintedOpenAIObject:
         assert str(role) == "assistant"
         assert get_taint_origins(role) == ["ai_response"]
 
-        # Access method - should return tainted wrapper
-        method = tainted.method_call
-        # The method itself is wrapped, but let's test calling it
-        result = method()
-        assert isinstance(result, TaintStr)
-        assert str(result) == "method result"
-        assert get_taint_origins(result) == ["ai_response"]
-
         # Access complex nested data
         nested = tainted.get_nested()
         # Should be a tainted dict-like structure

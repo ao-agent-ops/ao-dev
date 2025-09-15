@@ -79,10 +79,6 @@ class CacheManager:
     def get_in_out(self, input_dict, api_type, cache=True):
         from runner.context_manager import get_session_id
 
-        # this is tainted
-        hash_tuple = get_input(input_dict, api_type)
-        hash_tuple = untaint_if_needed(hash_tuple, erase_random=True)
-
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
         prompt, attachments, tools = get_input(input_dict, api_type)
@@ -95,10 +91,7 @@ class CacheManager:
             "tools": tools,
         }
         input_pickle = dill.dumps(cacheable_input)
-
-        # for the hash, use the input without any marked randomness
-        hash_pickle = dill.dumps(hash_tuple)
-        input_hash = db.hash_input(hash_pickle)
+        input_hash = db.hash_input(input_pickle)
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
@@ -110,6 +103,9 @@ class CacheManager:
         )
 
         if row is None:
+            logger.debug(
+                f"\033[95mCache MISS.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
+            )
             # Insert new row with a new node_id.
             node_id = str(uuid.uuid4())
             if cache:
@@ -119,6 +115,9 @@ class CacheManager:
                 )
             return input_dict, None, node_id
 
+        logger.debug(
+            f"\033[32mCache HIT.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
+        )
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None

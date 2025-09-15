@@ -188,6 +188,9 @@ cache.db
 attachment_cache/
 configs/
 
+# VS Code
+**/.vscode
+
 # VS Code extension
 src/user_interface/node_modules
 src/user_interface/dist
@@ -229,3 +232,6 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # Bird
 **/ours_bird/llm/data
+
+# MiroFlow
+**/miroflow_deep_research/**/logs

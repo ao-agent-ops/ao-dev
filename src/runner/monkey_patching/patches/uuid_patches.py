@@ -14,73 +14,31 @@ All returned strings include Position objects that track the entire string
 as containing random/sensitive data for security analysis purposes.
 """
 
+import uuid
+import random
 from uuid import UUID
-from runner.taint_wrappers import TaintStr, Position
 
 
 def uuid_patch():
     """
-    Apply taint tracking patches to the UUID class.
+    Apply taint tracking patches to the UUID class and uuid4 function.
 
     Modifies the UUID class to return TaintStr objects instead of regular strings
-    for hex, str, and repr operations. This enables tracking of UUID data through
-    security analysis pipelines.
+    for hex, str, and repr operations. Also patches the uuid4 function to use
+    Python's random.getrandbits instead of os.urandom for reproducible randomness.
     """
-    setattr(UUID, "hex", property(hex))
-    setattr(UUID, "__str__", uuid_str)
-    setattr(UUID, "__repr__", uuid_repr)
+    setattr(uuid, "uuid4", uuid4)
 
 
-def hex(self: UUID):
-    """
-    Return the UUID as a 32-character hexadecimal TaintStr.
+def uuid4():
+    """Generate a random UUID using Python's random.getrandbits instead of os.urandom.
 
-    Args:
-        self (UUID): The UUID instance
+    This allows for reproducible UUIDs when a random seed is set, which is useful
+    for testing and debugging purposes.
 
     Returns:
-        TaintStr: 32-character lowercase hexadecimal representation with position tracking
+        UUID: A new UUID4 object generated using random.getrandbits(128)
     """
-    hex_str = "%032x" % self.int
-    return TaintStr(hex_str, random_pos=Position(0, len(hex_str)))
-
-
-def uuid_str(self: UUID):
-    """
-    Return the UUID as a formatted string with dashes as TaintStr.
-
-    Returns the standard UUID string representation in the format:
-    xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-    Args:
-        self (UUID): The UUID instance
-
-    Returns:
-        TaintStr: 36-character UUID string with dashes and position tracking
-    """
-    hex_str = "%032x" % self.int
-    formatted_uuid = "%s-%s-%s-%s-%s" % (
-        hex_str[:8],
-        hex_str[8:12],
-        hex_str[12:16],
-        hex_str[16:20],
-        hex_str[20:],
-    )
-    return TaintStr(formatted_uuid, random_pos=Position(0, len(formatted_uuid)))
-
-
-def uuid_repr(self: UUID):
-    """
-    Return the UUID's repr as TaintStr.
-
-    Returns a string representation suitable for debugging in the format:
-    UUID('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-
-    Args:
-        self (UUID): The UUID instance
-
-    Returns:
-        TaintStr: String representation with UUID constructor format and position tracking
-    """
-    repr_str = "%s(%r)" % (self.__class__.__name__, str(self))
-    return TaintStr(repr_str, random_pos=Position(0, len(repr_str)))
+    # Generate a random 128-bit integer using Python's random module
+    generated_uuid = UUID(int=random.getrandbits(128), version=4)
+    return generated_uuid

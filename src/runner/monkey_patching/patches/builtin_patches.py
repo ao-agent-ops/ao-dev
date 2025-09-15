@@ -1,10 +1,5 @@
 from forbiddenfruit import curse
-from runner.taint_wrappers import (
-    TaintStr,
-    get_taint_origins,
-    shift_position_taints,
-    get_random_positions,
-)
+from runner.taint_wrappers import TaintStr, get_taint_origins
 
 
 def str_patch():
@@ -17,7 +12,7 @@ def _cursed_join(sep: str, elements: list[str]) -> str:
     Join string elements with a separator while preserving taint tracking.
 
     This function joins a list of strings with a separator, similar to str.join(),
-    but maintains taint information and random position tracking throughout the
+    but maintains taint information throughout the
     operation. It uses byte-level joining for performance and handles taint
     propagation from both the separator and all elements.
 
@@ -33,16 +28,9 @@ def _cursed_join(sep: str, elements: list[str]) -> str:
     final_string = joined_bytes.decode()
 
     nodes = set(get_taint_origins(sep))
-    curr_offs = 0
-    random_positions = []
-    for value in elements:
-        shift_position_taints(value, curr_offs)
-        curr_offs += len(value) + len(sep)
-        random_positions.extend(get_random_positions(value))
-        nodes.update(get_taint_origins(value))
 
     if len(nodes) > 0:
-        return TaintStr(final_string, taint_origin=nodes, random_pos=random_positions)
+        return TaintStr(final_string, taint_origin=nodes)
     return final_string
 
 

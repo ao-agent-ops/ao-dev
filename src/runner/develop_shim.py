@@ -2,6 +2,7 @@ import sys
 import os
 import socket
 import json
+import random
 import threading
 import subprocess
 import time
@@ -13,21 +14,20 @@ import tempfile
 import runpy
 import importlib.util
 from typing import Optional, List
-from runner.fstring_rewriter import install_fstring_rewriter, set_user_py_files
+from runner.patching_import_hook import set_module_to_user_file, install_patch_hook
 from common.logger import logger
 from common.utils import scan_user_py_files_and_modules
+from common.constants import (
+    HOST,
+    PORT,
+    CONNECTION_TIMEOUT,
+    SERVER_START_TIMEOUT,
+    PROCESS_TERMINATE_TIMEOUT,
+    MESSAGE_POLL_INTERVAL,
+    SERVER_START_WAIT,
+)
 from runner.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 from cli.aco_server import launch_daemon_server
-
-
-# Configuration constants
-HOST = "127.0.0.1"
-PORT = 5959
-CONNECTION_TIMEOUT = 5
-SERVER_START_TIMEOUT = 2
-PROCESS_TERMINATE_TIMEOUT = 5
-MESSAGE_POLL_INTERVAL = 0.1
-SERVER_START_WAIT = 1
 
 
 # Utility functions for path computation
@@ -233,12 +233,13 @@ class DevelopShim:
 
         # If we're in a debugpy session, recreate the debugpy command
         if self._is_debugpy_session():
+            python_executable = sys.executable
             parent_cmdline = self._get_parent_cmdline()
             if not parent_cmdline:
-                return original_command
+                # Best guess
+                return f"/usr/bin/env {python_executable} {original_args}"
 
             cmdline_str = " ".join(parent_cmdline)
-            python_executable = sys.executable
 
             # Pattern 1: VSCode launcher - debugpy/launcher PORT -- args
             if "launcher" in cmdline_str and "--" in parent_cmdline:
@@ -310,9 +311,9 @@ class DevelopShim:
 
         # Scan for all .py files in the user's project root
         # This ensures AST rewriting works for the user's code
-        user_py_files, file_to_module, _ = scan_user_py_files_and_modules(self.project_root)
-        set_user_py_files(user_py_files, file_to_module)
-        install_fstring_rewriter()
+        _, _, module_to_file = scan_user_py_files_and_modules(self.project_root)
+        set_module_to_user_file(module_to_file)
+        install_patch_hook()
 
         # Save original state
         original_path = sys.path.copy()
@@ -564,6 +565,11 @@ class DevelopShim:
 
     def run(self) -> None:
         """Main entry point to run the develop shim."""
+        if not os.environ.get("ACO_SEED", None):
+            aco_random_seed = random.randint(0, 2**31 - 1)
+            logger.debug(f"ACO_SEED not set, setting to {aco_random_seed}")
+            os.environ["ACO_SEED"] = str(aco_random_seed)
+
         # Ensure server is running and connect to it
         self._ensure_server_running()
         self._connect_to_server()

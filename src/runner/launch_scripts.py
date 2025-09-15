@@ -21,8 +21,9 @@ packages_in_project_root = {packages_in_project_root}
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+from runner.patching_import_hook import install_patch_hook, set_module_to_user_file
+
 # Rewrite AST to support f-strings
-from runner.fstring_rewriter import install_fstring_rewriter, set_module_to_user_file
 from common.utils import scan_user_py_files_and_modules
 
 _, _, module_to_file = scan_user_py_files_and_modules(project_root)
@@ -31,7 +32,7 @@ for additional_package in packages_in_project_root:
     module_to_file = {{**module_to_file, **additional_package_module_to_file}}
 
 set_module_to_user_file(module_to_file)
-install_fstring_rewriter()
+install_patch_hook()
 
 # Connect to server and pply monkey patches if enabled via environment variable.
 from runner.context_manager import set_parent_session_id, set_server_connection
@@ -43,29 +44,30 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     port = int(os.environ.get("AGENT_COPILOT_SERVER_PORT", PORT))
     session_id = os.environ.get("AGENT_COPILOT_SESSION_ID")
     server_conn = None
-    try:
-        # Connect to server, this will be the global server connection for the process.
-        # We currently rely on the OS to close the connection when proc finishes.
-        server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
+    # try:
+    # Connect to server, this will be the global server connection for the process.
+    # We currently rely on the OS to close the connection when proc finishes.
+    server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
 
-        # Handshake. For shim-runner, server doesn't send a response, just start running.
-        handshake = {{
-            "type": "hello",
-            "role": "shim-runner",
-            "script": os.path.basename(os.environ.get("_", "unknown")),
-            "process_id": os.getpid(),
-        }}
-        server_conn.sendall((json.dumps(handshake) + "\\n").encode("utf-8"))
+    # Handshake. For shim-runner, server doesn't send a response, just start running.
+    handshake = {{
+        "type": "hello",
+        "role": "shim-runner",
+        "script": os.path.basename(os.environ.get("_", "unknown")),
+        "process_id": os.getpid(),
+    }}
+    server_conn.sendall((json.dumps(handshake) + "\\n").encode("utf-8"))
 
-        # Register session_id and connection with context manager.
-        set_parent_session_id(session_id)
-        set_server_connection(server_conn)
+    # Register session_id and connection with context manager.
+    set_parent_session_id(session_id)
+    set_server_connection(server_conn)
 
-        # Apply monkey patches.
-        apply_all_monkey_patches()
-    except Exception as e:
-        logger.error(f"Exception set up tracing:")
-        traceback.print_exc()
+    # except Exception as e:
+    #     logger.error(f"Exception set up tracing:")
+    #     traceback.print_exc()
+
+    # Apply monkey patches.
+    apply_all_monkey_patches()
 """
 
 
