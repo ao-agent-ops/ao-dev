@@ -290,11 +290,11 @@ class DevelopShim:
         handshake = {
             "type": "hello",
             "role": "shim-control",
-            "name": "Query 40",  # session_id,
+            "name": session_id,
             "cwd": os.getcwd(),
             "command": self._generate_restart_command(),
             "environment": dict(os.environ),
-            "prev_session_id": "Query 2323",
+            "prev_session_id": session_id,
         }
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode("utf-8"))

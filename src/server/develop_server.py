@@ -408,10 +408,7 @@ class DevelopServer:
                 )
 
                 # Rerun the original command. This starts the shim-control, which starts the shim-runner.
-                command += " --second"  # NOTE: Only for demo!
-                print("COMMAND:", command)
                 args = shlex.split(command)
-                print("ARGS", args)
                 EDIT.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
                 subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
 
