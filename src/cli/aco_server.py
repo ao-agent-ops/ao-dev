@@ -20,7 +20,7 @@ def launch_daemon_server() -> None:
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
     # Open log file for the daemon
-    with open(log_file, "a") as log_f:
+    with open(log_file, "a+") as log_f:
         subprocess.Popen(
             [sys.executable, "-m", "aco.cli.aco_server", "_serve"],
             close_fds=True,

@@ -518,7 +518,7 @@ class DevelopServer:
                 # If rerun, use previous session_id. Else, assign new one.
                 # NOTE: For the BIRD user study, prev_session_id is always set.
                 session_id = handshake.get("prev_session_id")
-                logger.info("Registering session_id {session_id}")
+                logger.info(f"Registering session_id {session_id}")
                 assert session_id is not None
 
                 # Check if this session actually exists in database
