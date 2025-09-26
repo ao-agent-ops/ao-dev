@@ -281,20 +281,17 @@ class DevelopShim:
         except Exception as e:
             logger.error(f"Cannot connect to develop server ({e})")
             sys.exit(1)
-        # Set session_id and session_name based on sample_id
-        session_id = f"Query {self.sample_id}"
-        # Set the environment variable
-        os.environ["AGENT_COPILOT_SESSION_ID"] = session_id
-
         # Send handshake to server
         handshake = {
             "type": "hello",
             "role": "shim-control",
-            "name": session_id,
+            "name": "Workflow run",  # TODO: Set to --run-name. Default of arg: "Workflow run"
             "cwd": os.getcwd(),
             "command": self._generate_restart_command(),
             "environment": dict(os.environ),
-            "prev_session_id": session_id,
+            "prev_session_id": os.getenv(
+                "AGENT_COPILOT_SESSION_ID"
+            ),  # Is set if rerun, otherwise None
         }
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode("utf-8"))

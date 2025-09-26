@@ -500,7 +500,6 @@ class DevelopServer:
 
     def handle_client(self, conn: socket.socket) -> None:
         """Handle a new client connection in a separate thread."""
-        logger.info("Registering new session.")
         file_obj = conn.makefile(mode="r")
         session: Optional[Session] = None
         role = None
@@ -516,39 +515,25 @@ class DevelopServer:
             # Only assign session_id for shim-control.
             if role == "shim-control":
                 # If rerun, use previous session_id. Else, assign new one.
-                # NOTE: For the BIRD user study, prev_session_id is always set.
-                session_id = handshake.get("prev_session_id")
-                logger.info(f"Registering session_id {session_id}")
-                assert session_id is not None
-
-                # Check if this session actually exists in database
-                existing_session = CACHE.get_session_name(session_id)
-                if existing_session:
-                    # Only clear llm_calls if this is not a rerun from the UI
-                    if session_id not in self.rerun_sessions:
-                        # Session exists, clear all LLM call entries for this session_id
-                        db.execute("DELETE FROM llm_calls WHERE session_id=?", (session_id,))
-                        # Also clear the in-memory graph representation
-                        self.session_graphs[session_id] = {"nodes": [], "edges": []}
-                    else:
-                        # Remove from rerun set now that we've handled it
-                        self.rerun_sessions.discard(session_id)
-
-                # Session doesn't exist in DB, create it
-                cwd = handshake.get("cwd")
-                command = handshake.get("command")
-                environment = handshake.get("environment")
-                timestamp = datetime.now().strftime("%d/%m %H:%M")
-                name = handshake.get("name")
-                EDIT.add_experiment(
-                    session_id,
-                    name,
-                    timestamp,
-                    cwd,
-                    command,
-                    environment,
-                )
-
+                prev_session_id = handshake.get("prev_session_id")
+                if prev_session_id is not None:
+                    session_id = prev_session_id
+                else:
+                    session_id = str(uuid.uuid4())
+                    # Insert new experiment into DB.
+                    cwd = handshake.get("cwd")
+                    command = handshake.get("command")
+                    environment = handshake.get("environment")
+                    timestamp = datetime.now().strftime("%d/%m %H:%M")
+                    name = handshake.get("name")
+                    EDIT.add_experiment(
+                        session_id,
+                        name,
+                        timestamp,
+                        cwd,
+                        command,
+                        environment,
+                    )
                 # Insert session if not present.
                 with self.lock:
                     if session_id not in self.sessions:
@@ -598,6 +583,24 @@ class DevelopServer:
             except (ConnectionResetError, OSError) as e:
                 logger.info(f"Connection closed: {e}")
         finally:
+            # Clean up connection
+            info = self.conn_info.pop(conn, None)
+            # Only mark session finished for shim-control disconnects
+            if info and role == "shim-control":
+                session = self.sessions.get(info["session_id"])
+                if session:
+                    with session.lock:
+                        session.shim_conn = None
+                    session.status = "finished"
+                    self.broadcast_experiment_list_to_uis()
+            elif info and role == "ui":
+                # Remove from global UI connections list
+                self.ui_connections.discard(conn)
+            try:
+                conn.close()
+            except Exception as e:
+                logger.error(f"Error closing connection: {e}")
+
             # Clean up connection
             info = self.conn_info.pop(conn, None)
             # Only mark session finished for shim-control disconnects

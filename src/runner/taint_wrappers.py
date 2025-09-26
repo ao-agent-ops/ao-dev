@@ -895,17 +895,13 @@ class TaintList(list):
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
 
-        # Taint all items and merge their taint origins
-        tainted_items = []
+        # Merge taint origins from all items into the list's taint
         for v in value:
             # Merge existing taint from the item
             self._taint_origin = list(set(self._taint_origin) | set(get_taint_origins(v)))
-            # Taint the item with the combined taint
-            tainted_item = taint_wrap(v, taint_origin=self._taint_origin)
-            tainted_items.append(tainted_item)
 
-        # Initialize with tainted items
-        list.__init__(self, tainted_items)
+        # Initialize with original items (don't retaint them)
+        list.__init__(self, value)
 
     def _merge_taint_from(self, items):
         for v in items:
@@ -971,12 +967,8 @@ class TaintList(list):
             # For slices, return a new TaintList with the same taint
             return TaintList(item, taint_origin=self._taint_origin)
         else:
-            # For single items, the item should already be tainted from when it was added
-            # but if not, wrap it with the list's taint
-            if hasattr(item, "_taint_origin"):
-                return item
-            else:
-                return taint_wrap(item, taint_origin=self._taint_origin)
+            # Return items as-is, preserving their original taint (or lack thereof)
+            return item
 
     def get_raw(self):
         return [x.get_raw() if hasattr(x, "get_raw") else x for x in self]

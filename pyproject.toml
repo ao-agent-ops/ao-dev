@@ -25,7 +25,7 @@ line-length = 100
 
 [project]
 name = "agops-bird"
-version = "0.0.4"
+version = "0.0.5"
 description = "A development tool for LLM call visualization and debugging"
 readme = "PKG_README.md"
 requires-python = ">=3.10"

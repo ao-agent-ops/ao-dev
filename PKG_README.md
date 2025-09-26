@@ -1,1 +1,1 @@
-AGOPS 0.0.2 package specifically for test users on the BIRD Benchmark.
+AGOPS package specifically for test users on the BIRD Benchmark.
