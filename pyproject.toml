@@ -29,8 +29,8 @@ version = "0.0.5"
 description = "A development tool for LLM call visualization and debugging"
 readme = "PKG_README.md"
 requires-python = ">=3.10"
-license = "GPL-3.0-or-later"
-dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase"]
+
+dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase", "debugpy", "psutil"]
 
 [project.optional-dependencies]
 dev = [

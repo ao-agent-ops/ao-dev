@@ -1,8 +1,5 @@
 # Agent developer scratchpad
 
-> [!NOTE]  
-> By default, we don't collect any data from you. There is code for telemetry which we exclusively use for dedicated test users. (We don't distribute the DB connection url/key with the repo)
-
 See README's in src dirs for more details.
 
 ## User workflow
@@ -54,10 +51,7 @@ aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
 
 ## Further resources
 
-> [!IMPORTANT]  
-> Join our [discord server](https://discord.gg/fjsNSa6TAh).
-
-
+ - [Join our discord server](https://discord.gg/fjsNSa6TAh).
  - [Project goals](https://docs.google.com/document/d/1YzljXW03Hp94rb-eAa8bcLglmiVTaBGIOWf3LSWhivQ/edit?usp=sharing)
  - [Google drive folder](https://drive.google.com/drive/folders/1Syc77Cko6PFlr_wnxBMa6PB-_aXCOt1v?usp=sharing)
 

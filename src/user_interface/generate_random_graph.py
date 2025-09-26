@@ -146,11 +146,11 @@ def send_graph_to_ui(graph: Dict, graph_name: str = "Random Graph"):
         }
         send_message(conn, handshake)
 
-        # Receive session_id from aco.server
+        # Receive session_id from server
         session_response = receive_message(conn)
         session_id = session_response.get("session_id")
         if not session_id:
-            print("Failed to get session_id from aco.server")
+            print("Failed to get session_id from server")
             return None
 
         print(f"Got session_id: {session_id}")
