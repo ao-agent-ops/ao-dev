@@ -139,12 +139,14 @@ class CacheManager:
         )
 
     def get_finished_runs(self):
-        return db.query_all("SELECT session_id, timestamp FROM experiments ORDER BY name ASC", ())
+        return db.query_all(
+            "SELECT session_id, timestamp FROM experiments ORDER BY timestamp DESC", ()
+        )
 
     def get_all_experiments_sorted(self):
         """Get all experiments sorted by name (alphabetical)"""
         return db.query_all(
-            "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY name ASC",
+            "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
             (),
         )
 

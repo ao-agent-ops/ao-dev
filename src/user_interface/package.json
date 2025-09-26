@@ -1,7 +1,7 @@
 {
   "name": "agops-agent-copilot",
   "displayName": "Agops Agent Copilot",
-  "description": "Visualize agent workflows. Current version for BIRD test users.",
+  "description": "Visualize agent workflows. Preview for test users.",
   "version": "0.0.1",
   "publisher": "agops",
   "readme": "PKG_README.md",

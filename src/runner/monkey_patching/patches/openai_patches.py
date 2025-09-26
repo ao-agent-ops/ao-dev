@@ -368,8 +368,6 @@ def patch_async_openai_responses_create(responses):
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        print("INPUT DICT", input_dict)
-
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
