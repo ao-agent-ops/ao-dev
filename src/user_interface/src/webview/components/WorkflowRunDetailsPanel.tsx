@@ -9,12 +9,6 @@ interface Props extends WorkflowRunDetailsPanelProps {
 
 const resultOptions = ["Select a result", "Satisfactory", "Failed"];
 
-
-interface Props extends WorkflowRunDetailsPanelProps {
-  onBack?: () => void;
-  sessionId?: string;
-}
-
 export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   runName = "",
   result = "",
@@ -22,7 +16,6 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   log = "",
   onOpenInTab,
   onBack,
-  sessionId = "",
   sessionId = "",
 }) => {
   const [localRunName, setLocalRunName] = useState(runName);
@@ -156,7 +149,6 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         )}
         Workflow run
       </div>
-      {/* Title */}
       {/* Title */}
       <label style={{ fontSize: "20px" }}>Run name</label>
       <input
