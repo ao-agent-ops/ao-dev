@@ -296,6 +296,24 @@ class DevelopServer:
 
         self.broadcast_experiment_list_to_uis()
 
+    def handle_update_run_name(self, msg: dict) -> None:
+        session_id = msg["session_id"]
+        run_name = msg["run_name"]
+        EDIT.update_run_name(session_id, run_name)
+        self.broadcast_experiment_list_to_uis()
+
+    def handle_update_result(self, msg: dict) -> None:
+        session_id = msg["session_id"]
+        result = msg["result"]
+        EDIT.update_result(session_id, result)
+        self.broadcast_experiment_list_to_uis()
+
+    def handle_update_notes(self, msg: dict) -> None:
+        session_id = msg["session_id"]
+        notes = msg["notes"]
+        EDIT.update_notes(session_id, notes)
+        self.broadcast_experiment_list_to_uis()
+
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
         session_id = msg["session_id"]
 
@@ -469,7 +487,6 @@ class DevelopServer:
         # Log the message to telemetry
         log_server_message(msg, self.session_graphs)
 
-        # TODO: Process experiment changes for title, success, notes.
         msg_type = msg.get("type")
         if msg_type == "shutdown":
             self.handle_shutdown()
@@ -487,6 +504,12 @@ class DevelopServer:
             self.handle_edit_output(msg)
         elif msg_type == "log":
             self.handle_log(msg)
+        elif msg_type == "update_run_name":
+            self.handle_update_run_name(msg)
+        elif msg_type == "update_result":
+            self.handle_update_result(msg)
+        elif msg_type == "update_notes":
+            self.handle_update_notes(msg)
         elif msg_type == "add_subrun":
             self.handle_add_subrun(msg, conn)
         elif msg_type == "get_graph":

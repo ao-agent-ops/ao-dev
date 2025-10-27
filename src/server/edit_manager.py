@@ -101,6 +101,27 @@ class EditManager:
 
         return graph, color_preview
 
+    def update_run_name(self, session_id, run_name):
+        """Update the experiment name/title."""
+        db.execute(
+            "UPDATE experiments SET name=? WHERE session_id=?",
+            (run_name, session_id),
+        )
+
+    def update_result(self, session_id, result):
+        """Update the experiment result/success status."""
+        db.execute(
+            "UPDATE experiments SET success=? WHERE session_id=?",
+            (result, session_id),
+        )
+
+    def update_notes(self, session_id, notes):
+        """Update the experiment notes."""
+        db.execute(
+            "UPDATE experiments SET notes=? WHERE session_id=?",
+            (notes, session_id),
+        )
+
     def add_log(self, session_id, success, new_entry):
         # Write success and new_entry to DB under certain conditions.
         row = db.query_one(

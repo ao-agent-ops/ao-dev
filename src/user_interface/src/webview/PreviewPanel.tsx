@@ -9,12 +9,12 @@ export type PreviewPanelProps = {
   fileData: Uint8Array | string;
 };
 
-export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileName, fileType, fileData }) => {
+export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileType, fileData }) => {
   const [docxHtml, setDocxHtml] = React.useState<string>('');
 
   React.useEffect(() => {
     if (fileType === 'docx' && fileData) {
-      // fileData can be a base64 string or an ArrayBuffer
+      // fileData can be a base64 string or a Uint8Array
       let arrayBufferPromise: Promise<ArrayBuffer>;
       if (typeof fileData === 'string') {
         // base64 string
@@ -22,8 +22,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileName, fileType, 
         const len = binary.length;
         const bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-        arrayBufferPromise = Promise.resolve(bytes.buffer);
+        arrayBufferPromise = Promise.resolve(bytes.buffer as ArrayBuffer);
       } else {
+        arrayBufferPromise = Promise.resolve(fileData.buffer as ArrayBuffer);
         arrayBufferPromise = Promise.resolve(fileData.buffer as ArrayBuffer);
       }
       arrayBufferPromise.then(buffer => {

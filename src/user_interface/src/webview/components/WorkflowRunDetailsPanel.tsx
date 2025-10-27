@@ -9,6 +9,11 @@ interface Props extends WorkflowRunDetailsPanelProps {
 const resultOptions = ["Select a result", "Satisfactory", "Failed"];
 
 
+interface Props extends WorkflowRunDetailsPanelProps {
+  onBack?: () => void;
+  sessionId?: string;
+}
+
 export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   runName = "",
   result = "",
@@ -16,11 +21,45 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   log = "",
   onOpenInTab,
   onBack,
+  sessionId = "",
 }) => {
   const [localRunName, setLocalRunName] = useState(runName);
   const [localResult, setLocalResult] = useState(result);
   const [localNotes, setLocalNotes] = useState(notes);
   const isDarkTheme = useIsVsCodeDarkTheme();
+
+  const handleRunNameChange = (value: string) => {
+    setLocalRunName(value);
+    if (window.vscode && sessionId) {
+      window.vscode.postMessage({
+        type: "update_run_name",
+        session_id: sessionId,
+        run_name: value,
+      });
+    }
+  };
+
+  const handleResultChange = (value: string) => {
+    setLocalResult(value);
+    if (window.vscode && sessionId) {
+      window.vscode.postMessage({
+        type: "update_result",
+        session_id: sessionId,
+        result: value,
+      });
+    }
+  };
+
+  const handleNotesChange = (value: string) => {
+    setLocalNotes(value);
+    if (window.vscode && sessionId) {
+      window.vscode.postMessage({
+        type: "update_notes",
+        session_id: sessionId,
+        notes: value,
+      });
+    }
+  };
  
   const containerStyle: React.CSSProperties = {
     padding: "20px 20px 40px 20px",
@@ -109,7 +148,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <input
         type="text"
         value={localRunName}
-        onChange={(e) => setLocalRunName(e.target.value)}
+        onChange={(e) => handleRunNameChange(e.target.value)}
         style={fieldStyle}
       />
 
@@ -118,7 +157,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <div style={{ position: "relative", width: "100%" }}>
         <select
           value={localResult}
-          onChange={(e) => setLocalResult(e.target.value)}
+          onChange={(e) => handleResultChange(e.target.value)}
           style={selectStyle}
         >
           {resultOptions.map((opt) => (
@@ -149,7 +188,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <label style={{ fontSize: "20px" }}>Notes</label>
       <textarea
         value={localNotes}
-        onChange={(e) => setLocalNotes(e.target.value)}
+        onChange={(e) => handleNotesChange(e.target.value)}
         style={textareaStyle}
       />
 
