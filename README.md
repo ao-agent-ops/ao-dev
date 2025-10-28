@@ -65,6 +65,8 @@ pre-commit install
 cd src/user_interface && npm install
 ```
 
+We use feature branches to develop and we can't push to `main` without reviews. So make sure to checkout a new branch before starting to code/committing :) .
+
 ### Server commands and log
 To manually start and stop our server. Just do:
 
