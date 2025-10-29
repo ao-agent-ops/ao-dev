@@ -1,10 +1,38 @@
+/* Base Styles */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden; /* optional: prevents scrollbars */
+  overflow: hidden;
+}
+
+:root {
+  --background-color: #f3f4f6;
+  --text-color: #111;
+  --sidebar-bg: #f3f4f6;
+  --sidebar-border: #ccc;
+  --button-bg: #fff;
+  --button-border: #ccc;
+  --button-hover-bg: #e5e7eb;
+  --dialog-bg: #fff;
+  --dialog-text: #333;
+  --no-graph-text: #666;
+}
+
+/* Dark Theme Overrides */
+.dark {
+  --background-color: #1a1a1a;
+  --text-color: #e5e5e5;
+  --sidebar-bg: #2b2b2b;
+  --sidebar-border: #444;
+  --button-bg: #333;
+  --button-border: #555;
+  --button-hover-bg: #444;
+  --dialog-bg: #2c2c2c;
+  --dialog-text: #f0f0f0;
+  --no-graph-text: #aaa;
 }
 
 .app-container {
@@ -12,19 +40,22 @@ html, body {
   width: 100vw;
   display: flex;
   font-family: sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
 }
 
+/* Sidebar */
 .sidebar {
   width: 250px;
-  border-right: 1px solid #ccc;
+  border-right: 1px solid var(--sidebar-border);
   padding: 16px;
   overflow-y: auto;
-  background-color: #f3f4f6;
+  background-color: var(--sidebar-bg);
 }
 
 .sidebar-title {
   margin-bottom: 16px;
-  color: #111;
+  color: var(--text-color);
 }
 
 .experiment-list {
@@ -33,31 +64,42 @@ html, body {
   gap: 10px;
 }
 
+/* Buttons */
 .experiment-button {
   padding: 12px 16px;
   cursor: pointer;
-  border: 1px solid #ccc;
+  border: 1px solid var(--button-border);
   border-radius: 6px;
   text-align: left;
-  background: #fff;
-  color: #111;
+  background: var(--button-bg);
+  color: var(--text-color);
   font-size: 14px;
   font-weight: 500;
   transition: background 0.2s;
 }
 
 .experiment-button:hover {
-  background-color: #e5e7eb;
+  background-color: var(--button-hover-bg);
 }
 
 .experiment-status {
-  color: #555;
+  color: var(--no-graph-text);
 }
 
+/* Graph Container */
 .graph-container {
   flex: 1;
   position: relative;
   height: 100%;
+}
+
+/* Details Panel */
+.details-panel {
+  width: 350px;
+  border-left: 1px solid var(--sidebar-border);
+  overflow-y: auto;
+  background-color: var(--sidebar-bg);
+  height: 100vh;
 }
 
 .graph-header {
@@ -71,24 +113,14 @@ html, body {
   align-items: center;
 }
 
-.toggle-button {
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.workflow-controls {
-  display: flex;
-  gap: 8px;
-}
-
+/* Control Buttons */
+.toggle-button,
 .control-button {
-  padding: 6px 12px;
-  border: 1px solid #ccc;
+  padding: 6px 10px;
+  border: 1px solid var(--button-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--button-bg);
+  color: var(--text-color);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
@@ -115,21 +147,17 @@ html, body {
   background: #dd3333;
 }
 
-.reactflow-container {
-  height: 100%;
-  width: 100%;
-}
-
+/* Graph Fallback */
 .no-graph {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
-  color: #666;
+  color: var(--no-graph-text);
   font-size: 16px;
 }
 
-/* Edit Dialog Styles */
+/* Edit Dialog */
 .edit-dialog-overlay {
   position: fixed;
   top: 0;
@@ -144,31 +172,34 @@ html, body {
 }
 
 .edit-dialog {
-  background: white;
+  background: var(--dialog-bg);
+  color: var(--dialog-text);
   border-radius: 8px;
   padding: 24px;
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .edit-dialog h3 {
   margin: 0 0 16px 0;
-  color: #333;
   font-size: 18px;
+  color: var(--dialog-text);
 }
 
 .edit-dialog textarea {
   width: 100%;
   min-height: 200px;
   padding: 12px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--button-border);
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 14px;
   resize: vertical;
   box-sizing: border-box;
+  background: var(--button-bg);
+  color: var(--text-color);
 }
 
 .dialog-buttons {
@@ -180,11 +211,13 @@ html, body {
 
 .dialog-buttons button {
   padding: 8px 16px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--button-border);
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
+  background: var(--button-bg);
+  color: var(--text-color);
 }
 
 .dialog-buttons button:first-child {
@@ -197,11 +230,6 @@ html, body {
   background: #005a9e;
 }
 
-.dialog-buttons button:last-child {
-  background: #f8f8f8;
-  color: #333;
-}
-
 .dialog-buttons button:last-child:hover {
-  background: #e8e8e8;
+  background: var(--button-hover-bg);
 }

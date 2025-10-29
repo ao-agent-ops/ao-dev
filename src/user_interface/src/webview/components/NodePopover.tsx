@@ -23,12 +23,13 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
     const popoverBg = isDarkTheme ? '#4d4d4d' : '#ffffff';
     const popoverBorder = isDarkTheme ? '#6b6b6b' : '#cccccc';
     const arrowColor = popoverBg;
+    const textColor = isDarkTheme ? '#fff' : '#000';
+    const hoverBg = isDarkTheme ? '#555' : '#f2f2f2';
 
     const actions = [
         { id: 'editInput', label: 'Edit input' },
         { id: 'editOutput', label: 'Edit output' },
         { id: 'changeLabel', label: 'Change label' },
-        // { id: 'seeInCode', label: 'See in code' }
     ];
 
     const popoverStyle: React.CSSProperties = {
@@ -85,16 +86,17 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
                         style={{
                             background: 'transparent',
                             border: 'none',
-                            color: '#fff',
+                            color: textColor,
                             padding: '4px 8px',
                             cursor: 'pointer',
                             textAlign: 'left',
                             borderRadius: '4px',
                             fontSize: '12px',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            transition: 'background 0.2s',
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#444';
+                            e.currentTarget.style.background = hoverBg;
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.background = 'transparent';

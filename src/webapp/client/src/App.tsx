@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef} from "react";
 import "./App.css";
-import type { GraphNode, GraphEdge, ProcessInfo } from "../../../user_interface/src/webview/types";
-import { GraphView } from "../../../user_interface/src/webview/components/GraphView";
-import { ExperimentsView} from "../../../user_interface/src/webview/components/ExperimentsView";
-import type { MessageSender } from "../../../user_interface/src/webview/shared/MessageSender";
-import { EditDialog } from "../../../user_interface/src/webview/components/EditDialog";
+import type { GraphNode, GraphEdge, ProcessInfo } from "../../../src/webview/types";
+import { GraphView } from "../../../src/webview/components/GraphView";
+import { ExperimentsView} from "../../../src/webview/components/ExperimentsView";
+import type { MessageSender } from "../../../src/webview/shared/MessageSender";
+import { EditDialog } from "../../../src/webview/components/EditDialog";
+import { WorkflowRunDetailsPanel } from "../../../src/webview/components/WorkflowRunDetailsPanel";
 
 interface Experiment {
   session_id: string;
@@ -30,6 +31,7 @@ function App() {
   const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   // const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editDialog, setEditDialog] = useState<{
     nodeId: string;
@@ -115,6 +117,7 @@ function App() {
 
   const handleExperimentClick = (experiment: ProcessInfo) => {
     setSelectedExperiment(experiment);
+    setShowDetailsPanel(true);
     if (ws) ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
   };
 
@@ -131,7 +134,7 @@ function App() {
   const finished = sortedExperiments.filter((e) => e.status === "finished");
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${isDarkTheme ? 'dark' : ''}`}>
       <div className="sidebar">
         <ExperimentsView
           runningProcesses={running}
@@ -161,51 +164,36 @@ function App() {
             {selectedExperiment ? "Loading graph..." : "Select an experiment to view its graph"}
           </div>
         )}
-
-        {/* {editDialog && (
-          <div className="edit-dialog-overlay">
-            <div className="edit-dialog">
-              <h3>Edit {editDialog.label}</h3>
-              <textarea
-                value={editDialog.value}
-                onChange={(e) => setEditDialog({ ...editDialog, value: e.target.value })}
-                rows={10}
-                cols={50}
-              />
-              <div className="dialog-buttons">
-                <button
-                  onClick={() => {
-                    handleNodeUpdate(
-                      editDialog.nodeId,
-                      editDialog.field as keyof GraphNode,
-                      editDialog.value
-                    );
-                    setEditDialog(null);
-                  }}
-                >
-                  Save
-                </button>
-                <button onClick={() => setEditDialog(null)}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        )} */}
-        {editDialog && (
-          <EditDialog
-            title={`Edit ${editDialog.label}`}
-            value={editDialog.value}
-            onSave={(newValue) => {
-              handleNodeUpdate(
-                editDialog.nodeId,
-                editDialog.field as keyof GraphNode,
-                newValue
-              );
-              setEditDialog(null);
-            }}
-            onCancel={() => setEditDialog(null)}
-          />
-        )}
       </div>
+
+      {showDetailsPanel && selectedExperiment && (
+        <div className="details-panel">
+          <WorkflowRunDetailsPanel
+            runName={selectedExperiment.title || selectedExperiment.session_id}
+            result=""
+            notes=""
+            log=""
+            onBack={() => setShowDetailsPanel(true)}
+          />
+        </div>
+      )}
+
+      {editDialog && (
+        <EditDialog
+          title={`Edit ${editDialog.label}`}
+          value={editDialog.value}
+          onSave={(newValue) => {
+            handleNodeUpdate(
+              editDialog.nodeId,
+              editDialog.field as keyof GraphNode,
+              newValue
+            );
+            setEditDialog(null);
+          }}
+          onCancel={() => setEditDialog(null)}
+          isDarkTheme={isDarkTheme}
+        />
+      )}
     </div>
   );
 }
