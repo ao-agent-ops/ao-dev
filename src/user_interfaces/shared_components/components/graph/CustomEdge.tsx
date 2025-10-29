@@ -1,8 +1,8 @@
 // CustomEdge.tsx
 import React from 'react';
 import { EdgeProps, getSmoothStepPath } from 'reactflow';
-import { Point } from '../types';
-import { NODE_BORDER_WIDTH } from '../utils/layoutConstants';
+import { Point } from '../../types';
+import { NODE_BORDER_WIDTH } from '../../utils/layoutConstants';
 
 interface CustomEdgeData {
   points?: Point[];

@@ -9,14 +9,14 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { CustomNode } from './CustomNode';
 import { CustomEdge } from './CustomEdge';
-import { GraphNode, GraphEdge, ProcessInfo } from '../types';
-import { LayoutEngine } from '../utils/layoutEngine';
-import { MessageSender } from '../shared/MessageSender';
+import { GraphNode, GraphEdge, ProcessInfo } from '../../types';
+import { LayoutEngine } from '../../utils/layoutEngine';
+import { MessageSender } from '../../types/MessageSender';
 // import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
-import { FLOW_CONTAINER_MARGIN_TOP, NODE_WIDTH } from '../utils/layout/core/constants';
-import erasePng from '../assets/erase.png';
-import tagPng from '../assets/tag.png';
+import { FLOW_CONTAINER_MARGIN_TOP, NODE_WIDTH } from '../../utils/layout/core/constants';
+import erasePng from '../../assets/erase.png';
+import tagPng from '../../assets/tag.png';
 
 interface GraphViewProps {
   nodes: GraphNode[];

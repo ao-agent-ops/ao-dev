@@ -1,8 +1,8 @@
 import * as path from 'path';
 import { openPreviewWebview } from '../webview/openPreviewWebview';
 import * as vscode from 'vscode';
-import { fileToBase64 } from '../webview/utils/editDialog';
-import { generateAttachmentsHtml } from '../webview/utils/attachmentHtml';
+import { fileToBase64 } from '../../../shared_components/utils/fileIcons';
+import { generateAttachmentsHtml } from '../../../shared_components/utils/attachmentHtml';
 import * as fs from 'fs';
 
 

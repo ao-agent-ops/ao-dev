@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-
 export function getIconByExtension(filename: string, pdfIconUri?: string): string {
     if (!filename || typeof filename !== 'string') return '📁';
     const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -13,13 +11,4 @@ export function getIconByExtension(filename: string, pdfIconUri?: string): strin
     if (["mp3", "wav", "ogg"].includes(ext)) return '🎵';
     if (["mp4", "avi", "mov", "mkv", "webm"].includes(ext)) return '🎬';
     return '📁';
-}
-
-export function fileToBase64(filePath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        fs.readFile(filePath, (err, data) => {
-            if (err) return reject(err);
-            resolve(data.toString('base64'));
-        });
-    });
 }

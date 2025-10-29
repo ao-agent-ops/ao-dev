@@ -1,4 +1,4 @@
-import { getIconByExtension } from './editDialog';
+import { getIconByExtension } from './fileIcons';
 
 /**
  * Generates the HTML for the attachments section in the edit dialog webview.

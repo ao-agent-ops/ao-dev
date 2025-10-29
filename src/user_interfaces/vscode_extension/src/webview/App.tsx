@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { WorkflowRunDetailsPanel } from './components/WorkflowRunDetailsPanel';
-import { GraphView } from './components/GraphView';
-import { ExperimentsView } from './components/ExperimentsView';
-import { GraphNode, GraphEdge, GraphData, ProcessInfo } from './types';
-import { sendReady, sendGetGraph, sendMessage } from './utils/messaging';
-import { MessageSender } from './shared/MessageSender';
-import { useIsVsCodeDarkTheme } from './utils/themeUtils';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { WorkflowRunDetailsPanel } from '../../../shared_components/components/experiment/WorkflowRunDetailsPanel';
+import { GraphView } from '../../../shared_components/components/graph/GraphView';
+import { ExperimentsView } from '../../../shared_components/components/experiment/ExperimentsView';
+import { GraphNode, GraphEdge, GraphData, ProcessInfo } from '../../../shared_components/types';
+import { sendReady, sendGetGraph, sendMessage } from '../../../shared_components/utils/messaging';
+import { MessageSender } from '../../../shared_components/types/MessageSender';
+import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
+import { useLocalStorage } from '../../../shared_components/hooks/useLocalStorage';
 
 
 // Add global type augmentation for window.vscode

@@ -1,12 +1,12 @@
 // src/webview/components/CustomNode.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { NODE_WIDTH, NODE_HEIGHT } from '../utils/nodeLayout';
-import { GraphNode } from '../types';
+import { NODE_WIDTH, NODE_HEIGHT } from '../../utils/nodeLayout';
+import { GraphNode } from '../../types';
 import { NodePopover } from './NodePopover';
-import { LabelEditor } from './LabelEditor';
-import { NODE_BORDER_WIDTH } from '../utils/layoutConstants';
-import { MessageSender } from '../shared/MessageSender';
+import { LabelEditor } from '../ui/LabelEditor';
+import { NODE_BORDER_WIDTH } from '../../utils/layoutConstants';
+import { MessageSender } from '../../types/MessageSender';
 
 // Define handle offset constants for consistency
 const SIDE_HANDLE_OFFSET = 15; // pixels from center

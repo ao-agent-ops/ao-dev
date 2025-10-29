@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
+import { useIsVsCodeDarkTheme } from '../../utils/themeUtils';
 import { ProcessCard } from './ProcessCard';
-import { GraphData, ProcessInfo } from '../types';
+import { GraphData, ProcessInfo } from '../../types';
 
 interface ExperimentsViewProps {
   runningProcesses: ProcessInfo[];

@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from './ProcessCard.module.css';
-import { ProcessInfo } from '../types';
-import { getDateOnly } from '../utils/timeSpan';
+import { ProcessInfo } from '../../types';
+import { getDateOnly } from '../../utils/timeSpan';
 
 
 export interface ProcessCardProps {

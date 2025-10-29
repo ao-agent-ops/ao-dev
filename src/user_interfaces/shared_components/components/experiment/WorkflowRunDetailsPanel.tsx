@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { WorkflowRunDetailsPanelProps } from "../types";
-import { useIsVsCodeDarkTheme } from "../utils/themeUtils";
+import { WorkflowRunDetailsPanelProps } from "../../types";
+import { useIsVsCodeDarkTheme } from "../../utils/themeUtils";
 
 interface Props extends WorkflowRunDetailsPanelProps {
   onBack?: () => void;
