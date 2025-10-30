@@ -55,7 +55,6 @@
       "outFiles": [
         "${workspaceFolder}/src/user_interfaces/vscode_extension/dist/**/*.js"
       ],
-      "preLaunchTask": "build-extension",
       "internalConsoleOptions": "openOnSessionStart"
     }
   ]

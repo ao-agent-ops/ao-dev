@@ -5,7 +5,7 @@ import { calculateLogicalLayers } from './layout/logic/layers';
 import { calculateVisualLayers } from './layout/logic/visualLayers';
 import { calculateEdges } from './layout/logic/edges';
 import { calculateDimensions } from './layout/logic/dimensions';
-import { NODE_WIDTH, NODE_HEIGHT, LAYER_SPACING, NODE_SPACING, BAND_SPACING } from './layout/core/constants';
+import { NODE_WIDTH, NODE_HEIGHT, LAYER_SPACING, NODE_SPACING, BAND_SPACING } from './layoutConstants';
 import { calculateBands as calculateBandsMod } from './layout/logic/bandsCalc';
 
 export class LayoutEngine {

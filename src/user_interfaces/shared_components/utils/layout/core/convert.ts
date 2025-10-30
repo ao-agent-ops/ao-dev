@@ -1,5 +1,5 @@
 import { GraphNode, GraphEdge, LayoutNode } from './types';
-import { NODE_WIDTH, NODE_HEIGHT } from './constants';
+import { NODE_WIDTH, NODE_HEIGHT } from '../../layoutConstants';
 
 export function convertToLayoutNodes(nodes: GraphNode[], edges: GraphEdge[]): LayoutNode[] {
   if (!nodes || nodes.length === 0) return [];

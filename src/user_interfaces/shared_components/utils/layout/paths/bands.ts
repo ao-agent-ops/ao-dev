@@ -1,5 +1,5 @@
 import { LayoutNode, Point } from '../core/types';
-import { BAND_ENTRY_STAGGER_CLAMP } from '../core/constants';
+import { BAND_ENTRY_STAGGER_CLAMP } from '../../layoutConstants';
 
 // Band path using explicit band X coordinate (mirrors original internal implementation)
 export function createBandPath(source: LayoutNode, target: LayoutNode, bandX: number, side: 'left' | 'right', entryYOffset: number = 0): Point[] {

@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { PreviewPanel } from './PreviewPanel';
+import { PreviewPanel } from '../../../shared_components/components/PreviewPanel';
 import { App } from './App';
 import './styles.css';
 

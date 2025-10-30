@@ -14,7 +14,7 @@ import { LayoutEngine } from '../../utils/layoutEngine';
 import { MessageSender } from '../../types/MessageSender';
 // import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
-import { FLOW_CONTAINER_MARGIN_TOP, NODE_WIDTH } from '../../utils/layout/core/constants';
+import { FLOW_CONTAINER_MARGIN_TOP, NODE_WIDTH } from '../../utils/layoutConstants';
 import erasePng from '../../assets/erase.png';
 import tagPng from '../../assets/tag.png';
 

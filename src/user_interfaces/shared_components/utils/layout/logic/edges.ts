@@ -1,7 +1,7 @@
 import { LayoutNode, BandInfo, RoutedEdge } from '../core/types';
 import { createDirectPath } from '../paths/direct';
 import { createBandPath, createBandPathWithHorizontalConnector } from '../paths/bands';
-import { BAND_ENTRY_STAGGER_STEP, BAND_ENTRY_STAGGER_CLAMP } from '../core/constants';
+import { BAND_ENTRY_STAGGER_STEP, BAND_ENTRY_STAGGER_CLAMP } from '../../layoutConstants';
 import { wouldDirectLineCrossNodes, hasNodesBetweenInVisualLayers } from './collisions';
 
 interface BandEdgeCandidate {

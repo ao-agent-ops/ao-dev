@@ -2,8 +2,7 @@
 import React from 'react';
 import { EdgeProps, useNodes } from 'reactflow';
 
-const NODE_WIDTH = 150;
-const NODE_HEIGHT = 60;
+import { NODE_WIDTH, NODE_HEIGHT } from '../../utils/layoutConstants';
 const NODE_PADDING = 40;
 const ROUTING_CLEARANCE = 30; // Space for routing around obstacles
 

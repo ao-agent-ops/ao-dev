@@ -22,12 +22,12 @@ In `src/user_interfaces/` run `npm run build:all`
 In `src/user_interfaces/` run `npm run build:extension`
 
 ### Build Webapp Client
-In `src/user_interfaces/` run `npm run build:webapp-client`
+In `src/user_interfaces/` run `npm run build:webapp`
 
 ### Run Webapp Client
 
 1. In `src/user_interfaces/web_app/` run `node server.js`. Keep terminal open.
-2. In a another terminal, in `src/user_interfaces/` run `npm run dev:webapp-client`. Open the localhost link displayed.
+2. In a another terminal, in `src/user_interfaces/` run `npm run dev:webapp`. Open the localhost link displayed.
 
 ### Run VS Code Extension
 

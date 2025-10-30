@@ -1,5 +1,5 @@
 import { LayoutNode, LayerInfo, BandInfo } from '../core/types';
-import { BAND_SPACING, BAND_COLORS, DEFAULT_BAND_COLOR } from '../core/constants';
+import { BAND_SPACING, BAND_COLORS, DEFAULT_BAND_COLOR } from '../../layoutConstants';
 import { chooseBandSideForNode } from './bands';
 import { wouldDirectLineCrossNodes, hasNodesBetweenInVisualLayers } from './collisions';
 

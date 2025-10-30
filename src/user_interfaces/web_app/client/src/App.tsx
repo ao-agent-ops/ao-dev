@@ -4,7 +4,7 @@ import type { GraphNode, GraphEdge, ProcessInfo } from "../../../shared_componen
 import { GraphView } from "../../../shared_components/components/graph/GraphView";
 import { ExperimentsView} from "../../../shared_components/components/experiment/ExperimentsView";
 import type { MessageSender } from "../../../shared_components/types/MessageSender";
-import { EditDialog } from "../../../shared_components/components/ui/EditDialog";
+import { EditDialog } from "../../../shared_components/components/EditDialog";
 import { WorkflowRunDetailsPanel } from "../../../shared_components/components/experiment/WorkflowRunDetailsPanel";
 
 interface Experiment {
