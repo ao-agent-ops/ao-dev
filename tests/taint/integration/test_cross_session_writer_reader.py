@@ -17,8 +17,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from runner.taint_wrappers import TaintStr
-from server.db import store_taint_info, get_taint_info
+from aco.runner.taint_wrappers import TaintStr
+from aco.server.db import store_taint_info, get_taint_info
 
 # Add parent directory to path for test utils import
 sys.path.insert(0, str(Path(__file__).parent.parent))

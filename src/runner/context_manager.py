@@ -3,9 +3,9 @@ from contextlib import contextmanager
 import json
 import threading
 import os
-from common.logger import logger
-from server.cache_manager import CACHE
-from common.utils import send_to_server, send_to_server_and_receive
+from aco.common.logger import logger
+from aco.server.cache_manager import CACHE
+from aco.common.utils import send_to_server, send_to_server_and_receive
 
 
 # Process's session id stored as parent_session_id. Subruns have their own

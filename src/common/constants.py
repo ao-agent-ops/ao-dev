@@ -1,6 +1,6 @@
 import os
-from common.config import Config
-from common.config import derive_project_root
+from aco.common.config import Config
+from aco.common.config import derive_project_root, generate_random_username
 
 
 # default home directory for configs and temporary/cached files
@@ -35,6 +35,7 @@ if not os.path.exists(ACO_CONFIG):
         collect_telemetry=False,
         telemetry_url=None,
         telemetry_key=None,
+        telemetry_username=generate_random_username(),
     )
     default_config.to_yaml_file(ACO_CONFIG)
 
@@ -45,6 +46,7 @@ ACO_PROJECT_ROOT = config.project_root
 COLLECT_TELEMETRY = config.collect_telemetry
 TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
+TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
 
 # server-related constants
 HOST = "127.0.0.1"

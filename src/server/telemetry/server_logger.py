@@ -1,10 +1,10 @@
 import json
 import os
 from typing import Dict, Any, Optional
-from common.logger import logger
-from server.telemetry.client import supabase_client
-from server.telemetry.snapshots import get_user_id, store_code_snapshot_background
-from common.constants import COLLECT_TELEMETRY
+from aco.common.logger import logger
+from aco.server.telemetry.client import supabase_client
+from aco.server.telemetry.snapshots import get_user_id, store_code_snapshot_background
+from aco.common.constants import COLLECT_TELEMETRY
 
 
 def log_server_message(msg: Dict[str, Any], session_graphs: Dict[str, Any]) -> None:

@@ -68,6 +68,9 @@ export interface ProcessInfo {
     status: string;
     timestamp?: string;
     color_preview?: string[];
+    success?: string;
+    notes?: string;
+    log?: string;
 }
 
 export interface WorkflowRunDetailsPanelProps {

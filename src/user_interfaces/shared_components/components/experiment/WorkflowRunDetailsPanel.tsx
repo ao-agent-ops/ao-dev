@@ -4,10 +4,10 @@ import { useIsVsCodeDarkTheme } from "../../utils/themeUtils";
 
 interface Props extends WorkflowRunDetailsPanelProps {
   onBack?: () => void;
+  sessionId?: string;
 }
 
 const resultOptions = ["Select a result", "Satisfactory", "Failed"];
-
 
 export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   runName = "",
@@ -16,11 +16,57 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   log = "",
   onOpenInTab,
   onBack,
+  sessionId = "",
 }) => {
   const [localRunName, setLocalRunName] = useState(runName);
   const [localResult, setLocalResult] = useState(result);
   const [localNotes, setLocalNotes] = useState(notes);
   const isDarkTheme = useIsVsCodeDarkTheme();
+
+  const handleRunNameChange = (value: string) => {
+    console.log('[WorkflowRunDetailsPanel] Run name changed:', value, 'sessionId:', sessionId);
+    setLocalRunName(value);
+    if (window.vscode && sessionId) {
+      console.log('[WorkflowRunDetailsPanel] Sending update_run_name message to VSCode');
+      window.vscode.postMessage({
+        type: "update_run_name",
+        session_id: sessionId,
+        run_name: value,
+      });
+    } else {
+      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
+    }
+  };
+
+  const handleResultChange = (value: string) => {
+    console.log('[WorkflowRunDetailsPanel] Result changed:', value, 'sessionId:', sessionId);
+    setLocalResult(value);
+    if (window.vscode && sessionId) {
+      console.log('[WorkflowRunDetailsPanel] Sending update_result message to VSCode');
+      window.vscode.postMessage({
+        type: "update_result",
+        session_id: sessionId,
+        result: value,
+      });
+    } else {
+      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
+    }
+  };
+
+  const handleNotesChange = (value: string) => {
+    console.log('[WorkflowRunDetailsPanel] Notes changed (length:', value.length, ') sessionId:', sessionId);
+    setLocalNotes(value);
+    if (window.vscode && sessionId) {
+      console.log('[WorkflowRunDetailsPanel] Sending update_notes message to VSCode');
+      window.vscode.postMessage({
+        type: "update_notes",
+        session_id: sessionId,
+        notes: value,
+      });
+    } else {
+      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
+    }
+  };
  
   const containerStyle: React.CSSProperties = {
     padding: "20px 20px 40px 20px",
@@ -104,12 +150,11 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         Workflow run
       </div>
       {/* Title */}
-      {/* Title */}
       <label style={{ fontSize: "20px" }}>Run name</label>
       <input
         type="text"
         value={localRunName}
-        onChange={(e) => setLocalRunName(e.target.value)}
+        onChange={(e) => handleRunNameChange(e.target.value)}
         style={fieldStyle}
       />
 
@@ -118,7 +163,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <div style={{ position: "relative", width: "100%" }}>
         <select
           value={localResult}
-          onChange={(e) => setLocalResult(e.target.value)}
+          onChange={(e) => handleResultChange(e.target.value)}
           style={selectStyle}
         >
           {resultOptions.map((opt) => (
@@ -149,29 +194,9 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       <label style={{ fontSize: "20px" }}>Notes</label>
       <textarea
         value={localNotes}
-        onChange={(e) => setLocalNotes(e.target.value)}
+        onChange={(e) => handleNotesChange(e.target.value)}
         style={textareaStyle}
       />
-
-
-      {/* Button open in tab */}
-      <button
-        onClick={() => {
-          if (window.vscode) {
-            window.vscode.postMessage({
-              type: "open_notes_tab_side_by_side",
-              payload: {
-                runName: localRunName,
-                result: localResult,
-                notes: localNotes,
-              },
-            });
-          }
-        }}
-        style={buttonStyle}
-      >
-        Open in tab
-      </button>
 
       {/* Log */}
       <label style={{ fontSize: "20px" }}>Log</label>

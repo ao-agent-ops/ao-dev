@@ -68,8 +68,8 @@ pip install supabase
 ## 6. Test the Setup
 
 ```python
-from server.telemetry.server_logger import log_server_message, log_shim_control_registration
-from server.telemetry.snapshots import store_code_snapshot
+from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
+from aco.server.telemetry.snapshots import store_code_snapshot
 
 # Test server message logging
 test_msg = {
@@ -108,8 +108,8 @@ test_edit_msg = {
 log_server_message(test_edit_msg, session_graphs)
 
 # Test code snapshot upload (automatic for runs, but can test manually)
-from server.telemetry.snapshots import store_code_snapshot
-success = store_code_snapshot("ferdi", "/path/to/project")
+from aco.server.telemetry.snapshots import store_code_snapshot
+success = store_code_snapshot("your_username", "/path/to/project")
 ```
 
 ## 7. Integration Points
@@ -119,7 +119,7 @@ success = store_code_snapshot("ferdi", "/path/to/project")
 Add to your launch code:
 
 ```python
-from server.telemetry.snapshots import store_code_snapshot_background
+from aco.server.telemetry.snapshots import store_code_snapshot_background
 
 # In develop_shim.py or wherever aco-launch starts
 store_code_snapshot_background(

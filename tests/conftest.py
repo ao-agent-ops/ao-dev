@@ -7,9 +7,9 @@ import re
 import random
 import pytest
 import responses
-from common.utils import scan_user_py_files_and_modules
-from runner.patching_import_hook import set_module_to_user_file, install_patch_hook
-from runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
+from aco.common.utils import scan_user_py_files_and_modules
+from aco.runner.patching_import_hook import set_module_to_user_file, install_patch_hook
+from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 
 # Set dummy API keys globally
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy-key")
@@ -61,7 +61,7 @@ def pytest_configure(config):
 @pytest.fixture(autouse=True)
 def cleanup_taint_registry():
     """Clean up global taint registry between tests to prevent state leakage."""
-    from runner.taint_wrappers import obj_id_to_taint_origin
+    from aco.runner.taint_wrappers import obj_id_to_taint_origin
 
     # Clean up before test
     obj_id_to_taint_origin.clear()

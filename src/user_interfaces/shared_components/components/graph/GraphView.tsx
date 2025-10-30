@@ -240,12 +240,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <div style={titleContainerStyle}>
             <div style={titleStyle}>
               {experiment
-                ? experiment.timestamp
-                  ? `${experiment.timestamp} (${experiment.session_id.substring(
-                      0,
-                      8
-                    )}...)`
-                  : "Graph"
+                ? experiment.title || "Workflow run"
                 : "Graph"}
             </div>
           </div>

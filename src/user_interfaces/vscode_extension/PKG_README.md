@@ -1,0 +1,1 @@
+This VS Code extension is a special version for BIRD test users.

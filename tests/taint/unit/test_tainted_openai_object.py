@@ -2,7 +2,7 @@
 
 import pytest
 
-from runner.taint_wrappers import TaintedOpenAIObject, TaintStr, get_taint_origins
+from aco.runner.taint_wrappers import TaintedOpenAIObject, TaintStr, get_taint_origins
 
 
 class MockOpenAIObject:

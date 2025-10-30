@@ -89,6 +89,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
+            console.log('[GraphViewProvider] Received message from webview:', data.type, data);
             if (data.type === 'restart') {
                 if (!data.session_id) {
                     console.error('Restart message missing session_id! Not forwarding to Python server.');
@@ -99,13 +100,6 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                 }
             }
             switch (data.type) {
-                case 'open_notes_tab_side_by_side':
-                    if (this._notesLogTabProvider) {
-                        this._notesLogTabProvider.openNotesTab(data.payload);
-                    } else {
-                        console.error('NotesLogTabProvider instance not set!');
-                    }
-                    break;
                 case 'open_log_tab_side_by_side':
                     if (this._notesLogTabProvider) {
                         this._notesLogTabProvider.openLogTab(data.payload);
@@ -192,6 +186,30 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                 case 'erase':
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
+                    }
+                    break;
+                case 'update_run_name':
+                    console.log('[GraphViewProvider] Forwarding update_run_name to Python server:', data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    } else {
+                        console.warn('[GraphViewProvider] No Python client available for update_run_name');
+                    }
+                    break;
+                case 'update_result':
+                    console.log('[GraphViewProvider] Forwarding update_result to Python server:', data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    } else {
+                        console.warn('[GraphViewProvider] No Python client available for update_result');
+                    }
+                    break;
+                case 'update_notes':
+                    console.log('[GraphViewProvider] Forwarding update_notes to Python server:', data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    } else {
+                        console.warn('[GraphViewProvider] No Python client available for update_notes');
                     }
                     break;
             }

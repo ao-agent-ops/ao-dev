@@ -1,15 +1,15 @@
 import json
 
 import dill
-from common.constants import (
+from aco.common.constants import (
     DEFAULT_LOG,
     DEFAULT_NOTE,
     DEFAULT_SUCCESS,
     SUCCESS_COLORS,
     SUCCESS_STRING,
 )
-from server import db
-from runner.monkey_patching.api_parser import set_output
+from aco.server import db
+from aco.runner.monkey_patching.api_parser import set_output
 
 
 class EditManager:
@@ -65,7 +65,7 @@ class EditManager:
 
         env_json = json.dumps(environment)
         db.execute(
-            "INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 parent_session_id,
@@ -90,6 +90,27 @@ class EditManager:
     def update_timestamp(self, session_id, timestamp):
         """Update the timestamp of an experiment (used for reruns)"""
         db.execute("UPDATE experiments SET timestamp=? WHERE session_id=?", (timestamp, session_id))
+
+    def update_run_name(self, session_id, run_name):
+        """Update the experiment name/title."""
+        db.execute(
+            "UPDATE experiments SET name=? WHERE session_id=?",
+            (run_name, session_id),
+        )
+
+    def update_result(self, session_id, result):
+        """Update the experiment result/success status."""
+        db.execute(
+            "UPDATE experiments SET success=? WHERE session_id=?",
+            (result, session_id),
+        )
+
+    def update_notes(self, session_id, notes):
+        """Update the experiment notes."""
+        db.execute(
+            "UPDATE experiments SET notes=? WHERE session_id=?",
+            (notes, session_id),
+        )
 
     def _color_graph_nodes(self, graph, color):
         # Update border_color for each node

@@ -57,7 +57,7 @@ _server_lock = threading.Lock()
 
 def send_to_server(msg):
     """Thread-safe send message to server (no response expected)."""
-    from runner.context_manager import server_file
+    from aco.runner.context_manager import server_file
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"
@@ -70,7 +70,7 @@ def send_to_server(msg):
 
 def send_to_server_and_receive(msg):
     """Thread-safe send message to server and receive response."""
-    from runner.context_manager import server_file
+    from aco.runner.context_manager import server_file
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"

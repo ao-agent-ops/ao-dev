@@ -9,12 +9,13 @@ export type PreviewPanelProps = {
   fileData: Uint8Array | string;
 };
 
-export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileName, fileType, fileData }) => {
+export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileType, fileData }) => {
   const [docxHtml, setDocxHtml] = React.useState<string>('');
 
   React.useEffect(() => {
     if (fileType === 'docx' && fileData) {
-      // fileData can be a base64 string or an ArrayBuffer
+      // fileData can be a base64 string or a Uint8Array
+      // fileData can be a base64 string or a Uint8Array
       let arrayBufferPromise: Promise<ArrayBuffer>;
       if (typeof fileData === 'string') {
         // base64 string
@@ -22,9 +23,12 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileName, fileType, 
         const len = binary.length;
         const bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-        arrayBufferPromise = Promise.resolve(bytes.buffer);
+        arrayBufferPromise = Promise.resolve(bytes.buffer as ArrayBuffer);
+        arrayBufferPromise = Promise.resolve(bytes.buffer as ArrayBuffer);
       } else {
-        arrayBufferPromise = Promise.resolve(fileData.buffer);
+        // Create a new Uint8Array to get a proper ArrayBuffer
+        const dataArray = new Uint8Array(fileData);
+        arrayBufferPromise = Promise.resolve(dataArray.buffer as ArrayBuffer);
       }
       arrayBufferPromise.then(buffer => {
         mammoth.convertToHtml({ arrayBuffer: buffer })
@@ -40,7 +44,9 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileName, fileType, 
     if (typeof fileData === 'string') {
       pdfUrl = `data:application/pdf;base64,${fileData}`;
     } else {
-      const blob = new Blob([fileData], { type: 'application/pdf' });
+      // Create a new Uint8Array to ensure we have an ArrayBuffer, not a SharedArrayBuffer
+      const dataArray = new Uint8Array(fileData);
+      const blob = new Blob([dataArray], { type: 'application/pdf' });
       pdfUrl = URL.createObjectURL(blob);
     }
     return (

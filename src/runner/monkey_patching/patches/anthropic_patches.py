@@ -1,8 +1,8 @@
 from functools import wraps
-from runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
-from server.cache_manager import CACHE
-from common.logger import logger
-from runner.taint_wrappers import get_taint_origins, taint_wrap
+from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
+from aco.server.cache_manager import CACHE
+from aco.common.logger import logger
+from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 
 def anthropic_patch():

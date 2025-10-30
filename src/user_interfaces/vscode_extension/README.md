@@ -71,3 +71,6 @@ See README at project root for architecture diagram. Below might be outdated.
 #### Extension <-> Python bridge
 
  - Extension receives and sends messages in `GraphViewProvider.ts` (see `_sendToPython` and `_handlePythonMessage`)
+
+### Graph layout
+We use our custom algorithm to determine where nodes are placed in the web view pannel and where edge flow between them. [The algo can be found here.](https://drive.google.com/file/d/1eKiijfvaGs_-5sajpeqk923Xbvro7x3X/view?usp=drive_link)

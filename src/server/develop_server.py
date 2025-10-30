@@ -10,11 +10,12 @@ import subprocess
 import shlex
 from datetime import datetime
 from typing import Optional
-from server.edit_manager import EDIT
-from server.cache_manager import CACHE
-from common.logger import logger
-from common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
-from server.telemetry.server_logger import log_server_message, log_shim_control_registration
+from aco.server.edit_manager import EDIT
+from aco.server.cache_manager import CACHE
+from aco.server import db
+from aco.common.logger import logger
+from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
+from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -46,6 +47,7 @@ class DevelopServer:
         self.session_graphs = {}  # session_id -> graph_data
         self.ui_connections = set()  # All UI connections (simplified)
         self.sessions = {}  # session_id -> Session (only for shim connections)
+        self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
 
     # ============================================================
     # Utils
@@ -60,9 +62,20 @@ class DevelopServer:
                 logger.error(f"Error broadcasting to UI: {e}")
                 self.ui_connections.discard(ui_conn)
 
+    def broadcast_graph_update(self, session_id: str) -> None:
+        """Broadcast current graph state for a session to all UIs."""
+        if session_id in self.session_graphs:
+            self.broadcast_to_all_uis(
+                {
+                    "type": "graph_update",
+                    "session_id": session_id,
+                    "payload": self.session_graphs[session_id],
+                }
+            )
+
     def broadcast_experiment_list_to_uis(self, conn=None) -> None:
         """Only broadcast to one UI (conn) or, if conn is None, to all."""
-        # Get all experiments from database (already sorted by timestamp DESC)
+        # Get all experiments from database (already sorted by name ASC)
         db_experiments = CACHE.get_all_experiments_sorted()
 
         # Create a map of session_id to session for quick lookup
@@ -163,14 +176,13 @@ class DevelopServer:
             return label
         return f"{label} ({len(matches)})"
 
-    def _find_session_with_node(self, node_id: str) -> Optional[str]:
-        """Find which session contains a specific node ID"""
-        source_sessions = set()
+    def _find_sessions_with_node(self, node_id: str) -> set:
+        """Find all sessions containing a specific node ID. Returns empty set if not found."""
+        sessions = set()
         for session_id, graph in self.session_graphs.items():
-            for node in graph["nodes"]:
-                if node["id"] == node_id:
-                    source_sessions.add(session_id)
-        return source_sessions
+            if any(node["id"] == node_id for node in graph.get("nodes", [])):
+                sessions.add(session_id)
+        return sessions
 
     def handle_add_node(self, msg: dict) -> None:
         sid = msg["session_id"]
@@ -183,7 +195,7 @@ class DevelopServer:
 
         for source in incoming_edges:
             # Find which session contains this source node
-            source_sessions = self._find_session_with_node(source)
+            source_sessions = self._find_sessions_with_node(source)
             if source_sessions:
                 for source_session in source_sessions:
                     target_sessions.add(source_session)
@@ -235,13 +247,7 @@ class DevelopServer:
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": sid, "color_preview": color_preview}
         )
-        self.broadcast_to_all_uis(
-            {
-                "type": "graph_update",
-                "session_id": sid,
-                "payload": {"nodes": graph["nodes"], "edges": graph["edges"]},
-            }
-        )
+        self.broadcast_graph_update(sid)
         EDIT.update_graph_topology(sid, graph)
 
     def handle_edit_input(self, msg: dict) -> None:
@@ -256,13 +262,7 @@ class DevelopServer:
                 if node["id"] == node_id:
                     node["input"] = new_input
                     break
-            self.broadcast_to_all_uis(
-                {
-                    "type": "graph_update",
-                    "session_id": session_id,
-                    "payload": self.session_graphs[session_id],
-                }
-            )
+            self.broadcast_graph_update(session_id)
         logger.debug("Input overwrite completed")
 
     def handle_edit_output(self, msg: dict) -> None:
@@ -277,13 +277,7 @@ class DevelopServer:
                 if node["id"] == node_id:
                     node["output"] = new_output
                     break
-            self.broadcast_to_all_uis(
-                {
-                    "type": "graph_update",
-                    "session_id": session_id,
-                    "payload": self.session_graphs[session_id],
-                }
-            )
+            self.broadcast_graph_update(session_id)
         logger.debug("Output overwrite completed")
 
     def handle_log(self, msg: dict) -> None:
@@ -293,6 +287,39 @@ class DevelopServer:
         EDIT.add_log(session_id, success, entry)
 
         self.broadcast_experiment_list_to_uis()
+
+    def handle_update_run_name(self, msg: dict) -> None:
+        session_id = msg.get("session_id")
+        run_name = msg.get("run_name")
+        if session_id and run_name is not None:
+            EDIT.update_run_name(session_id, run_name)
+            self.broadcast_experiment_list_to_uis()
+        else:
+            logger.error(
+                f"handle_update_run_name: Missing required fields: session_id={session_id}, run_name={run_name}"
+            )
+
+    def handle_update_result(self, msg: dict) -> None:
+        session_id = msg.get("session_id")
+        result = msg.get("result")
+        if session_id and result is not None:
+            EDIT.update_result(session_id, result)
+            self.broadcast_experiment_list_to_uis()
+        else:
+            logger.error(
+                f"handle_update_result: Missing required fields: session_id={session_id}, result={result}"
+            )
+
+    def handle_update_notes(self, msg: dict) -> None:
+        session_id = msg.get("session_id")
+        notes = msg.get("notes")
+        if session_id and notes is not None:
+            EDIT.update_notes(session_id, notes)
+            self.broadcast_experiment_list_to_uis()
+        else:
+            logger.error(
+                f"handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
+            )
 
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
         session_id = msg["session_id"]
@@ -388,13 +415,12 @@ class DevelopServer:
         elif session and session.status == "finished":
             # Rerun for finished session: launch new shim-control with same session_id
             cwd, command, environment = CACHE.get_exec_command(session_id)
-            if not cwd:
-                logger.error(f"Requested restart for session without logged command.")
-                return
 
             logger.debug(
                 f"Rerunning finished session {session_id} with cwd={cwd} and command={command}"
             )
+            # Mark this session as being rerun to avoid clearing llm_calls
+            self.rerun_sessions.add(child_session_id)
             try:
                 # Insert session_id into environment so shim-control uses the same session_id
                 env = os.environ.copy()
@@ -468,7 +494,6 @@ class DevelopServer:
         # Log the message to telemetry
         log_server_message(msg, self.session_graphs)
 
-        # TODO: Process experiment changes for title, success, notes.
         msg_type = msg.get("type")
         if msg_type == "shutdown":
             self.handle_shutdown()
@@ -486,6 +511,12 @@ class DevelopServer:
             self.handle_edit_output(msg)
         elif msg_type == "log":
             self.handle_log(msg)
+        elif msg_type == "update_run_name":
+            self.handle_update_run_name(msg)
+        elif msg_type == "update_result":
+            self.handle_update_result(msg)
+        elif msg_type == "update_notes":
+            self.handle_update_notes(msg)
         elif msg_type == "add_subrun":
             self.handle_add_subrun(msg, conn)
         elif msg_type == "get_graph":

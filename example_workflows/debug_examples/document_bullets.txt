@@ -1,8 +1,0 @@
-=== Bullet Point Summary ===
-Source: /Users/kennethchoi/Desktop/agent-copilot/example_workflows/debug_examples/document_summary.txt
-
-- Request for title or link to research paper for summary generation
-- Expertise in creating summaries
-- Willingness to assist
-
-=== End ===

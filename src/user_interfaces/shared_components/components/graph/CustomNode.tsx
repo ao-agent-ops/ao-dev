@@ -39,26 +39,16 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
     opacity: 0, // Make handles invisible
   };
 
-  // Style for side handles with vertical offset
-  const leftTargetStyle: React.CSSProperties = {
+  // Helper to create side handle styles with vertical offset
+  const createSideHandleStyle = (position: number): React.CSSProperties => ({
     ...handleStyle,
-    top: `${HANDLE_TARGET_POSITION}%`,
-  };
+    top: `${position}%`,
+  });
 
-  const leftSourceStyle: React.CSSProperties = {
-    ...handleStyle,
-    top: `${HANDLE_SOURCE_POSITION}%`,
-  };
-
-  const rightTargetStyle: React.CSSProperties = {
-    ...handleStyle,
-    top: `${HANDLE_TARGET_POSITION}%`,
-  };
-
-  const rightSourceStyle: React.CSSProperties = {
-    ...handleStyle,
-    top: `${HANDLE_SOURCE_POSITION}%`,
-  };
+  const leftTargetStyle = createSideHandleStyle(HANDLE_TARGET_POSITION);
+  const leftSourceStyle = createSideHandleStyle(HANDLE_SOURCE_POSITION);
+  const rightTargetStyle = createSideHandleStyle(HANDLE_TARGET_POSITION);
+  const rightSourceStyle = createSideHandleStyle(HANDLE_SOURCE_POSITION);
 
   const handleAction = async (action: string) => {
     switch (action) {

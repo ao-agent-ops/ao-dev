@@ -87,7 +87,7 @@ export class ConfigManager {
           collectTelemetry: configData?.collect_telemetry || false,
           telemetryUrl: configData?.telemetry_url || null,
           telemetryKey: configData?.telemetry_key || null,
-          userId: configData?.user_id || 'default_user'
+          userId: configData?.telemetry_username || 'default_user'
         };
       }
     } catch (error) {

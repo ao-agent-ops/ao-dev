@@ -1,11 +1,12 @@
 import argparse
-from common.config import (
+from aco.common.config import (
     Config,
     _ask_field,
     _convert_yes_no_to_bool,
     _convert_to_valid_path,
+    generate_random_username,
 )
-from common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
+from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
 
 
 def get_user_input() -> Config:
@@ -25,6 +26,7 @@ def get_user_input() -> Config:
 
     telemetry_url = None
     telemetry_key = None
+    telemetry_username = None
 
     if collect_telemetry:
         telemetry_url = _ask_field(
@@ -41,11 +43,20 @@ def get_user_input() -> Config:
             error_message="Please enter a valid key or leave empty.",
         )
 
+        default_username = generate_random_username()
+        telemetry_username = _ask_field(
+            f"Telemetry username (leave empty for default '{default_username}'): ",
+            str,
+            default=default_username,
+            error_message="Please enter a valid username or leave empty.",
+        )
+
     config = Config(
         project_root=project_root,
         collect_telemetry=collect_telemetry,
         telemetry_url=telemetry_url,
         telemetry_key=telemetry_key,
+        telemetry_username=telemetry_username,
     )
     return config
 

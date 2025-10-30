@@ -5,7 +5,7 @@ needed for running evals).
 """
 
 from openai import OpenAI
-from runner.context_manager import aco_launch
+from aco.runner.context_manager import aco_launch
 
 
 client = OpenAI()

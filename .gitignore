@@ -235,3 +235,6 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # MiroFlow
 **/miroflow_deep_research/**/logs
+
+# VS Code extension builds
+*.vsix
