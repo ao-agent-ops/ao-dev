@@ -1,0 +1,67 @@
+{
+  "folders": [
+    {
+      "name": "🔧 Workspace Root",
+      "path": "."
+    },
+    {
+      "name": "🔌 VS Code Extension",
+      "path": "vscode_extension"
+    },
+    {
+      "name": "🌐 Web App",
+      "path": "web_app"
+    },
+    {
+      "name": "⚛️ Web App Client",
+      "path": "web_app/client"
+    }
+  ],
+  "settings": {
+    "typescript.tsdk": "node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Run VS Code Extension",
+        "type": "extensionHost",
+        "request": "launch",
+        "args": [
+          "--extensionDevelopmentPath=${workspaceFolder:🔌 VS Code Extension}"
+        ],
+        "outFiles": [
+          "${workspaceFolder:🔌 VS Code Extension}/dist/**/*.js"
+        ]
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build Extension",
+        "type": "npm",
+        "script": "compile",
+        "path": "vscode_extension/",
+        "group": "build",
+        "problemMatcher": "$tsc"
+      },
+      {
+        "label": "Build Webapp Client",
+        "type": "npm",
+        "script": "build",
+        "path": "web_app/client/",
+        "group": "build"
+      },
+      {
+        "label": "Dev Webapp Client",
+        "type": "npm",
+        "script": "dev",
+        "path": "web_app/client/",
+        "isBackground": true
+      }
+    ]
+  }
+}

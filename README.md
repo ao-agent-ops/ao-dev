@@ -32,7 +32,8 @@ For non-developers, install the project like so:
 ```bash
 pip install -e .
 # Because the extension is not packaged yet, you need to install UI dependencies as well
-cd src/user_interface && npm install
+cd src/user_interfaces && npm install
+npm run build:all
 ```
 
 ### Running the extension
