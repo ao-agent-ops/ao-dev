@@ -192,7 +192,7 @@ configs/
 # **/.vscode
 
 # VS Code extension
-src/user_interfaces/node_modules
+node_modules/
 src/user_interfaces/dist
 
 # Our DB
