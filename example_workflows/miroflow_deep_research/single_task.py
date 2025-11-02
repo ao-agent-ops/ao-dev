@@ -65,7 +65,7 @@ def main(
         config_dir=os.path.abspath("./example_workflows/miroflow_deep_research/config"), version_base=None
     ):
         cfg = hydra.compose(config_name="config")
-        logger = bootstrap_logger()
+        logger = bootstrap_logger(level="WARNING")
         # disable tracing and give a fake key
         set_tracing_disabled(True)
         set_tracing_export_api_key("fake-key")

@@ -1,6 +1,8 @@
 import uuid
 import json
 import dill
+import random
+import hashlib
 from aco.common.logger import logger
 from aco.common.constants import ACO_ATTACHMENT_CACHE
 from aco.server import db
@@ -102,9 +104,14 @@ class CacheManager:
         )
 
         if row is None:
-            logger.debug(f"Cache miss")
-            # Insert new row with a new node_id.
+            logger.debug(
+                f"\033[95mCache MISS.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
+            )
+            # Insert new row with a new node_id. reset randomness to avoid
+            #   generating exact same UUID when re-running, but MCP generates randomness and we miss cache
+            random.seed()
             node_id = str(uuid.uuid4())
+            logger.debug(f"Cache MISS, UUID: {node_id}")
             if cache:
                 db.execute(
                     "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
@@ -125,6 +132,9 @@ class CacheManager:
             set_input(input_dict, overwrite_text, api_type)
         if row["output"] is not None:
             output = dill.loads(row["output"])
+            seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)
+            random.seed(seed)
+            logger.debug(f"get_in_out set seed to {seed}")
         return input_dict, output, node_id
 
     def cache_output(self, node_id, output_obj):
@@ -132,6 +142,9 @@ class CacheManager:
 
         session_id = get_session_id()
         output_pickle = dill.dumps(output_obj)
+        seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)
+        random.seed(seed)
+        logger.debug(f"cache_output set seed to {seed}")
         db.execute(
             "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
             (output_pickle, session_id, node_id),
