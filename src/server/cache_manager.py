@@ -3,12 +3,12 @@ import json
 import dill
 import random
 import hashlib
-from common.logger import logger
-from common.constants import ACO_ATTACHMENT_CACHE
-from server import db
-from common.utils import stream_hash, save_io_stream
-from runner.taint_wrappers import untaint_if_needed
-from runner.monkey_patching.api_parser import get_input, get_model_name, set_input
+from aco.common.logger import logger
+from aco.common.constants import ACO_ATTACHMENT_CACHE
+from aco.server import db
+from aco.common.utils import stream_hash, save_io_stream
+from aco.runner.taint_wrappers import untaint_if_needed
+from aco.runner.monkey_patching.api_parser import get_input, get_model_name, set_input
 
 
 class CacheManager:
@@ -79,7 +79,7 @@ class CacheManager:
         return [f for f in file_paths if f is not None]
 
     def get_in_out(self, input_dict, api_type, cache=True):
-        from runner.context_manager import get_session_id
+        from aco.runner.context_manager import get_session_id
 
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
@@ -97,7 +97,6 @@ class CacheManager:
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
-        logger.debug(f"Cache lookup: session_id={session_id}, input_hash={input_hash}")
 
         row = db.query_one(
             "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?",
@@ -120,9 +119,7 @@ class CacheManager:
                 )
             return input_dict, None, node_id
 
-        logger.debug(
-            f"\033[32mCache HIT.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
-        )
+        logger.debug(f"Cache hit")
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
@@ -141,7 +138,7 @@ class CacheManager:
         return input_dict, output, node_id
 
     def cache_output(self, node_id, output_obj):
-        from runner.context_manager import get_session_id
+        from aco.runner.context_manager import get_session_id
 
         session_id = get_session_id()
         output_pickle = dill.dumps(output_obj)
@@ -159,7 +156,7 @@ class CacheManager:
         )
 
     def get_all_experiments_sorted(self):
-        """Get all experiments sorted by timestamp (most recent first)"""
+        """Get all experiments sorted by name (alphabetical)"""
         return db.query_all(
             "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
             (),
@@ -203,7 +200,6 @@ class CacheManager:
         """Delete all records from experiments and llm_calls tables."""
         db.execute("DELETE FROM experiments")
         db.execute("DELETE FROM llm_calls")
-        # TODO: Should we delete the entire DB file + all attachments?
 
     def get_session_name(self, session_id):
         # Get all subrun names for this parent session

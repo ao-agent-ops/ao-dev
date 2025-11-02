@@ -256,7 +256,7 @@ def _get_model_openai_responses_create(input_dict: Dict[str, Any]) -> str:
 def _get_input_openai_beta_threads_create_and_poll(
     input_obj: Any,
 ) -> Tuple[str, List[str], List[str]]:
-    from server.cache_manager import CACHE
+    from aco.server.cache_manager import CACHE
 
     # Get paths to cached attachments.
     message = input_obj.content[-1].text.value
@@ -270,7 +270,7 @@ def _get_input_openai_beta_threads_create_and_poll(
 def _get_input_openai_beta_threads_create(
     input_dict: Dict[str, Any],
 ) -> Tuple[str, List[str], List[str]]:
-    from server.cache_manager import CACHE
+    from aco.server.cache_manager import CACHE
 
     # Get paths to cached attachments.
     message = input_dict["messages"][-1]

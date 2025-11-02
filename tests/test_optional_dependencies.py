@@ -47,7 +47,7 @@ class TestOptionalDependencies:
             builtins.__import__ = mock_import
 
             # Import module
-            from runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            from aco.runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
 
             for patch_func in CUSTOM_PATCH_FUNCTIONS:
                 try:
@@ -75,7 +75,7 @@ class TestOptionalDependencies:
 
         try:
             # Import module normally (no mocking)
-            from runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            from aco.runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
 
             # Test each patch function
             for patch_func in CUSTOM_PATCH_FUNCTIONS:

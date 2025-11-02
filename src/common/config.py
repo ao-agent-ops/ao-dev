@@ -2,19 +2,27 @@ from dataclasses import dataclass
 from enum import Enum
 import os
 from pathlib import Path
+import random
 import readline
+import string
 from typing import Any, Callable, Optional, Union
 import yaml
 
-from common.logger import logger
+from aco.common.logger import logger
+
+
+def generate_random_username() -> str:
+    """Generate a random 6-letter hash for telemetry username."""
+    return "".join(random.choices(string.ascii_lowercase, k=6))
 
 
 @dataclass
 class Config:
     project_root: str
-    collect_telemetry: bool = False
+    collect_telemetry: bool = True
     telemetry_url: str = None
     telemetry_key: str = None
+    telemetry_username: str = None
 
     @classmethod
     def from_yaml_file(cls, yaml_file: str) -> "Config":
@@ -116,6 +124,7 @@ def derive_project_root() -> str:
     Walk upward from current working directory to infer a Python project root.
 
     Heuristics (in order of strength):
+      0) If "agent-copilot" or "bird-bench" is found in the path, that directory is the repo root.
       1) If the directory contains project/repo markers (pyproject.toml, .git, etc.), STOP and return it.
       2) If a parent directory name cannot be part of a Python module path (not an identifier), STOP at that directory.
       3) If we encounter common non-project anchor dirs (~/Documents, ~/Downloads, /usr, C:\\Windows, /Applications, etc.),
@@ -134,6 +143,10 @@ def derive_project_root() -> str:
     last_good = cur
 
     for p in _walk_up(cur):
+        # Highest priority: if "agent-copilot" or "bird-bench" is in the path, that's the repo root
+        if p.name in ("agent-copilot", "bird-bench"):
+            return str(p)
+
         # Strong signal: repo/project markers at this directory
         if _has_project_markers(p) or _has_src_layout_hint(p):
             return str(p)

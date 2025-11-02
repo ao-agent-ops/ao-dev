@@ -4,7 +4,7 @@
 def cleanup_taint_db():
     """Clean up all taint information from the database and environment"""
     import os
-    from server.db import execute
+    from aco.server.db import execute
 
     # Clear all taint records
     execute("DELETE FROM attachments")

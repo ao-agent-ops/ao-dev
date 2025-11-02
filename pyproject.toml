@@ -5,33 +5,32 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-# Tell setuptools to look in src/ for packages
-package-dir = {"" = "src"}
-# Find all packages under src/
-packages = ["cli", "common", "runner", "server"]
+# Map aco package to src directory with subpackages
+package-dir = {"aco" = "src"}
+packages = ["aco", "aco.cli", "aco.common", "aco.runner", "aco.runner.monkey_patching", "aco.runner.monkey_patching.patches", "aco.server", "aco.server.telemetry"]
 
 [project.scripts]
 # Console commands for the agent-copilot package
-aco-launch = "cli.aco_launch:main"
-aco-config = "cli.aco_config:main"
-aco-server = "cli.aco_server:main"
+aco-launch = "aco.cli.aco_launch:main"
+aco-config = "aco.cli.aco_config:main"
+aco-server = "aco.cli.aco_server:main"
 
 # Let's keep them around for now, aco-launch is confusing 
 # when quickly showing the tool.
-develop = "cli.aco_launch:main"
-server = "cli.aco_server:main"
+develop = "aco.cli.aco_launch:main"
+server = "aco.cli.aco_server:main"
 
 [tool.black]
 line-length = 100
 
 [project]
-name = "agent-copilot"
-version = "0.1.0"
+name = "agops-bird"
+version = "0.0.5"
 description = "A development tool for LLM call visualization and debugging"
-readme = "README.md"
+readme = "docs/PKG_README.md"
 requires-python = ">=3.10"
 
-dependencies = ["pyyaml", "dill", "forbiddenfruit", "debugpy", "psutil"]
+dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase", "debugpy", "psutil"]
 
 [project.optional-dependencies]
 dev = [

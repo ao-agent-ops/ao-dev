@@ -1,9 +1,27 @@
 import os
+import sys
 import yaml
 from argparse import ArgumentParser, REMAINDER
-from common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
-from common.utils import find_additional_packages_in_project_root
-from runner.develop_shim import DevelopShim
+from typing import Optional
+from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
+from aco.common.utils import find_additional_packages_in_project_root
+from aco.runner.develop_shim import DevelopShim
+
+
+def parse_sample_id() -> Optional[int]:
+    """Parse the --sample_id flag from command line arguments anywhere in sys.argv."""
+    try:
+        # Look for --sample_id in sys.argv (handles both --sample_id X and --sample_id=X formats)
+        for i, arg in enumerate(sys.argv):
+            if arg == "--sample_id" and i + 1 < len(sys.argv):
+                # Format: --sample_id X
+                return int(sys.argv[i + 1])
+            elif arg.startswith("--sample_id="):
+                # Format: --sample_id=X
+                return int(arg.split("=", 1)[1])
+    except (ValueError, IndexError):
+        pass
+    return None
 
 
 def launch_command_parser():
@@ -86,14 +104,17 @@ def _validate_launch_command(args):
 def launch_command(args):
     args = _validate_launch_command(args)
 
-    # Note: UI event logging moved to DevelopShim where session_id is available
+    # Parse sample_id from command line
+    sample_id = parse_sample_id()
 
+    # Note: UI event logging moved to DevelopShim where session_id is available
     shim = DevelopShim(
         script_path=args.script_path,
         script_args=args.script_args,
         is_module_execution=args.module,
         project_root=args.project_root,
         packages_in_project_root=args.packages_in_project_root,
+        sample_id=sample_id,
     )
     shim.run()
 

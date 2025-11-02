@@ -11,16 +11,16 @@ import pytest
 import os
 import sys
 from pathlib import Path
-from cli.aco_server import launch_daemon_server
-from runner.context_manager import set_parent_session_id
-from common.constants import ACO_LOG_PATH
+from aco.cli.aco_server import launch_daemon_server
+from aco.runner.context_manager import set_parent_session_id
+from aco.common.constants import ACO_LOG_PATH
 from get_api_objects import (
     create_anthropic_response,
     create_openai_input,
     create_openai_response,
     create_anthropic_input,
 )
-from server.cache_manager import CACHE
+from aco.server.cache_manager import CACHE
 
 
 def print_server_logs():

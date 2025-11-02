@@ -886,7 +886,6 @@ class TaintList(list):
     """
 
     def __init__(self, value, taint_origin=None):
-        list.__init__(self, value)
         if taint_origin is None:
             self._taint_origin = []
         elif isinstance(taint_origin, (int, str)):
@@ -895,9 +894,14 @@ class TaintList(list):
             self._taint_origin = list(taint_origin)
         else:
             raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
-        # Merge in taint from all items
+
+        # Merge taint origins from all items into the list's taint
         for v in value:
+            # Merge existing taint from the item
             self._taint_origin = list(set(self._taint_origin) | set(get_taint_origins(v)))
+
+        # Initialize with original items (don't retaint them)
+        list.__init__(self, value)
 
     def _merge_taint_from(self, items):
         for v in items:
@@ -957,8 +961,103 @@ class TaintList(list):
         # No new taint to add
         return self
 
+    def __getitem__(self, key):
+        item = list.__getitem__(self, key)
+        if isinstance(key, slice):
+            # For slices, return a new TaintList with the same taint
+            return TaintList(item, taint_origin=self._taint_origin)
+        else:
+            # Return items as-is, preserving their original taint (or lack thereof)
+            return item
+
     def get_raw(self):
         return [x.get_raw() if hasattr(x, "get_raw") else x for x in self]
+
+
+class TaintIterable:
+    """
+    A taint-aware wrapper for any iterable type that tracks taint origins.
+
+    This class can wrap lists, tuples, sets, and other iterables while preserving
+    their original type behavior and adding taint tracking capabilities.
+
+    Attributes:
+        _wrapped: The original iterable object
+        _taint_origin (list): List of taint origin identifiers
+    """
+
+    def __init__(self, wrapped_iterable, taint_origin=None):
+        if taint_origin is None:
+            self._taint_origin = []
+        elif isinstance(taint_origin, (int, str)):
+            self._taint_origin = [taint_origin]
+        elif isinstance(taint_origin, (set, list)):
+            self._taint_origin = list(taint_origin)
+        else:
+            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+
+        # Taint all items and merge their taint origins
+        tainted_items = []
+        for v in wrapped_iterable:
+            # Merge existing taint from the item
+            self._taint_origin = list(set(self._taint_origin) | set(get_taint_origins(v)))
+            # Taint the item with the combined taint
+            tainted_item = taint_wrap(v, taint_origin=self._taint_origin)
+            tainted_items.append(tainted_item)
+
+        # Recreate the original type with tainted items
+        original_type = type(wrapped_iterable)
+        self._wrapped = original_type(tainted_items)
+
+    def __getitem__(self, key):
+        item = self._wrapped[key]
+        if isinstance(key, slice):
+            # For slices, return a new TaintIterable with the same taint
+            return TaintIterable(item, taint_origin=self._taint_origin)
+        else:
+            # For single items, return the item (should already be tainted)
+            return item
+
+    def __iter__(self):
+        return iter(self._wrapped)
+
+    def __len__(self):
+        return len(self._wrapped)
+
+    def __repr__(self):
+        return f"TaintIterable({repr(self._wrapped)}, taint_origin={self._taint_origin})"
+
+    def __str__(self):
+        return str(self._wrapped)
+
+    def __bool__(self):
+        return bool(self._wrapped)
+
+    def __eq__(self, other):
+        if isinstance(other, TaintIterable):
+            return self._wrapped == other._wrapped
+        return self._wrapped == other
+
+    def __hash__(self):
+        return hash(self._wrapped)
+
+    def get_raw(self):
+        return type(self._wrapped)(
+            x.get_raw() if hasattr(x, "get_raw") else x for x in self._wrapped
+        )
+
+    # Delegate attribute access to the wrapped object
+    def __getattr__(self, name):
+        return getattr(self._wrapped, name)
+
+    # Make this object more transparent to type checkers
+    @property
+    def __class__(self):
+        return self._wrapped.__class__
+
+    @__class__.setter
+    def __class__(self, value):
+        self._wrapped.__class__ = value
 
 
 class TaintDict(dict):
@@ -1223,7 +1322,7 @@ class TaintFile:
 
     def read(self, size=-1):
         """Read from the file and return tainted data."""
-        from common.logger import logger
+        from aco.common.logger import logger
         import os
 
         logger.info(
@@ -1240,7 +1339,7 @@ class TaintFile:
         # For text mode, check if there's taint from previous sessions
         if hasattr(self._file, "name") and data:
             try:
-                from server.db import get_taint_info
+                from aco.server.db import get_taint_info
 
                 # Check line 0 for now (we'd need to track all lines for full read)
                 logger.info(f"Checking for taint in read(): file={self._file.name}")
@@ -1272,7 +1371,7 @@ class TaintFile:
 
     def readline(self, size=-1):
         """Read a line from the file and return tainted data."""
-        from common.logger import logger
+        from aco.common.logger import logger
 
         logger.debug(
             f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}"
@@ -1285,7 +1384,7 @@ class TaintFile:
         # Check for existing taint from previous sessions
         if hasattr(self._file, "name"):
             try:
-                from server.db import get_taint_info
+                from aco.server.db import get_taint_info
 
                 logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
                 prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
@@ -1321,7 +1420,7 @@ class TaintFile:
         If the data is tainted, the taint information is preserved
         and stored in the database for cross-session tracking.
         """
-        from common.logger import logger
+        from aco.common.logger import logger
 
         logger.debug(
             f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
@@ -1337,7 +1436,7 @@ class TaintFile:
             if taint_nodes:
                 # Store taint for the current line being written
                 try:
-                    from server.db import store_taint_info
+                    from aco.server.db import store_taint_info
 
                     store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
                 except Exception as e:
@@ -1361,7 +1460,7 @@ class TaintFile:
                 taint_nodes = get_taint_origins(line)
                 if taint_nodes:
                     try:
-                        from server.db import store_taint_info
+                        from aco.server.db import store_taint_info
 
                         store_taint_info(
                             self._session_id, self._file.name, self._line_no, taint_nodes
@@ -1598,18 +1697,7 @@ def taint_wrap(obj, taint_origin=None, _seen=None, _depth: int = 0, _max_depth: 
             taint_origin=taint_origin,
         )
     if isinstance(obj, tuple):
-        return tuple(
-            [
-                taint_wrap(
-                    x,
-                    taint_origin=taint_origin,
-                    _seen=_seen,
-                    _depth=_depth + 1,
-                    _max_depth=_max_depth,
-                )
-                for x in obj
-            ]
-        )
+        return TaintIterable(obj, taint_origin=taint_origin)
     if isinstance(obj, io.IOBase):
         return TaintFile(obj, taint_origin=taint_origin)
     if hasattr(obj, "__dict__") and not isinstance(obj, type):

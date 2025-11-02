@@ -4,7 +4,7 @@ import pytest
 import os
 import tempfile
 
-from runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
+from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
 
 # Add parent directory to path for test utils import
 import sys

@@ -4,9 +4,9 @@ import time
 import subprocess
 import os
 from argparse import ArgumentParser
-from common.logger import logger
-from common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
-from server.develop_server import DevelopServer, send_json
+from aco.common.logger import logger
+from aco.common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
+from aco.server.develop_server import DevelopServer, send_json
 
 
 def launch_daemon_server() -> None:
@@ -20,9 +20,9 @@ def launch_daemon_server() -> None:
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
     # Open log file for the daemon
-    with open(log_file, "a") as log_f:
+    with open(log_file, "a+") as log_f:
         subprocess.Popen(
-            [sys.executable, "-m", "cli.aco_server", "_serve"],
+            [sys.executable, "-m", "aco.cli.aco_server", "_serve"],
             close_fds=True,
             start_new_session=True,
             stdin=subprocess.DEVNULL,

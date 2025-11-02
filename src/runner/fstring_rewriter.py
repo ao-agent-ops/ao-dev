@@ -18,8 +18,8 @@ information about tainted data within the resulting strings.
 """
 
 import ast
-from common.logger import logger
-from runner.taint_wrappers import TaintStr, get_taint_origins
+from aco.common.logger import logger
+from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed
 
 
 def taint_fstring_join(*args):
@@ -31,9 +31,10 @@ def taint_fstring_join(*args):
     taint information and tracking positional data from tainted sources.
 
     The function:
-    1. Joins all arguments into a single string
-    2. Collects taint origins from all arguments
-    3. Returns a TaintStr if any taint exists
+    1. Collects taint origins from all arguments
+    2. Unwraps all arguments to get raw values
+    3. Joins all arguments into a single string
+    4. Returns a TaintStr with collected taint origins if any taint exists
 
     Args:
         *args: Variable number of arguments to join (values from f-string expressions)
@@ -45,11 +46,15 @@ def taint_fstring_join(*args):
         # Original: f"Hello {name}, you have {count} items"
         # Becomes: taint_fstring_join("Hello ", name, ", you have ", count, " items")
     """
-    # Inject random markers into args to track position information
-    result = "".join(str(a) for a in args)
+    # First collect all taint origins before unwrapping
     all_origins = set()
     for a in args:
         all_origins.update(get_taint_origins(a))
+
+    # Unwrap all arguments and convert to strings
+    unwrapped_args = [str(untaint_if_needed(a)) for a in args]
+    result = "".join(unwrapped_args)
+
     if all_origins:
         return TaintStr(result, list(all_origins))
     return result
@@ -65,9 +70,10 @@ def taint_format_string(format_string, *args, **kwargs):
     tainted data.
 
     The function:
-    1. Performs the string formatting operation
-    2. Collects taint origins from format string and all arguments
-    3. Returns a TaintStr if any taint exists
+    1. Collects taint origins from format string and all arguments
+    2. Unwraps all arguments to get raw values
+    3. Performs the string formatting operation
+    4. Returns a TaintStr if any taint exists
 
     Args:
         format_string (str): The format string template
@@ -81,12 +87,20 @@ def taint_format_string(format_string, *args, **kwargs):
         # Original: "Hello {}, you have {} items".format(name, count)
         # Becomes: taint_format_string("Hello {}, you have {} items", name, count)
     """
-    result = format_string.format(*args, **kwargs)
-    all_origins = set()
+    # Collect taint origins before unwrapping
+    all_origins = set(get_taint_origins(format_string))
     for a in args:
         all_origins.update(get_taint_origins(a))
     for v in kwargs.values():
         all_origins.update(get_taint_origins(v))
+
+    # Unwrap all arguments before formatting
+    unwrapped_format_string = untaint_if_needed(format_string)
+    unwrapped_args = [untaint_if_needed(a) for a in args]
+    unwrapped_kwargs = {k: untaint_if_needed(v) for k, v in kwargs.items()}
+
+    result = unwrapped_format_string.format(*unwrapped_args, **unwrapped_kwargs)
+
     if all_origins:
         return TaintStr(result, list(all_origins))
     return result
@@ -101,11 +115,10 @@ def taint_percent_format(format_string, values):
     single values and tuples/lists of values while tracking tainted content.
 
     The function:
-    1. Injects markers around both format string and values if tainted
-    2. Performs the % formatting operation
-    3. Removes markers and extracts position information
-    4. Collects taint origins from both format string and values
-    5. Returns a TaintStr if any taint exists
+    1. Collects taint origins from format string and values
+    2. Unwraps all arguments to get raw values
+    3. Performs the % formatting operation
+    4. Returns a TaintStr if any taint exists
 
     Args:
         format_string (str): The format string with % placeholders
@@ -118,14 +131,20 @@ def taint_percent_format(format_string, values):
         # Original: "Hello %s, you have %d items" % (name, count)
         # Becomes: taint_percent_format("Hello %s, you have %d items", (name, count))
     """
-    # first we insert markers into the values that mark start/end of a random string
-    result = format_string % values
+    # Collect taint origins before unwrapping
     all_origins = set(get_taint_origins(format_string))
     if isinstance(values, (tuple, list)):
         for v in values:
             all_origins.update(get_taint_origins(v))
     else:
         all_origins.update(get_taint_origins(values))
+
+    # Unwrap arguments before formatting
+    unwrapped_format_string = untaint_if_needed(format_string)
+    unwrapped_values = untaint_if_needed(values)
+
+    result = unwrapped_format_string % unwrapped_values
+
     if all_origins:
         return TaintStr(result, list(all_origins))
     return result
@@ -179,8 +198,8 @@ class FStringTransformer(ast.NodeTransformer):
         """
         Transform .format() method calls into taint_format_string calls.
 
-        Detects string literal calls to the .format() method and converts them
-        to equivalent taint_format_string calls that preserve taint information.
+        Detects any .format() method calls and converts them to equivalent
+        taint_format_string calls that preserve taint information.
 
         Args:
             node (ast.Call): The method call AST node to potentially transform
@@ -189,25 +208,19 @@ class FStringTransformer(ast.NodeTransformer):
             ast.Call or ast.Call: Either a transformed taint_format_string call
                                  or the original node (via generic_visit)
         """
-        # Check if this is a .format() call
-        if (
-            isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Constant)
-            and isinstance(node.func.value.value, str)
-            and node.func.attr == "format"
-        ):
+        # Check if this is a .format() call on any expression
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
 
             logger.debug(f"Transforming .format() call at line {getattr(node, 'lineno', '?')}")
 
-            # Extract the format string and arguments
-            format_string = node.func.value.value
+            # Extract the format expression and arguments
             format_args = node.args
             format_kwargs = node.keywords
 
             # Create a call to taint_format_string
             new_node = ast.Call(
                 func=ast.Name(id="taint_format_string", ctx=ast.Load()),
-                args=[ast.Constant(value=format_string)] + format_args,
+                args=[node.func.value] + format_args,
                 keywords=format_kwargs,
             )
             return ast.copy_location(new_node, node)

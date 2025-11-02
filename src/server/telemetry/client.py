@@ -1,6 +1,6 @@
 from typing import Optional
-from common.constants import COLLECT_TELEMETRY, TELEMETRY_KEY, TELEMETRY_URL
-from common.logger import logger
+from aco.common.constants import COLLECT_TELEMETRY, TELEMETRY_KEY, TELEMETRY_URL
+from aco.common.logger import logger
 
 try:
     from supabase import create_client

@@ -6,9 +6,9 @@ import threading
 import base64
 import getpass
 from pathlib import Path
-from common.constants import COLLECT_TELEMETRY
-from common.logger import logger
-from server.telemetry.client import supabase_client
+from aco.common.constants import COLLECT_TELEMETRY, TELEMETRY_USERNAME
+from aco.common.logger import logger
+from aco.server.telemetry.client import supabase_client
 from typing import Optional
 
 
@@ -18,11 +18,7 @@ INCLUDE_EXTENSIONS = {".py", ".ipynb"}
 
 def get_user_id() -> str:
     """Get a user identifier for telemetry purposes."""
-    try:
-        return getpass.getuser()
-    except Exception:
-        # Fallback to environment variables if getpass fails
-        return os.getenv("USER", os.getenv("USERNAME", "unknown_user"))
+    return TELEMETRY_USERNAME
 
 
 def _should_include(path: Path) -> bool:

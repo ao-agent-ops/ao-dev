@@ -4,8 +4,8 @@ import threading
 import hashlib
 
 import dill
-from common.logger import logger
-from common.constants import ACO_DB_PATH
+from aco.common.logger import logger
+from aco.common.constants import ACO_DB_PATH
 
 
 # Global lock among concurrent threads: Threads within a process share a single
@@ -170,24 +170,26 @@ def deserialize(output_json, api_type):
 def store_taint_info(session_id, file_path, line_no, taint_nodes):
     """Store taint information for a line in a file"""
     import json
+
     file_id = f"{session_id}:{file_path}:{line_no}"
     content_hash = hash_input(f"{file_path}:{line_no}")
     taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
-    
+
     logger.debug(f"Storing taint info for {file_id}: {taint_json}")
-    
+
     execute(
         """
         INSERT OR REPLACE INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (file_id, session_id, line_no, content_hash, file_path, taint_json)
+        (file_id, session_id, line_no, content_hash, file_path, taint_json),
     )
 
 
 def get_taint_info(file_path, line_no):
     """Get taint information for a specific line in a file from any previous session"""
     import json
+
     row = query_one(
         """
         SELECT session_id, taint FROM attachments 
@@ -195,7 +197,7 @@ def get_taint_info(file_path, line_no):
         ORDER BY rowid DESC
         LIMIT 1
         """,
-        (file_path, line_no)
+        (file_path, line_no),
     )
     if row:
         logger.debug(f"Taint info for {file_path}:{line_no}: {row['taint']}")

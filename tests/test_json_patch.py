@@ -1,6 +1,6 @@
 import pytest
 import json
-from runner.taint_wrappers import (
+from aco.runner.taint_wrappers import (
     TaintStr,
     TaintDict,
     TaintList,
@@ -522,7 +522,7 @@ class TestJsonEdgeCasesExtended:
         """Test that circular references are handled properly."""
 
         # Note: JSON doesn't support circular references, but our taint tracking should handle them
-        from runner.taint_wrappers import TaintDict
+        from aco.runner.taint_wrappers import TaintDict
 
         circular_dict = TaintDict({"name": "test"}, taint_origin=["circular"])
         circular_dict["self"] = circular_dict  # Create circular reference

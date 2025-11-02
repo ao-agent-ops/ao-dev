@@ -31,18 +31,18 @@ from importlib.machinery import (
 )
 from importlib.util import spec_from_loader
 from forbiddenfruit import curse
-from runner.taint_wrappers import (
+from aco.runner.taint_wrappers import (
     get_taint_origins,
     taint_wrap,
     untaint_if_needed,
 )
-from runner.fstring_rewriter import (
+from aco.runner.fstring_rewriter import (
     FStringTransformer,
     taint_fstring_join,
     taint_format_string,
     taint_percent_format,
 )
-from common.logger import logger
+from aco.common.logger import logger
 import threading
 from contextlib import contextmanager
 from .patch_constants import (
