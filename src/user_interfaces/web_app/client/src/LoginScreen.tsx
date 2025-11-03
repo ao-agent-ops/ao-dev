@@ -42,7 +42,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         <div className="login-logo">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#007acc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <h2 className="login-title">Welcome</h2>
+        <h2 className="login-title">Welcome1</h2>
         <p className="login-desc">Please enter your password to continue</p>
         <input
           className="login-input"
