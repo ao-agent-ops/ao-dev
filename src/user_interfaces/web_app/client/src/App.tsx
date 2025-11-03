@@ -25,6 +25,7 @@ interface WSMessage {
   experiments?: Experiment[];
   payload?: GraphData;
   session_id?: string;
+  color_preview? : string[];
 }
 
 
@@ -84,11 +85,41 @@ function App() {
 
     socket.onmessage = (event: MessageEvent) => {
       const msg: WSMessage = JSON.parse(event.data);
-      if (msg.type === "experiment_list" && msg.experiments) {
-        setExperiments(msg.experiments);
-      } else if (msg.type === "graph_update" && msg.payload) {
-        setGraphData(msg.payload);
+      switch (msg.type) {
+        case "experiment_list":
+          if (msg.experiments) {
+            setExperiments(msg.experiments);
+          }
+          break;
+    
+        case "graph_update":
+          if (msg.payload) {
+            setGraphData(msg.payload);
+          }
+          break;
+    
+        case "color_preview_update":
+          if (msg.session_id) {
+            const sid = msg.session_id;
+            const color_preview = msg.color_preview;
+            console.log(`Color preview update for ${sid}:`, color_preview);
+    
+            setExperiments((prev) => {
+              const updated = prev.map(process =>
+                process.session_id === sid
+                  ? { ...process, color_preview }
+                  : process
+              );
+              console.log('Updated processes:', updated);
+              return updated;
+            });
+          }
+          break;
+    
+        default:
+          console.warn(`Unhandled message type: ${msg.type}`);
       }
+
     };
 
     return () => socket.close();
@@ -137,12 +168,9 @@ function App() {
   // const running = experiments.filter((e) => e.status === "running");
   // const finished = experiments.filter((e) => e.status === "finished");
 
-  const sortedExperiments = [...experiments].sort((a, b) => {
-    if (!a.timestamp) return 1;
-    if (!b.timestamp) return -1;
-    return b.timestamp.localeCompare(a.timestamp);
-  });
+  const sortedExperiments = experiments;
   
+  const similarExperiments = sortedExperiments[0];
   const running = sortedExperiments.filter((e) => e.status === "running");
   const finished = sortedExperiments.filter((e) => e.status === "finished");
 
@@ -154,6 +182,7 @@ function App() {
     <div className={`app-container ${isDarkTheme ? 'dark' : ''}`}>
       <div className="sidebar">
         <ExperimentsView
+          similarProcesses={similarExperiments ? [similarExperiments] : []}
           runningProcesses={running}
           finishedProcesses={finished}
           onCardClick={handleExperimentClick}

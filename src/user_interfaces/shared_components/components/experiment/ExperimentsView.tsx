@@ -4,17 +4,19 @@ import { ProcessCard } from './ProcessCard';
 import { GraphData, ProcessInfo } from '../../types';
 
 interface ExperimentsViewProps {
+  similarProcesses: ProcessInfo[];
   runningProcesses: ProcessInfo[];
   finishedProcesses: ProcessInfo[];
   onCardClick?: (process: ProcessInfo) => void;
   isDarkTheme?: boolean;
 }
 
-export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcesses, finishedProcesses, onCardClick, isDarkTheme = false }) => {
+export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcesses, runningProcesses, finishedProcesses, onCardClick, isDarkTheme = false }) => {
   // const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   
   // Debug logging
+  console.log('ExperimentsView render - similarProcesses:', similarProcesses);
   console.log('ExperimentsView render - runningProcesses:', runningProcesses);
   console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
   
@@ -24,7 +26,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
     maxHeight: '100%',
     overflowY: 'auto',
     boxSizing: 'border-box',
-    backgroundColor: isDarkTheme ? '#252525' : '#F0F0F0',
+    backgroundColor: isDarkTheme ? '#252525' : '#F0F2F0',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
   };
 
@@ -103,6 +105,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ runningProcess
 
   return (
     <div style={containerStyle}>
+      {renderExperimentSection(similarProcesses, 'Similar', 'similar')}
       {renderExperimentSection(runningProcesses, 'Running', 'running')}
       {renderExperimentSection(finishedProcesses, 'Finished', 'finished', runningProcesses.length > 0 ? 32 : 0)}
     </div>
