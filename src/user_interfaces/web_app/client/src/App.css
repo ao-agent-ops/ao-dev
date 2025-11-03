@@ -11,7 +11,7 @@ html, body {
 :root {
   --background-color: #f3f4f6;
   --text-color: #111;
-  --sidebar-bg: #f3f4f6;
+  --sidebar-bg: #F0F0F0;
   --sidebar-border: #ccc;
   --button-bg: #fff;
   --button-border: #ccc;
@@ -25,7 +25,7 @@ html, body {
 .dark {
   --background-color: #1a1a1a;
   --text-color: #e5e5e5;
-  --sidebar-bg: #2b2b2b;
+  --sidebar-bg: #252525;
   --sidebar-border: #444;
   --button-bg: #333;
   --button-border: #555;
