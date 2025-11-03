@@ -1,0 +1,150 @@
+name: Deploy multi-container to AWS ECR
+
+on:
+  push:
+    branches:
+      - webapp-prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      VITE_LOGIN_PASSWORD_HASH: ${{ secrets.VITE_LOGIN_PASSWORD_HASH }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker images to ECR
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          VITE_LOGIN_PASSWORD_HASH: ${{ secrets.VITE_LOGIN_PASSWORD_HASH }}
+          VITE_APP_WS_URL: ${{ secrets.VITE_APP_WS_URL }}
+        run: |
+          # FRONTEND
+          docker build --no-cache -f docker/frontend.Dockerfile --build-arg VITE_LOGIN_PASSWORD_HASH=$VITE_LOGIN_PASSWORD_HASH --build-arg VITE_APP_WS_URL=$VITE_APP_WS_URL -t $ECR_REGISTRY/workflow-extension-frontend:latest .
+          docker push $ECR_REGISTRY/workflow-extension-frontend:latest
+
+          # BACKEND
+          docker build --no-cache -f docker/backend.Dockerfile \
+            -t $ECR_REGISTRY/workflow-extension-backend:latest .
+          docker push $ECR_REGISTRY/workflow-extension-backend:latest
+
+          # PROXY
+          docker build --no-cache -f docker/proxy.Dockerfile \
+            -t $ECR_REGISTRY/workflow-extension-proxy:latest .
+          docker push $ECR_REGISTRY/workflow-extension-proxy:latest
+
+          echo "✅ All images pushed to ECR."
+
+      - name: Deploy to EC2 via SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          # Save SSH key to temporary file
+          echo "$EC2_SSH_KEY" > ec2_key.pem
+          chmod 600 ec2_key.pem
+
+          # Connect to EC2 and deploy backend and proxy
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem $EC2_USER@$EC2_HOST << EOF
+            set -e
+            
+            # Export environment variables
+            export ECR_REGISTRY="$ECR_REGISTRY"
+            export OPENAI_API_KEY="$OPENAI_API_KEY"
+            
+            # Login to ECR
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin \$ECR_REGISTRY
+            
+            # Navigate to working directory
+            cd ~/workflow-extension || mkdir -p ~/workflow-extension && cd ~/workflow-extension
+            
+            # Create or update docker-compose.prod.yml
+            cat > docker-compose.prod.yml << 'COMPOSE'
+          version: '3.8'
+
+          services:
+            backend:
+              image: \${ECR_REGISTRY}/workflow-extension-backend:latest
+              container_name: workflow-backend
+              ports:
+                - "5959:5959"
+              environment:
+                - HOST=0.0.0.0
+                - PORT=5959
+                - OPENAI_API_KEY=\${OPENAI_API_KEY}
+              restart: unless-stopped
+              networks:
+                - app-network
+
+            proxy:
+              image: \${ECR_REGISTRY}/workflow-extension-proxy:latest
+              container_name: workflow-proxy
+              ports:
+                - "4000:4000"
+              environment:
+                - WS_PORT=4000
+                - PYTHON_PORT=5959
+                - PYTHON_HOST=backend
+              depends_on:
+                - backend
+              restart: unless-stopped
+              networks:
+                - app-network
+
+          networks:
+            app-network:
+              driver: bridge
+          COMPOSE
+            
+            # Create .env file with environment variables
+            cat > .env << ENVFILE
+          ECR_REGISTRY=\$ECR_REGISTRY
+          OPENAI_API_KEY=\$OPENAI_API_KEY
+          ENVFILE
+            
+            # Pull new images from ECR
+            docker-compose -f docker-compose.prod.yml pull
+            
+            # Stop and remove existing containers
+            docker-compose -f docker-compose.prod.yml down || true
+            
+            # Stop ALL running containers to free up ports
+            docker stop \$(docker ps -q) 2>/dev/null || true
+            
+            # Remove all stopped containers
+            docker container prune -f || true
+            
+            # Kill any process using ports 5959 and 4000 (with sudo)
+            sudo fuser -k 5959/tcp 2>/dev/null || true
+            sudo fuser -k 4000/tcp 2>/dev/null || true
+            
+            # Wait a moment for ports to be released
+            sleep 2
+            
+            # Restart services with new images
+            docker-compose -f docker-compose.prod.yml up -d --force-recreate
+            
+            # Clean up old images
+            docker image prune -f
+            
+            echo "✅ Backend and Proxy deployed on EC2."
+          EOF
+
+          # Clean up temporary SSH key
+          rm -f ec2_key.pem

@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef} from "react";
+import { useEffect, useState, useRef } from "react";
+import { LoginScreen } from "./LoginScreen";
 import "./App.css";
 import type { GraphNode, GraphEdge, ProcessInfo } from "../../../shared_components/types";
 import { GraphView } from "../../../shared_components/components/graph/GraphView";
@@ -26,7 +27,9 @@ interface WSMessage {
   session_id?: string;
 }
 
+
 function App() {
+  const [authenticated, setAuthenticated] = useState(false);
   const [experiments, setExperiments] = useState<ProcessInfo[]>([]);
   const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
@@ -64,7 +67,17 @@ function App() {
   };
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:4000");
+    if (!authenticated) return;
+    // Permitir definir la URL del WebSocket por variable de entorno
+    const wsUrl = import.meta.env.VITE_APP_WS_URL || (() => {
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsHost = window.location.hostname === "localhost"
+        ? "localhost:4000"
+        : window.location.host;
+      return `${wsProtocol}//${wsHost}/ws`;
+    })();
+
+    const socket = new WebSocket(wsUrl);
     setWs(socket);
 
     socket.onopen = () => console.log("Connected to backend");
@@ -79,7 +92,7 @@ function App() {
     };
 
     return () => socket.close();
-  }, []);
+  }, [authenticated]);
 
   const handleNodeUpdate = (nodeId: string, field: keyof GraphNode, value: string) => {
     if (selectedExperiment && ws) {
@@ -132,6 +145,10 @@ function App() {
   
   const running = sortedExperiments.filter((e) => e.status === "running");
   const finished = sortedExperiments.filter((e) => e.status === "finished");
+
+  if (!authenticated) {
+    return <LoginScreen onSuccess={() => setAuthenticated(true)} />;
+  }
 
   return (
     <div className={`app-container ${isDarkTheme ? 'dark' : ''}`}>

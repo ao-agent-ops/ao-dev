@@ -3,10 +3,14 @@ from enum import Enum
 import os
 from pathlib import Path
 import random
-import readline
+try:
+    import readline
+except ImportError:
+    import pyreadline3 as readline
 import string
 from typing import Any, Callable, Optional, Union
 import yaml
+
 
 from aco.common.logger import logger
 

@@ -668,3 +668,6 @@ class DevelopServer:
         finally:
             self.server_sock.close()
             logger.info("Develop server stopped.")
+
+if __name__ == "__main__":
+    DevelopServer().run_server()

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ${ECR_REGISTRY}/workflow-extension-backend:latest
+    container_name: workflow-backend
+    ports:
+      - "5959:5959"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5959
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  proxy:
+    image: ${ECR_REGISTRY}/workflow-extension-proxy:latest
+    container_name: workflow-proxy
+    ports:
+      - "4000:4000"
+    environment:
+      - WS_PORT=4000
+      - PYTHON_PORT=5959
+      - PYTHON_HOST=backend
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

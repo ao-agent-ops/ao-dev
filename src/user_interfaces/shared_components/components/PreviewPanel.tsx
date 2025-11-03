@@ -1,7 +1,12 @@
+
 import * as React from 'react';
-import { Worker, Viewer } from '@react-pdf-viewer/core';
-import '@react-pdf-viewer/core/lib/styles/index.css';
 import mammoth from 'mammoth';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+// Configurar worker para react-pdf
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 export type PreviewPanelProps = {
   fileName: string;
@@ -39,21 +44,20 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({ fileType, fileData }
   }, [fileType, fileData]);
 
   if (fileType === 'pdf') {
-    // fileData must be a base64 string
+    // fileData must be a base64 string o Uint8Array
     let pdfUrl = '';
     if (typeof fileData === 'string') {
       pdfUrl = `data:application/pdf;base64,${fileData}`;
     } else {
-      // Create a new Uint8Array to ensure we have an ArrayBuffer, not a SharedArrayBuffer
       const dataArray = new Uint8Array(fileData);
       const blob = new Blob([dataArray], { type: 'application/pdf' });
       pdfUrl = URL.createObjectURL(blob);
     }
     return (
       <div style={{ height: '100vh' }}>
-        <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
-          <Viewer fileUrl={pdfUrl} />
-        </Worker>
+        <Document file={pdfUrl} loading={<div>Loading PDF...</div>}>
+          <Page pageNumber={1} width={800} />
+        </Document>
       </div>
     );
   }
