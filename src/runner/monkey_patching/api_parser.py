@@ -524,17 +524,8 @@ def _get_model_mcp_client_session_call_tool(
 
 
 def _get_output_mcp_client_session_call_tool(response_obj: Any) -> str:
-    # response_obj is of type mcp.types.CallToolResult
-    # has a field called .content of type list[ContentBlock]
-    # need to iterate over it, sep. by \n\n
-    # Each ContentBlock can be TextContent | ImageContent | AudioContent | ResourceLink | EmbeddedResource
-    # TextContent has .text field
-    # ImageContent has .data which is base64 str
-    # AudioContent has .data which is base64 str
-    # ResourceLink has uri (has __str__ method), description (str), mimeType [str | None], and size (int)
-    # EmbeddedResource has type (str), resource (TextResourceContents | BlobResourceContents)
-    #   TextResourceContents has .text (str) field
-    #   BlobResourceContents has .blob (str) field
+    """Extract output in MCP call tool and serialize to JSON for reversibility"""
+    import json
     from mcp.types import (
         ContentBlock,
         CallToolResult,
@@ -546,36 +537,134 @@ def _get_output_mcp_client_session_call_tool(response_obj: Any) -> str:
     )
 
     response_obj: CallToolResult
-    final_output = ""
+    content_list = []
+
     content: ContentBlock
-    for idx, content in enumerate(response_obj.content):
-        if idx > 0:
-            final_output += "\n\n"
-
+    for content in response_obj.content:
         if isinstance(content, TextContent):
-            final_output += content.text
+            content_list.append({"type": "TextContent", "data": {"text": content.text}})
         elif isinstance(content, ImageContent):
-            final_output += f"[Image: base64 data length {len(content.data)}]"
+            content_list.append(
+                {
+                    "type": "ImageContent",
+                    "data": {"data": content.data, "mimeType": content.mimeType},
+                }
+            )
         elif isinstance(content, AudioContent):
-            final_output += f"[Audio: base64 data length {len(content.data)}]"
+            content_list.append(
+                {
+                    "type": "AudioContent",
+                    "data": {"data": content.data, "mimeType": content.mimeType},
+                }
+            )
         elif isinstance(content, ResourceLink):
-            final_output += f"[Resource Link: {content.uri}"
-            if content.description:
-                final_output += f" - {content.description}"
-            if content.mimeType:
-                final_output += f" ({content.mimeType})"
-            final_output += f" - {content.size} bytes]"
+            content_list.append(
+                {
+                    "type": "ResourceLink",
+                    "data": {
+                        "name": content.name,
+                        "uri": str(content.uri),
+                        "description": content.description,
+                        "mimeType": content.mimeType,
+                        "size": content.size,
+                    },
+                }
+            )
         elif isinstance(content, EmbeddedResource):
-            final_output += f"[Embedded Resource: {content.type} - "
+            resource_data = {}
             if hasattr(content.resource, "text"):
-                final_output += content.resource.text
+                resource_data = {"type": "TextResourceContents", "text": content.resource.text}
             elif hasattr(content.resource, "blob"):
-                final_output += f"blob data length {len(content.resource.blob)}"
-            final_output += "]"
-        else:
-            final_output += f"[Unknown content type: {type(content)}]"
+                resource_data = {"type": "BlobResourceContents", "blob": content.resource.blob}
 
-    return final_output
+            content_list.append(
+                {
+                    "type": "EmbeddedResource",
+                    "data": {"type": content.type, "resource": resource_data},
+                }
+            )
+        else:
+            content_list.append({"type": "Unknown", "data": {"type_name": str(type(content))}})
+
+    return json.dumps({"content": content_list}, indent=4)
+
+
+def _set_input_mcp_client_session_call_tool(
+    input_dict: Dict[str, Any], new_input_text: str
+) -> None:
+    """Set new input text in MCP input."""
+    import ast
+
+    input_dict["arguments"] = ast.literal_eval(new_input_text)
+
+
+def _set_output_mcp_client_session_call_tool(original_output_obj: Any, output_text: str) -> None:
+    """Set new output text in MCP response by deserializing JSON back to MCP objects."""
+    import json
+    from mcp.types import (
+        TextContent,
+        ImageContent,
+        AudioContent,
+        ResourceLink,
+        EmbeddedResource,
+        TextResourceContents,
+        BlobResourceContents,
+    )
+
+    try:
+        data = json.loads(output_text)
+        new_content = []
+
+        for item in data.get("content", []):
+            content_type = item.get("type")
+            content_data = item.get("data", {})
+
+            if content_type == "TextContent":
+                new_content.append(TextContent(type="text", text=content_data["text"]))
+            elif content_type == "ImageContent":
+                new_content.append(
+                    ImageContent(
+                        type="image",
+                        data=content_data["data"],
+                        mimeType=content_data.get("mimeType", "image/png"),
+                    )
+                )
+            elif content_type == "AudioContent":
+                new_content.append(
+                    AudioContent(
+                        type="audio",
+                        data=content_data["data"],
+                        mimeType=content_data.get("mimeType", "audio/wav"),
+                    )
+                )
+            elif content_type == "ResourceLink":
+                new_content.append(
+                    ResourceLink(
+                        type="resource_link",
+                        name=content_data.get("name", "resource"),
+                        uri=content_data["uri"],
+                        description=content_data.get("description"),
+                        mimeType=content_data.get("mimeType"),
+                        size=content_data["size"],
+                    )
+                )
+            elif content_type == "EmbeddedResource":
+                resource_data = content_data.get("resource", {})
+                resource_type = resource_data.get("type")
+
+                if resource_type == "TextResourceContents":
+                    resource = TextResourceContents(text=resource_data["text"])
+                elif resource_type == "BlobResourceContents":
+                    resource = BlobResourceContents(blob=resource_data["blob"])
+                else:
+                    continue
+
+                new_content.append(EmbeddedResource(type=content_data["type"], resource=resource))
+
+        original_output_obj.content = new_content
+
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise ValueError(f"Failed to deserialize MCP output: {e}")
 
 
 # ===============================================
@@ -629,6 +718,8 @@ def set_input(input_dict: Dict[str, Any], new_input_text: str, api_type: str) ->
         return _set_input_together_resources_chat_completions_ChatCompletions_create(
             input_dict, new_input_text
         )
+    elif api_type == "MCP.ClientSession.call_tool":
+        return _set_input_mcp_client_session_call_tool(input_dict, new_input_text)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -677,6 +768,8 @@ def set_output(original_output_obj: Any, new_output_text: str, api_type):
         return _set_output_together_resources_chat_completions_ChatCompletions_create(
             original_output_obj, new_output_text
         )
+    elif api_type == "MCP.ClientSession.call_tool":
+        return _set_output_mcp_client_session_call_tool(original_output_obj, new_output_text)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
