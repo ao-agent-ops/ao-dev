@@ -49,11 +49,7 @@ def patch_client_models_generate_content(models_instance):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = original_function(**input_to_use)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = original_function(**input_to_use)
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.

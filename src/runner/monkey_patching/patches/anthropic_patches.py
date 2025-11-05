@@ -54,11 +54,7 @@ def patch_anthropic_messages_create(messages_instance):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = original_function(**input_to_use)  # Call LLM.
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = original_function(**input_to_use)  # Call LLM.
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.

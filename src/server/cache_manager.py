@@ -117,6 +117,7 @@ class CacheManager:
                     "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
                     (session_id, input_pickle, input_hash, node_id, api_type),
                 )
+            set_seed(node_id)
             return input_dict, None, node_id
 
         logger.debug(

@@ -62,11 +62,7 @@ def patch_openai_responses_create(responses):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = original_function(**input_to_use)  # Call LLM.
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = original_function(**input_to_use)  # Call LLM.
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.
@@ -114,11 +110,7 @@ def patch_openai_chat_completions_create(completions):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = original_function(**input_to_use)  # Call LLM.
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = original_function(**input_to_use)  # Call LLM.
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.
@@ -387,11 +379,7 @@ def patch_async_openai_responses_create(responses):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = await original_function(**input_to_use)  # Call LLM.
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = await original_function(**input_to_use)  # Call LLM.
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.
@@ -492,11 +480,7 @@ def patch_async_openai_chat_completions_create(completions):
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = await original_function(**input_to_use)  # Call LLM.
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = await original_function(**input_to_use)  # Call LLM.
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this LLM call happened.

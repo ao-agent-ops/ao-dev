@@ -55,11 +55,7 @@ def patch_mcp_call_tool(session_instance):
         # 4. Get result from cache or call tool.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
-            try:
-                result = await original_function(*args, **kwargs)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
+            result = await original_function(*args, **kwargs)
             CACHE.cache_output(node_id, result)
 
         # 5. Tell server that this tool call happened.

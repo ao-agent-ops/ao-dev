@@ -74,9 +74,6 @@ def patch_BaseChatModel_invoke(base_chat_model_class):
                 }
                 result = original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -134,9 +131,6 @@ def patch_BaseLanguageModel_generate(base_language_model_class):
                 }
                 result = original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -194,9 +188,6 @@ def patch_BaseLanguageModel_generate_prompt(base_language_model_class):
                 }
                 result = original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -256,9 +247,6 @@ def patch_BaseChatModel_generate(base_chat_model_class):
                 }
                 result = original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -316,9 +304,6 @@ def patch_BaseChatModel_ainvoke(base_chat_model_class):
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -376,9 +361,6 @@ def patch_BaseLanguageModel_agenerate(base_language_model_class):
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -436,9 +418,6 @@ def patch_BaseLanguageModel_agenerate_prompt(base_language_model_class):
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -498,9 +477,6 @@ def patch_BaseChatModel_agenerate(base_chat_model_class):
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
                 CACHE.cache_output(node_id, result)
-            except Exception as e:
-                set_seed(node_id)
-                raise e
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
