@@ -3,7 +3,6 @@ from io import BytesIO
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from aco.server.cache_manager import CACHE
 from aco.common.logger import logger
-from aco.common.utils import set_seed
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 
@@ -298,11 +297,7 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
 
         # 4. Always call the LLM (no caching for runs since they're stateful)
         _, _, node_id = CACHE.get_in_out(input_obj, api_type, cache=False)
-        try:
-            run_result = original_function(**input_dict)  # Call LLM.
-        except Exception as e:
-            set_seed(node_id)
-            raise e
+        run_result = original_function(**input_dict)  # Call LLM.
 
         # Get the actual message result for the server reporting
         message_result = client.beta.threads.messages.list(thread_id=thread_id).data[0]
@@ -610,11 +605,7 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
 
-        try:
-            result = await original_function(**input_dict)  # Call LLM.
-        except Exception as e:
-            set_seed(node_id)
-            raise e
+        result = await original_function(**input_dict)  # Call LLM.
         # CACHE.cache_output(node_id, result)
 
         # 4. Get actual, ultimate response.

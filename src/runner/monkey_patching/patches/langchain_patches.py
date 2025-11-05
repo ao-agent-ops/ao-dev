@@ -8,7 +8,6 @@ from aco.runner.monkey_patching.patching_utils import (
 )
 from aco.server.cache_manager import CACHE
 from aco.common.logger import logger
-from aco.common.utils import set_seed
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 
