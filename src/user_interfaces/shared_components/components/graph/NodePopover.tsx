@@ -36,7 +36,7 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
         position: 'absolute',
         top: top !== undefined ? top : undefined,
         left: left !== undefined ? left : undefined,
-        transform: 'translate(-50%, 0)',
+        transform: position === 'above' ? 'translate(-50%, 21px)' : 'translate(-50%, 0)', // Adjust for arrow height
         background: popoverBg,
         border: `1px solid ${popoverBorder}`,
         borderRadius: '8px',
