@@ -34,7 +34,6 @@
       "type": "debugpy",
       "request": "launch",
       "module": "cli.aco_launch",
-      // "args": ["./example_workflows/test_coroutine_taint_issue.py"],
       "args": ["./example_workflows/miroflow_deep_research/single_task.py"],
       // "args": ["./example_workflows/debug_examples/patch_debug.py"],
       // "args": ["./example_workflows/debug_examples/openai_add_numbers.py"],
