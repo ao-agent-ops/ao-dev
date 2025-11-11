@@ -125,3 +125,7 @@ ACO_ATTACHMENT_CACHE = os.path.expandvars(
     )
 )
 os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
+
+# Path to the agent-copilot installation directory
+# Computed from this file's location: aco/common/constants.py -> agent-copilot/
+ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

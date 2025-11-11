@@ -35,6 +35,7 @@ from dill import PicklingError, dumps
 from inspect import getsourcefile, iscoroutinefunction
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
 from aco.server.db import hash_input
+from aco.common.utils import get_aco_py_files
 
 
 def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = None):
@@ -243,6 +244,8 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         """
         self.module_to_file = module_to_file or {}
         self.user_py_files = [*module_to_file.values()]
+        # also include all files in agent-copilot
+        self.user_py_files.extend(get_aco_py_files())
         self.current_file = current_file
         self.needs_taint_imports = False  # Track if we need to inject imports
         # Extract the root directory from current_file if available
@@ -565,9 +568,9 @@ except ImportError:
         return tree
 
 
-def _is_user_function_or_builtin(func, user_py_files=None):
+def _is_user_function(func, user_py_files=None):
     """
-    Determine if a function is builtin or user code, including decorated user functions.
+    Determine if a function user code, including decorated user functions.
 
     This function handles the common case where user functions are wrapped by
     third-party decorators (like @retry, @cache, etc.) which makes getsourcefile()
@@ -585,9 +588,6 @@ def _is_user_function_or_builtin(func, user_py_files=None):
     Returns:
         bool: True if this is user code, False if third-party
     """
-    # if isbuiltin(func):
-    #     return True
-
     if not user_py_files:
         # there are no user files and not builtin, must be 3rd party
         return False
@@ -670,7 +670,7 @@ def exec_func(func, args, kwargs, user_py_files=None):
 
         async def wrapper():
             # Check if this function is actually user code (including decorated user functions)
-            if _is_user_function_or_builtin(func, user_py_files):
+            if _is_user_function(func, user_py_files):
                 # This is a builtin function like l.append which we want to call normally
                 # or this is user code (potentially decorated) - call normally without taint wrapping
                 return await func(*args, **kwargs)
@@ -745,7 +745,7 @@ def exec_func(func, args, kwargs, user_py_files=None):
         return wrapper()
 
     # Check if this function is actually user code (including decorated user functions)
-    if _is_user_function_or_builtin(func, user_py_files):
+    if _is_user_function(func, user_py_files):
         # This is a builtin function like l.append which we want to call normally
         # or this is user code (potentially decorated) - call normally without taint wrapping
         return func(*args, **kwargs)

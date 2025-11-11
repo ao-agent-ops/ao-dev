@@ -6,12 +6,36 @@ import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
+from aco.common.constants import ACO_INSTALL_DIR
 
 
 def set_seed(node_id: str) -> None:
     """Set the seed based on the node_id."""
     seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)
     random.seed(seed)
+
+
+def get_aco_py_files():
+    """
+    Get a list of all .py files in the ACO_INSTALL_DIR.
+
+    Returns:
+        list: List of absolute paths to all Python files in the agent-copilot directory
+    """
+    py_files = []
+
+    # Standard directories to exclude
+    exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache"}
+
+    for dirpath, dirnames, filenames in os.walk(ACO_INSTALL_DIR, followlinks=True):
+        # Remove excluded directories from dirnames to prevent os.walk from entering them
+        dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+
+        for filename in filenames:
+            if filename.endswith(".py"):
+                py_files.append(os.path.join(dirpath, filename))
+
+    return py_files
 
 
 def is_valid_mod(mod_name: str):
@@ -34,17 +58,14 @@ def scan_user_py_files_and_modules(root_dir):
     file_to_module = dict()
     module_to_file = dict()
 
-    # Infer agent-copilot directory from this file's location
-    agent_copilot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
     # Standard directories to exclude
     exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules"}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # Check if we're inside agent-copilot directory
-        if os.path.commonpath([dirpath, agent_copilot_dir]) == agent_copilot_dir:
+        if os.path.commonpath([dirpath, ACO_INSTALL_DIR]) == ACO_INSTALL_DIR:
             # We're inside agent-copilot, only include example_workflows
-            rel_to_agent = os.path.relpath(dirpath, agent_copilot_dir)
+            rel_to_agent = os.path.relpath(dirpath, ACO_INSTALL_DIR)
             if not rel_to_agent.startswith("example_workflows"):
                 continue
 
