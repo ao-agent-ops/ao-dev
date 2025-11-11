@@ -3,15 +3,8 @@
 import pytest
 import os
 import tempfile
-
 from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
-
-# Add parent directory to path for test utils import
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from test_utils import cleanup_taint_db
+from ...utils import cleanup_taint_db
 
 
 class TestTaintFile:

@@ -2,6 +2,7 @@ import sys
 import os
 import socket
 import json
+import random
 import threading
 import subprocess
 import time
@@ -527,6 +528,11 @@ class DevelopShim:
 
     def run(self) -> None:
         """Main entry point to run the develop shim."""
+        if not os.environ.get("ACO_SEED", None):
+            aco_random_seed = random.randint(0, 2**31 - 1)
+            logger.debug(f"ACO_SEED not set, setting to {aco_random_seed}")
+            os.environ["ACO_SEED"] = str(aco_random_seed)
+
         # Ensure server is running and connect to it
         ensure_server_running()
         self._connect_to_server()

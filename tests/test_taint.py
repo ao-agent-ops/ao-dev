@@ -71,7 +71,7 @@ class TaintTestLauncher:
 
         # Use the generic test case runner, passing the module name as argument
         cmd = [
-            "develop",
+            "aco-launch",
             "--project-root",
             str(self.project_root),
             "-m",
@@ -195,22 +195,22 @@ launcher = TaintTestLauncher()
 def collect_all_test_cases():
     """Collect metadata about all test cases without running them."""
     test_cases = []
-    
+
     # Discover test modules
     test_modules = launcher.discover_test_modules()
-    
+
     for module_name in test_modules:
         # For each module, we'll assume certain standard test names
         # This is a workaround since we can't import the modules at collection time
         # (they need AST transformation via develop)
         module_short_name = module_name.split(".")[-1].replace("_test_cases", "")
-        
+
         # Add placeholders for common test patterns
         # These will be validated when actually run
         test_cases.append((module_name, f"test_basic_{module_short_name}"))
         test_cases.append((module_name, f"test_complex_{module_short_name}"))
         test_cases.append((module_name, f"test_edge_cases_{module_short_name}"))
-    
+
     return test_cases
 
 
@@ -218,22 +218,23 @@ def collect_all_test_cases():
 # This approach creates individual pytest test items that can be selected/filtered
 def create_individual_test(module_name, test_name):
     """Create a test function for a specific test case."""
+
     def test_func():
         print(f"\\nRunning individual test: {module_name}::{test_name}")
-        
+
         # Start server if needed
         launcher.start_server_if_needed()
-        
+
         # Run just this specific test
         results = launcher.run_test_module_via_develop(module_name)
-        
+
         if test_name in results:
             result = results[test_name]
             _assert_test_result(f"{module_name}::{test_name}", result)
         else:
             # Test doesn't exist in this module, skip
             pytest.skip(f"Test {test_name} not found in {module_name}")
-    
+
     # Set a meaningful name for the test function
     test_func.__name__ = f"test_{module_name.split('.')[-1]}_{test_name}"
     return test_func
@@ -280,7 +281,7 @@ def _report_batch_results(results, show_individual=False):
         print("\\n" + "=" * 60)
         print("INDIVIDUAL TEST RESULTS:")
         print("=" * 60)
-        
+
         # Group tests by module for better organization
         tests_by_module = {}
         for test_name, result in results.items():
@@ -294,11 +295,11 @@ def _report_batch_results(results, show_individual=False):
                     module_name = module_part
             else:
                 module_name = "unknown"
-            
+
             if module_name not in tests_by_module:
                 tests_by_module[module_name] = []
             tests_by_module[module_name].append((test_name, result))
-        
+
         # Print results grouped by module
         for module_name in sorted(tests_by_module.keys()):
             print(f"\\n{module_name}:")
@@ -306,7 +307,7 @@ def _report_batch_results(results, show_individual=False):
                 status = result.get("status", "unknown")
                 # Extract just the test function name for cleaner display
                 display_name = test_name.split("::")[-1] if "::" in test_name else test_name
-                
+
                 if status == "passed":
                     print(f"  ✅ {display_name}")
                 elif status == "failed":
@@ -381,7 +382,7 @@ def get_all_test_ids():
     """Get test IDs for parametrization."""
     # Run all tests once and cache results
     results = launcher.run_all_test_modules()
-    
+
     # Extract test IDs
     test_ids = []
     for test_id in sorted(results.keys()):
@@ -394,7 +395,7 @@ def get_all_test_ids():
         else:
             clean_id = test_id
         test_ids.append(clean_id)
-    
+
     return test_ids
 
 
@@ -403,11 +404,11 @@ def test_taint_case_parametrized(test_id):
     """Run individual taint test case (parametrized version)."""
     # Get cached results
     results = launcher.run_all_test_modules()
-    
+
     # Find the full test ID that matches our clean ID
     matching_result = None
     matching_key = None
-    
+
     for full_id, result in results.items():
         if "::" in full_id:
             parts = full_id.split("::")
@@ -422,7 +423,7 @@ def test_taint_case_parametrized(test_id):
             matching_result = result
             matching_key = full_id
             break
-    
+
     if matching_result:
         _assert_test_result(matching_key or test_id, matching_result)
     else:

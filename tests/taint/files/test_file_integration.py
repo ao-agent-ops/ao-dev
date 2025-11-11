@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """Test file object integration with taint tracking."""
 
-import sys
 import os
 import tempfile
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-
 from aco.runner.taint_wrappers import (
     TaintFile,
     taint_wrap,

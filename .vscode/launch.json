@@ -10,8 +10,17 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "justMyCode": false
+      "justMyCode": false,
+      "purpose": ["debug-test", "debug-in-terminal"]
     },
+    // {
+    //   "name": "Python: Testing",
+    //   "type": "debugpy",
+    //   "request": "launch",
+    //   "program": "${file}",
+    //   "console": "integratedTerminal",
+    //   "justMyCode": false,
+    // },
     {
       "name": "aco-config",
       "type": "debugpy",

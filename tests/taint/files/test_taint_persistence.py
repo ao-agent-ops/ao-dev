@@ -8,11 +8,6 @@ This script demonstrates:
 """
 
 import os
-import sys
-
-# Add src to path to import our modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
-
 from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins
 
 
