@@ -237,3 +237,6 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # sim link
 aco
+
+# Claude local
+CLAUDE.local.md
