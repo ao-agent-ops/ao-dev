@@ -226,10 +226,6 @@ src/static_analysis/CodeQL-Analyst/databases
 **/human-eval/data
 **/human-eval/outputs
 
-# Claude code
-**/.claude
-**/CLAUDE.local.md
-
 # Bird
 **/ours_bird/llm/data
 
