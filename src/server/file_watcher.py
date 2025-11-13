@@ -65,7 +65,8 @@ class FileWatcher:
 
     def _needs_recompilation(self, file_path: str) -> bool:
         """
-        Check if a file needs recompilation based on modification time or missing .pyc file.
+        Check if a file needs recompilation based on modification time, missing .pyc file,
+        or if the .pyc file wasn't created by our AST transformer.
 
         Args:
             file_path: Path to the source file
@@ -80,6 +81,12 @@ class FileWatcher:
             # Check if .pyc file exists
             pyc_path = get_pyc_path(file_path)
             if not os.path.exists(pyc_path):
+                return True
+
+            # Check if the .pyc file was created by our AST transformer
+            from aco.server.ast_transformer import is_pyc_rewritten
+            if not is_pyc_rewritten(pyc_path):
+                logger.debug(f"[FileWatcher] .pyc file {pyc_path} not rewritten, forcing recompilation")
                 return True
 
             current_mtime = os.path.getmtime(file_path)

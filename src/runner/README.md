@@ -45,7 +45,8 @@ To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we 
     - After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory.
 
 2. The user runs a script in their repo using `aco-launch script.py`. 
-   - Python sees that the script has been compiled before (there's a `.pyc` file) and loads the compiled binary --- Remember: This binary has been rewritten by the [File Watcher](/src/server/file_watcher.py) and propagates taint through third-party functions.
+   - An import hook (`ast_rewrite_hook.py`) is installed to ensure AST-rewritten `.pyc` files exist before any user module imports
+   - Python loads the compiled `.pyc` binary --- Remember: This binary has been rewritten by the [File Watcher](/src/server/file_watcher.py) and propagates taint through third-party functions.
    - We install [monkey patches](/src/runner/monkey_patching/) for relevant imports made in the script (e.g., when the user does `import OpenAI`, they import a patched version of OpenAI). These patches serve a similar purpose as the AST rewrites and transform LLM calls into: `untaint inputs -> make LLM call -> taint the output (record it was produced in this call)`
 
 3. The tainted output from the LLM call is propagated through the program using the transformed, taint-propagating code produced by the [File Watcher](/src/server/file_watcher.py). It eventually arrives at another LLM, which untaints its inputs, realizes the origin of the input and tells the server to insert an edge in the data flow graph accordingly. 
