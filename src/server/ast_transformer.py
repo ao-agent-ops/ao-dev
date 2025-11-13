@@ -784,33 +784,10 @@ def exec_func(func, args, kwargs, user_py_files=None):
         # or this is user code (potentially decorated) - call normally without taint wrapping
         return func(*args, **kwargs)
 
-    # DEBUG: Determine if this is an LLM API call
-    func_name = getattr(func, '__name__', 'unknown')
-    module_name = getattr(getattr(func, '__module__', None), '__name__', 'unknown') if hasattr(func, '__module__') else 'unknown'
-    is_llm_call = any(llm_name in module_name.lower() for llm_name in ['openai', 'anthropic', 'vertexai']) or \
-                  any(llm_name in func_name.lower() for llm_name in ['create', 'generate', 'complete'])
-    
-    # ALWAYS log this to verify the module is being loaded
-    from aco.common.logger import logger
-    logger.info(f"[AST_TRANSFORMER DEBUG] exec_func called: {func_name} from {module_name}")
-    
-    if is_llm_call:
-        logger.info(f"[EXEC_FUNC DEBUG] LLM API call detected:")
-        logger.info(f"  Function: {func}")
-        logger.info(f"  Module: {module_name}")
-        logger.info(f"  Name: {func_name}")
-        logger.info(f"  Has __self__: {hasattr(func, '__self__')}")
-        if hasattr(func, '__self__'):
-            logger.info(f"  __self__ type: {type(func.__self__)}")
-
     # Collect taint from all arguments before unwrapping
     all_origins = set()
     all_origins.update(get_taint_origins(args))
     all_origins.update(get_taint_origins(kwargs))
-
-    if is_llm_call:
-        print(f"  Taint from args: {get_taint_origins(args)}")
-        print(f"  Taint from kwargs: {get_taint_origins(kwargs)}")
 
     # If func is a bound method (or partial with a bound method), extract taint from self (__self__)
     # This handles cases like: match.expand(template) where match has taint
@@ -825,30 +802,15 @@ def exec_func(func, args, kwargs, user_py_files=None):
     if bound_self is not None:
         bound_taint = get_taint_origins(bound_self)
         all_origins.update(bound_taint)
-        if is_llm_call:
-            print(f"  Taint from bound_self: {bound_taint}")
-
-    if is_llm_call:
-        print(f"  Total collected taint (all_origins): {list(all_origins)}")
 
     # Untaint arguments for the function call
     untainted_args = untaint_if_needed(args)
     untainted_kwargs = untaint_if_needed(kwargs)
 
-    if is_llm_call:
-        print(f"  Calling function with untainted args...")
-        print(f"  Untainted args: {untainted_args}")
-        print(f"  Untainted kwargs: {list(untainted_kwargs.keys()) if untainted_kwargs else {}}")
-
     # Call the original function with untainted arguments
     bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
     result = func(*untainted_args, **untainted_kwargs)
     bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
-
-    if is_llm_call:
-        print(f"  Function returned: {type(result)}")
-        print(f"  Result taint: {get_taint_origins(result)}")
-        print(f"  Result is_tainted: {hasattr(result, '_taint_origin')}")
 
     no_side_effect = (
         bound_hash_before_func is not None
@@ -875,14 +837,8 @@ def exec_func(func, args, kwargs, user_py_files=None):
 
     # Wrap result with taint if there is any taint
     if all_origins:
-        if is_llm_call:
-            print(f"  EXEC_FUNC: Adding taint to result from all_origins: {list(all_origins)}")
-            
         if no_side_effect:
-            wrapped_result = taint_wrap(result, taint_origin=all_origins)
-            if is_llm_call:
-                print(f"  EXEC_FUNC: No side effect - wrapped result taint: {get_taint_origins(wrapped_result)}")
-            return wrapped_result
+            return taint_wrap(result, taint_origin=all_origins)
 
         # need to taint bound object (if any) as well
         # we need to use inplace because you cannot assign __self__ of
@@ -892,13 +848,7 @@ def exec_func(func, args, kwargs, user_py_files=None):
         elif hasattr(func, "func") and hasattr(func.func, "__self__"):
             taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
         
-        wrapped_result = taint_wrap(result, taint_origin=all_origins)
-        if is_llm_call:
-            print(f"  EXEC_FUNC: With side effects - final wrapped result taint: {get_taint_origins(wrapped_result)}")
-            print(f"  EXEC_FUNC: Final result type: {type(wrapped_result)}")
-        return wrapped_result
+        return taint_wrap(result, taint_origin=all_origins)
 
     # If no taint, return result unwrapped
-    if is_llm_call:
-        print(f"  EXEC_FUNC: No taint detected - returning unwrapped result")
     return result

@@ -104,9 +104,6 @@ class CacheManager:
         )
 
         if row is None:
-            logger.debug(
-                f"\033[95mCache MISS.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
-            )
             # Insert new row with a new node_id. reset randomness to avoid
             #   generating exact same UUID when re-running, but MCP generates randomness and we miss cache
             random.seed()
