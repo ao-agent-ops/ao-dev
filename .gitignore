@@ -193,7 +193,7 @@ configs/
 
 # VS Code extension
 node_modules/
-src/user_interfaces/dist
+dist/
 
 # Our DB
 *.sqlite3
@@ -226,10 +226,6 @@ src/static_analysis/CodeQL-Analyst/databases
 **/human-eval/data
 **/human-eval/outputs
 
-# Claude code
-**/.claude
-**/Claude.md
-
 # Bird
 **/ours_bird/llm/data
 
@@ -238,3 +234,9 @@ src/static_analysis/CodeQL-Analyst/databases
 
 # VS Code extension builds
 *.vsix
+
+# sim link
+aco
+
+# Claude local
+CLAUDE.local.md

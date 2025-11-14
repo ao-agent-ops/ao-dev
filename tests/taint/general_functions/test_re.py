@@ -1,15 +1,10 @@
 import re
 import sys
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins
+from ...utils import with_ast_rewriting
 
 
-def test_basic_setup():
-    """Test that we can import and apply patches without errors."""
-    print("Testing basic setup...")
-
-    print("✓ Patches applied successfully")
-
-
+@with_ast_rewriting
 def test_pattern_search():
     """Test Pattern.search() with tainted strings."""
     print("Testing Pattern.search()...")
@@ -32,6 +27,7 @@ def test_pattern_search():
     print(f"✓ Pattern.search() returned tainted group: {group}")
 
 
+@with_ast_rewriting
 def test_re_search():
     """Test module-level re.search() with tainted strings."""
     print("Testing re.search()...")
@@ -49,6 +45,7 @@ def test_re_search():
     print(f"✓ re.search() returned tainted group: {group}")
 
 
+@with_ast_rewriting
 def test_findall():
     """Test findall() with tainted strings."""
     print("Testing findall()...")
@@ -70,6 +67,7 @@ def test_findall():
     print(f"✓ findall() returned tainted results: {results}")
 
 
+@with_ast_rewriting
 def test_split():
     """Test split() with tainted strings."""
     print("Testing split()...")
@@ -89,6 +87,7 @@ def test_split():
     print(f"✓ split() returned tainted parts: {results}")
 
 
+@with_ast_rewriting
 def test_sub():
     """Test sub() with tainted strings."""
     print("Testing sub()...")
@@ -108,6 +107,7 @@ def test_sub():
     print(f"✓ sub() returned tainted result: {result}")
 
 
+@with_ast_rewriting
 def test_groups():
     """Test Match.groups() with tainted strings."""
     print("Testing Match.groups()...")
@@ -133,6 +133,7 @@ def test_groups():
     print(f"✓ groups() returned tainted groups: {groups}")
 
 
+@with_ast_rewriting
 def test_groupdict():
     """Test Match.groupdict() with tainted strings."""
     print("Testing Match.groupdict()...")
@@ -156,6 +157,7 @@ def test_groupdict():
     print(f"✓ groupdict() returned tainted groups: {[(k, v) for k, v in groupdict.items()]}")
 
 
+@with_ast_rewriting
 def test_isinstance_compatibility():
     """Test that Match objects still pass isinstance checks."""
     print("Testing isinstance compatibility...")
@@ -171,6 +173,7 @@ def test_isinstance_compatibility():
     print("✓ Match objects preserve isinstance compatibility")
 
 
+@with_ast_rewriting
 def test_complex_patterns():
     """Test complex regex patterns with multiple nested groups."""
     print("Testing complex patterns...")
@@ -198,6 +201,7 @@ def test_complex_patterns():
     print(f"✓ Complex pattern with {len(all_groups)} groups all properly tainted")
 
 
+@with_ast_rewriting
 def test_empty_and_none_cases():
     """Test edge cases with empty matches and None values."""
     print("Testing empty and None cases...")
@@ -230,6 +234,7 @@ def test_empty_and_none_cases():
     print("✓ Empty and None cases handled correctly")
 
 
+@with_ast_rewriting
 def test_function_callbacks():
     """Test sub/subn with function callbacks."""
     print("Testing function callbacks...")
@@ -248,9 +253,10 @@ def test_function_callbacks():
         str(result) == "[HELLO] [WORLD] [TEST]"
     ), f"Expected '[HELLO] [WORLD] [TEST]', got '{result}'"
 
-    print(f"✓ Function callbacks work: {result.taint_repr()}")
+    print(f"✓ Function callbacks work: {result.get_raw()}")
 
 
+@with_ast_rewriting
 def test_overlapping_taint():
     """Test complex taint with overlapping areas."""
     print("Testing overlapping taint...")
@@ -272,6 +278,7 @@ def test_overlapping_taint():
     print("✓ Overlapping taint handled correctly")
 
 
+@with_ast_rewriting
 def test_nested_operations():
     """Test nested regex operations on already-tainted results."""
     print("Testing nested operations...")
@@ -299,6 +306,7 @@ def test_nested_operations():
     print("✓ Nested operations preserve taint correctly")
 
 
+@with_ast_rewriting
 def test_large_strings():
     """Test performance with large strings."""
     print("Testing large strings...")
@@ -322,6 +330,7 @@ def test_large_strings():
     print(f"✓ Large string with {len(matches)} matches processed correctly")
 
 
+@with_ast_rewriting
 def test_special_characters():
     """Test regex with special characters and unicode."""
     print("Testing special characters...")
@@ -343,6 +352,7 @@ def test_special_characters():
     print("✓ Special characters and unicode handled correctly")
 
 
+@with_ast_rewriting
 def test_compiled_vs_string_patterns():
     """Test both compiled patterns and string patterns."""
     print("Testing compiled vs string patterns...")
@@ -367,6 +377,7 @@ def test_compiled_vs_string_patterns():
     print("✓ Both string and compiled patterns work correctly")
 
 
+@with_ast_rewriting
 def test_subn_with_count():
     """Test subn function that returns count of substitutions."""
     print("Testing subn with count...")
@@ -386,9 +397,10 @@ def test_subn_with_count():
     assert count2 == 2, f"Expected 2 substitutions, got {count2}"
     assert isinstance(result2, TaintStr), "Limited subn result should be TaintStr"
 
-    print(f"✓ subn with count works: {count} substitutions, result={result.taint_repr()}")
+    print(f"✓ subn with count works: {count} substitutions, result={result.get_raw()}")
 
 
+@with_ast_rewriting
 def test_error_conditions():
     """Test error conditions and malformed inputs."""
     print("Testing error conditions...")
@@ -412,30 +424,32 @@ def test_error_conditions():
     print("✓ Error conditions handled appropriately")
 
 
+@with_ast_rewriting
 def test_expand_method():
     """Test Match.expand() method with templates."""
     print("Testing Match.expand()...")
 
-    tainted = TaintStr("Name: John, Age: 25", taint_origin=["template_data"])
-    template = TaintStr("Hello \\1, you are \\2 years old", taint_origin=["template"])
+    first = TaintStr("Name: John, Age: 25", taint_origin=["first"])
+    second = TaintStr("Hello \\1, you are \\2 years old", taint_origin=["second"])
 
     pattern = re.compile(r"Name: (\w+), Age: (\d+)")
-    match = pattern.search(tainted)
+    match = pattern.search(first)
 
-    expanded = match.expand(template)
+    expanded = match.expand(second)
     assert isinstance(expanded, TaintStr), "Expanded result should be TaintStr"
 
     # Should have taint from both original string and template
     taint_origins = set(get_taint_origins(expanded))
-    assert "template_data" in taint_origins, "Should preserve original string taint"
-    assert "template" in taint_origins, "Should preserve template taint"
+    assert "first" in taint_origins, "Should preserve original string taint"
+    assert "second" in taint_origins, "Should preserve template taint"
 
     expected = "Hello John, you are 25 years old"
     assert str(expanded) == expected, f"Expected '{expected}', got '{expanded}'"
 
-    print(f"✓ expand() works: {expanded.taint_repr()}")
+    print(f"✓ expand() works: {expanded.get_raw()}")
 
 
+@with_ast_rewriting
 def test_edge_case_scenarios():
     """Test various edge cases and corner scenarios."""
     print("Testing edge case scenarios...")
@@ -499,6 +513,7 @@ def test_edge_case_scenarios():
     print("✓ Edge case scenarios handled correctly")
 
 
+@with_ast_rewriting
 def test_pattern_match():
     """Test Pattern.match() with taint tracking."""
     print("Testing Pattern.match() taint tracking...")
@@ -518,6 +533,7 @@ def test_pattern_match():
     print(f"✓ Pattern.match() taint tracking: {group}")
 
 
+@with_ast_rewriting
 def test_pattern_fullmatch():
     """Test Pattern.fullmatch() with taint tracking."""
     print("Testing Pattern.fullmatch() taint tracking...")
@@ -558,6 +574,7 @@ def test_pattern_fullmatch():
 #     print(f"✓ Pattern.finditer() taint tracking: {len(matches)} matches")
 
 
+@with_ast_rewriting
 def test_re_match():
     """Test re.match() with taint tracking."""
     print("Testing re.match() taint tracking...")
@@ -576,6 +593,7 @@ def test_re_match():
     print(f"✓ re.match() taint tracking: {group}")
 
 
+@with_ast_rewriting
 def test_re_fullmatch():
     """Test re.fullmatch() with taint tracking."""
     print("Testing re.fullmatch() taint tracking...")
@@ -615,6 +633,7 @@ def test_re_fullmatch():
 #     print(f"✓ re.finditer() taint tracking: {len(matches)} matches")
 
 
+@with_ast_rewriting
 def test_nested_group_taint_tracking():
     """Test taint tracking with complex nested groups."""
     print("Testing nested group taint tracking...")
@@ -658,6 +677,7 @@ def test_nested_group_taint_tracking():
     print("✓ Nested group taint tracking works correctly")
 
 
+@with_ast_rewriting
 def test_overlapping_groups_taint_tracking():
     """Test taint tracking with overlapping and optional groups."""
     print("Testing overlapping groups taint tracking...")
@@ -683,6 +703,7 @@ def test_overlapping_groups_taint_tracking():
     print("✓ Overlapping groups taint tracking works correctly")
 
 
+@with_ast_rewriting
 def test_zero_width_assertions_taint_tracking():
     """Test taint tracking with zero-width assertions and lookheads."""
     print("Testing zero-width assertions taint tracking...")
@@ -714,6 +735,7 @@ def test_zero_width_assertions_taint_tracking():
     print("✓ Zero-width assertions taint tracking works correctly")
 
 
+@with_ast_rewriting
 def test_multiple_patch_calls():
     """Test that calling  multiple times doesn't break anything."""
     print("Testing multiple patch calls...")

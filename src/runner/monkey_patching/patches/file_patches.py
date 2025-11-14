@@ -120,6 +120,7 @@ def patch_builtin_open():
         file_obj = original_open(file, mode, *args, **kwargs)
 
         # Only wrap text mode files that are user files
+        # Don't wrap: binary files, system files, or library files
         if "b" not in mode and _should_wrap_file(file):
             logger.debug(f"patched_open: Wrapping user file {file} with TaintFile, mode={mode}")
 
@@ -146,10 +147,6 @@ def patch_builtin_open():
                 file_obj, mode=file_mode, taint_origin=taint_origin, session_id=session_id
             )
             return taint_file
-        else:
-            # Don't wrap: binary files, system files, or library files
-            if "b" not in mode:  # Only log for text files we're skipping
-                logger.debug(f"patched_open: Skipping system/library file {file}")
 
         # Return unwrapped file object
         return file_obj

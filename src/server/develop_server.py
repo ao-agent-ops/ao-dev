@@ -8,14 +8,16 @@ import time
 import uuid
 import subprocess
 import shlex
+import multiprocessing
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
 from aco.server import db
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
 from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
+from aco.server.file_watcher import run_file_watcher_process
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -40,7 +42,7 @@ class Session:
 class DevelopServer:
     """Manages the development server for LLM call visualization."""
 
-    def __init__(self):
+    def __init__(self, module_to_file: Optional[Dict[str, str]] = None):
         self.server_sock = None
         self.lock = threading.Lock()
         self.conn_info = {}  # conn -> {role, session_id}
@@ -48,6 +50,72 @@ class DevelopServer:
         self.ui_connections = set()  # All UI connections (simplified)
         self.sessions = {}  # session_id -> Session (only for shim connections)
         self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
+        self.module_to_file = module_to_file or {}  # Module mapping for file watcher
+        self.file_watcher_process = None  # Child process for file watching
+
+    # ============================================================
+    # File Watcher Management
+    # ============================================================
+
+    def start_file_watcher(self) -> None:
+        """Start the file watcher process if module mapping is available."""
+        logger.info(f"[DevelopServer] Attempting to start file watcher...")
+        logger.info(f"[DevelopServer] Module mapping contains {len(self.module_to_file)} modules")
+
+        if not self.module_to_file:
+            logger.warning("[DevelopServer] No module mapping provided, skipping file watcher")
+            return
+
+        # Log some sample modules
+        sample_modules = list(self.module_to_file.items())[:3]
+        for module_name, file_path in sample_modules:
+            logger.info(f"[DevelopServer] Sample module: {module_name} -> {file_path}")
+
+        if self.file_watcher_process and self.file_watcher_process.is_alive():
+            logger.warning("[DevelopServer] File watcher process is already running")
+            return
+
+        try:
+            # Spawn file watcher as a separate process
+            logger.info("[DevelopServer] Spawning file watcher process...")
+            self.file_watcher_process = multiprocessing.Process(
+                target=run_file_watcher_process,
+                args=(self.module_to_file,),
+                daemon=True,  # Dies when parent process dies
+            )
+            self.file_watcher_process.start()
+            logger.info(
+                f"[DevelopServer] ✓ File watcher process started (PID: {self.file_watcher_process.pid})"
+            )
+
+            # Give it a moment to start
+            time.sleep(0.1)
+            if self.file_watcher_process.is_alive():
+                logger.info(f"[DevelopServer] ✓ File watcher process is running")
+            else:
+                logger.error(f"[DevelopServer] ✗ File watcher process died immediately")
+
+        except Exception as e:
+            logger.error(f"[DevelopServer] ✗ Failed to start file watcher process: {e}")
+            import traceback
+
+            logger.error(f"[DevelopServer] Traceback: {traceback.format_exc()}")
+
+    def stop_file_watcher(self) -> None:
+        """Stop the file watcher process if it's running."""
+        if self.file_watcher_process and self.file_watcher_process.is_alive():
+            try:
+                self.file_watcher_process.terminate()
+                self.file_watcher_process.join(timeout=2)  # Wait up to 2 seconds
+                if self.file_watcher_process.is_alive():
+                    # Force kill if it doesn't terminate gracefully
+                    self.file_watcher_process.kill()
+                    self.file_watcher_process.join()
+                logger.info("File watcher process stopped")
+            except Exception as e:
+                logger.error(f"Error stopping file watcher process: {e}")
+            finally:
+                self.file_watcher_process = None
 
     # ============================================================
     # Utils
@@ -244,9 +312,11 @@ class DevelopServer:
         color_preview = node_colors[-6:]  # Only display last 6 colors
         CACHE.update_color_preview(sid, color_preview)
         # Broadcast color preview update to all UIs
+        logger.debug(f"Broadcast color {time.time()}")
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": sid, "color_preview": color_preview}
         )
+        logger.debug(f"Broadcast graph update {time.time()}")
         self.broadcast_graph_update(sid)
         EDIT.update_graph_topology(sid, graph)
 
@@ -466,6 +536,8 @@ class DevelopServer:
     def handle_shutdown(self) -> None:
         """Handle shutdown command by closing all connections."""
         logger.info("Shutdown command received. Closing all connections.")
+        # Stop file watcher process first
+        self.stop_file_watcher()
         # Close all client sockets
         for s in list(self.conn_info.keys()):
             logger.debug(f"Closing socket: {s}")
@@ -576,6 +648,20 @@ class DevelopServer:
                 self.conn_info[conn] = {"role": role, "session_id": session_id}
                 send_json(conn, {"type": "session_id", "session_id": session_id})
 
+                # Extract module mapping for file watcher
+                module_to_file = handshake.get("module_to_file", {})
+                if module_to_file:
+                    logger.info(
+                        f"[DevelopServer] Received {len(module_to_file)} modules from shim-control"
+                    )
+                    # Update server's module mapping
+                    self.module_to_file.update(module_to_file)
+                    # Restart file watcher with updated mapping
+                    self.stop_file_watcher()
+                    self.start_file_watcher()
+                else:
+                    logger.warning(f"[DevelopServer] No module mapping received from shim-control")
+
                 # Log shim-control registration to telemetry
                 log_shim_control_registration(handshake, session_id)
             elif role == "shim-runner":
@@ -603,7 +689,7 @@ class DevelopServer:
 
                     # Print message type.
                     msg_type = msg.get("type", "unknown")
-                    logger.debug(f"Received message type: {msg_type}")
+                    logger.debug(f"Received message type: {msg_type} {time.time()}")
 
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
@@ -655,6 +741,9 @@ class DevelopServer:
         self.server_sock.listen()
         logger.info(f"Develop server listening on {HOST}:{PORT}")
 
+        # Start file watcher process for AST recompilation
+        self.start_file_watcher()
+
         # Load finished runs on startup
         self.load_finished_runs()
 
@@ -666,6 +755,8 @@ class DevelopServer:
             # This will be triggered when server_sock is closed (on shutdown)
             pass
         finally:
+            # Stop file watcher process
+            self.stop_file_watcher()
             self.server_sock.close()
             logger.info("Develop server stopped.")
 

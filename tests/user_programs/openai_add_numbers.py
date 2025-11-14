@@ -6,9 +6,6 @@ if not os.environ.get("OPENAI_API_KEY"):
     print("[user_program] OPENAI_API_KEY not set, setting dummy key")
     os.environ["OPENAI_API_KEY"] = "sk-test-dummy-key"
 
-print(
-    f"[user_program] Creating OpenAI client with API key: {os.environ.get('OPENAI_API_KEY', 'NOT_SET')[:20]}..."
-)
 client = OpenAI()
 print(f"[user_program] OpenAI client created successfully")
 model = "undefined_model"  # Make sure cache is used.

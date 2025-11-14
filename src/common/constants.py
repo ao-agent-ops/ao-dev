@@ -55,6 +55,7 @@ CONNECTION_TIMEOUT = 5
 SERVER_START_TIMEOUT = 2
 PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
+FILE_POLL_INTERVAL = 1  # Interval in seconds for polling file changes for AST recompilation
 SERVER_START_WAIT = 1
 SOCKET_TIMEOUT = 1
 SHUTDOWN_WAIT = 2
@@ -124,3 +125,7 @@ ACO_ATTACHMENT_CACHE = os.path.expandvars(
     )
 )
 os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
+
+# Path to the agent-copilot installation directory
+# Computed from this file's location: aco/common/constants.py -> agent-copilot/
+ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -1,8 +1,36 @@
+# Register taint functions in builtins BEFORE any other imports
+# This ensures any rewritten .pyc files can call these functions
+import builtins
 import sys
+import os
+
+# Add current directory to path to import modules directly
+current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+# Import directly from file path to avoid triggering aco.__init__.py
+import importlib.util
+
+ast_transformer_path = os.path.join(current_dir, "server", "ast_transformer.py")
+spec = importlib.util.spec_from_file_location("ast_transformer", ast_transformer_path)
+ast_transformer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ast_transformer)
+
+taint_fstring_join = ast_transformer.taint_fstring_join
+taint_format_string = ast_transformer.taint_format_string
+taint_percent_format = ast_transformer.taint_percent_format
+exec_func = ast_transformer.exec_func
+
+builtins.taint_fstring_join = taint_fstring_join
+builtins.taint_format_string = taint_format_string
+builtins.taint_percent_format = taint_percent_format
+builtins.exec_func = exec_func
+
+# Now safe to import other modules
 import socket
 import time
 import subprocess
-import os
 from argparse import ArgumentParser
 from aco.common.logger import logger
 from aco.common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
@@ -33,14 +61,14 @@ def launch_daemon_server() -> None:
 
 def server_command_parser():
     parser = ArgumentParser(
-        usage="aco-server {start, stop, restart, clear}",
+        usage="aco-server {start, stop, restart, clear, logs}",
         description="Server utilities.",
         allow_abbrev=False,
     )
 
     parser.add_argument(
         "command",
-        choices=["start", "stop", "restart", "clear", "_serve"],
+        choices=["start", "stop", "restart", "clear", "logs", "_serve"],
         help="The command to execute for the server.",
     )
     return parser
@@ -102,6 +130,17 @@ def execute_server_command(args):
         except Exception:
             logger.warning("No running server found.")
             sys.exit(1)
+        return
+
+    elif args.command == "logs":
+        # Print the contents of the server log file
+        try:
+            with open(ACO_LOG_PATH, "r") as log_file:
+                print(log_file.read(), end="")
+        except FileNotFoundError:
+            print(f"Log file not found at {ACO_LOG_PATH}")
+        except Exception as e:
+            print(f"Error reading log file: {e}")
         return
 
     elif args.command == "_serve":

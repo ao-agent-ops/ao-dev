@@ -1,7 +1,7 @@
 # Running a user script
 
-![Running develop command](/media/develop_spawn.png)
 
+![Running develop command](/docs/media/develop_spawn.png)
 
 ## develop_shim.py
 
@@ -29,57 +29,34 @@ This can also be used to run many samples concurrently (see examples in `example
 
 The implementation of the aco_launch context manager is in `context_manager.py`. The diagram below depicts its message sequence chart:
 
-![Subruns](/media/subrun.png)
+![Subruns](/docs/media/subrun.png)
 
 
-## Runtime tracing
+## Computing data flow
 
-## Registering calls
+To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we use two mechanisms:
 
-See which functions are executed at runtime.
-
-`sitecustomize.py` applies the monkey patching. It intercepts all calls to LLMs and sends to the `develop_server`: Their input, output, file and line number, and the thread / asynio thread the LLM were called from.
-
-
-## Data flow between LLM calls
-
-Generally, we use wrappers around primitives, which are defined in `taint_wrappers.py`: For example, strings (`str`) are wrapped in `TaintStr`
-
-The wrappers contain the origin of their "taint" (i.e., which LLM call they stem from) and implement functions such as `__add__`, so when you have `str + TaintStr` or `TaintStr + TaintStr`, taint is propagated through these operators. 
-
-The difficult part are things like f-strings (`f"hello {world}"`) and `format`s (`Hello {}".format(world)`), since those cannot be handled by simply overwriting a string operator. To handle them, we do AST rewrites at runtime:
-
-
-### AST Rewriting for f-strings and `.format()`
-The core logic for rewriting f-strings and .format() calls is in `src/runner/fstring_rewriter.py`:
-`FStringTransformer` (subclass of `ast.NodeTransformer`):
-`visit_JoinedStr`: This method is called for every f-string node in the AST. It replaces the f-string with a call to `taint_fstring_join`, e.g.:
- - `f"{a} {b}"` becomes `taint_fstring_join(a, b)`. This ensures that any taint on the interpolated values is preserved and propagated.
- - `visit_Call`: This method looks for `.format()` calls on string constants and replaces them with a call to taint_format_string, e.g.: `"Hello {}".format(name)` becomes `taint_format_string("Hello {}", name)`
-  
-`taint_fstring_join` and `taint_format_string`: These functions (also in `fstring_rewriter.py`) use the taint logic from taint_wrappers.py to combine taint from all arguments and return a TaintStr if any argument is tainted.
-
-### How the AST Rewriter is Installed
- - The function `install_fstring_rewriter()` in `fstring_rewriter.py`:
-Installs a custom import hook (`FStringImportFinder`) into sys.meta_path.
-    - This import hook ensures that whenever a user module is imported, its source code is parsed, transformed (f-strings and `.format()` calls rewritten), and then executed.
-    - The rewriter is installed at runtime by code in:
-`src/runner/sitecustomize.py` (which is loaded early via PYTHONPATH tricks).
- - The shim logic in develop_shim.py ensures that the environment is set up so that `sitecustomize.py` is loaded for user scripts.
-
-### Taint Propagation
- - `TaintStr` (in `taint_wrappers.py`): A subclass of str that carries a `_taint_origin` attribute.
- - All string operations (+, format, slicing, etc.) are overridden to propagate taint.
- - `taint_wrap`: Used to wrap values (including OpenAI responses) with taint metadata.
+1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls. When the user imports a package (e.g., `import OpenAI`), we give them an OpenAI package where classes and methods are patched such that (i) they log LLM calls to the server (e.g., input and outputs), and (ii) they wrap the output object inside a "[taint wrapper](/src/runner/taint_wrappers.py)", which records that the output was produced by the specific LLM call.
+2. **Propagating taint:** After an LLM produced an output, we need to track how this output is propagated through the program until it is eventually used as input to another LLM (imagine: llm_1's output is parsed and used in a Google search. The result is then used as input to llm_2. There's data flow from llm_1 to llm_2). We achieve this through (i) operations on taint wrappers correctly propagate taint (e.g., `TaintStr("hello") + " world"` becomes `TaintStr("Hello world")`), (ii) third-party library calls (e.g., `a = os.path.join(b, c)`) are rewritten ([AST transformer](/src/server/ast_transformer.py)) such that their output carries the same taint as their outputs (we describe this in more detail [here](/src/server/README.md)). 
 
 ### Putting it Together: Execution Flow
-1. User script is run via the develop shim (develop_shim.py).
-2. The shim sets up the environment so that:
- - The custom sitecustomize.py is loaded.
- - The f-string rewriter is installed for all user modules.
-3. When a user module is imported, the import hook rewrites f-strings and .format() calls to use taint-aware functions.
-4. When the user code executes f-strings or .format(), the taint-aware functions are called, and taint is propagated using TaintStr.
-5. When LLM calls are made, the taint on the input is checked and, if present, the output is wrapped with a new taint node, allowing you to track data flow between LLM calls.
+1. The server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base.
+    - If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. Third-party library calls become: `untaint inputs -> run function call normally -> taint outputs (record origins of inputs)` 
+    - After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory.
+
+2. The user runs a script in their repo using `aco-launch script.py`. 
+   - An import hook (`ast_rewrite_hook.py`) is installed to ensure AST-rewritten `.pyc` files exist before any user module imports
+   - Python loads the compiled `.pyc` binary --- Remember: This binary has been rewritten by the [File Watcher](/src/server/file_watcher.py) and propagates taint through third-party functions.
+   - We install [monkey patches](/src/runner/monkey_patching/) for relevant imports made in the script (e.g., when the user does `import OpenAI`, they import a patched version of OpenAI). These patches serve a similar purpose as the AST rewrites and transform LLM calls into: `untaint inputs -> make LLM call -> taint the output (record it was produced in this call)`
+
+3. The tainted output from the LLM call is propagated through the program using the transformed, taint-propagating code produced by the [File Watcher](/src/server/file_watcher.py). It eventually arrives at another LLM, which untaints its inputs, realizes the origin of the input and tells the server to insert an edge in the data flow graph accordingly. 
+
+> [!NOTE]
+> The AST rewrites and monkey patches serve very similar purposes. However: 
+>  - For LLM calls, we want to have custom handling (parse inputs and outputs for custom APIs). Monkey patches make it easier to perform such targeted overwrites on specific methods. 
+> - For general library calls, we don't distinguish between different libraries/classes/methods and just want to pass taint through. AST rewrites make it easier to cover a broad range of libraries.
+
+
 
 ## Maintainance
 

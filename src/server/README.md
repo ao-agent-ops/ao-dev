@@ -16,7 +16,7 @@ Some basics:
  - When you make changes to `develop_server.py`, remember to restart the server to see them take effect.
 
 
-## Editing and caching
+## Editing and caching LLM calls
 
 ### Goal
 
@@ -43,3 +43,24 @@ When we run a workflow, new nodes with new `node_ids` are created (the graph may
 `CacheManager` is responsible for look ups in the DB.
 
 `EditManager` is responible for updating the DB.
+
+## AST rewrites
+
+To track data flow ("taint") between LLM calls, we use "[taint wrapper](/src/runner/taint_wrappers.py)" that simply wrap an object or builtin (e.g., `str` or `SomeClass`) and record the LLM calls that influenced its value.
+
+We need to propagate this taint through general, third-party libraries (e.g., the output of `os.path.join(a, "LLM produced string")` should be tainted, i.e., we need to remember which LLM influenced the file path).
+
+To achieve this, we rewrite the user's code files and make any third-party library call become like this: `llm_path = os.path.join(a, "LLM produced string")` -> `llm_path = exec_func(os.path.join, a, "LLM produced string")`. [exec_func](/src/server/ast_transformer.py) does the following:
+1. Untaint all inputs and remember the (joint) set of all taint origins.
+2. Normally execute the rewritten function (e.g., `os.path.join`) with the untainted, "raw" inputs.
+3. Wrap the output with a taint wrapper that records the (joint) taint origins from the inputs.
+
+To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `aco-launch script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
+
+### AST Rewrite Verification
+
+To distinguish between standard Python-compiled `.pyc` files and our taint-tracking rewritten versions, we inject a verification marker:
+
+As the first line of every rewritten module, we put `__ACO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
+
+Also see [here](/src/runner/README.md) on how the whole taint propagation process fits together.

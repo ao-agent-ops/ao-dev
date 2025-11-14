@@ -6,11 +6,34 @@ from aco.runner.taint_wrappers import (
     TaintList,
     get_taint_origins,
 )
+from ...utils import with_ast_rewriting
 
 
 class TestJsonLoads:
     """Test taint propagation through json.loads()."""
 
+    @with_ast_rewriting
+    def test_AST_loads_basic_taint_propagation(self):
+        """Test that AST rewriting correctly wraps json.loads to propagate taint."""
+        # Create tainted JSON string
+        tainted_json = TaintStr('{"name": "John", "age": 30}', taint_origin=["user_input"])
+
+        # Parse the JSON - this will be rewritten to use exec_func
+        result = json.loads(tainted_json)
+
+        # Check that result is a TaintDict
+        assert isinstance(result, TaintDict)
+        assert get_taint_origins(result) == ["user_input"]
+
+        # Check that string values are TaintStr
+        assert isinstance(result["name"], TaintStr)
+        assert get_taint_origins(result["name"]) == ["user_input"]
+
+        # Check that non-string values preserve their types but have taint
+        assert isinstance(result["age"], int)
+        assert result["age"] == 30
+
+    @with_ast_rewriting
     def test_loads_basic_taint_propagation(self):
         """Test that json.loads propagates taint from input string to result."""
         # Create tainted JSON string
@@ -31,6 +54,7 @@ class TestJsonLoads:
         assert isinstance(result["age"], int)
         assert result["age"] == 30
 
+    @with_ast_rewriting
     def test_loads_nested_objects(self):
         """Test taint propagation through nested JSON structures."""
 
@@ -67,6 +91,7 @@ class TestJsonLoads:
         assert isinstance(result["items"][0], TaintStr)
         assert get_taint_origins(result["items"][0]) == ["api_response"]
 
+    @with_ast_rewriting
     def test_loads_with_untainted_input(self):
         """Test that untainted input produces untainted output."""
 
@@ -79,6 +104,7 @@ class TestJsonLoads:
         assert not isinstance(result["name"], TaintStr)
         assert isinstance(result["name"], str)
 
+    @with_ast_rewriting
     def test_loads_empty_and_edge_cases(self):
         """Test edge cases like empty objects, null values, special characters."""
 
@@ -101,6 +127,7 @@ class TestJsonLoads:
         assert result["text"] == "Hello\nWorld\t!"
         assert get_taint_origins(result["text"]) == ["test"]
 
+    @with_ast_rewriting
     def test_loads_with_tainted_json(self):
         """Test that taint is preserved through json.loads."""
 
@@ -116,6 +143,7 @@ class TestJsonLoads:
 class TestJsonDumps:
     """Test taint propagation through json.dumps()."""
 
+    @with_ast_rewriting
     def test_dumps_basic_taint_propagation(self):
         """Test that json.dumps propagates taint from object to JSON string."""
 
@@ -132,6 +160,7 @@ class TestJsonDumps:
         assert '"name": "Alice"' in result
         assert '"age": 30' in result
 
+    @with_ast_rewriting
     def test_dumps_nested_tainted_objects(self):
         """Test taint propagation from nested tainted objects."""
 
@@ -163,6 +192,7 @@ class TestJsonDumps:
         expected_origins = {"source1", "source2", "source3"}
         assert set(taint_origins) == expected_origins
 
+    @with_ast_rewriting
     def test_dumps_with_untainted_input(self):
         """Test that untainted input produces untainted output."""
 
@@ -173,6 +203,7 @@ class TestJsonDumps:
         assert not isinstance(result, TaintStr)
         assert isinstance(result, str)
 
+    @with_ast_rewriting
     def test_dumps_mixed_tainted_untainted(self):
         """Test objects with mix of tainted and untainted values."""
 
@@ -188,6 +219,7 @@ class TestJsonDumps:
         assert isinstance(result, TaintStr)
         assert get_taint_origins(result) == ["api"]
 
+    @with_ast_rewriting
     def test_dumps_with_tainted_data(self):
         """Test that taint works through json.dumps."""
 
@@ -204,6 +236,7 @@ class TestJsonDumps:
 class TestJsonRoundTrip:
     """Test round-trip operations (loads → dumps → loads)."""
 
+    @with_ast_rewriting
     def test_roundtrip_preserves_taint(self):
         """Test that taint is preserved through loads→dumps→loads cycle."""
 
@@ -227,6 +260,7 @@ class TestJsonRoundTrip:
         assert isinstance(final_obj["message"], TaintStr)
         assert get_taint_origins(final_obj["message"]) == ["original"]
 
+    @with_ast_rewriting
     def test_roundtrip_with_multiple_taint_sources(self):
         """Test round-trip with objects containing multiple taint sources."""
 
@@ -253,6 +287,7 @@ class TestJsonRoundTrip:
 class TestJsonEdgeCases:
     """Test edge cases and error conditions."""
 
+    @with_ast_rewriting
     def test_loads_invalid_json(self):
         """Test that invalid JSON still raises appropriate errors."""
 
@@ -261,6 +296,7 @@ class TestJsonEdgeCases:
         with pytest.raises(json.JSONDecodeError):
             json.loads(tainted_invalid)
 
+    @with_ast_rewriting
     def test_dumps_non_serializable(self):
         """Test that non-serializable objects still raise appropriate errors."""
 
@@ -272,6 +308,7 @@ class TestJsonEdgeCases:
         with pytest.raises(TypeError):
             json.dumps(obj)
 
+    @with_ast_rewriting
     def test_loads_with_custom_parameters(self):
         """Test that custom parameters still work with tainted inputs."""
 
@@ -288,6 +325,7 @@ class TestJsonEdgeCases:
         assert isinstance(result["custom"], TaintStr)  # Should be wrapped by taint_wrap
         assert result["custom"] == "added"
 
+    @with_ast_rewriting
     def test_dumps_with_custom_parameters(self):
         """Test that custom parameters work with tainted objects."""
 
@@ -308,6 +346,7 @@ class TestJsonEdgeCases:
 class TestJsonIntegrationWithOtherPatches:
     """Test interaction with other monkey patches like re_patch."""
 
+    @with_ast_rewriting
     def test_json_with_re_patch_output(self):
         """Test JSON operations on strings that come from re module operations."""
         # This test ensures compatibility between different patches
@@ -327,6 +366,7 @@ class TestJsonIntegrationWithOtherPatches:
         assert isinstance(parsed, TaintDict)
         assert isinstance(parsed["extracted"], TaintStr)
 
+    @with_ast_rewriting
     def test_json_boolean_handling(self):
         """Test that booleans are not tainted and remain as regular bool."""
 
@@ -354,6 +394,7 @@ class TestJsonIntegrationWithOtherPatches:
 class TestJsonEdgeCasesExtended:
     """Extended edge case testing for JSON patches."""
 
+    @with_ast_rewriting
     def test_empty_containers(self):
         """Test empty arrays, objects, and strings."""
 
@@ -378,6 +419,7 @@ class TestJsonEdgeCasesExtended:
         assert result["empty"] == ""
         assert get_taint_origins(result["empty"]) == ["empty_str"]
 
+    @with_ast_rewriting
     def test_special_characters_and_escaping(self):
         """Test JSON with special characters, unicode, and escaping."""
 
@@ -400,6 +442,7 @@ class TestJsonEdgeCasesExtended:
             if isinstance(value, str):
                 assert get_taint_origins(value) == ["unicode"]
 
+    @with_ast_rewriting
     def test_nested_arrays_and_objects(self):
         """Test deeply nested structures."""
 
@@ -437,6 +480,7 @@ class TestJsonEdgeCasesExtended:
         assert isinstance(result["metadata"]["settings"]["debug"], bool)
         assert result["metadata"]["settings"]["debug"] is True
 
+    @with_ast_rewriting
     def test_null_values_and_mixed_types(self):
         """Test null values and arrays with mixed types."""
 
@@ -477,6 +521,7 @@ class TestJsonEdgeCasesExtended:
         assert numbers["negative"] == -89
         assert numbers["zero"] == 0
 
+    @with_ast_rewriting
     def test_large_objects_and_arrays(self):
         """Test performance with larger JSON structures."""
 
@@ -495,6 +540,7 @@ class TestJsonEdgeCasesExtended:
         assert isinstance(json_str, TaintStr)
         assert get_taint_origins(json_str) == ["performance"]
 
+    @with_ast_rewriting
     def test_taint_with_whitespace(self):
         """Test taint with various JSON formatting."""
 
@@ -518,6 +564,7 @@ class TestJsonEdgeCasesExtended:
         assert isinstance(result2["key"], TaintStr)
         assert result1["key"] == result2["key"] == "value"
 
+    @with_ast_rewriting
     def test_circular_reference_handling(self):
         """Test that circular references are handled properly."""
 
@@ -531,6 +578,7 @@ class TestJsonEdgeCasesExtended:
         with pytest.raises(ValueError, match="Circular reference"):
             json.dumps(circular_dict)
 
+    @with_ast_rewriting
     def test_custom_json_encoder_decoder(self):
         """Test interaction with custom JSON encoders/decoders."""
 
@@ -548,6 +596,7 @@ class TestJsonEdgeCasesExtended:
         assert get_taint_origins(result) == ["custom"]
         assert '"tags": [1, 2, 3]' in result or '"tags":[1,2,3]' in result
 
+    @with_ast_rewriting
     def test_extreme_nesting(self):
         """Test very deeply nested structures."""
 
@@ -572,6 +621,7 @@ class TestJsonEdgeCasesExtended:
         assert current == "deep_value"
         assert get_taint_origins(current) == ["deep"]
 
+    @with_ast_rewriting
     def test_json_with_numeric_precision(self):
         """Test handling of floating point precision and large integers."""
 
@@ -588,6 +638,7 @@ class TestJsonEdgeCasesExtended:
         assert result["big_int"] == 9007199254740991
         assert abs(result["precise_float"] - 3.141592653589793) < 1e-15
 
+    @with_ast_rewriting
     def test_malformed_json_error_preservation(self):
         """Test that JSON errors are preserved even with tainted input."""
 
@@ -605,6 +656,7 @@ class TestJsonEdgeCasesExtended:
             with pytest.raises(json.JSONDecodeError):
                 json.loads(malformed)
 
+    @with_ast_rewriting
     def test_dumps_with_taint_complex(self):
         """Test complex taint scenarios in dumps."""
 
@@ -621,6 +673,7 @@ class TestJsonEdgeCasesExtended:
         taint_origins = get_taint_origins(result)
         assert set(taint_origins) == {"user1", "user2"}
 
+    @with_ast_rewriting
     def test_json_with_different_separators(self):
         """Test JSON dumps with custom separators."""
 
@@ -642,6 +695,7 @@ class TestJsonEdgeCasesExtended:
         assert ": " in result2  # Colon with space
         assert ", " in result2 or result2.count(",") == 0  # Comma with space (if there is a comma)
 
+    @with_ast_rewriting
     def test_json_indentation_taint(self):
         """Test taint with JSON indentation."""
 
@@ -666,6 +720,7 @@ class TestJsonEdgeCasesExtended:
         assert '"nested_value"' in indented
         assert '"nested_value"' in very_indented
 
+    @with_ast_rewriting
     def test_json_sort_keys_with_taint(self):
         """Test sort_keys parameter with tainted data."""
 
@@ -688,6 +743,7 @@ class TestJsonEdgeCasesExtended:
             taint_origins = get_taint_origins(result)
             assert set(taint_origins) == {"sort1", "sort2"}
 
+    @with_ast_rewriting
     def test_json_with_none_values(self):
         """Test JSON handling of None/null values in various contexts."""
 
@@ -713,6 +769,7 @@ class TestJsonEdgeCasesExtended:
         assert parsed["optional"] is None
         assert parsed["nested"]["value"] is None
 
+    @with_ast_rewriting
     def test_json_ensure_ascii_parameter(self):
         """Test ensure_ascii parameter with tainted unicode data."""
 
@@ -735,6 +792,7 @@ class TestJsonEdgeCasesExtended:
         # Unicode version should have actual unicode
         assert "café" in unicode_result
 
+    @with_ast_rewriting
     def test_multiple_taint_sources_complex(self):
         """Test complex scenarios with multiple taint sources."""
 
@@ -769,6 +827,7 @@ class TestJsonEdgeCasesExtended:
         }
         assert set(taint_origins) == expected_sources
 
+    @with_ast_rewriting
     def test_json_with_skipkeys_parameter(self):
         """Test skipkeys parameter behavior with tainted data."""
 

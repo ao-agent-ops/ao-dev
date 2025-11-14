@@ -10,8 +10,17 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "justMyCode": false
+      "justMyCode": false,
+      "purpose": ["debug-test", "debug-in-terminal"]
     },
+    // {
+    //   "name": "Python: Testing",
+    //   "type": "debugpy",
+    //   "request": "launch",
+    //   "program": "${file}",
+    //   "console": "integratedTerminal",
+    //   "justMyCode": false,
+    // },
     {
       "name": "aco-config",
       "type": "debugpy",
@@ -34,6 +43,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "cli.aco_launch",
+      // "args": ["./example_workflows/coroutine_taint_prototype.py"],
       "args": ["./example_workflows/miroflow_deep_research/single_task.py"],
       // "args": ["./example_workflows/debug_examples/patch_debug.py"],
       // "args": ["./example_workflows/debug_examples/openai_add_numbers.py"],

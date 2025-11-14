@@ -1,4 +1,4 @@
-# Agent developer scratchpad
+# Agent Ops
 
 See README's in src dirs for more details.
 
@@ -63,10 +63,14 @@ Please install the dependencies required for developing
 ```bash
 pip install -e ".[dev]"
 pre-commit install
-cd src/user_interface && npm install
+cd src/user_interfaces && npm run build:all
 ```
 
-We use feature branches to develop and we can't push to `main` without reviews. So make sure to checkout a new branch before starting to code/committing :) .
+Some Python linters will (incorrectly) say that the modules inside our code base can't be found. Run the following in the project root to make these linters happy:
+
+```
+ln -s src aco
+```
 
 ### Server commands and log
 To manually start and stop our server. Just do:
@@ -78,7 +82,7 @@ If you make changes to the server code, you can also do `aco-server restart` so 
 
 If the server isn't running already, it will automatically be started upon running `aco-launch`.
 
-The server logs can be found in `~/.cache/agent-copilot/logs/server.log`.
+If you want to print the server logs, do `aco-server logs`. The server logs can be found in `~/.cache/agent-copilot/logs/server.log`.
 
 ### Architecture
 
@@ -86,7 +90,7 @@ These are the processes running.
 
 1. Run user program (green): The users launch processes of their program by running `aco-launch their_script.py` which feels exactly like running their script normally with `python their_script.py` --- they can also use the debugger to run their script, which also feels completely normal. Under the hood the `aco-launch` command monkey patches certain functions and logs runtime events to the `develop server`. The `develop runner` runs the actual python program of the user. The `develop orchestrator` manages the life cycle of the runner. For example, when the user presses the restart button in the UI, the orchestrator with kill the current runner and re-launch it. [Code](src/runner/)
 2. Develop server (blue): The `develop server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `develop server` happens over a TCP socket (default: 5959). [Code](src/server/)
-3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `develop server`. TODO: The VS Code extension spawns the `develop server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits. [Code](src/user_interface/)
+3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `develop server`. TODO: The VS Code extension spawns the `develop server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits. [Code](src/user_interfaces/)
 
 ![Processes overview](docs/media/processes.png)
 

@@ -11,15 +11,34 @@ import pytest
 import os
 import sys
 from pathlib import Path
+
+# Handle imports for both pytest and direct execution
+if __name__ == "__main__":
+    # When run directly, add the repo root to sys.path
+    repo_root = Path(__file__).parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
 from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
 from aco.common.constants import ACO_LOG_PATH
-from get_api_objects import (
-    create_anthropic_response,
-    create_openai_input,
-    create_openai_response,
-    create_anthropic_input,
-)
+
+# Try relative import first (pytest), fall back to sys.path import (direct execution)
+try:
+    from tests.get_api_objects import (
+        create_anthropic_response,
+        create_openai_input,
+        create_openai_response,
+        create_anthropic_input,
+    )
+except ImportError:
+    from get_api_objects import (
+        create_anthropic_response,
+        create_openai_input,
+        create_openai_response,
+        create_anthropic_input,
+    )
+
 from aco.server.cache_manager import CACHE
 
 
@@ -85,10 +104,12 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     shim_sock = socket.create_connection(("127.0.0.1", 5959))
     shim_file = shim_sock.makefile("rw")
 
+    # Use --project-root to override the project root for this test
+    test_project_root = str(Path(__file__).parent)  # /path/to/tests/
     handshake = {
         "role": "shim-control",
-        "cwd": str(Path(__file__).parent),
-        "command": f"aco-launch user_programs/{program_file}",
+        "cwd": test_project_root,
+        "command": f"aco-launch --project-root {test_project_root} user_programs/{program_file}",
         "environment": {},
         "name": "test_api_calls",
     }
@@ -147,10 +168,9 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     start_time = time.time()
     print("Waiting for graph updates...")
 
-    while time.time() - start_time < 7:  # 7 second timeout
+    while time.time() - start_time < 5:  # 5 second timeout
         try:
             msg = message_queue.get(timeout=1)
-            print(f"Received message: {msg}")
             if msg.get("type") == "graph_update" and msg.get("session_id") == session_id:
                 graph_updates += 1
                 print(f"Graph update #{graph_updates} received")
@@ -249,3 +269,76 @@ def test_api_calls(program_file, api_type, create_response_func, create_input_fu
         print(f"=== Test {program_file} failed with exception: {e} ===")
         print_server_logs()
         raise
+
+
+if __name__ == "__main__":
+    """
+    Allow running tests manually: python test_api_calls.py [openai|anthropic]
+
+    Examples:
+        python test_api_calls.py openai
+        python test_api_calls.py anthropic
+        python test_api_calls.py  # runs both
+    """
+    import sys
+
+    class DummyHTTPCalls:
+        """Mock http_calls fixture for manual testing."""
+
+        def __init__(self):
+            self.calls = []
+
+    # Determine which tests to run
+    test_cases = [
+        (
+            "openai_add_numbers.py",
+            "OpenAI.responses.create",
+            create_openai_response,
+            create_openai_input,
+        ),
+        (
+            "anthropic_add_numbers.py",
+            "Anthropic.messages.create",
+            create_anthropic_response,
+            create_anthropic_input,
+        ),
+    ]
+
+    if len(sys.argv) > 1:
+        arg = sys.argv[1].lower()
+        if arg == "openai":
+            test_cases = [test_cases[0]]
+        elif arg == "anthropic":
+            test_cases = [test_cases[1]]
+        else:
+            print(f"Unknown argument: {arg}")
+            print("Usage: python test_api_calls.py [openai|anthropic]")
+            sys.exit(1)
+
+    # Run selected tests
+    http_calls = DummyHTTPCalls()
+    failed_tests = []
+
+    for program_file, api_type, create_response_func, create_input_func in test_cases:
+        try:
+            test_api_calls(
+                program_file, api_type, create_response_func, create_input_func, http_calls
+            )
+            print(f"\n✓ Test passed: {program_file}\n")
+        except AssertionError as e:
+            print(f"\n✗ Test failed: {program_file}")
+            print(f"  Error: {e}\n")
+            failed_tests.append(program_file)
+        except Exception as e:
+            print(f"\n✗ Test error: {program_file}")
+            print(f"  Error: {e}\n")
+            failed_tests.append(program_file)
+
+    # Summary
+    passed = len(test_cases) - len(failed_tests)
+    print(f"\n{'='*50}")
+    print(f"Results: {passed}/{len(test_cases)} tests passed")
+    if failed_tests:
+        print(f"Failed tests: {', '.join(failed_tests)}")
+        sys.exit(1)
+    print(f"{'='*50}")

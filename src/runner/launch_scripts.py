@@ -7,44 +7,39 @@ import sys
 import runpy
 import socket
 import json
-import traceback
-from aco.common.logger import logger
-
-
-project_root = {project_root}
-packages_in_project_root = {packages_in_project_root}
-
-# Add project root to path
-# FIXME: This is a bit hacky so we are able to import the 
-# user's modules. I'm not sure this is needed but even if,
-# it's probably not a good way to do this.
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-from aco.runner.patching_import_hook import install_patch_hook, set_module_to_user_file
-
-# Rewrite AST to support f-strings
+import random
+import glob
+import builtins
+from aco.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
+from aco.runner.context_manager import set_parent_session_id, set_server_connection
+from aco.common.constants import HOST, PORT, SOCKET_TIMEOUT
 from aco.common.utils import scan_user_py_files_and_modules
+from aco.common.logger import logger
+from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
+from aco.server.ast_transformer import (
+    taint_fstring_join, taint_format_string, taint_percent_format, exec_func
+)
 
-_, _, module_to_file = scan_user_py_files_and_modules(project_root)
-for additional_package in packages_in_project_root:
-    _, _, additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
-    module_to_file = {{**module_to_file, **additional_package_module_to_file}}
 
+module_to_file = {module_to_file}
+
+# Install the hooks for AST re-writing
 set_module_to_user_file(module_to_file)
 install_patch_hook()
 
-# Connect to server and pply monkey patches if enabled via environment variable.
-from aco.runner.context_manager import set_parent_session_id, set_server_connection
-from aco.common.constants import HOST, PORT, SOCKET_TIMEOUT
-from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
+# Register taint functions in builtins so rewritten .pyc files can call them
+builtins.taint_fstring_join = taint_fstring_join
+builtins.taint_format_string = taint_format_string
+builtins.taint_percent_format = taint_percent_format
+builtins.exec_func = exec_func
 
+# Connect to server and apply monkey patches if enabled via environment variable.
 if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     host = os.environ.get("AGENT_COPILOT_SERVER_HOST", HOST)
     port = int(os.environ.get("AGENT_COPILOT_SERVER_PORT", PORT))
     session_id = os.environ.get("AGENT_COPILOT_SESSION_ID")
     server_conn = None
-    # try:
+
     # Connect to server, this will be the global server connection for the process.
     # We currently rely on the OS to close the connection when proc finishes.
     server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
@@ -62,12 +57,30 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     set_parent_session_id(session_id)
     set_server_connection(server_conn)
 
-    # except Exception as e:
-    #     logger.error(f"Exception set up tracing:")
-    #     traceback.print_exc()
-
     # Apply monkey patches.
     apply_all_monkey_patches()
+
+    # Set random seeds
+    aco_random_seed = os.environ.get("ACO_SEED", None)
+    if not aco_random_seed:
+        raise Exception("ACO random seed not set.")
+    else:
+        try:
+            aco_random_seed = int(aco_random_seed)
+        except:
+            raise Exception("Error converting ACO_SEED to int.")
+    logger.debug(f"ACO_SEED was set to {{aco_random_seed}}")
+    try:
+        from numpy.random import seed
+        seed(aco_random_seed)
+    except:
+        logger.debug("Failed to set the numpy seed")
+    try:
+        from torch import manual_seed
+        manual_seed(aco_random_seed)
+    except:
+        logger.debug("Failed to set the torch seed")
+    random.seed(aco_random_seed)
 """
 
 

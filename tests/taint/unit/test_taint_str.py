@@ -3,6 +3,7 @@
 import pytest
 
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, is_tainted
+from ...utils import with_ast_rewriting
 
 
 class TestTaintStr:
@@ -241,6 +242,7 @@ class TestTaintStr:
         test_set = {s1, s2, s3}
         assert len(test_set) == 1  # All are considered equal
 
+    @with_ast_rewriting
     def test_str_repr(self):
         """Test __str__ and __repr__ methods."""
         s = TaintStr("hello", taint_origin="source1")

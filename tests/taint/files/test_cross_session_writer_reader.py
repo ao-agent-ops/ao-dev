@@ -8,21 +8,15 @@ the reader's LLM nodes get added to the writer's session graph with proper edges
 import os
 import sys
 import tempfile
-import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-import pytest
+from aco.runner.taint_wrappers import TaintStr
+from aco.server.db import store_taint_info, get_taint_info
+from ...utils import cleanup_taint_db
 
 # Add the project root to Python path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-
-from aco.runner.taint_wrappers import TaintStr
-from aco.server.db import store_taint_info, get_taint_info
-
-# Add parent directory to path for test utils import
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from test_utils import cleanup_taint_db
 
 
 class MockOpenAIResponse:

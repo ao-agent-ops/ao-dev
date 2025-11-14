@@ -104,14 +104,13 @@ class CacheManager:
         )
 
         if row is None:
-            logger.debug(
-                f"\033[95mCache MISS.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
-            )
             # Insert new row with a new node_id. reset randomness to avoid
             #   generating exact same UUID when re-running, but MCP generates randomness and we miss cache
             random.seed()
             node_id = str(uuid.uuid4())
-            logger.debug(f"Cache MISS, UUID: {node_id}")
+            logger.debug(
+                f"Cache MISS, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+            )
             if cache:
                 db.execute(
                     "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
@@ -120,12 +119,13 @@ class CacheManager:
             set_seed(node_id)
             return input_dict, None, node_id
 
-        logger.debug(
-            f"\033[32mCache HIT.\nQuery: {(session_id, input_hash)}\nCacheable input: {cacheable_input}\033[0m"
-        )
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
+
+        logger.debug(
+            f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+        )
 
         if row["input_overwrite"] is not None:
             # input_overwrite = dill.loads(row["input_overwrite"])
