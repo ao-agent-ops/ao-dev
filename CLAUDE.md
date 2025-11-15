@@ -64,6 +64,7 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 ## Do Not
 
 - **Do NOT** overcomplicate the system. Simplicity is a code concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
+- **Do NOT** consider backwards compatability. The code has no users yet, which allows you to write cleaner, more concise code.
 
 ## Caveats
 

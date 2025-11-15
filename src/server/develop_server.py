@@ -160,18 +160,7 @@ class DevelopServer:
             # Get data from DB entries.
             timestamp = row["timestamp"]
             # Format timestamp for display (MM/DD HH:MM)
-            if hasattr(timestamp, 'strftime'):
-                # For datetime objects from PostgreSQL
-                timestamp = timestamp.strftime("%m/%d %H:%M")
-            elif isinstance(timestamp, str):
-                # For ISO format strings, parse and format
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                    timestamp = dt.strftime("%m/%d %H:%M")
-                except:
-                    # If parsing fails, use as is
-                    pass
+            timestamp = timestamp.strftime("%m/%d %H:%M")
             title = row["name"]
             success = row["success"]
             notes = row["notes"]

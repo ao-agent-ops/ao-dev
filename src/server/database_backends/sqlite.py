@@ -34,7 +34,9 @@ def get_conn():
             # Double-check pattern to avoid race condition during initialization
             if _shared_conn is None:
                 db_path = os.path.join(ACO_DB_PATH, "experiments.sqlite")
-                _shared_conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30.0)
+                # Ensure the directory exists with proper permissions
+                os.makedirs(os.path.dirname(db_path), exist_ok=True)
+                _shared_conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30.0, detect_types=sqlite3.PARSE_DECLTYPES)
                 _shared_conn.row_factory = sqlite3.Row
                 # Enable WAL mode for better concurrent access
                 _shared_conn.execute("PRAGMA journal_mode=WAL")
@@ -56,7 +58,7 @@ def _init_db(conn):
             parent_session_id TEXT,
             graph_topology TEXT,
             color_preview TEXT,
-            timestamp TEXT DEFAULT (datetime('now')),
+            timestamp TIMESTAMP DEFAULT (datetime('now')),
             cwd TEXT,
             command TEXT,
             environment TEXT,
@@ -83,7 +85,7 @@ def _init_db(conn):
             color TEXT,
             label TEXT,
             api_type TEXT,
-            timestamp TEXT DEFAULT (datetime('now')),
+            timestamp TIMESTAMP DEFAULT (datetime('now')),
             PRIMARY KEY (session_id, node_id),
             FOREIGN KEY (session_id) REFERENCES experiments (session_id)
         )
