@@ -117,6 +117,12 @@ async def main():
             node_id in target_nodes
         ), f"[DeepResearch] Node {node_id} with label '{label}' has no parent nodes"
 
+    # Cleanup: Close server connection and stop listener thread
+    shim._kill_current_process()
+    shim.send_deregister()
+    shim.server_conn.close()
+    shim.listener_thread.join(timeout=2)
+
 
 def test_deepresearch():
     asyncio.run(main())
