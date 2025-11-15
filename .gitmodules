@@ -13,6 +13,6 @@
 [submodule "example_workflows/miroflow_deep_research/MiroFlow"]
 	path = example_workflows/miroflow_deep_research/MiroFlow
 	url = https://github.com/agops-project/MiroMindAI-MiroFlow
-[submodule "example_workflows/bird/bird-bench"]
-	path = example_workflows/bird/bird-bench
+[submodule "example_workflows/bird-bench"]
+	path = example_workflows/bird-bench
 	url = https://github.com/agops-project/bird-bench.git
