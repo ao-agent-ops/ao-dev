@@ -12,6 +12,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        submodules: recursive
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -101,10 +102,7 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
         
-        # Install MiroFlow packages
-        cd example_workflows/miroflow_deep_research
-        git submodule update --init
-        cd ../../
+        # Install MiroFlow packages (submodules already initialized by checkout)
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-contrib
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-tool
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow
