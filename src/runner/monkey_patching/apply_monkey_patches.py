@@ -4,6 +4,7 @@ from aco.runner.monkey_patching.patching_utils import (
     notify_server_patch,
 )
 
+from aco.runner.monkey_patching.patches.mcp_patches import mcp_patch
 from aco.runner.monkey_patching.patches.openai_patches import openai_patch, async_openai_patch
 from aco.runner.monkey_patching.patches.anthropic_patches import anthropic_patch
 from aco.runner.monkey_patching.patches.vertexai_patches import vertexai_patch
@@ -48,10 +49,11 @@ def apply_all_monkey_patches():
 
 CUSTOM_PATCH_FUNCTIONS = [
     str_patch,
-    # uuid_patch,
+    uuid_patch,
     apply_file_patches,
     openai_patch,
     async_openai_patch,
     anthropic_patch,
     vertexai_patch,
+    mcp_patch,
 ]

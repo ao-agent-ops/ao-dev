@@ -27,7 +27,7 @@ def _cursed_join(sep: str, elements: list[str]) -> str:
     joined_bytes = _bytes_join(sep.encode(), [elem.encode() for elem in elements])
     final_string = joined_bytes.decode()
 
-    nodes = set(get_taint_origins(sep))
+    nodes = set(get_taint_origins(sep)) | set(get_taint_origins(elements))
 
     if len(nodes) > 0:
         return TaintStr(final_string, taint_origin=nodes)

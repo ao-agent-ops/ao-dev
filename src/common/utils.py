@@ -1,10 +1,17 @@
 import hashlib
+import random
 import json
 import os
 import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
+
+
+def set_seed(node_id: str) -> None:
+    """Set the seed based on the node_id."""
+    seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)
+    random.seed(seed)
 
 
 def is_valid_mod(mod_name: str):

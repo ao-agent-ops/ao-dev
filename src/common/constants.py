@@ -48,6 +48,7 @@ COLLECT_TELEMETRY = config.collect_telemetry
 TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
 TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
+# We're getting the env var here because the deployed web app can't access the config.
 DATABASE_URL = os.environ.get("DATABASE_URL") or config.database_url
 
 # server-related constants
