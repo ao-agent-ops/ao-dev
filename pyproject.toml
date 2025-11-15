@@ -41,7 +41,8 @@ dev = [
     "openai",
     "anthropic",
     "openai-agents",
-    "google-genai"
+    "google-genai",
+    "hydra-core"
 ]
 
 examples = [
