@@ -5,10 +5,11 @@ A VS Code extension that displays an interactive graph view in the sidebar with 
 ## Installation
 
 1. Install Node.js
-2. Im this dir (`user_interface`), run `npm install` to install dependencies
-2. Run `npm run compile` to build the extension. When developing run `npm run watch` so the extension is continuously re-compiled as you do changes.
-3. From the debugger options (from `launch.json`) select "Run extension" and run.
-4. A new window will open with the extension active. The graph view will appear in the Explorer sidebar.
+2. In `user_interface`, run `npm install` to install dependencies
+3. In this dir (`vscode_extension`), run `npm install @vscode/codicons`
+4. Run `npm run compile` to build the extension. When developing run `npm run watch` so the extension is continuously re-compiled as you do changes.
+5. From the debugger options (from `launch.json`) select "Run extension" and run.
+6. A new window will open with the extension active. The graph view will appear in the Explorer sidebar.
 
 
 ## Usage

@@ -78,7 +78,10 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.options = {
             enableScripts: true,
-            localResourceRoots: [this._extensionUri]
+            localResourceRoots: [
+                this._extensionUri,
+                vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+            ]
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
@@ -212,6 +215,14 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
                         console.warn('[GraphViewProvider] No Python client available for update_notes');
                     }
                     break;
+                case 'refresh':
+                    console.log('[GraphViewProvider] Forwarding refresh to Python server:', data);
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    } else {
+                        console.warn('[GraphViewProvider] No Python client available for refresh');
+                    }
+                    break;
             }
         });
     }
@@ -228,8 +239,8 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
 
     private _getHtmlForWebview(webview: vscode.Webview) {
         const path = require('path');
-        const os = require('os');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
         const templatePath = path.join(
             this._extensionUri.fsPath,
             'src',
@@ -260,6 +271,7 @@ export class GraphViewProvider implements vscode.WebviewViewProvider {
         html = html.replace('const vscode = acquireVsCodeApi();', 
             `${configBridge}\n        const vscode = acquireVsCodeApi();`);
         html = html.replace(/{{scriptUri}}/g, scriptUri.toString());
+        html = html.replace(/{{codiconsUri}}/g, codiconsUri.toString());
         return html;
     }
 

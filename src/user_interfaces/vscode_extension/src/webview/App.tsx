@@ -178,40 +178,79 @@ export const App: React.FC = () => {
         style={{
           display: "flex",
           borderBottom: "1px solid var(--vscode-editorWidget-border)",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        <button
-          onClick={() => setActiveTab("experiments")}
-          style={{
-            padding: "10px 20px",
-            border: "none",
-            backgroundColor:
-              activeTab === "experiments"
-                ? "var(--vscode-button-background)"
-                : "transparent",
-            color:
-              activeTab === "experiments"
-                ? "var(--vscode-button-foreground)"
-                : "var(--vscode-editor-foreground)",
-            cursor: "pointer",
-          }}
-        >
-          Experiments
-        </button>
-        {activeTab === "experiment-graph" && selectedExperiment && (
+        <div style={{ display: "flex" }}>
           <button
-            onClick={() => setActiveTab("experiment-graph")}
+            onClick={() => setActiveTab("experiments")}
             style={{
               padding: "10px 20px",
               border: "none",
-              backgroundColor: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
+              backgroundColor:
+                activeTab === "experiments"
+                  ? "var(--vscode-button-background)"
+                  : "transparent",
+              color:
+                activeTab === "experiments"
+                  ? "var(--vscode-button-foreground)"
+                  : "var(--vscode-editor-foreground)",
               cursor: "pointer",
             }}
           >
-            Experiment {selectedExperiment.session_id.substring(0, 8)}...
+            Experiments
           </button>
-        )}
+          {activeTab === "experiment-graph" && selectedExperiment && (
+            <button
+              onClick={() => setActiveTab("experiment-graph")}
+              style={{
+                padding: "10px 20px",
+                border: "none",
+                backgroundColor: "var(--vscode-button-background)",
+                color: "var(--vscode-button-foreground)",
+                cursor: "pointer",
+              }}
+            >
+              Experiment {selectedExperiment.session_id.substring(0, 8)}...
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            if (window.vscode) {
+              console.log('Refresh button clicked');
+              window.vscode.postMessage({
+                type: 'refresh'
+              });
+            }
+          }}
+          style={{
+              padding: "4px 8px",
+              marginRight: "8px",
+              border: "1px solid transparent",
+              backgroundColor: "transparent",
+              color: "var(--vscode-foreground)",
+              borderRadius: "3px",
+              cursor: "pointer",
+              fontSize: "16px",
+              fontWeight: "400",
+              height: "22px",
+              minWidth: "auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onMouseEnter={() => {
+              // No background change on hover
+            }}
+            onMouseLeave={() => {
+              // No background change on hover
+            }}
+            title="Refresh"
+          >
+            <i className="codicon codicon-refresh"></i>
+          </button>
       </div>
       <div
         style={

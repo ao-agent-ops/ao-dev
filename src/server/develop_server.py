@@ -519,6 +519,10 @@ class DevelopServer:
             except Exception as e:
                 logger.error(f"Failed to rerun finished session: {e}")
 
+    def handle_refresh_message(self, msg: dict):
+        logger.info("[Develop server] Received refresh signal")
+        self.broadcast_experiment_list_to_uis()
+
     def handle_deregister_message(self, msg: dict) -> bool:
         session_id = msg["session_id"]
         session = self.sessions.get(session_id)
@@ -571,6 +575,8 @@ class DevelopServer:
             self.handle_shutdown()
         elif msg_type == "restart":
             self.handle_restart_message(msg)
+        elif msg_type == "refresh":
+            self.handle_refresh_message(msg)
         elif msg_type == "deregister":
             self.handle_deregister_message(msg)
         elif msg_type == "debugger_restart":
