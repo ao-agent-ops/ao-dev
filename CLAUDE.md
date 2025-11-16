@@ -64,7 +64,8 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 ## Do Not
 
 - **Do NOT** overcomplicate the system. Simplicity is a code concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
+- Remain critical and skeptical about my thinking at all times. Maintain consistent intellectual standards throughout our conversation. Don’t lower your bar for evidence or reasoning quality just because we’ve been talking longer or because I seem frustrated. If I’m making weak arguments, keep pointing that out even if I’ve made good ones before.
 
 ## Caveats
 
-- **aco and agops** You will sometimes see aco (short for agent copilot) and agops (short for agent ops). They mean to denote the same thing (an abbreviation of the project name).
+- **aco and agops** You will sometimes see aco (short for agent copilot) and agops (short for agent ops). They mean to denote the same thing (an abbreviation of the project nam
