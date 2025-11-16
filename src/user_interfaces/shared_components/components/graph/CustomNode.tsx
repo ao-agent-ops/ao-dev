@@ -238,18 +238,19 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
       {/* Label */}
       <div
         style={{
-          fontSize: 12,
-          fontWeight: "bold",
+          fontSize: "11px",
+          fontWeight: "600",
+          fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
           opacity: isEditingLabel ? 0 : 1,
-          color: isDarkTheme ? "#fff" : "#303030",
+          color: "var(--vscode-foreground, #303030)",
           textAlign: "center",
           padding: "0 4px",
           wordBreak: "break-word",
-          lineHeight: "1.2",
+          lineHeight: "1.3",
         }}
       >
         {data.label}

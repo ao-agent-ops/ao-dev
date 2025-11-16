@@ -67,15 +67,15 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
       <defs>
         <marker
           id={markerId}
-          markerWidth="10"
-          markerHeight="10"
-          refX="5"
-          refY="5"
+          markerWidth="8"
+          markerHeight="8"
+          refX="4"
+          refY="4"
           orient="auto"
           markerUnits="strokeWidth"
         >
           <polyline
-            points="0,0 5,5 0,10"
+            points="0,0 4,4 0,8"
             fill="none"
             stroke={stroke}
             strokeWidth="1"

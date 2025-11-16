@@ -76,18 +76,21 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
     boxSizing: "border-box",
     backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
     color: isDarkTheme ? "#FFFFFF" : "#000000",
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
     };
 
     const fieldStyle: React.CSSProperties = {
       width: "100%",
       padding: "6px 8px",
-      fontSize: "14px",
-      background: "#2d2d2d",
-      color: "#fff",
-      border: "1px solid #555",
-      borderRadius: "3px",
+      fontSize: "13px",
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+      background: "var(--vscode-input-background, #2d2d2d)",
+      color: "var(--vscode-input-foreground, #fff)",
+      border: "1px solid var(--vscode-input-border, #555)",
+      borderRadius: "2px",
       boxSizing: "border-box",
       marginBottom: "16px",
+      outline: "none",
     };
 
     const selectStyle: React.CSSProperties = {
@@ -101,11 +104,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
 
     const buttonStyle: React.CSSProperties = {
       ...fieldStyle,
-      background: "#007acc",
-      color: "#fff",
+      background: "var(--vscode-button-background, #007acc)",
+      color: "var(--vscode-button-foreground, #fff)",
       cursor: "pointer",
-      fontSize: "16px",
-      border: "1px solid #555",
+      fontSize: "13px",
+      border: "1px solid var(--vscode-button-border, #007acc)",
+      transition: "background-color 0.2s",
+      fontWeight: "normal",
     };
 
     const textareaStyle: React.CSSProperties = {
@@ -124,9 +129,10 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         style={{
           display: "flex",
           alignItems: "center",
-          fontWeight: "bold",
-          fontSize: 20,
-          marginBottom: 20,
+          fontWeight: "600",
+          fontSize: "16px",
+          marginBottom: "24px",
+          color: "var(--vscode-foreground)",
         }}
       >
         {onBack && (
@@ -135,22 +141,32 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             style={{
               background: "none",
               border: "none",
-              color: "#fff",
-              fontSize: 20,
+              color: "var(--vscode-foreground)",
+              fontSize: "16px",
               cursor: "pointer",
-              marginRight: 8,
+              marginRight: "8px",
               lineHeight: 1,
-              padding: 0,
+              padding: "4px",
+              borderRadius: "2px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
             title="Back"
           >
-            ⬅️
+            <i className="codicon codicon-arrow-left"></i>
           </button>
         )}
         Workflow run
       </div>
       {/* Title */}
-      <label style={{ fontSize: "20px" }}>Run name</label>
+      <label style={{ 
+        fontSize: "13px", 
+        fontWeight: "600", 
+        marginBottom: "4px", 
+        display: "block",
+        color: "var(--vscode-foreground)"
+      }}>Run name</label>
       <input
         type="text"
         value={localRunName}
@@ -159,7 +175,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Result */}
-      <label style={{ fontSize: "20px" }}>Result</label>
+      <label style={{ 
+        fontSize: "13px", 
+        fontWeight: "600", 
+        marginBottom: "4px", 
+        display: "block",
+        color: "var(--vscode-foreground)"
+      }}>Result</label>
       <div style={{ position: "relative", width: "100%" }}>
         <select
           value={localResult}
@@ -186,12 +208,18 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             lineHeight: 1,
           }}
         >
-          ▼
+          <i className="codicon codicon-triangle-down"></i>
         </span>
       </div>
 
       {/* Notes */}
-      <label style={{ fontSize: "20px" }}>Notes</label>
+      <label style={{ 
+        fontSize: "13px", 
+        fontWeight: "600", 
+        marginBottom: "4px", 
+        display: "block",
+        color: "var(--vscode-foreground)"
+      }}>Notes</label>
       <textarea
         value={localNotes}
         onChange={(e) => handleNotesChange(e.target.value)}
@@ -199,7 +227,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Log */}
-      <label style={{ fontSize: "20px" }}>Log</label>
+      <label style={{ 
+        fontSize: "13px", 
+        fontWeight: "600", 
+        marginBottom: "4px", 
+        display: "block",
+        color: "var(--vscode-foreground)"
+      }}>Log</label>
       <textarea value={log} readOnly style={textareaStyle} />
 
 

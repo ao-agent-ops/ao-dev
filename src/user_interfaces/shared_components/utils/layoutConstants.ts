@@ -3,7 +3,7 @@ export const NODE_WIDTH = 150;
 export const NODE_HEIGHT = 70;
 
 // Node styling
-export const NODE_BORDER_WIDTH = 4;
+export const NODE_BORDER_WIDTH = 2;
 
 // Layout spacing
 export const LAYER_SPACING = 150;

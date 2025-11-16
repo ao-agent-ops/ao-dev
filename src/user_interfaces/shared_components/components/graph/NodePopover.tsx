@@ -91,7 +91,8 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
                             cursor: 'pointer',
                             textAlign: 'left',
                             borderRadius: '4px',
-                            fontSize: '12px',
+                            fontSize: '11px',
+                            fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
                             whiteSpace: 'nowrap',
                             transition: 'background 0.2s',
                         }}

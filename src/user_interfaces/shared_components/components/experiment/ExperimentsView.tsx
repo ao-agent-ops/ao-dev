@@ -27,14 +27,16 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
     overflowY: 'auto',
     boxSizing: 'border-box',
     backgroundColor: isDarkTheme ? '#252525' : '#F0F2F0',
-    color: isDarkTheme ? '#FFFFFF' : '#000000',
+    color: 'var(--vscode-foreground)',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '18px',
-    fontWeight: 'bold',
+    fontSize: '14px',
+    fontWeight: '600',
     marginBottom: '20px',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
   const emptyStateStyle: React.CSSProperties = {

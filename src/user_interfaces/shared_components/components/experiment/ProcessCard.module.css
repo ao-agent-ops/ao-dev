@@ -13,10 +13,11 @@
 }
 
 .title {
-  font-size: 15px;
-  font-weight: bold;
+  font-size: 13px;
+  font-weight: 600;
   margin-bottom: 0;
   display: inline-block;
+  font-family: var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif);
 }
 
 .headerRow {
@@ -26,9 +27,10 @@
 }
 
 .date {
-  font-size: 13px;
+  font-size: 11px;
   color: #aaa;
   text-align: right;
+  font-family: var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif);
 }
 
 .nodeBar {
