@@ -114,10 +114,22 @@ export function calculateEdges(nodes: LayoutNode[], bands: BandInfo[], container
     candidates.forEach((cand, index) => {
       const entryOffset = total > 1 ? (-span / 2 + index * step) : 0;
       const { source, target, band, needsHorizontal, childNodes } = cand;
+      
+      // Use centered positioning for single arrows
+      const isSingleArrow = total === 1;
+      const useCenteredTarget = isSingleArrow;
+      
+      // Create points with centered target option
       const points = needsHorizontal
-        ? createBandPathWithHorizontalConnector(source, target, band.x, band.side, childNodes, entryOffset)
-        : createBandPath(source, target, band.x, band.side, entryOffset);
+        ? createBandPathWithHorizontalConnector(source, target, band.x, band.side, childNodes, entryOffset, useCenteredTarget)
+        : createBandPath(source, target, band.x, band.side, entryOffset, useCenteredTarget);
+      
       if (!points.length) return;
+      
+      const targetHandle = isSingleArrow 
+        ? (band.side === 'right' ? 'left-center' : 'right-center')
+        : 'top';
+      
       bandEdges.push({
         id: cand.id,
         source: source.id,
@@ -126,7 +138,7 @@ export function calculateEdges(nodes: LayoutNode[], bands: BandInfo[], container
         band: band.name,
         points,
         sourceHandle: band.side === 'right' ? 'right-source' : 'left-source',
-        targetHandle: 'top',
+        targetHandle,
         color: band.color
       });
     });

@@ -314,7 +314,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           >
             <i className="codicon codicon-tag" style={{
               fontSize: "20px",
-              color: "#fff",
+              color: "#c4a05aff",
               pointerEvents: "none",
             }}></i>
           </button>
@@ -335,7 +335,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           >
             <i className="codicon codicon-eraser" style={{
               fontSize: "20px",
-              color: "#fff",
+              color: "#c36e5dff",
               pointerEvents: "none",
             }}></i>
           </button>
@@ -352,7 +352,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           >
             <i className="codicon codicon-debug-restart" style={{
               fontSize: "20px",
-              color: "#fff",
+              color: "#7fc17bff",
               pointerEvents: "none",
             }}></i>
           </button>

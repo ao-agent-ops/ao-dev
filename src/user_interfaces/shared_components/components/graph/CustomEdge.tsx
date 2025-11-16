@@ -61,21 +61,38 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
   }
 
   const stroke = data?.color || '#e0e0e0';
-  const markerId = `chevron-arrowhead-${id}`;
+  
+  // Determine arrow direction based on the final arrow segment direction
+  let arrowType = 'vertical'; // default to vertical
+  
+  if (data?.points && data.points.length >= 2) {
+    // Use the last two points to determine the final arrow direction
+    const lastTwoPoints = data.points.slice(-2);
+    const dx = lastTwoPoints[1].x - lastTwoPoints[0].x;
+    const dy = lastTwoPoints[1].y - lastTwoPoints[0].y;
+    arrowType = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+  } else {
+    // Fallback to source/target comparison for simple paths
+    const isHorizontal = Math.abs(targetX - sourceX) > Math.abs(targetY - sourceY);
+    arrowType = isHorizontal ? 'horizontal' : 'vertical';
+  }
+  
+  const markerId = `chevron-arrowhead-${arrowType}-${id}`;
+  
   return (
     <svg style={{ overflow: 'visible', position: 'absolute' }}>
       <defs>
         <marker
           id={markerId}
-          markerWidth="8"
-          markerHeight="8"
-          refX="4"
-          refY="4"
+          markerWidth="6"
+          markerHeight="6"
+          refX={arrowType === 'horizontal' ? "4.8" : "2"}
+          refY="3"
           orient="auto"
           markerUnits="strokeWidth"
         >
           <polyline
-            points="0,0 4,4 0,8"
+            points="0,0 3,3 0,6"
             fill="none"
             stroke={stroke}
             strokeWidth="1"

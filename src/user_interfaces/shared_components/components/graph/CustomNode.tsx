@@ -124,27 +124,21 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   useEffect(() => {
     if (showPopover && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      // Calculate the position so that the popover does not cover the node
-      let top, left;
-      const POPOVER_HEIGHT = 70; // estimated height of the popover
-      const SEPARATION = 2; // Extra space around the popover
-      const BOTTOM_SEPARATION = 45; // Extra space below the node
-      const HORIZONTAL_OFFSET = 0; // Can you adjust this if needed
-
-      // Adjust the popover position based on the node's position
-      if (yPos < NODE_HEIGHT + 20) {
-        // Popover Below the node
-        top = rect.bottom + window.scrollY + SEPARATION;
-      } else {
-        // Popover Above the node
-        top = rect.top + window.scrollY - BOTTOM_SEPARATION - POPOVER_HEIGHT;
-      }
-      left = rect.left + rect.width / 2 + window.scrollX + HORIZONTAL_OFFSET;
+      // Always position popover below the node, centered precisely
+      const top = rect.bottom + window.scrollY;
+      // Calculate exact center point of the node, with slight left adjustment
+      const centerX = rect.left + (rect.width / 2) - 3; // Move 3px to the left
+      const left = centerX + window.scrollX;
+      
+      // Debug logging to check values
+      console.log('Node rect:', { left: rect.left, width: rect.width, centerX });
+      console.log('Popover position:', { top, left });
+      
       setPopoverCoords({ top, left });
     } else if (!showPopover) {
       setPopoverCoords(null);
     }
-  }, [showPopover, yPos]);
+  }, [showPopover]);
 
   return (
     <div
@@ -183,7 +177,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           onAction={handleAction}
           onMouseEnter={() => setShowPopover(true)}
           onMouseLeave={() => setShowPopover(false)}
-          position={yPos < NODE_HEIGHT + 20 ? 'below' : 'above'}
+          position="below"
           top={popoverCoords.top}
           left={popoverCoords.left}
           isDarkTheme={isDarkTheme}
@@ -209,7 +203,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         style={handleStyle}
       />
 
-      {/* Side handles */}
+      {/* Side handles - offset positions */}
       <Handle
         type="target"
         position={Position.Left}
@@ -233,6 +227,32 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         position={Position.Right}
         id="right-source"
         style={rightSourceStyle}
+      />
+
+      {/* Centered side handles for single arrows */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-center"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-center-source"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-center"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-center-source"
+        style={{...handleStyle, top: '50%'}}
       />
 
       {/* Label */}
