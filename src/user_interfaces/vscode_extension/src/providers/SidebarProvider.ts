@@ -177,13 +177,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this._pythonClient.sendMessage(data);
                     }
                     break;
-                case 'refresh':
-                    if (this._pythonClient) {
-                        this._pythonClient.sendMessage(data);
-                    } else {
-                        console.warn('[GraphViewProvider] No Python client available for refresh');
-                    }
-                    break;
                 case 'openGraphTab':
                     if (this._graphTabProvider && data.payload.experiment) {
                         this._graphTabProvider.createOrShowGraphTab(data.payload.experiment);

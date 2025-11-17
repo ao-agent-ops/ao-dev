@@ -108,54 +108,17 @@ export const App: React.FC = () => {
           alignItems: "center",
         }}
       >
-        <div style={{ display: "flex" }}>
-          <h3
-            style={{
-              margin: 0,
-              padding: "10px 20px",
-              fontSize: "14px",
-              fontWeight: "600",
-              color: "var(--vscode-editor-foreground)"
-            }}
-          >
-            Experiments
-          </h3>
-        </div>
-        <button
-          onClick={() => {
-            if (window.vscode) {
-              console.log('Refresh button clicked');
-              window.vscode.postMessage({
-                type: 'refresh'
-              });
-            }
-          }}
+        <h3
           style={{
-              padding: "4px 8px",
-              marginRight: "8px",
-              border: "1px solid transparent",
-              backgroundColor: "transparent",
-              color: "var(--vscode-foreground)",
-              borderRadius: "3px",
-              cursor: "pointer",
-              fontSize: "16px",
-              fontWeight: "400",
-              height: "22px",
-              minWidth: "auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onMouseEnter={() => {
-              // No background change on hover
-            }}
-            onMouseLeave={() => {
-              // No background change on hover
-            }}
-            title="Refresh"
-          >
-            <i className="codicon codicon-refresh"></i>
-          </button>
+            margin: 0,
+            padding: "10px 20px",
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "var(--vscode-editor-foreground)"
+          }}
+        >
+          Experiments
+        </h3>
       </div>
       <div style={{ flex: 1, overflow: "hidden" }}>
         <ExperimentsView
