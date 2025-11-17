@@ -759,7 +759,6 @@ def run_all_tests():
     print("Running comprehensive re module taint propagation tests...\n")
 
     try:
-        test_basic_setup()
         test_pattern_search()
         test_re_search()
         test_findall()

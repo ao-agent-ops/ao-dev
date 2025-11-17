@@ -11,35 +11,16 @@ import pytest
 import os
 import sys
 from pathlib import Path
-
-# Handle imports for both pytest and direct execution
-if __name__ == "__main__":
-    # When run directly, add the repo root to sys.path
-    repo_root = Path(__file__).parent.parent
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
-
 from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
 from aco.common.constants import ACO_LOG_PATH
-
-# Try relative import first (pytest), fall back to sys.path import (direct execution)
-try:
-    from tests.get_api_objects import (
-        create_anthropic_response,
-        create_openai_input,
-        create_openai_response,
-        create_anthropic_input,
-    )
-except ImportError:
-    from get_api_objects import (
-        create_anthropic_response,
-        create_openai_input,
-        create_openai_response,
-        create_anthropic_input,
-    )
-
 from aco.server.cache_manager import CACHE
+from tests.get_api_objects import (
+    create_anthropic_response,
+    create_openai_input,
+    create_openai_response,
+    create_anthropic_input,
+)
 
 
 def print_server_logs():

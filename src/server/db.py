@@ -5,16 +5,6 @@ from aco.common.constants import DATABASE_URL
 # Check if we should use Postgres instead of SQLite
 USE_POSTGRES = bool(DATABASE_URL)
 
-
-def convert_sql_placeholders(sql: str) -> str:
-    """
-    Convert SQLite placeholders (?) to PostgreSQL placeholders (%s) when using Postgres.
-    This allows the codebase to use SQLite-style placeholders everywhere.
-    """
-    if USE_POSTGRES:
-        return sql.replace("?", "%s")
-    return sql
-
 if USE_POSTGRES:
     # Import and re-export all functions from postgres backend
     from aco.server.database_backends.postgres import (

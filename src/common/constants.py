@@ -48,8 +48,15 @@ COLLECT_TELEMETRY = config.collect_telemetry
 TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
 TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
+
+# NOTE: We decided to only support remote DB for now. This might change in the future
+# and the code is there to also support SQLite. Only thing missing is that reruns need
+# to know whether to look up data remote or local. IMO we should have separate 
+# experiment lists.
+
 # We're getting the env var here because the deployed web app can't access the config.
-DATABASE_URL = os.environ.get("DATABASE_URL") or config.database_url
+# DATABASE_URL = os.environ.get("DATABASE_URL") or config.database_url
+DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
 
 # server-related constants
 HOST = os.environ.get("HOST", "127.0.0.1")

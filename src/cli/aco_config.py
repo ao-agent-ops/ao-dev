@@ -44,12 +44,12 @@ def get_user_input() -> Config:
         error_message="Please enter a valid path to a directory.",
     )
 
-    database_url = _ask_field(
-        "Database URL (leave empty for SQLite): ",
-        str,
-        default=os.environ.get("DATABASE_URL"),
-        error_message="Please enter a valid database URL or leave empty.",
-    )
+    # database_url = _ask_field(
+    #     "Database URL (leave empty for SQLite): ",
+    #     str,
+    #     default=os.environ.get("DATABASE_URL"),
+    #     error_message="Please enter a valid database URL or leave empty.",
+    # )
 
     collect_telemetry = _ask_field(
         "Enable telemetry collection? [yes/NO]: ",
@@ -91,7 +91,7 @@ def get_user_input() -> Config:
         telemetry_url=telemetry_url,
         telemetry_key=telemetry_key,
         telemetry_username=telemetry_username,
-        database_url=database_url,
+        # database_url=database_url,
     )
     return config
 

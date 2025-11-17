@@ -16,6 +16,10 @@ def generate_random_username() -> str:
     """Generate a random 6-letter hash for telemetry username."""
     return "".join(random.choices(string.ascii_lowercase, k=6))
 
+# NOTE: We decided to only support remote DB for now. This might change in the future
+# and the code is there to also support SQLite. Only thing missing is that reruns need
+# to know whether to look up data remote or local. IMO we should have separate 
+# experiment lists.
 
 @dataclass
 class Config:
@@ -24,7 +28,7 @@ class Config:
     telemetry_url: str = None
     telemetry_key: str = None
     telemetry_username: str = None
-    database_url: str = None
+    # database_url: str = None
 
     @classmethod
     def from_yaml_file(cls, yaml_file: str) -> "Config":

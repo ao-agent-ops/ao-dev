@@ -24,7 +24,7 @@ server = "aco.cli.aco_server:main"
 line-length = 100
 
 [project]
-name = "agops-bird"
+name = "agops"
 version = "0.0.5"
 description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"
@@ -41,7 +41,8 @@ dev = [
     "openai",
     "anthropic",
     "openai-agents",
-    "google-genai"
+    "google-genai",
+    "hydra-core"
 ]
 
 examples = [

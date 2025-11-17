@@ -41,22 +41,23 @@ from aco.common.utils import get_aco_py_files
 def is_pyc_rewritten(pyc_path: str) -> bool:
     """
     Check if a .pyc file was created by our AST transformer.
-    
+
     Args:
         pyc_path: Path to a .pyc file
-    
+
     Returns:
         True if the .pyc contains our rewrite marker, False otherwise
     """
     try:
         import marshal
-        with open(pyc_path, 'rb') as f:
+
+        with open(pyc_path, "rb") as f:
             # Skip the .pyc header (magic number, flags, timestamp, size)
             f.read(16)
             code = marshal.load(f)
-            
+
             # Check if our marker is in the code object's names or constants
-            return '__ACO_AST_REWRITTEN__' in code.co_names
+            return "__ACO_AST_REWRITTEN__" in code.co_names
     except (IOError, OSError, Exception):
         return False
 
@@ -85,16 +86,23 @@ def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = No
     # Parse source into AST
     tree = ast.parse(source, filename=filename)
 
-    # Add rewrite marker as the first statement in the module
+    # Add rewrite marker after any __future__ imports
     # This allows us to verify that a .pyc file was created by our AST transformer
     marker = ast.Assign(
-        targets=[ast.Name(id='__ACO_AST_REWRITTEN__', ctx=ast.Store())],
-        value=ast.Constant(value=True)
+        targets=[ast.Name(id="__ACO_AST_REWRITTEN__", ctx=ast.Store())],
+        value=ast.Constant(value=True),
     )
+
+    # Find insertion point after any __future__ imports
+    insertion_point = 0
+    for i, node in enumerate(tree.body):
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            insertion_point = i + 1
+
     # Set location info for the marker
     marker.lineno = 1
     marker.col_offset = 0
-    tree.body.insert(0, marker)
+    tree.body.insert(insertion_point, marker)
 
     # Apply AST transformations for taint propagation
     # Unified transformer handles: f-strings, .format(), % formatting, and third-party calls
@@ -847,7 +855,7 @@ def exec_func(func, args, kwargs, user_py_files=None):
             taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
         elif hasattr(func, "func") and hasattr(func.func, "__self__"):
             taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-        
+
         return taint_wrap(result, taint_origin=all_origins)
 
     # If no taint, return result unwrapped

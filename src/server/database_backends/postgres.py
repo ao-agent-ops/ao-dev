@@ -228,8 +228,12 @@ def deserialize(output_json, api_type):
     """Deserialize output JSON back to response object"""
     if output_json is None:
         return None
-    # For now, just return the JSON string
-    return output_json
+    # Handle the case where dill pickled data was stored as TEXT
+    # When binary data is stored as TEXT in PostgreSQL, we need to convert it back to bytes
+    if isinstance(output_json, str):
+        # Convert string back to bytes for dill.loads()
+        output_json = output_json.encode('latin1')
+    return dill.loads(output_json)
 
 
 def store_taint_info(session_id, file_path, line_no, taint_nodes):
