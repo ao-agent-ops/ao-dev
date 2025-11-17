@@ -555,8 +555,7 @@ class DevelopServer:
         self.broadcast_to_all_uis(
             {"type": "graph_update", "session_id": None, "payload": {"nodes": [], "edges": []}}
         )
-        os.remove(ACO_LOG_PATH)
-        logger.info("Database, log file and in-memory state cleared.")
+        logger.info("Database and in-memory state cleared.")
 
     # ============================================================
     # Message rounting logic.
@@ -719,6 +718,14 @@ class DevelopServer:
 
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
+        # Clear the log file on server startup
+        try:
+            with open(ACO_LOG_PATH, 'w') as f:
+                pass  # Just truncate the file
+            logger.debug("Server log file cleared on startup")
+        except Exception as e:
+            logger.warning(f"Could not clear log file on startup: {e}")
+        
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 

@@ -208,11 +208,8 @@ class FileWatcher:
         FILE_POLL_INTERVAL seconds and recompiling changed files.
         """
         logger.debug(f"[FileWatcher] Starting file watcher process")
-        logger.debug(f"[FileWatcher] Monitoring {len(self.module_to_file)} modules")
-        logger.debug(f"[FileWatcher] Polling interval: {FILE_POLL_INTERVAL} seconds")
 
         # Initial compilation of all files
-        logger.info("[FileWatcher] Performing initial compilation of all modules...")
         compiled_count = 0
         failed_count = 0
         for module_name, file_path in self.module_to_file.items():
@@ -228,10 +225,7 @@ class FileWatcher:
         # Start polling loop
         try:
             logger.info("[FileWatcher] Starting polling loop...")
-            poll_count = 0
             while True:
-                poll_count += 1
-                logger.debug(f"[FileWatcher] Poll #{poll_count} PID {self.pid}")
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
         except KeyboardInterrupt:
