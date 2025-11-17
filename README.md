@@ -49,14 +49,6 @@ aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
 
 ![Running Example](docs/media/execute_example.gif)
 
-### Select a database
-
-By default, all of your runs are stored locally on your machine. If you want them to be stored inside our AWS database, do `aco-config` and the following:
-```
-Database URL (leave empty for SQLite):
-postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db
-```
-
 ## Further resources
 
  - [Join our discord server](https://discord.gg/fjsNSa6TAh).
