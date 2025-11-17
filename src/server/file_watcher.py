@@ -16,6 +16,7 @@ Key Features:
 import os
 import sys
 import time
+import signal
 from typing import Dict
 from aco.common.logger import logger
 from aco.common.constants import FILE_POLL_INTERVAL
@@ -42,8 +43,10 @@ class FileWatcher:
         self.module_to_file = module_to_file
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
+        self._shutdown = False  # Flag to signal shutdown
         logger.debug(f"[FileWatcher] Initialized FileWatcher. process id (pid) {self.pid}")
         self._populate_initial_mtimes()
+        self._setup_signal_handlers()
 
     def _populate_initial_mtimes(self):
         """Initialize modification times for all tracked files."""
@@ -62,6 +65,17 @@ class FileWatcher:
                     )
             except OSError as e:
                 logger.error(f"[FileWatcher] Error accessing file {file_path}: {e}")
+
+    def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown."""
+        signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
+        signal.signal(signal.SIGINT, self._handle_shutdown_signal)
+        logger.debug(f"[FileWatcher] Signal handlers installed for pid {self.pid}")
+
+    def _handle_shutdown_signal(self, signum, frame):
+        """Handle shutdown signals gracefully."""
+        logger.info(f"[FileWatcher] Received signal {signum}, shutting down gracefully...")
+        self._shutdown = True
 
     def _needs_recompilation(self, file_path: str) -> bool:
         """
@@ -196,6 +210,8 @@ class FileWatcher:
         and handle file changes.
         """
         for module_name, file_path in self.module_to_file.items():
+            if self._shutdown:
+                return
             if self._needs_recompilation(file_path):
                 logger.debug(f"File changed, recompiling: {file_path}")
                 self._compile_file(file_path, module_name)
@@ -204,8 +220,8 @@ class FileWatcher:
         """
         Main polling loop that monitors files and triggers recompilation.
 
-        This method runs indefinitely, checking for file changes every
-        FILE_POLL_INTERVAL seconds and recompiling changed files.
+        This method runs until a shutdown signal is received, checking for 
+        file changes every FILE_POLL_INTERVAL seconds and recompiling changed files.
         """
         logger.debug(f"[FileWatcher] Starting file watcher process")
 
@@ -213,6 +229,9 @@ class FileWatcher:
         compiled_count = 0
         failed_count = 0
         for module_name, file_path in self.module_to_file.items():
+            if self._shutdown:
+                logger.info("[FileWatcher] Shutdown requested during initial compilation")
+                return
             if self._compile_file(file_path, module_name):
                 compiled_count += 1
             else:
@@ -225,7 +244,7 @@ class FileWatcher:
         # Start polling loop
         try:
             logger.info("[FileWatcher] Starting polling loop...")
-            while True:
+            while not self._shutdown:
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
         except KeyboardInterrupt:
@@ -236,6 +255,8 @@ class FileWatcher:
 
             logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")
             raise
+        finally:
+            logger.info(f"[FileWatcher] File watcher process {self.pid} exiting")
 
 
 def run_file_watcher_process(module_to_file: Dict[str, str]):
