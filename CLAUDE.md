@@ -7,7 +7,7 @@ Agent Copilot is a development tool that creates interactive dataflow graphs of 
 Core system files:
 - @src/server/ast_transformer.py - AST rewrites for taint propagation
 - @src/server/file_watcher.py - Automatic file monitoring and recompilation
-<!-- - @src/runner/taint_wrappers.py - Taint-aware data types for tracking provenance -->
+- @src/runner/taint_wrappers.py - Taint-aware data types for tracking provenance
 - @src/runner/launch_scripts.py - Runtime environment setup
 - @src/runner/ast_rewrite_hook.py - Import hook ensuring `.pyc` availability
 - @src/runner/monkey_patching/patches/openai_patches.py - LLM API interception example
@@ -63,7 +63,8 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 
 ## Do Not
 
-- **Do NOT** overcomplicate the system. Simplicity is a code concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
+- **Do NOT** overcomplicate the system. Simplicity is a core concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
+- Remain critical and skeptical about my thinking at all times. Maintain consistent intellectual standards throughout our conversation. Don’t lower your bar for evidence or reasoning quality just because we’ve been talking longer or because I seem frustrated. If I’m making weak arguments, keep pointing that out even if I’ve made good ones before.
 
 ## Caveats
 

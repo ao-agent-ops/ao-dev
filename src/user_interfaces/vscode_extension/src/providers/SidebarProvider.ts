@@ -94,7 +94,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
         // Handle messages from the webview
         webviewView.webview.onDidReceiveMessage(data => {
-            console.log('[SidebarProvider] Received message from webview:', data.type, data);
             if (data.type === 'restart') {
                 if (!data.session_id) {
                     console.error('Restart message missing session_id! Not forwarding to Python server.');
@@ -112,7 +111,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         console.error('NotesLogTabProvider instance not set!');
                     }
                     break;
-                case 'updateNode':
+                case 'update_node':
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
                     }

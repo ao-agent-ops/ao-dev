@@ -59,8 +59,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
     (nodeId: string, field: keyof GraphNode, value: string) => {
       onNodeUpdate(nodeId, field, value);
       messageSender.send({
-        type: 'updateNode',
-        nodeId,
+        type: 'update_node',
+        node_id: nodeId,
         field,
         value,
         session_id

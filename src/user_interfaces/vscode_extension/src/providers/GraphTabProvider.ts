@@ -116,7 +116,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                         this._runDetailsDialogProvider.show(data.payload.experiment);
                     }
                     break;
-                case 'updateNode':
+                case 'update_node':
                 case 'edit_input':
                 case 'edit_output':
                 case 'update_run_name':
