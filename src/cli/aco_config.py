@@ -91,7 +91,7 @@ def get_user_input() -> Config:
         telemetry_url=telemetry_url,
         telemetry_key=telemetry_key,
         telemetry_username=telemetry_username,
-        # database_url=database_url,
+        database_url=None,
     )
     return config
 

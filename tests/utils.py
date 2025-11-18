@@ -3,7 +3,7 @@ import textwrap
 import os
 from datetime import datetime
 from aco.server.ast_transformer import rewrite_source_to_code
-from aco.server.db import execute
+from aco.server.database_manager import DB
 from aco.server.edit_manager import EDIT
 
 
@@ -12,7 +12,7 @@ def cleanup_taint_db():
     import os
 
     # Clear all taint records
-    execute("DELETE FROM attachments")
+    DB.execute("DELETE FROM attachments")
 
     # Clean up environment variables that affect taint tracking
     if "AGENT_COPILOT_SESSION_ID" in os.environ:

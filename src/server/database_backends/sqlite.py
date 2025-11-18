@@ -4,11 +4,12 @@ SQLite database backend for workflow experiments.
 import os
 import sqlite3
 import threading
-import hashlib
+import json
 import dill
 
 from aco.common.logger import logger
 from aco.common.constants import ACO_DB_PATH
+from aco.common.utils import hash_input
 
 
 # Global lock among concurrent threads: Threads within a process share a single
@@ -149,13 +150,6 @@ def execute(sql, params=()):
         return c.lastrowid
 
 
-def hash_input(input_bytes):
-    if isinstance(input_bytes, bytes):
-        return hashlib.sha256(input_bytes).hexdigest()
-    else:
-        return hashlib.sha256(input_bytes.encode("utf-8")).hexdigest()
-
-
 def deserialize_input(input_blob, api_type):
     """Deserialize input blob back to original dict"""
     if input_blob is None:
@@ -174,8 +168,6 @@ def deserialize(output_json, api_type):
 
 def store_taint_info(session_id, file_path, line_no, taint_nodes):
     """Store taint information for a line in a file"""
-    import json
-
     file_id = f"{session_id}:{file_path}:{line_no}"
     content_hash = hash_input(f"{file_path}:{line_no}")
     taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
@@ -193,8 +185,6 @@ def store_taint_info(session_id, file_path, line_no, taint_nodes):
 
 def get_taint_info(file_path, line_no):
     """Get taint information for a specific line in a file from any previous session"""
-    import json
-
     row = query_one(
         """
         SELECT session_id, taint FROM attachments 
@@ -209,3 +199,23 @@ def get_taint_info(file_path, line_no):
         taint_nodes = json.loads(row["taint"]) if row["taint"] else []
         return row["session_id"], taint_nodes
     return None, []
+
+
+def add_experiment_to_db(session_id, parent_session_id, name, default_graph, timestamp, cwd, command, env_json, default_success, default_note, default_log):
+    """Execute SQLite-specific INSERT for experiments table"""
+    execute(
+        "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            session_id,
+            parent_session_id,
+            name,
+            default_graph,
+            timestamp,
+            cwd,
+            command,
+            env_json,
+            default_success,
+            default_note,
+            default_log,
+        ),
+    )

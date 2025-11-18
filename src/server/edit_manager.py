@@ -10,6 +10,7 @@ from aco.common.constants import (
     SUCCESS_STRING,
 )
 from aco.server import db
+from aco.server.database_manager import DB
 from aco.runner.monkey_patching.api_parser import set_output
 
 
@@ -76,61 +77,22 @@ class EditManager:
         # Initial values.
         default_graph = json.dumps({"nodes": [], "edges": []})
         parent_session_id = parent_session_id if parent_session_id else session_id
-
         env_json = json.dumps(environment)
         
-        # Check if using PostgreSQL
-        import os
-        from aco.server.db import USE_POSTGRES
-        
-        if USE_POSTGRES:
-            # PostgreSQL: Use INSERT ... ON CONFLICT ... DO UPDATE
-            db.execute(
-                """INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT (session_id) DO UPDATE SET
-                       parent_session_id = EXCLUDED.parent_session_id,
-                       name = EXCLUDED.name,
-                       graph_topology = EXCLUDED.graph_topology,
-                       timestamp = EXCLUDED.timestamp,
-                       cwd = EXCLUDED.cwd,
-                       command = EXCLUDED.command,
-                       environment = EXCLUDED.environment,
-                       success = EXCLUDED.success,
-                       notes = EXCLUDED.notes,
-                       log = EXCLUDED.log""",
-                (
-                    session_id,
-                    parent_session_id,
-                    name,
-                    default_graph,
-                    timestamp,
-                    cwd,
-                    command,
-                    env_json,
-                    DEFAULT_SUCCESS,
-                    DEFAULT_NOTE,
-                    DEFAULT_LOG,
-                ),
-            )
-        else:
-            # SQLite: Use INSERT OR REPLACE
-            db.execute(
-                "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    session_id,
-                    parent_session_id,
-                    name,
-                    default_graph,
-                    timestamp,
-                    cwd,
-                    command,
-                    env_json,
-                    DEFAULT_SUCCESS,
-                    DEFAULT_NOTE,
-                    DEFAULT_LOG,
-                ),
-            )
+        # Use database manager to execute backend-specific SQL
+        DB.add_experiment_to_db(
+            session_id,
+            parent_session_id,
+            name,
+            default_graph,
+            timestamp,
+            cwd,
+            command,
+            env_json,
+            DEFAULT_SUCCESS,
+            DEFAULT_NOTE,
+            DEFAULT_LOG,
+        )
 
     def update_graph_topology(self, session_id, graph_dict):
         graph_json = json.dumps(graph_dict)

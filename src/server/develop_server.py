@@ -1,4 +1,3 @@
-import re
 import socket
 import os
 import json
@@ -15,6 +14,7 @@ from typing import Optional, Dict
 from common.utils import MODULE2FILE
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
 from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
@@ -581,6 +581,28 @@ class DevelopServer:
         )
         logger.info("[DevelopServer] Database and in-memory state cleared.")
 
+    def handle_set_database_mode(self, msg: dict):
+        """Handle database mode switching from UI dropdown."""
+        mode = msg.get("mode")  # "local" or "remote"
+        if mode not in ["local", "remote"]:
+            logger.error(f"[DevelopServer] Invalid database mode: {mode}")
+            return
+        
+        try:
+            current_mode = DB.get_current_mode()
+            if current_mode != mode:
+                logger.info(f"[DevelopServer] Switching database mode from {current_mode} to {mode}")
+                DB.switch_mode(mode)
+                
+                # Refresh experiment list with new database - UI will see different data
+                self.broadcast_experiment_list_to_uis()
+                logger.info(f"[DevelopServer] Successfully switched to {mode} database mode")
+            else:
+                logger.debug(f"[DevelopServer] Database mode already set to {mode}")
+                
+        except Exception as e:
+            logger.error(f"[DevelopServer] Failed to switch database mode: {e}")
+
     # ============================================================
     # Message rounting logic.
     # ============================================================
@@ -622,6 +644,8 @@ class DevelopServer:
             self.handle_erase(msg)
         elif msg_type == "clear":
             self.handle_clear()
+        elif msg_type == "set_database_mode":
+            self.handle_set_database_mode(msg)
         else:
             logger.error(f"[DevelopServer] Unknown message type. Message:\n{msg}")
 

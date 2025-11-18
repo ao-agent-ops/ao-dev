@@ -4,7 +4,7 @@ import dill
 import random
 from aco.common.logger import logger
 from aco.common.constants import ACO_ATTACHMENT_CACHE
-from aco.server import db
+from aco.server.database_manager import DB
 from aco.common.utils import stream_hash, save_io_stream, set_seed
 from aco.runner.taint_wrappers import untaint_if_needed
 from aco.runner.monkey_patching.api_parser import get_input, get_model_name, set_input
@@ -25,7 +25,7 @@ class CacheManager:
         self.attachment_cache_dir = ACO_ATTACHMENT_CACHE
 
     def get_subrun_id(self, parent_session_id, name):
-        result = db.query_one(
+        result = DB.query_one(
             "SELECT session_id FROM experiments WHERE parent_session_id = ? AND name = ?",
             (parent_session_id, name),
         )
@@ -35,7 +35,7 @@ class CacheManager:
             return result["session_id"]
 
     def get_parent_session_id(self, session_id):
-        result = db.query_one(
+        result = DB.query_one(
             "SELECT parent_session_id FROM experiments WHERE session_id=?",
             (session_id,),
         )
@@ -45,11 +45,11 @@ class CacheManager:
         if not getattr(self, "cache_attachments", False):
             return
         # Early exit if file_id already exists
-        if db.query_one("SELECT file_id FROM attachments WHERE file_id=?", (file_id,)):
+        if DB.query_one("SELECT file_id FROM attachments WHERE file_id=?", (file_id,)):
             return
         # Check if with same content already exists.
         content_hash = stream_hash(io_stream)
-        row = db.query_one(
+        row = DB.query_one(
             "SELECT file_path FROM attachments WHERE content_hash=?", (content_hash,)
         )
         # Get appropriate file_path.
@@ -58,7 +58,7 @@ class CacheManager:
         else:
             file_path = save_io_stream(io_stream, file_name, self.attachment_cache_dir)
         # Insert the file_id mapping
-        db.execute(
+        DB.execute(
             "INSERT INTO attachments (file_id, content_hash, file_path) VALUES (?, ?, ?)",
             (file_id, content_hash, file_path),
         )
@@ -66,7 +66,7 @@ class CacheManager:
     def get_file_path(self, file_id):
         if not getattr(self, "cache_attachments", False):
             return None
-        row = db.query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
+        row = DB.query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
         if row is not None:
             return row["file_path"]
         return None
@@ -92,12 +92,12 @@ class CacheManager:
             "tools": tools,
         }
         input_pickle = dill.dumps(cacheable_input)
-        input_hash = db.hash_input(input_pickle)
+        input_hash = DB.hash_input(input_pickle)
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
 
-        row = db.query_one(
+        row = DB.query_one(
             "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?",
             (session_id, input_hash),
         )
@@ -111,7 +111,7 @@ class CacheManager:
                 f"Cache MISS, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
             )
             if cache:
-                db.execute(
+                DB.execute(
                     "INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)",
                     (session_id, input_pickle, input_hash, node_id, api_type),
                 )
@@ -148,30 +148,30 @@ class CacheManager:
         session_id = get_session_id()
         output_pickle = dill.dumps(output_obj)
         set_seed(node_id)
-        db.execute(
+        DB.execute(
             "UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?",
             (output_pickle, session_id, node_id),
         )
 
     def get_finished_runs(self):
-        return db.query_all(
+        return DB.query_all(
             "SELECT session_id, timestamp FROM experiments ORDER BY timestamp DESC", ()
         )
 
     def get_all_experiments_sorted(self):
         """Get all experiments sorted by name (alphabetical)"""
-        return db.query_all(
+        return DB.query_all(
             "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
             (),
         )
 
     def get_graph(self, session_id):
-        return db.query_one(
+        return DB.query_one(
             "SELECT graph_topology FROM experiments WHERE session_id=?", (session_id,)
         )
 
     def get_color_preview(self, session_id):
-        row = db.query_one(
+        row = DB.query_one(
             "SELECT color_preview FROM experiments WHERE session_id=?", (session_id,)
         )
         if row and row["color_preview"]:
@@ -179,20 +179,20 @@ class CacheManager:
         return []
 
     def get_parent_environment(self, parent_session_id):
-        return db.query_one(
+        return DB.query_one(
             "SELECT cwd, command, environment FROM experiments WHERE session_id=?",
             (parent_session_id,),
         )
 
     def update_color_preview(self, session_id, colors):
         color_preview_json = json.dumps(colors)
-        db.execute(
+        DB.execute(
             "UPDATE experiments SET color_preview=? WHERE session_id=?",
             (color_preview_json, session_id),
         )
 
     def get_exec_command(self, session_id):
-        row = db.query_one(
+        row = DB.query_one(
             "SELECT cwd, command, environment FROM experiments WHERE session_id=?", (session_id,)
         )
         if row is None:
@@ -201,12 +201,12 @@ class CacheManager:
 
     def clear_db(self):
         """Delete all records from experiments and llm_calls tables."""
-        db.execute("DELETE FROM experiments")
-        db.execute("DELETE FROM llm_calls")
+        DB.execute("DELETE FROM experiments")
+        DB.execute("DELETE FROM llm_calls")
 
     def get_session_name(self, session_id):
         # Get all subrun names for this parent session
-        row = db.query_one("SELECT name FROM experiments WHERE session_id=?", (session_id,))
+        row = DB.query_one("SELECT name FROM experiments WHERE session_id=?", (session_id,))
         if not row:
             return []  # Return empty list if no subruns found
         return [row["name"]]

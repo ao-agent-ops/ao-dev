@@ -165,6 +165,16 @@ function App() {
     if (ws) ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
   };
 
+  const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
+    // Send WebSocket message to server
+    if (ws) {
+      ws.send(JSON.stringify({
+        type: 'set_database_mode',
+        mode: mode.toLowerCase()
+      }));
+    }
+  };
+
   // const running = experiments.filter((e) => e.status === "running");
   // const finished = experiments.filter((e) => e.status === "finished");
 
@@ -187,6 +197,8 @@ function App() {
           finishedProcesses={finished}
           onCardClick={handleExperimentClick}
           isDarkTheme={isDarkTheme}
+          showHeader={true}
+          onModeChange={handleDatabaseModeChange}
         />
       </div>
 

@@ -9,12 +9,16 @@ interface ExperimentsViewProps {
   finishedProcesses: ProcessInfo[];
   onCardClick?: (process: ProcessInfo) => void;
   isDarkTheme?: boolean;
+  showHeader?: boolean;
+  onModeChange?: (mode: 'Local' | 'Remote') => void;
 }
 
-export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcesses, runningProcesses, finishedProcesses, onCardClick, isDarkTheme = false }) => {
+export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcesses, runningProcesses, finishedProcesses, onCardClick, isDarkTheme = false, showHeader = false, onModeChange }) => {
   // const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'similar', 'finished']));
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<'Local' | 'Remote'>('Local');
   
   // Debug logging
   console.log('ExperimentsView render - similarProcesses:', similarProcesses);
@@ -68,6 +72,17 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
       }
       return newSet;
     });
+  };
+
+  const handleModeChange = (mode: 'Local' | 'Remote') => {
+    console.log(mode);
+    setSelectedMode(mode);
+    setDropdownOpen(false);
+    
+    // Call parent handler to send message to server
+    if (onModeChange) {
+      onModeChange(mode);
+    }
   };
 
   const renderExperimentSection = (
@@ -146,9 +161,124 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
     );
   };
 
+  const headerStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid var(--vscode-editorWidget-border)',
+    padding: '10px 20px',
+    margin: '-20px -20px 20px -20px', // Extend to edges of container
+  };
+
+  const dropdownStyle: React.CSSProperties = {
+    position: 'relative',
+  };
+
+  const dropdownButtonStyle: React.CSSProperties = {
+    padding: '4px 8px',
+    fontSize: '12px',
+    backgroundColor: isDarkTheme ? '#3c3c3c' : '#f3f3f3',
+    color: isDarkTheme ? '#cccccc' : '#333333',
+    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    borderRadius: '4px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+  };
+
+  const dropdownMenuStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: '4px',
+    backgroundColor: isDarkTheme ? '#3c3c3c' : '#ffffff',
+    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    borderRadius: '4px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    zIndex: 1000,
+    minWidth: '100px',
+  };
+
+  const dropdownItemStyle: React.CSSProperties = {
+    padding: '6px 12px',
+    fontSize: '12px',
+    color: isDarkTheme ? '#cccccc' : '#333333',
+    cursor: 'pointer',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+  };
+
+  const headerTitleStyle: React.CSSProperties = {
+    margin: 0,
+    fontSize: '14px',
+    fontWeight: '600',
+    color: 'var(--vscode-editor-foreground)',
+  };
+
+  const renderDropdown = () => (
+    <div style={dropdownStyle}>
+      <button
+        style={dropdownButtonStyle}
+        onClick={() => setDropdownOpen(!dropdownOpen)}
+      >
+        {selectedMode}
+        <i className={`codicon ${dropdownOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
+      </button>
+      {dropdownOpen && (
+        <div style={dropdownMenuStyle}>
+          <div
+            style={{
+              ...dropdownItemStyle,
+              backgroundColor: selectedMode === 'Local' ? (isDarkTheme ? '#094771' : '#e3f2fd') : 'transparent',
+            }}
+            onClick={() => handleModeChange('Local')}
+            onMouseEnter={(e) => {
+              if (selectedMode !== 'Local') {
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#2a2d2e' : '#f0f0f0';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedMode !== 'Local') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            Local
+          </div>
+          <div
+            style={{
+              ...dropdownItemStyle,
+              backgroundColor: selectedMode === 'Remote' ? (isDarkTheme ? '#094771' : '#e3f2fd') : 'transparent',
+            }}
+            onClick={() => handleModeChange('Remote')}
+            onMouseEnter={(e) => {
+              if (selectedMode !== 'Remote') {
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#2a2d2e' : '#f0f0f0';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (selectedMode !== 'Remote') {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            Remote
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   if (runningProcesses.length === 0 && finishedProcesses.length === 0) {
     return (
       <div style={containerStyle}>
+        {showHeader && (
+          <div style={headerStyle}>
+            <h3 style={headerTitleStyle}>Experiments</h3>
+            {renderDropdown()}
+          </div>
+        )}
         <div style={titleStyle}>Develop Processes</div>
         <div style={emptyStateStyle}>
           <div style={{ fontSize: '16px', marginBottom: '8px' }}>No develop processes</div>
@@ -162,6 +292,12 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
 
   return (
     <div style={containerStyle}>
+      {showHeader && (
+        <div style={headerStyle}>
+          <h3 style={headerTitleStyle}>Experiments</h3>
+          {renderDropdown()}
+        </div>
+      )}
       {renderExperimentSection(runningProcesses, 'Running', 'running')}
       {renderExperimentSection(similarProcesses, 'Similar', 'similar', 16)}
       {renderExperimentSection(finishedProcesses, 'Finished', 'finished', 16)}

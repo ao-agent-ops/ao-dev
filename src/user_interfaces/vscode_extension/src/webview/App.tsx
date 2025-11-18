@@ -81,6 +81,16 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
+    // Send message to VS Code extension to relay to server
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'setDatabaseMode',
+        mode: mode.toLowerCase()
+      });
+    }
+  };
+
   // Use experiments in the order sent by server (already sorted by name ascending)
   const sortedProcesses = processes;
   
@@ -100,26 +110,7 @@ export const App: React.FC = () => {
         background: isDarkTheme ? "#252525" : "#F0F0F0",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--vscode-editorWidget-border)",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            padding: "10px 20px",
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "var(--vscode-editor-foreground)"
-          }}
-        >
-          Experiments
-        </h3>
-      </div>
+      {/* The Experiments header and dropdown are now handled by ExperimentsView when showHeader=true */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         <ExperimentsView
           similarProcesses={similarExperiments ? [similarExperiments] : []}
@@ -127,6 +118,8 @@ export const App: React.FC = () => {
           finishedProcesses={finishedExperiments}
           onCardClick={handleExperimentCardClick}
           isDarkTheme={isDarkTheme}
+          showHeader={true}
+          onModeChange={handleDatabaseModeChange}
         />
       </div>
     </div>
