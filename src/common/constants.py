@@ -40,6 +40,48 @@ if not os.path.exists(ACO_CONFIG):
     )
     default_config.to_yaml_file(ACO_CONFIG)
 
+
+
+
+
+
+Different branches.
+
+1. Commit (and push): On the left panel, add the changes you want to 
+"commit" and then commit (put a message) and push (upload to github)
+ --> Creating checkpoints. You can go back to them, and others can use your 
+code (we usually coordinate this on discord)
+ "can you merge mine into yours etc." "can you push something"
+
+2. Branches: You work on X, I work on Y. It sucks if you need to use my 
+unready code.
+ --> Every feature / bug that we work on, we creat a branch. (create new branch: git checkout -b YOUR NAME)
+ --> git branch: lists all branches you have locally.
+ --> git checkout: jump onto a different branch: Maybe branch is not updated (newer version on github). Do git pull to update.
+
+ --> Sync our code: I put your changes into mine or you put mine into yours
+    - Go to the "receiver branch" where merges are applied: git merge APPLIED_CHANGES
+      --> git merge main (on your branch). You branch is up to date with main (all updates on main are also on yours)
+      --> git will apply all of Bob's changes to Alice's code base (a lot of times this is complementary)
+      --> You change button color to be orange, I to green: CONFLICT
+
+      You fixed issue X, I fixed issue Y (we both started from code base version A)
+      --> We want to produce a code base version B, where both issues are fixed
+--> merge branches: You take someone elses new features / bug fixes and APPLY to your code (aka. your branch)
+
+
+
+2. Merge: Everyone has their 
+
+
+
+
+
+
+
+
+
+
 # Load values from config file.
 config = Config.from_yaml_file(ACO_CONFIG)
 
