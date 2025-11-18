@@ -36,7 +36,6 @@ if not os.path.exists(ACO_CONFIG):
         telemetry_url=None,
         telemetry_key=None,
         telemetry_username=generate_random_username(),
-        database_url=None,
     )
     default_config.to_yaml_file(ACO_CONFIG)
 
