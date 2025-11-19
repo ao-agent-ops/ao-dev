@@ -121,30 +121,18 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
               experiment={experiment}
               messageSender={messageSender}
               isDarkTheme={isDarkTheme}
+              metadataPanel={experiment ? (
+                <WorkflowRunDetailsPanel
+                  runName={experiment.run_name || experiment.session_id}
+                  result={experiment.result || ''}
+                  notes={experiment.notes || ''}
+                  log={experiment.log || ''}
+                  sessionId={sessionId || ''}
+                  isDarkTheme={isDarkTheme}
+                />
+              ) : undefined}
             />
           </div>
-        </div>
-      )}
-
-      {/* Metadata Panel - Always visible on right side */}
-      {experiment && (
-        <div
-          style={{
-            width: '350px',
-            borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
-            overflow: 'auto',
-            flexShrink: 0,
-            height: '100%',
-          }}
-        >
-          <WorkflowRunDetailsPanel
-            runName={experiment.run_name || experiment.session_id}
-            result={experiment.result || ''}
-            notes={experiment.notes || ''}
-            log={experiment.log || ''}
-            sessionId={sessionId || ''}
-            isDarkTheme={isDarkTheme}
-          />
         </div>
       )}
 
