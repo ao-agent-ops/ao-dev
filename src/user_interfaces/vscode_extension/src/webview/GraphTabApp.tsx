@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { GraphView } from '../../../shared_components/components/graph/GraphView';
+import { GraphTabApp as SharedGraphTabApp } from '../../../shared_components/components/GraphTabApp';
 import { GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
-import { RunDetailsModalApp } from './RunDetailsModalApp';
-import { NodeEditModal } from './NodeEditModal';
 
 // Global type augmentation for window.vscode
 declare global {
@@ -21,11 +19,6 @@ export const GraphTabApp: React.FC = () => {
   const [experiment, setExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isGraphReady, setIsGraphReady] = useState(false);
-  const [showRunDetailsModal, setShowRunDetailsModal] = useState(false);
-  const [modalExperiment, setModalExperiment] = useState<ProcessInfo | null>(null);
-  const [showNodeEditModal, setShowNodeEditModal] = useState(false);
-  const [nodeEditData, setNodeEditData] = useState<{ nodeId: string; field: 'input' | 'output'; label: string; value: string } | null>(null);
   const isDarkTheme = useIsVsCodeDarkTheme();
 
   // Override body overflow to allow scrolling
@@ -39,12 +32,16 @@ export const GraphTabApp: React.FC = () => {
   // Create MessageSender for VS Code environment
   const messageSender: MessageSender = {
     send: (message: any) => {
-      if (window.vscode) {
+      // Handle showNodeEditModal locally by dispatching window event
+      if (message.type === 'showNodeEditModal') {
+        window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
+          detail: message.payload
+        }));
+      } else if (window.vscode) {
         window.vscode.postMessage(message);
       }
     }
   };
-
 
   // Initialize and listen for messages
   useEffect(() => {
@@ -70,7 +67,6 @@ export const GraphTabApp: React.FC = () => {
           break;
         case 'graph_update':
           if (message.session_id === sessionId || message.session_id === window.sessionId) {
-            setIsGraphReady(false); // Reset ready state
             setGraphData(message.payload);
           }
           break;
@@ -112,7 +108,7 @@ export const GraphTabApp: React.FC = () => {
                 color_preview: updatedExperiment.color_preview
               };
               setExperiment(processInfo);
-              
+
               // Update tab title when experiment data changes
               if (window.vscode && processInfo.run_name) {
                 window.vscode.postMessage({
@@ -122,11 +118,6 @@ export const GraphTabApp: React.FC = () => {
                     title: processInfo.run_name
                   }
                 });
-              }
-              
-              // Also update modal experiment if it's the same one
-              if (modalExperiment && modalExperiment.session_id === sessionId) {
-                setModalExperiment(processInfo);
               }
             }
           }
@@ -139,21 +130,6 @@ export const GraphTabApp: React.FC = () => {
 
     window.addEventListener('message', handleMessage);
 
-    // Listen for custom events
-    const handleShowModal = (event: CustomEvent) => {
-      setModalExperiment(event.detail.experiment);
-      setShowRunDetailsModal(true);
-    };
-    
-    const handleShowNodeEditModal = (event: CustomEvent) => {
-      const { nodeId, field, label, value } = event.detail;
-      setNodeEditData({ nodeId, field, label, value });
-      setShowNodeEditModal(true);
-    };
-    
-    window.addEventListener('show-run-details-modal', handleShowModal as EventListener);
-    window.addEventListener('show-node-edit-modal', handleShowNodeEditModal as EventListener);
-    
     // Send ready message to indicate the webview is loaded
     if (window.vscode) {
       window.vscode.postMessage({ type: 'ready' });
@@ -161,23 +137,8 @@ export const GraphTabApp: React.FC = () => {
 
     return () => {
       window.removeEventListener('message', handleMessage);
-      window.removeEventListener('show-run-details-modal', handleShowModal as EventListener);
-      window.removeEventListener('show-node-edit-modal', handleShowNodeEditModal as EventListener);
     };
   }, [sessionId]);
-
-  // Reset graph ready state when graph data changes and set a short delay
-  useEffect(() => {
-    if (graphData) {
-      setIsGraphReady(false);
-      // Use a shorter, more reasonable delay
-      const timeout = setTimeout(() => {
-        setIsGraphReady(true);
-      }, 100); // Much shorter delay
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [graphData]);
 
   const handleNodeUpdate = (
     nodeId: string,
@@ -194,7 +155,7 @@ export const GraphTabApp: React.FC = () => {
         value,
         ...(attachments && { attachments }),
       };
-      
+
       if (field === "input") {
         window.vscode.postMessage({ type: "edit_input", ...baseMsg });
       } else if (field === "output") {
@@ -212,221 +173,25 @@ export const GraphTabApp: React.FC = () => {
     }
   };
 
-
-  if (!experiment || !sessionId) {
-    return (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: isDarkTheme ? "#252525" : "#F0F0F0",
-          color: "var(--vscode-editor-foreground)"
-        }}
-      >
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
         width: "100%",
-        height: "100%",
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
         background: isDarkTheme ? "#252525" : "#F0F0F0",
       }}
     >
-
-      {/* Main content area */}
-      <div
-        style={{
-          flex: 1,
-          overflow: "hidden",
-          display: "flex",
-        }}
-      >
-        {/* Graph View */}
-        {graphData && (
-          <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
-            {/* Loading overlay */}
-            {!isGraphReady && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: "var(--vscode-editor-background)",
-                  zIndex: 1000,
-                }}
-              />
-            )}
-            
-            {/* Graph (always rendered, but hidden until ready) */}
-            <div 
-              style={{ 
-                width: "100%", 
-                height: "100%",
-                visibility: isGraphReady ? "visible" : "hidden" 
-              }}
-            >
-              <GraphView
-                nodes={graphData.nodes || []}
-                edges={graphData.edges || []}
-                onNodeUpdate={(nodeId, field, value) => {
-                  const nodes = graphData.nodes || [];
-                  const node = nodes.find((n: any) => n.id === nodeId);
-                  const attachments = node?.attachments || undefined;
-                  handleNodeUpdate(
-                    nodeId,
-                    field,
-                    value,
-                    sessionId,
-                    attachments
-                  );
-                }}
-                session_id={sessionId}
-                experiment={experiment}
-                messageSender={messageSender}
-                isDarkTheme={isDarkTheme}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Run Details Modal */}
-        {showRunDetailsModal && modalExperiment && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10000,
-            }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowRunDetailsModal(false);
-              }
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--vscode-editor-background)',
-                border: '1px solid var(--vscode-editorWidget-border)',
-                borderRadius: '6px',
-                width: 'auto',
-                height: 'auto',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <RunDetailsModalApp
-                experiment={modalExperiment}
-                onClose={() => setShowRunDetailsModal(false)}
-                onSave={(data) => {
-                  // Send VSCode messages like WorkflowRunDetailsPanel does
-                  if (window.vscode && sessionId) {
-                    console.log('[GraphTabApp] Sending update messages to VSCode');
-                    window.vscode.postMessage({
-                      type: "update_run_name",
-                      session_id: sessionId,
-                      run_name: data.runName,
-                    });
-                    window.vscode.postMessage({
-                      type: "update_result",
-                      session_id: sessionId,
-                      result: data.result,
-                    });
-                    window.vscode.postMessage({
-                      type: "update_notes",
-                      session_id: sessionId,
-                      notes: data.notes,
-                    });
-                  }
-
-                  // Update local state to reflect the changes
-                  if (modalExperiment) {
-                    const updatedExperiment = {
-                      ...modalExperiment,
-                      run_name: data.runName,
-                      result: data.result,
-                      notes: data.notes,
-                    };
-                    setModalExperiment(updatedExperiment);
-                    
-                    // Also update the main experiment if it's the same one
-                    if (experiment && experiment === modalExperiment) {
-                      setExperiment(updatedExperiment);
-                    }
-                  }
-                  console.log('Save run details:', data);
-                  // Don't close modal on save - let user close it manually
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Node Edit Modal */}
-        {showNodeEditModal && nodeEditData && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10001, // Higher than run details modal
-            }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowNodeEditModal(false);
-              }
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--vscode-editor-background)',
-                border: '1px solid var(--vscode-editorWidget-border)',
-                borderRadius: '6px',
-                width: 'auto',
-                height: 'auto',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <NodeEditModal
-                nodeId={nodeEditData.nodeId}
-                field={nodeEditData.field}
-                label={nodeEditData.label}
-                value={nodeEditData.value}
-                onClose={() => setShowNodeEditModal(false)}
-                onSave={(nodeId, field, value) => {
-                  // Send the update using the existing handleNodeUpdate function
-                  const nodes = graphData?.nodes || [];
-                  const node = nodes.find((n: any) => n.id === nodeId);
-                  const attachments = node?.attachments || undefined;
-                  handleNodeUpdate(nodeId, field, value, sessionId, attachments);
-                }}
-              />
-            </div>
-          </div>
-        )}
+      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        <SharedGraphTabApp
+          experiment={experiment}
+          graphData={graphData}
+          sessionId={sessionId}
+          messageSender={messageSender}
+          isDarkTheme={isDarkTheme}
+          onNodeUpdate={handleNodeUpdate}
+        />
       </div>
     </div>
   );

@@ -584,6 +584,7 @@ class DevelopServer:
     def handle_set_database_mode(self, msg: dict):
         """Handle database mode switching from UI dropdown."""
         mode = msg.get("mode")  # "local" or "remote"
+        logger.debug(f"[DevelopServer] received set DB mode: {mode}")
         if mode not in ["local", "remote"]:
             logger.error(f"[DevelopServer] Invalid database mode: {mode}")
             return

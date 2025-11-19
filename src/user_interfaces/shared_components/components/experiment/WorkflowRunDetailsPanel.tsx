@@ -5,6 +5,7 @@ import { useIsVsCodeDarkTheme } from "../../utils/themeUtils";
 interface Props extends WorkflowRunDetailsPanelProps {
   onBack?: () => void;
   sessionId?: string;
+  isDarkTheme?: boolean;
 }
 
 const resultOptions = ["Select a result", "Satisfactory", "Failed"];
@@ -17,11 +18,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   onOpenInTab,
   onBack,
   sessionId = "",
+  isDarkTheme: isDarkThemeProp,
 }) => {
   const [localRunName, setLocalRunName] = useState(runName);
   const [localResult, setLocalResult] = useState(result);
   const [localNotes, setLocalNotes] = useState(notes);
-  const isDarkTheme = useIsVsCodeDarkTheme();
+  const vscodeTheme = useIsVsCodeDarkTheme();
+  const isDarkTheme = isDarkThemeProp !== undefined ? isDarkThemeProp : vscodeTheme;
 
   const handleRunNameChange = (value: string) => {
     console.log('[WorkflowRunDetailsPanel] Run name changed:', value, 'sessionId:', sessionId);
@@ -84,9 +87,9 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       padding: "6px 8px",
       fontSize: "13px",
       fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-      background: "var(--vscode-input-background, #2d2d2d)",
-      color: "var(--vscode-input-foreground, #fff)",
-      border: "1px solid var(--vscode-input-border, #555)",
+      background: isDarkTheme ? "#2d2d2d" : "#ffffff",
+      color: isDarkTheme ? "#cccccc" : "#333333",
+      border: `1px solid ${isDarkTheme ? "#555555" : "#d0d0d0"}`,
       borderRadius: "2px",
       boxSizing: "border-box",
       marginBottom: "16px",
@@ -104,11 +107,11 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
 
     const buttonStyle: React.CSSProperties = {
       ...fieldStyle,
-      background: "var(--vscode-button-background, #007acc)",
-      color: "var(--vscode-button-foreground, #fff)",
+      background: isDarkTheme ? "#0e639c" : "#007acc",
+      color: "#ffffff",
       cursor: "pointer",
       fontSize: "13px",
-      border: "1px solid var(--vscode-button-border, #007acc)",
+      border: `1px solid ${isDarkTheme ? "#0e639c" : "#007acc"}`,
       transition: "background-color 0.2s",
       fontWeight: "normal",
     };
@@ -119,7 +122,6 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       minHeight: "80px",
       maxHeight: "150px",
       overflowY: "auto",
-      color: "#fff",
       marginBottom: "5px",
     };
     
@@ -132,7 +134,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
           fontWeight: "600",
           fontSize: "16px",
           marginBottom: "24px",
-          color: "var(--vscode-foreground)",
+          color: isDarkTheme ? "#ffffff" : "#000000",
         }}
       >
         {onBack && (
@@ -141,7 +143,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             style={{
               background: "none",
               border: "none",
-              color: "var(--vscode-foreground)",
+              color: isDarkTheme ? "#ffffff" : "#000000",
               fontSize: "16px",
               cursor: "pointer",
               marginRight: "8px",
@@ -154,18 +156,18 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             }}
             title="Back"
           >
-            <i className="codicon codicon-arrow-left"></i>
+            ← {/* Unicode left arrow instead of codicon */}
           </button>
         )}
         Workflow run
       </div>
       {/* Title */}
-      <label style={{ 
-        fontSize: "13px", 
-        fontWeight: "600", 
-        marginBottom: "4px", 
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
         display: "block",
-        color: "var(--vscode-foreground)"
+        color: isDarkTheme ? "#cccccc" : "#333333",
       }}>Run name</label>
       <input
         type="text"
@@ -175,12 +177,12 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Result */}
-      <label style={{ 
-        fontSize: "13px", 
-        fontWeight: "600", 
-        marginBottom: "4px", 
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
         display: "block",
-        color: "var(--vscode-foreground)"
+        color: isDarkTheme ? "#cccccc" : "#333333",
       }}>Result</label>
       <div style={{ position: "relative", width: "100%" }}>
         <select
@@ -203,22 +205,22 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             display: "flex",
             alignItems: "center",
             pointerEvents: "none",
-            color: "#aaa",
+            color: isDarkTheme ? "#888888" : "#666666",
             fontSize: "16px",
             lineHeight: 1,
           }}
         >
-          <i className="codicon codicon-triangle-down"></i>
+          ▼ {/* Unicode down arrow instead of codicon */}
         </span>
       </div>
 
       {/* Notes */}
-      <label style={{ 
-        fontSize: "13px", 
-        fontWeight: "600", 
-        marginBottom: "4px", 
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
         display: "block",
-        color: "var(--vscode-foreground)"
+        color: isDarkTheme ? "#cccccc" : "#333333",
       }}>Notes</label>
       <textarea
         value={localNotes}
@@ -227,18 +229,18 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Log */}
-      <label style={{ 
-        fontSize: "13px", 
-        fontWeight: "600", 
-        marginBottom: "4px", 
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
         display: "block",
-        color: "var(--vscode-foreground)"
+        color: isDarkTheme ? "#cccccc" : "#333333",
       }}>Log</label>
       <textarea value={log} readOnly style={textareaStyle} />
 
 
       {/* Button open in tab */}
-      <button
+      {/* <button
         onClick={() => {
           if (window.vscode) {
             window.vscode.postMessage({
@@ -254,7 +256,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         style={buttonStyle}
       >
         Open in tab
-      </button>
+      </button> */}
     </div>
   );
 };

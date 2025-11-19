@@ -148,11 +148,6 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.set_output_overwrite_query(output_overwrite, session_id, node_id)
 
-    def delete_llm_calls_query(self, session_id):
-        """Delete llm_calls using backend-specific SQL syntax."""
-        backend = self._get_backend_module()
-        return backend.delete_llm_calls_query(session_id)
-
     def update_experiment_graph_topology_query(self, graph_json, session_id):
         """Update experiments graph_topology using backend-specific SQL syntax."""
         backend = self._get_backend_module()

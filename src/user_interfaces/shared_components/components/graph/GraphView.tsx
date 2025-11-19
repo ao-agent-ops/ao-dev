@@ -14,7 +14,7 @@ import { LayoutEngine } from '../../utils/layoutEngine';
 import { MessageSender } from '../../types/MessageSender';
 // import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
-import { FLOW_CONTAINER_MARGIN_TOP, NODE_WIDTH } from '../../utils/layoutConstants';
+import { NODE_WIDTH } from '../../utils/layoutConstants';
 // Icons are now handled via codicons
 
 interface GraphViewProps {
@@ -229,20 +229,29 @@ export const GraphView: React.FC<GraphViewProps> = ({
     <div
       ref={containerRef}
       className={styles.container}
-      style={{ 
-        width: "100%", 
+      style={{
+        width: "100%",
         height: "100%",
-        fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)"
+        fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
       }}
     >
       <div style={mainLayoutStyle}>
-        <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
+            paddingTop: "30px",
+          }}
+        >
           <ReactFlowProvider>
             <div
               className={styles.flowContainer}
               style={{
                 height: `${containerHeight}px`,
-                marginTop: `${FLOW_CONTAINER_MARGIN_TOP}px`,
+                marginTop: "0px",
                 paddingTop: "0px",
               }}
             >
@@ -291,27 +300,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
           <button
             style={{
               ...restartButtonStyle,
-              background: "transparent",
+              background: isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)",
               marginBottom: "4px",
-            }}
-            title="Show details panel"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('show-run-details-modal', {
-                detail: { experiment }
-              }));
-            }}
-          >
-            <i className="codicon codicon-tag" style={{
-              fontSize: "20px",
-              color: "#c4a05aff",
-              pointerEvents: "none",
-            }}></i>
-          </button>
-          <button
-            style={{
-              ...restartButtonStyle,
-              background: "transparent",
-              marginBottom: "4px",
+              border: `1px solid ${isDarkTheme ? "#555" : "#ddd"}`,
             }}
             title="Clear edits"
             onClick={() => {
@@ -321,15 +312,25 @@ export const GraphView: React.FC<GraphViewProps> = ({
               }
               messageSender.send({ type: "erase", session_id });
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDarkTheme ? "rgba(80, 80, 80, 0.8)" : "rgba(255, 255, 255, 1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)";
+            }}
           >
-            <i className="codicon codicon-eraser" style={{
-              fontSize: "20px",
-              color: "#c36e5dff",
-              pointerEvents: "none",
-            }}></i>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="5" y1="5" x2="15" y2="15" stroke="#e05252" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="15" y1="5" x2="5" y2="15" stroke="#e05252" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
           </button>
           <button
-            style={{ ...restartButtonStyle, marginBottom: "8px" }}
+            style={{
+              ...restartButtonStyle,
+              marginBottom: "8px",
+              background: isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)",
+              border: `1px solid ${isDarkTheme ? "#555" : "#ddd"}`,
+            }}
             title="Restart"
             onClick={() => {
               if (!session_id) {
@@ -338,12 +339,16 @@ export const GraphView: React.FC<GraphViewProps> = ({
               }
               messageSender.send({ type: "restart", session_id });
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDarkTheme ? "rgba(80, 80, 80, 0.8)" : "rgba(255, 255, 255, 1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)";
+            }}
           >
-            <i className="codicon codicon-debug-restart" style={{
-              fontSize: "20px",
-              color: "#7fc17bff",
-              pointerEvents: "none",
-            }}></i>
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12.75 8C12.75 10.62 10.62 12.75 8 12.75C5.38 12.75 3.25 10.62 3.25 8C3.25 5.38 5.38 3.25 8 3.25C9.32 3.25 10.5 3.81 11.31 4.69L9.5 6.5H14V2L12.19 3.81C11.03 2.65 9.42 2 8 2C4.69 2 2 4.69 2 8C2 11.31 4.69 14 8 14C11.31 14 14 11.31 14 8H12.75Z" fill="#7fc17b"/>
+            </svg>
           </button>
         </div>
       </div>

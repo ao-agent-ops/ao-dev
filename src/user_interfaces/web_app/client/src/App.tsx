@@ -2,11 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import { LoginScreen } from "./LoginScreen";
 import "./App.css";
 import type { GraphNode, GraphEdge, ProcessInfo } from "../../../shared_components/types";
-import { GraphView } from "../../../shared_components/components/graph/GraphView";
+import { GraphTabApp } from "../../../shared_components/components/GraphTabApp";
 import { ExperimentsView} from "../../../shared_components/components/experiment/ExperimentsView";
 import type { MessageSender } from "../../../shared_components/types/MessageSender";
-import { EditDialog } from "../../../shared_components/components/EditDialog";
-import { WorkflowRunDetailsPanel } from "../../../shared_components/components/experiment/WorkflowRunDetailsPanel";
 
 interface Experiment {
   session_id: string;
@@ -48,14 +46,30 @@ function App() {
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Detect dark theme
-  const isDarkTheme = window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
+  // Detect dark theme reactively
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
+  });
+
+  // Listen for theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsDarkTheme(e.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   // Create webapp MessageSender
   const messageSender: MessageSender = {
     send: (message: any) => {
-      if (message.type === "showEditDialog") {
-        setEditDialog(message.payload);
+      if (message.type === "showNodeEditModal") {
+        // Handle showNodeEditModal by dispatching window event (same as VS Code)
+        window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
+          detail: message.payload
+        }));
       } else if (
         message.type === "trackNodeInputView" ||
         message.type === "trackNodeOutputView"
@@ -136,34 +150,35 @@ function App() {
     return () => socket.close();
   }, [authenticated]);
 
-  const handleNodeUpdate = (nodeId: string, field: keyof GraphNode, value: string) => {
+  const handleNodeUpdate = (
+    nodeId: string,
+    field: string,
+    value: string,
+    sessionId?: string,
+    attachments?: any
+  ) => {
     if (selectedExperiment && ws) {
-      if (field == "input") {
-        ws.send(
-          JSON.stringify({
-            type: "edit_input",
-            session_id: selectedExperiment.session_id,
-            node_id: nodeId,
-            value,
-          })
-        )
-      } else if (field == "output") {
-        ws.send(
-          JSON.stringify({
-            type: "edit_output",
-            session_id: selectedExperiment.session_id,
-            node_id: nodeId,
-            value,
-          })
-        )
+      const currentSessionId = sessionId || selectedExperiment.session_id;
+      const baseMsg = {
+        session_id: currentSessionId,
+        node_id: nodeId,
+        value,
+        ...(attachments && { attachments }),
+      };
+
+      if (field === "input") {
+        ws.send(JSON.stringify({ type: "edit_input", ...baseMsg }));
+      } else if (field === "output") {
+        ws.send(JSON.stringify({ type: "edit_output", ...baseMsg }));
       } else {
         ws.send(
           JSON.stringify({
             type: "updateNode",
-            session_id: selectedExperiment.session_id,
+            session_id: currentSessionId,
             nodeId,
             field,
             value,
+            ...(attachments && { attachments }),
           })
         );
       }
@@ -172,7 +187,6 @@ function App() {
 
   const handleExperimentClick = (experiment: ProcessInfo) => {
     setSelectedExperiment(experiment);
-    setShowDetailsPanel(true);
     if (ws) ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
   };
 
@@ -218,19 +232,14 @@ function App() {
       </div>
 
       <div className="graph-container" ref={containerRef}>
-        {/* <button className="toggle-button" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? "Hide Experiments" : "Show Experiments"}
-        </button> */}
-
         {selectedExperiment && graphData ? (
-          <GraphView
-            nodes={graphData.nodes}
-            edges={graphData.edges}
-            onNodeUpdate={handleNodeUpdate}
-            session_id={selectedExperiment.session_id}
+          <GraphTabApp
             experiment={selectedExperiment}
+            graphData={graphData}
+            sessionId={selectedExperiment.session_id}
             messageSender={messageSender}
             isDarkTheme={isDarkTheme}
+            onNodeUpdate={handleNodeUpdate}
           />
         ) : (
           <div className="no-graph">
@@ -238,35 +247,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {showDetailsPanel && selectedExperiment && (
-        <div className="details-panel">
-          <WorkflowRunDetailsPanel
-            runName={selectedExperiment.run_name || selectedExperiment.session_id}
-            result=""
-            notes=""
-            log=""
-            onBack={() => setShowDetailsPanel(true)}
-          />
-        </div>
-      )}
-
-      {editDialog && (
-        <EditDialog
-          title={`Edit ${editDialog.label}`}
-          value={editDialog.value}
-          onSave={(newValue) => {
-            handleNodeUpdate(
-              editDialog.nodeId,
-              editDialog.field as keyof GraphNode,
-              newValue
-            );
-            setEditDialog(null);
-          }}
-          onCancel={() => setEditDialog(null)}
-          isDarkTheme={isDarkTheme}
-        />
-      )}
     </div>
   );
 }

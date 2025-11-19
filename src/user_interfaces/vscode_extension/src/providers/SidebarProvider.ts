@@ -12,6 +12,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private _notesLogTabProvider?: NotesLogTabProvider;
     private _pendingMessages: any[] = [];
     private _pythonClient: PythonServerClient | null = null;
+    private _messageHandler?: (msg: any) => void;
     // The Python server connection is deferred until the webview sends 'ready'.
     // Buffering is needed to ensure no messages are lost if the server sends messages before the webview is ready.
 
@@ -143,12 +144,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                     // Webview is ready - now connect to the Python server and set up message forwarding
                     if (!this._pythonClient) {
                         this._pythonClient = PythonServerClient.getInstance();
-                        // Forward all messages from the Python server to the webview, buffer if not ready
-                        this._pythonClient.onMessage((msg) => {
+                        // Create message handler and store reference for cleanup
+                        this._messageHandler = (msg) => {
                             // Intercept session_id message to set up config management
                             if (msg.type === 'session_id' && msg.config_path) {
                                 configManager.setConfigPath(msg.config_path);
-                                
+
                                 // Set up config forwarding to webview
                                 configManager.onConfigChange((config) => {
                                     if (this._view) {
@@ -164,7 +165,9 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                             } else {
                                 this._pendingMessages.push(msg);
                             }
-                        });
+                        };
+                        // Forward all messages from the Python server to the webview, buffer if not ready
+                        this._pythonClient.onMessage(this._messageHandler);
                         this._pythonClient.startServerIfNeeded();
                     }
                     break;
@@ -256,6 +259,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     }
 
     public dispose(): void {
+        // Clean up message listener
+        if (this._pythonClient && this._messageHandler) {
+            this._pythonClient.removeMessageListener(this._messageHandler);
+            this._messageHandler = undefined;
+        }
         // Clean up is handled by ConfigManager
     }
 }

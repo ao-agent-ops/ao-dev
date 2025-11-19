@@ -74,7 +74,6 @@ def get_conn():
     thread_id = threading.get_ident()
     conn = _connection_pool.getconn()
     
-    logger.info(f"[CONN] GET conn={id(conn)} thread={thread_id} caller={caller_file}:{caller_function}:{caller_line}")
     return conn
 
 
@@ -96,7 +95,6 @@ def return_conn(conn):
             del frame
         
         thread_id = threading.get_ident()
-        logger.info(f"[CONN] RETURN conn={id(conn)} thread={thread_id} caller={caller_file}:{caller_function}:{caller_line}")
         _connection_pool.putconn(conn)
 
 
@@ -368,11 +366,6 @@ def set_output_overwrite_query(output_overwrite, session_id, node_id):
         "UPDATE llm_calls SET output=%s WHERE session_id=%s AND node_id=%s",
         (output_overwrite, session_id, node_id),
     )
-
-
-def delete_llm_calls_query(session_id):
-    """Execute PostgreSQL-specific DELETE for llm_calls"""
-    execute("DELETE FROM llm_calls WHERE session_id=%s", (session_id,))
 
 
 def update_experiment_graph_topology_query(graph_json, session_id):
