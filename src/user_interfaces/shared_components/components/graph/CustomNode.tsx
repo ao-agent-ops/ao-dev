@@ -62,7 +62,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
             label: data.label || ''
           }
         });
-        
+
         // Request to show node edit modal
         data.messageSender.send({
           type: "showNodeEditModal",
@@ -73,6 +73,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
             label: data.label || "Node",
           }
         });
+        break;
       case "editOutput":
         // Track node output view through MessageSender
         data.messageSender.send({
