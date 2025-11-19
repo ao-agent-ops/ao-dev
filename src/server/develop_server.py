@@ -715,7 +715,8 @@ class DevelopServer:
                 # Log shim-control registration to telemetry
                 log_shim_control_registration(handshake, session_id)
             elif role == "shim-runner":
-                pass  # Don't do anything if shim-runner
+                # Send acknowledgment to shim-runner that experiment is ready
+                send_json(conn, {"type": "ready", "database_mode": DB.get_current_mode()})
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()

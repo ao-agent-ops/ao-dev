@@ -19,6 +19,7 @@ from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_pat
 from aco.server.ast_transformer import (
     taint_fstring_join, taint_format_string, taint_percent_format, exec_func
 )
+from aco.server.database_manager import DB
 
 
 module_to_file = {module_to_file}
@@ -44,7 +45,7 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
     # We currently rely on the OS to close the connection when proc finishes.
     server_conn = socket.create_connection((host, port), timeout=SOCKET_TIMEOUT)
 
-    # Handshake. For shim-runner, server doesn't send a response, just start running.
+    # Handshake. Send hello and wait for server acknowledgment.
     handshake = {{
         "type": "hello",
         "role": "shim-runner",
@@ -52,6 +53,12 @@ if os.environ.get("AGENT_COPILOT_ENABLE_TRACING"):
         "process_id": os.getpid(),
     }}
     server_conn.sendall((json.dumps(handshake) + "\\n").encode("utf-8"))
+    
+    # Wait for server acknowledgment and get which DB to use
+    ready_response = server_conn.makefile("r").readline()
+    ready_msg = json.loads(ready_response.strip())
+    database_mode = ready_msg.get("database_mode")    
+    DB.switch_mode(database_mode)
 
     # Register session_id and connection with context manager.
     set_parent_session_id(session_id)
