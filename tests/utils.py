@@ -11,6 +11,9 @@ def cleanup_taint_db():
     """Clean up all taint information from the database and environment"""
     import os
 
+    # Ensure we're using local SQLite for tests
+    DB.switch_mode("local")
+
     # Clear all taint records
     DB.execute("DELETE FROM attachments")
 
@@ -43,6 +46,9 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
         name: Name for the test session
         parent_session_id: Parent session ID (defaults to session_id if None)
     """
+    # Ensure we're using local SQLite for tests
+    DB.switch_mode("local")
+    
     EDIT.add_experiment(
         session_id=session_id,
         name=name,

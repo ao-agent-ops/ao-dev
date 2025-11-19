@@ -96,17 +96,17 @@ class DatabaseManager:
     def query_one(self, query, params=None):
         """Execute query and return single row result."""
         backend = self._get_backend_module()
-        return backend.query_one(query, params)
+        return backend.query_one(query, params or ())
 
     def query_all(self, query, params=None):
         """Execute query and return all rows."""
         backend = self._get_backend_module()
-        return backend.query_all(query, params)
+        return backend.query_all(query, params or ())
 
     def execute(self, query, params=None):
         """Execute query without returning results."""
         backend = self._get_backend_module()
-        return backend.execute(query, params)
+        return backend.execute(query, params or ())
 
     # def get_conn(self):
     #     """Get database connection."""

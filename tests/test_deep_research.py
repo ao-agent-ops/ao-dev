@@ -10,6 +10,9 @@ from aco.runner.develop_shim import ensure_server_running
 
 
 async def main():
+    # Ensure we're using local SQLite for this test
+    DB.switch_mode("local")
+    
     shim = DevelopShim(
         script_path="./example_workflows/miroflow_deep_research/single_task.py",
         script_args=[],

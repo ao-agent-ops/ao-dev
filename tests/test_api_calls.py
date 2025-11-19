@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+from aco.server.database_manager import DB
+
 # Add parent directory to path so we can import from tests module
 current_dir = Path(__file__).parent
 parent_dir = current_dir.parent
@@ -19,7 +21,7 @@ sys.path.insert(0, str(parent_dir))
 
 from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
-from aco.common.constants import ACO_LOG_PATH
+from aco.common.constants import ACO_LOG_PATH, REMOTE_DATABASE_URL
 from aco.server.cache_manager import CACHE
 from tests.get_api_objects import (
     create_anthropic_response,
@@ -87,22 +89,26 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     initial_http_calls = len(http_calls.calls) if http_calls else 0
     print(f"Initial HTTP calls: {initial_http_calls}")
 
-    # 1. First connect as admin to switch database backend if needed
+    # HACK: Inserts takes longer for remote, give additional 5s
+    TEST_TIMEOUT = 8
     if db_backend != "local":
-        print(f"Switching server database backend to: {db_backend}")
-        admin_sock = socket.create_connection(("127.0.0.1", 5959))
-        admin_file = admin_sock.makefile("rw")
-        
-        admin_handshake = {"type": "hello", "role": "admin", "script": "test_admin"}
-        admin_file.write(json.dumps(admin_handshake) + "\n")
-        admin_file.flush()
-        
-        db_mode_msg = {"type": "set_database_mode", "mode": db_backend}
-        admin_file.write(json.dumps(db_mode_msg) + "\n")
-        admin_file.flush()
-        admin_sock.close()
-        time.sleep(0.5)
-        print(f"Switched server database to {db_backend} mode")
+        TEST_TIMEOUT += 5
+
+    # 1. Set DB backend.
+    print(f"Switching server database backend to: {db_backend}")
+    admin_sock = socket.create_connection(("127.0.0.1", 5959))
+    admin_file = admin_sock.makefile("rw")
+    
+    admin_handshake = {"type": "hello", "role": "admin", "script": "test_admin"}
+    admin_file.write(json.dumps(admin_handshake) + "\n")
+    admin_file.flush()
+    
+    db_mode_msg = {"type": "set_database_mode", "mode": db_backend}
+    admin_file.write(json.dumps(db_mode_msg) + "\n")
+    DB.switch_mode(db_backend)
+    admin_file.flush()
+    admin_sock.close()
+    print(f"Switched server database to {db_backend} mode")
 
     # 2. Connect as shim-control to register session
     print("Connecting to shim-control...")
@@ -173,7 +179,7 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     start_time = time.time()
     print("Waiting for graph updates...")
 
-    while time.time() - start_time < 10:  # 10 second timeout (with SQLite 5s is enough)
+    while time.time() - start_time < TEST_TIMEOUT: # Messages need to arrive within this time
         try:
             msg = message_queue.get(timeout=1)
             if msg.get("type") == "graph_update" and msg.get("session_id") == session_id:

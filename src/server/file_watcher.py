@@ -44,7 +44,6 @@ class FileWatcher:
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
         self._shutdown = False  # Flag to signal shutdown
-        logger.debug(f"[FileWatcher] Initialized FileWatcher. process id (pid) {self.pid}")
         self._populate_initial_mtimes()
         self._setup_signal_handlers()
 
@@ -56,9 +55,6 @@ class FileWatcher:
                 if os.path.exists(file_path):
                     mtime = os.path.getmtime(file_path)
                     self.file_mtimes[file_path] = mtime
-                    logger.info(
-                        f"[FileWatcher] Tracking {module_name}: {file_path} (mtime: {mtime})"
-                    )
                 else:
                     logger.warning(
                         f"[FileWatcher] Module file not found: {module_name} -> {file_path}"

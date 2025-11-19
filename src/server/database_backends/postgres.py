@@ -16,95 +16,87 @@ from aco.common.utils import hash_input
 
 # Global connection pool
 _connection_pool = None
+_pool_lock = threading.Lock()
 
 
 def _init_pool():
     """Initialize the connection pool if not already created"""
     global _connection_pool
     
-    if _connection_pool is None:
-        database_url = REMOTE_DATABASE_URL
-        if not database_url:
-            raise ValueError(
-                "REMOTE_DATABASE_URL is required for Postgres connection (check config.yaml)"
+    with _pool_lock:
+        if _connection_pool is None:
+            database_url = REMOTE_DATABASE_URL
+            if not database_url:
+                raise ValueError(
+                    "REMOTE_DATABASE_URL is required for Postgres connection (check config.yaml)"
+                )
+            
+            # Parse the connection string
+            result = urlparse(database_url)
+            
+            # Create connection pool (1 min, 4 max connections to support concurrent access)
+            _connection_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=4,
+                host=result.hostname,
+                port=result.port or 5432,
+                user=result.username,
+                password=result.password,
+                database=result.path[1:],  # Remove leading '/'
+                connect_timeout=30,
             )
-        
-        # Parse the connection string
-        result = urlparse(database_url)
-        
-        # Create connection pool (1 min, 4 max connections to support concurrent access)
-        _connection_pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=1,
-            maxconn=4,
-            host=result.hostname,
-            port=result.port or 5432,
-            user=result.username,
-            password=result.password,
-            database=result.path[1:],  # Remove leading '/'
-            connect_timeout=30,
-        )
-        
-        # Initialize database schema using a connection from the pool
-        conn = _connection_pool.getconn()
-        try:
-            _init_db(conn)
-            logger.info(f"Initialized PostgreSQL connection pool to {result.hostname}")
-        finally:
-            _connection_pool.putconn(conn)
+            
+            # Initialize database schema using a connection from the pool
+            conn = _connection_pool.getconn()
+            try:
+                _init_db(conn)
+                logger.info(f"Initialized PostgreSQL connection pool to {result.hostname}")
+            finally:
+                _connection_pool.putconn(conn)
 
 
 def get_conn():
     """Get a connection from the pool"""
     _init_pool()
+        
+    # Check if pool exists before trying to get connection
+    if not _connection_pool:
+        raise RuntimeError("Connection pool is not available")
     
-    # Get caller information for debugging
-    frame = inspect.currentframe()
     try:
-        caller_frame = frame.f_back
-        caller_function = caller_frame.f_code.co_name
-        caller_file = caller_frame.f_code.co_filename.split('/')[-1]
-        caller_line = caller_frame.f_lineno
-    except:
-        caller_function = "unknown"
-        caller_file = "unknown"
-        caller_line = 0
-    finally:
-        del frame
-    
-    thread_id = threading.get_ident()
-    conn = _connection_pool.getconn()
+        conn = _connection_pool.getconn()
+    except Exception as e:
+        logger.error(f"Failed to get connection from pool: {e}")
+        raise
     
     return conn
 
 
 def return_conn(conn):
     """Return a connection to the pool"""
-    if _connection_pool:
-        # Get caller information for debugging
-        frame = inspect.currentframe()
-        try:
-            caller_frame = frame.f_back
-            caller_function = caller_frame.f_code.co_name
-            caller_file = caller_frame.f_code.co_filename.split('/')[-1]
-            caller_line = caller_frame.f_lineno
-        except:
-            caller_function = "unknown"
-            caller_file = "unknown"
-            caller_line = 0
-        finally:
-            del frame
-        
-        thread_id = threading.get_ident()
+    try:
         _connection_pool.putconn(conn)
+    except Exception as e:
+        # Pool might have been closed, just close the connection directly
+        logger.warning(f"Failed to return connection to pool (pool might be closed): {e}")
+        try:
+            conn.close()
+        except:
+            pass
 
 
 def close_all_connections():
     """Close all connections in the pool"""
     global _connection_pool
-    if _connection_pool:
-        _connection_pool.closeall()
-        _connection_pool = None
-        logger.debug("Closed PostgreSQL connection pool")
+    with _pool_lock:
+        if _connection_pool:
+            try:
+                _connection_pool.closeall()
+            except Exception as e:
+                logger.warning(f"Error closing connection pool: {e}")
+            finally:
+                _connection_pool = None
+            logger.debug("Closed PostgreSQL connection pool")
 
 
 def _init_db(conn):
@@ -194,19 +186,14 @@ def query_one(sql, params=()):
     """Execute a query and return one result"""
     # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
     sql = sql.replace("?", "%s")
-    
-    thread_id = threading.get_ident()
-    logger.info(f"[QUERY_ONE] START thread={thread_id} sql={sql[:100]}...")
-    
+        
     conn = get_conn()
     try:
         c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         c.execute(sql, params)
         result = c.fetchone()
-        logger.info(f"[QUERY_ONE] SUCCESS thread={thread_id} conn={id(conn)} result={'Found' if result else 'None'}")
         return result
     except Exception as e:
-        logger.error(f"[QUERY_ONE] ERROR thread={thread_id} conn={id(conn)} error={e}")
         conn.rollback()
         raise
     finally:
@@ -217,19 +204,14 @@ def query_all(sql, params=()):
     """Execute a query and return all results"""
     # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
     sql = sql.replace("?", "%s")
-    
-    thread_id = threading.get_ident()
-    logger.info(f"[QUERY_ALL] START thread={thread_id} sql={sql[:100]}...")
-    
+        
     conn = get_conn()
     try:
         c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         c.execute(sql, params)
         result = c.fetchall()
-        logger.info(f"[QUERY_ALL] SUCCESS thread={thread_id} conn={id(conn)} rows={len(result)}")
         return result
     except Exception as e:
-        logger.error(f"[QUERY_ALL] ERROR thread={thread_id} conn={id(conn)} error={e}")
         conn.rollback()
         raise
     finally:
@@ -240,19 +222,14 @@ def execute(sql, params=()):
     """Execute SQL statement"""
     # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
     sql = sql.replace("?", "%s")
-    
-    thread_id = threading.get_ident()
-    logger.info(f"[EXECUTE] START thread={thread_id} sql={sql[:100]}...")
-    
+        
     conn = get_conn()
     try:
         c = conn.cursor()
         c.execute(sql, params)
         conn.commit()
-        logger.info(f"[EXECUTE] SUCCESS thread={thread_id} conn={id(conn)}")
         return c.lastrowid if hasattr(c, 'lastrowid') else None
     except Exception as e:
-        logger.error(f"[EXECUTE] ERROR thread={thread_id} conn={id(conn)} error={e}")
         conn.rollback()
         raise
     finally:
