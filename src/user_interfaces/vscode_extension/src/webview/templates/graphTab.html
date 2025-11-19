@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Tab</title>
+    <link rel="stylesheet" href="{{codiconsUri}}">
+    <script>
+        // Polyfill process for browser environment
+        window.process = {
+            env: {},
+            platform: 'browser',
+            version: '',
+            versions: {},
+            type: 'renderer',
+            arch: 'x64'
+        };
+    </script>
+</head>
+<body>
+    <div id="graph-tab-root"></div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        window.vscode = vscode;
+        window.isGraphTab = true;
+        window.sessionId = '{{sessionId}}';
+        
+        // Initialize config manager for graph tab
+        window.configManager = {
+            currentConfig: null,
+            onConfigChange: function(callback) {
+                window.addEventListener('configUpdate', function(event) {
+                    window.configManager.currentConfig = event.detail;
+                    callback(event.detail);
+                });
+            },
+            getCurrentConfig: function() {
+                return window.configManager.currentConfig;
+            }
+        };
+    </script>
+    <script src="{{scriptUri}}"></script>
+</body>
+</html>

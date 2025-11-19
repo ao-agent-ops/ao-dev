@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Optional, Dict
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
-from aco.server import db
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
 from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
@@ -23,10 +22,10 @@ from aco.server.file_watcher import run_file_watcher_process
 def send_json(conn: socket.socket, msg: dict) -> None:
     try:
         msg_type = msg.get("type", "unknown")
-        logger.debug(f"Sent message type: {msg_type}")
+        logger.debug(f"[DevelopServer] Sent message type: {msg_type}")
         conn.sendall((json.dumps(msg) + "\n").encode("utf-8"))
     except Exception as e:
-        logger.error(f"Error sending JSON: {e}")
+        logger.error(f"[DevelopServer] Error sending JSON: {e}")
 
 
 class Session:
@@ -111,9 +110,9 @@ class DevelopServer:
                     # Force kill if it doesn't terminate gracefully
                     self.file_watcher_process.kill()
                     self.file_watcher_process.join()
-                logger.info("File watcher process stopped")
+                logger.info("[DevelopServer] File watcher process stopped")
             except Exception as e:
-                logger.error(f"Error stopping file watcher process: {e}")
+                logger.error(f"[DevelopServer] Error stopping file watcher process: {e}")
             finally:
                 self.file_watcher_process = None
 
@@ -127,7 +126,7 @@ class DevelopServer:
             try:
                 send_json(ui_conn, msg)
             except Exception as e:
-                logger.error(f"Error broadcasting to UI: {e}")
+                logger.error(f"[DevelopServer] Error broadcasting to UI: {e}")
                 self.ui_connections.discard(ui_conn)
 
     def broadcast_graph_update(self, session_id: str) -> None:
@@ -159,7 +158,7 @@ class DevelopServer:
 
             # Get data from DB entries.
             timestamp = row["timestamp"]
-            title = row["name"]
+            run_name = row["name"]
             success = row["success"]
             notes = row["notes"]
             log = row["log"]
@@ -178,8 +177,8 @@ class DevelopServer:
                     "status": status,
                     "timestamp": timestamp,
                     "color_preview": color_preview,
-                    "title": title,
-                    "success": success,
+                    "run_name": run_name,
+                    "result": success,
                     "notes": notes,
                     "log": log,
                 }
@@ -231,19 +230,6 @@ class DevelopServer:
             self.session_graphs[session_id] = graph
             send_json(conn, {"type": "graph_update", "session_id": session_id, "payload": graph})
 
-    def _determine_unique_tab_title(self, label, session_id):
-        # Search for strings like f"{label}" and f"{label} (x)".
-        pattern = rf"^{re.escape(label)}(?: \((\d+)\))?$"
-        matches = []
-        for string in [n["tab_title"] for n in self.session_graphs[session_id]["nodes"]]:
-            if re.match(pattern, string):
-                matches.append(string)
-
-        # Form unique tab title.
-        if len(matches) == 0:
-            return label
-        return f"{label} ({len(matches)})"
-
     def _find_sessions_with_node(self, node_id: str) -> set:
         """Find all sessions containing a specific node ID. Returns empty set if not found."""
         sessions = set()
@@ -269,12 +255,14 @@ class DevelopServer:
                     target_sessions.add(source_session)
                     cross_session_sources.append(source)
                     logger.info(
-                        f"Found cross-session edge: node {source} in session {source_session}"
+                        f"[DevelopServer] Found cross-session edge: node {source} in session {source_session}"
                     )
 
         # If we have cross-session references, add the node to those sessions instead of current session
         if target_sessions:
-            logger.info(f"Adding node {node['id']} to cross-session targets: {target_sessions}")
+            logger.info(
+                f"[DevelopServer] Adding node {node['id']} to cross-session targets: {target_sessions}"
+            )
             for target_sid in target_sessions:
                 self._add_node_to_session(target_sid, node, cross_session_sources)
         else:
@@ -289,11 +277,8 @@ class DevelopServer:
             if n["id"] == node["id"]:
                 break
         else:
-            # Get title for tab where user edits input/output.
-            tab_title = self._determine_unique_tab_title(node["label"], sid)
-            node["tab_title"] = tab_title
             graph["nodes"].append(node)
-            logger.info(f"Added node {node['id']} to session {sid}")
+            logger.info(f"[DevelopServer] Added node {node['id']} to session {sid}")
 
         # Add incoming edges (only if source nodes exist in the graph)
         existing_node_ids = {n["id"] for n in graph["nodes"]}
@@ -303,25 +288,27 @@ class DevelopServer:
                 edge_id = f"e{source}-{target}"
                 full_edge = {"id": edge_id, "source": source, "target": target}
                 graph["edges"].append(full_edge)
-                logger.info(f"Added edge {edge_id} in session {sid}")
+                logger.info(f"[DevelopServer] Added edge {edge_id} in session {sid}")
             else:
-                logger.debug(f"Skipping edge from non-existent node {source} to {node['id']}")
+                logger.debug(
+                    f"[DevelopServer] Skipping edge from non-existent node {source} to {node['id']}"
+                )
 
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
         color_preview = node_colors[-6:]  # Only display last 6 colors
         CACHE.update_color_preview(sid, color_preview)
         # Broadcast color preview update to all UIs
-        logger.debug(f"Broadcast color {time.time()}")
+        logger.debug(f"[DevelopServer] Broadcast color {time.time()}")
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": sid, "color_preview": color_preview}
         )
-        logger.debug(f"Broadcast graph update {time.time()}")
+        logger.debug(f"[DevelopServer] Broadcast graph update {time.time()}")
         self.broadcast_graph_update(sid)
         EDIT.update_graph_topology(sid, graph)
 
     def handle_edit_input(self, msg: dict) -> None:
-        logger.debug(f"Received edit_input: {msg}")
+        logger.debug(f"[DevelopServer] Received edit_input: {msg}")
         session_id = msg["session_id"]
         node_id = msg["node_id"]
         new_input = msg["value"]
@@ -332,11 +319,12 @@ class DevelopServer:
                 if node["id"] == node_id:
                     node["input"] = new_input
                     break
+            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
-        logger.debug("Input overwrite completed")
+        logger.debug("[DevelopServer] Input overwrite completed")
 
     def handle_edit_output(self, msg: dict) -> None:
-        logger.debug(f"Received edit_output: {msg}")
+        logger.debug(f"[DevelopServer] Received edit_output: {msg}")
         session_id = msg["session_id"]
         node_id = msg["node_id"]
         new_output = msg["value"]
@@ -347,8 +335,37 @@ class DevelopServer:
                 if node["id"] == node_id:
                     node["output"] = new_output
                     break
+            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
-        logger.debug("Output overwrite completed")
+        logger.debug("[DevelopServer] Output overwrite completed")
+
+    def handle_update_node(self, msg: dict) -> None:
+        """Handle updateNode message for updating node properties like label"""
+        logger.debug(f"[DevelopServer] Received updateNode: {msg}")
+        session_id = msg.get("session_id")
+        node_id = msg.get("node_id")
+        field = msg.get("field")
+        value = msg.get("value")
+
+        if not all([session_id, node_id, field]):
+            logger.error(f"[DevelopServer] Missing required fields in updateNode message: {msg}")
+            return
+
+        if session_id in self.session_graphs:
+            for node in self.session_graphs[session_id]["nodes"]:
+                if node["id"] == node_id:
+                    # Update the specified field
+                    node[field] = value
+                    logger.debug(
+                        f"[DevelopServer] Updated node {node_id} field '{field}' to '{value}'"
+                    )
+                    break
+
+            # Update the graph topology and broadcast the change
+            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
+            self.broadcast_graph_update(session_id)
+        else:
+            logger.warning(f"[DevelopServer] Session {session_id} not found in session_graphs")
 
     def handle_log(self, msg: dict) -> None:
         session_id = msg["session_id"]
@@ -366,7 +383,7 @@ class DevelopServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"handle_update_run_name: Missing required fields: session_id={session_id}, run_name={run_name}"
+                f"[DevelopServer] handle_update_run_name: Missing required fields: session_id={session_id}, run_name={run_name}"
             )
 
     def handle_update_result(self, msg: dict) -> None:
@@ -377,7 +394,7 @@ class DevelopServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"handle_update_result: Missing required fields: session_id={session_id}, result={result}"
+                f"[DevelopServer] handle_update_result: Missing required fields: session_id={session_id}, result={result}"
             )
 
     def handle_update_notes(self, msg: dict) -> None:
@@ -388,7 +405,7 @@ class DevelopServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
+                f"[DevelopServer] handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
             )
 
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
@@ -449,7 +466,7 @@ class DevelopServer:
         child_session_id = msg.get("session_id")
         session_id = CACHE.get_parent_session_id(child_session_id)
         if not session_id:
-            logger.error("Restart message missing session_id. Ignoring.")
+            logger.error("[DevelopServer] Restart message missing session_id. Ignoring.")
             return
         session = self.sessions.get(session_id)
 
@@ -473,21 +490,21 @@ class DevelopServer:
             if session.shim_conn:
                 restart_msg = {"type": "restart", "session_id": session_id}
                 logger.debug(
-                    f"Session running...Sending restart to shim-control for session_id: {session_id} with message: {restart_msg}"
+                    f"[DevelopServer] Session running...Sending restart to shim-control for session_id: {session_id} with message: {restart_msg}"
                 )
                 try:
                     send_json(session.shim_conn, restart_msg)
                 except Exception as e:
-                    logger.error(f"Error sending restart: {e}")
+                    logger.error(f"[DevelopServer] Error sending restart: {e}")
                 return
             else:
-                logger.warning(f"No shim_conn for session_id: {session_id}")
+                logger.warning(f"[DevelopServer] No shim_conn for session_id: {session_id}")
         elif session and session.status == "finished":
             # Rerun for finished session: launch new shim-control with same session_id
             cwd, command, environment = CACHE.get_exec_command(session_id)
 
             logger.debug(
-                f"Rerunning finished session {session_id} with cwd={cwd} and command={command}"
+                f"[DevelopServer] Rerunning finished session {session_id} with cwd={cwd} and command={command}"
             )
             # Mark this session as being rerun to avoid clearing llm_calls
             self.rerun_sessions.add(child_session_id)
@@ -499,7 +516,7 @@ class DevelopServer:
                 # Restore the user's original environment variables
                 env.update(environment)
                 logger.debug(
-                    f"Restored {len(environment)} environment variables for session {session_id}"
+                    f"[DevelopServer] Restored {len(environment)} environment variables for session {session_id}"
                 )
 
                 # Rerun the original command. This starts the shim-control, which starts the shim-runner.
@@ -517,7 +534,7 @@ class DevelopServer:
                     # Broadcast updated experiment list with rerun session at the front
                     self.broadcast_experiment_list_to_uis()
             except Exception as e:
-                logger.error(f"Failed to rerun finished session: {e}")
+                logger.error(f"[DevelopServer] Failed to rerun finished session: {e}")
 
     def handle_deregister_message(self, msg: dict) -> bool:
         session_id = msg["session_id"]
@@ -535,16 +552,16 @@ class DevelopServer:
 
     def handle_shutdown(self) -> None:
         """Handle shutdown command by closing all connections."""
-        logger.info("Shutdown command received. Closing all connections.")
+        logger.info("[DevelopServer] Shutdown command received. Closing all connections.")
         # Stop file watcher process first
         self.stop_file_watcher()
         # Close all client sockets
         for s in list(self.conn_info.keys()):
-            logger.debug(f"Closing socket: {s}")
+            logger.debug(f"[DevelopServer] Closing socket: {s}")
             try:
                 s.close()
             except Exception as e:
-                logger.error(f"Error closing socket: {e}")
+                logger.error(f"[DevelopServer] Error closing socket: {e}")
         os._exit(0)
 
     def handle_clear(self):
@@ -555,7 +572,7 @@ class DevelopServer:
         self.broadcast_to_all_uis(
             {"type": "graph_update", "session_id": None, "payload": {"nodes": [], "edges": []}}
         )
-        logger.info("Database and in-memory state cleared.")
+        logger.info("[DevelopServer] Database and in-memory state cleared.")
 
     # ============================================================
     # Message rounting logic.
@@ -580,6 +597,8 @@ class DevelopServer:
             self.handle_edit_input(msg)
         elif msg_type == "edit_output":
             self.handle_edit_output(msg)
+        elif msg_type == "update_node":
+            self.handle_update_node(msg)
         elif msg_type == "log":
             self.handle_log(msg)
         elif msg_type == "update_run_name":
@@ -597,7 +616,7 @@ class DevelopServer:
         elif msg_type == "clear":
             self.handle_clear()
         else:
-            logger.error(f"Unknown message type. Message:\n{msg}")
+            logger.error(f"[DevelopServer] Unknown message type. Message:\n{msg}")
 
     def handle_client(self, conn: socket.socket) -> None:
         """Handle a new client connection in a separate thread."""
@@ -683,12 +702,12 @@ class DevelopServer:
                     try:
                         msg = json.loads(line.strip())
                     except Exception as e:
-                        logger.error(f"Error parsing JSON: {e}")
+                        logger.error(f"[DevelopServer] Error parsing JSON: {e}")
                         continue
 
                     # Print message type.
                     msg_type = msg.get("type", "unknown")
-                    logger.debug(f"Received message type: {msg_type} {time.time()}")
+                    logger.debug(f"[DevelopServer] Received message type: {msg_type} {time.time()}")
 
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
@@ -696,7 +715,7 @@ class DevelopServer:
                     self.process_message(msg, conn)
 
             except (ConnectionResetError, OSError) as e:
-                logger.info(f"Connection closed: {e}")
+                logger.info(f"[DevelopServer] Connection closed: {e}")
         finally:
             # Clean up connection
             info = self.conn_info.pop(conn, None)
@@ -714,18 +733,18 @@ class DevelopServer:
             try:
                 conn.close()
             except Exception as e:
-                logger.error(f"Error closing connection: {e}")
+                logger.error(f"[DevelopServer] Error closing connection: {e}")
 
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
         # Clear the log file on server startup
         try:
-            with open(ACO_LOG_PATH, 'w') as f:
+            with open(ACO_LOG_PATH, "w") as f:
                 pass  # Just truncate the file
             logger.debug("Server log file cleared on startup")
         except Exception as e:
             logger.warning(f"Could not clear log file on startup: {e}")
-        
+
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -738,7 +757,7 @@ class DevelopServer:
             except OSError as e:
                 if e.errno == 48 and attempt < max_retries - 1:  # Address already in use
                     logger.warning(
-                        f"Port {PORT} in use, retrying in 2 seconds... (attempt {attempt + 1}/{max_retries})"
+                        f"[DevelopServer] Port {PORT} in use, retrying in 2 seconds... (attempt {attempt + 1}/{max_retries})"
                     )
                     time.sleep(2)
                     continue
@@ -746,7 +765,7 @@ class DevelopServer:
                     raise
 
         self.server_sock.listen()
-        logger.info(f"Develop server listening on {HOST}:{PORT}")
+        logger.info(f"[DevelopServer] Develop server listening on {HOST}:{PORT}")
 
         # Start file watcher process for AST recompilation
         self.start_file_watcher()
@@ -765,7 +784,7 @@ class DevelopServer:
             # Stop file watcher process
             self.stop_file_watcher()
             self.server_sock.close()
-            logger.info("Develop server stopped.")
+            logger.info("[DevelopServer] Develop server stopped.")
 
 
 if __name__ == "__main__":

@@ -3,11 +3,14 @@ import * as child_process from 'child_process';
 
 export class PythonServerClient {
     private static instance: PythonServerClient;
-    private client = new net.Socket();
+    private client: net.Socket;
     private messageQueue: string[] = [];
-    private onMessageCallback?: (msg: any) => void;
+    private messageCallbacks: ((msg: any) => void)[] = [];
+    private reconnectTimeout?: NodeJS.Timeout;
+    private isConnecting: boolean = false;
 
     private constructor() {
+        this.client = new net.Socket();
         this.connect();
     }
 
@@ -16,10 +19,26 @@ export class PythonServerClient {
     }
 
     private connect() {
+        // Prevent multiple simultaneous connection attempts
+        if (this.isConnecting) {
+            return;
+        }
+        this.isConnecting = true;
+
+        // Clean up existing socket if present
+        if (this.client) {
+            this.client.removeAllListeners();
+            this.client.destroy();
+        }
+
+        // Create fresh socket
+        this.client = new net.Socket();
+
         this.client.connect(5959, '127.0.0.1', () => {
+            this.isConnecting = false;
             this.client.write(JSON.stringify({
                 type: "hello",
-                role: "ui", 
+                role: "ui",
                 script: "vscode-extension"
             }) + "\n");
             this.messageQueue.forEach(msg => this.client.write(msg));
@@ -34,16 +53,27 @@ export class PythonServerClient {
                 const line = buffer.slice(0, idx);
                 buffer = buffer.slice(idx + 1);
                 const msg = JSON.parse(line);
-                this.onMessageCallback?.(msg);
+                // Call all registered callbacks
+                this.messageCallbacks.forEach(callback => callback(msg));
             }
         });
 
         this.client.on('close', () => {
-            setTimeout(() => this.connect(), 2000);
+            this.isConnecting = false;
+            // Clear any pending reconnect
+            if (this.reconnectTimeout) {
+                clearTimeout(this.reconnectTimeout);
+            }
+            this.reconnectTimeout = setTimeout(() => this.connect(), 2000);
         });
 
         this.client.on('error', () => {
-            setTimeout(() => this.connect(), 2000);
+            this.isConnecting = false;
+            // Clear any pending reconnect
+            if (this.reconnectTimeout) {
+                clearTimeout(this.reconnectTimeout);
+            }
+            this.reconnectTimeout = setTimeout(() => this.connect(), 2000);
         });
     }
 
@@ -68,6 +98,31 @@ export class PythonServerClient {
     }
 
     public onMessage(cb: (msg: any) => void) {
-        this.onMessageCallback = cb;
+        this.messageCallbacks.push(cb);
+    }
+
+    public removeMessageListener(cb: (msg: any) => void) {
+        const index = this.messageCallbacks.indexOf(cb);
+        if (index > -1) {
+            this.messageCallbacks.splice(index, 1);
+        }
+    }
+
+    public dispose() {
+        // Clear reconnect timeout
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = undefined;
+        }
+
+        // Clean up socket
+        if (this.client) {
+            this.client.removeAllListeners();
+            this.client.destroy();
+        }
+
+        // Clear callbacks
+        this.messageCallbacks = [];
+        this.messageQueue = [];
     }
 } 

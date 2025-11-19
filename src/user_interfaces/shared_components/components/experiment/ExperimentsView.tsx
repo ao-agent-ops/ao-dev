@@ -12,13 +12,8 @@ interface ExperimentsViewProps {
 }
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcesses, runningProcesses, finishedProcesses, onCardClick, isDarkTheme = false }) => {
-  // const isDarkTheme = useIsVsCodeDarkTheme();
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
-  
-  // Debug logging
-  console.log('ExperimentsView render - similarProcesses:', similarProcesses);
-  console.log('ExperimentsView render - runningProcesses:', runningProcesses);
-  console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'similar', 'finished']));
   
   const containerStyle: React.CSSProperties = {
     padding: '20px 20px 40px 20px',
@@ -27,14 +22,16 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
     overflowY: 'auto',
     boxSizing: 'border-box',
     backgroundColor: isDarkTheme ? '#252525' : '#F0F2F0',
-    color: isDarkTheme ? '#FFFFFF' : '#000000',
+    color: 'var(--vscode-foreground)',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '18px',
-    fontWeight: 'bold',
+    fontSize: '14px',
+    fontWeight: '600',
     marginBottom: '20px',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
   const emptyStateStyle: React.CSSProperties = {
@@ -55,36 +52,90 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
     });
   };
 
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
+    });
+  };
+
   const renderExperimentSection = (
     processes: ProcessInfo[],
     sectionTitle: string,
     sectionPrefix: string,
     marginTop?: number
   ) => {
-    if (processes.length === 0) return null;
+    const isExpanded = expandedSections.has(sectionPrefix);
 
     return (
       <>
-        <div style={{ ...titleStyle, ...(marginTop && { marginTop }) }}>
-          {sectionTitle}
+        <div 
+          style={{ 
+            ...titleStyle, 
+            ...(marginTop && { marginTop }),
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            userSelect: 'none'
+          }}
+          onClick={() => toggleSection(sectionPrefix)}
+        >
+          <i 
+            className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
+            style={{ 
+              fontSize: '12px',
+              transition: 'transform 0.2s ease',
+              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'
+            }}
+          />
+          {sectionTitle} ({processes.length})
         </div>
-        {processes.map((process) => {
-          const cardId = `${sectionPrefix}-${process.session_id}`;
-          const isHovered = hoveredCards.has(cardId);
-          const nodeColors = process.color_preview || [];
-          return (
-            <ProcessCard
-              key={process.session_id}
-              process={process}
-              isHovered={isHovered}
-              isDarkTheme={isDarkTheme}
-              nodeColors={nodeColors}
-              onClick={() => onCardClick && onCardClick(process)}
-              onMouseEnter={() => handleCardHover(cardId, true)}
-              onMouseLeave={() => handleCardHover(cardId, false)}
-            />
-          );
-        })}
+        <div
+          style={{
+            maxHeight: isExpanded ? (processes.length > 0 ? `${processes.length * 100}px` : '28px') : '0px',
+            overflow: 'hidden',
+            transition: 'max-height 0.3s ease-in-out, opacity 0.2s ease',
+            opacity: isExpanded ? 1 : 0
+          }}
+        >
+          {processes.length > 0 ? (
+            processes.map((process) => {
+              const cardId = `${sectionPrefix}-${process.session_id}`;
+              const isHovered = hoveredCards.has(cardId);
+              const nodeColors = process.color_preview || [];
+              return (
+                <ProcessCard
+                  key={process.session_id}
+                  process={process}
+                  isHovered={isHovered}
+                  isDarkTheme={isDarkTheme}
+                  nodeColors={nodeColors}
+                  onClick={() => onCardClick && onCardClick(process)}
+                  onMouseEnter={() => handleCardHover(cardId, true)}
+                  onMouseLeave={() => handleCardHover(cardId, false)}
+                />
+              );
+            })
+          ) : (
+            <div
+              style={{
+                padding: '4px 16px 8px 16px',
+                color: isDarkTheme ? '#CCCCCC' : '#666666',
+                fontSize: '12px',
+                fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+                fontStyle: 'italic'
+              }}
+            >
+              No {sectionTitle.toLowerCase()} processes
+            </div>
+          )}
+        </div>
       </>
     );
   };
@@ -105,9 +156,9 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
 
   return (
     <div style={containerStyle}>
-      {renderExperimentSection(similarProcesses, 'Similar', 'similar')}
       {renderExperimentSection(runningProcesses, 'Running', 'running')}
-      {renderExperimentSection(finishedProcesses, 'Finished', 'finished', runningProcesses.length > 0 ? 32 : 0)}
+      {renderExperimentSection(similarProcesses, 'Similar', 'similar', 16)}
+      {renderExperimentSection(finishedProcesses, 'Finished', 'finished', 16)}
     </div>
   );
 }; 

@@ -1,6 +1,7 @@
 import json
 
 import dill
+from aco.common.logger import logger
 from aco.common.constants import (
     DEFAULT_LOG,
     DEFAULT_NOTE,
@@ -40,7 +41,20 @@ class EditManager:
             "SELECT output, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
             (session_id, node_id),
         )
-        output_obj = dill.loads(row["output"])
+
+        if not row:
+            logger.error(
+                f"No llm_calls record found for session_id={session_id}, node_id={node_id}"
+            )
+            return
+
+        try:
+            output_obj = dill.loads(row["output"])
+        except (EOFError, Exception) as e:
+            logger.error(f"Failed to unpickle output for node {node_id}: {e}")
+            # Create a simple fallback output object
+            output_obj = {"choices": [{"message": {"content": ""}}]}
+
         set_output(output_obj, new_output, row["api_type"])
         output_overwrite = dill.dumps(output_obj)
         db.execute(

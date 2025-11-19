@@ -51,7 +51,8 @@ export const LabelEditor: React.FC<LabelEditorProps> = ({ initialValue, onSave, 
                     border: '1px solid var(--vscode-input-border)',
                     borderRadius: '2px',
                     padding: '4px 8px',
-                    fontSize: '12px',
+                    fontSize: '11px',
+                    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
                     width: '150px',
                     outline: 'none'
                 }}

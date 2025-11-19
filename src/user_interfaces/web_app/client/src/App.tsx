@@ -2,11 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import { LoginScreen } from "./LoginScreen";
 import "./App.css";
 import type { GraphNode, GraphEdge, ProcessInfo } from "../../../shared_components/types";
-import { GraphView } from "../../../shared_components/components/graph/GraphView";
+import { GraphTabApp } from "../../../shared_components/components/GraphTabApp";
 import { ExperimentsView} from "../../../shared_components/components/experiment/ExperimentsView";
 import type { MessageSender } from "../../../shared_components/types/MessageSender";
-import { EditDialog } from "../../../shared_components/components/EditDialog";
-import { WorkflowRunDetailsPanel } from "../../../shared_components/components/experiment/WorkflowRunDetailsPanel";
 
 interface Experiment {
   session_id: string;
@@ -35,34 +33,43 @@ function App() {
   const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
-  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
-  // const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [editDialog, setEditDialog] = useState<{
-    nodeId: string;
-    field: string;
-    value: string;
-    label: string;
-    attachments?: any;
-  } | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const messageBufferRef = useRef<string>(''); // Buffer for incomplete WebSocket frames
 
-  // Detect dark theme
-  const isDarkTheme = window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
+  // Detect dark theme reactively
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false;
+  });
 
-  // Create webapp MessageSender
+  // Listen for theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsDarkTheme(e.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  // Create webapp MessageSender that always uses the current WebSocket from the ref
   const messageSender: MessageSender = {
     send: (message: any) => {
-      if (message.type === "showEditDialog") {
-        setEditDialog(message.payload);
+      if (message.type === "showNodeEditModal") {
+        // Handle showNodeEditModal by dispatching window event (same as VS Code)
+        window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
+          detail: message.payload
+        }));
       } else if (
         message.type === "trackNodeInputView" ||
         message.type === "trackNodeOutputView"
       ) {
-        console.log("Telemetry:", message.type, message.payload);
+        // Telemetry - no action needed in webapp
       } else if (message.type === "navigateToCode") {
-        console.log("Code navigation not available in webapp");
-      } else if (ws) {
-        ws.send(JSON.stringify(message));
+        // Code navigation not available in webapp
+      } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(message));
       }
     },
   };
@@ -80,79 +87,93 @@ function App() {
 
     const socket = new WebSocket(wsUrl);
     setWs(socket);
+    wsRef.current = socket; // Keep ref in sync
 
     socket.onopen = () => console.log("Connected to backend");
 
     socket.onmessage = (event: MessageEvent) => {
-      const msg: WSMessage = JSON.parse(event.data);
+      // WebSocket can fragment large messages across multiple frames
+      // We need to buffer incomplete JSON until we get a complete message
+      const chunk = event.data;
+
+      // Add chunk to buffer
+      messageBufferRef.current += chunk;
+
+      // Try to parse the buffered content
+      let msg: WSMessage;
+      try {
+        msg = JSON.parse(messageBufferRef.current);
+        // Successfully parsed - clear the buffer and process the message
+        messageBufferRef.current = '';
+      } catch (error) {
+        // JSON is incomplete - wait for more chunks
+        return;
+      }
+
+      // Process the complete message
       switch (msg.type) {
         case "experiment_list":
           if (msg.experiments) {
             setExperiments(msg.experiments);
           }
           break;
-    
+
         case "graph_update":
           if (msg.payload) {
             setGraphData(msg.payload);
           }
           break;
-    
+
         case "color_preview_update":
           if (msg.session_id) {
             const sid = msg.session_id;
             const color_preview = msg.color_preview;
-            console.log(`Color preview update for ${sid}:`, color_preview);
-    
+
             setExperiments((prev) => {
               const updated = prev.map(process =>
                 process.session_id === sid
                   ? { ...process, color_preview }
                   : process
               );
-              console.log('Updated processes:', updated);
               return updated;
             });
           }
           break;
-    
-        default:
-          console.warn(`Unhandled message type: ${msg.type}`);
       }
-
     };
 
     return () => socket.close();
   }, [authenticated]);
 
-  const handleNodeUpdate = (nodeId: string, field: keyof GraphNode, value: string) => {
+  const handleNodeUpdate = (
+    nodeId: string,
+    field: string,
+    value: string,
+    sessionId?: string,
+    attachments?: any
+  ) => {
     if (selectedExperiment && ws) {
-      if (field == "input") {
-        ws.send(
-          JSON.stringify({
-            type: "edit_input",
-            session_id: selectedExperiment.session_id,
-            node_id: nodeId,
-            value,
-          })
-        )
-      } else if (field == "output") {
-        ws.send(
-          JSON.stringify({
-            type: "edit_output",
-            session_id: selectedExperiment.session_id,
-            node_id: nodeId,
-            value,
-          })
-        )
+      const currentSessionId = sessionId || selectedExperiment.session_id;
+      const baseMsg = {
+        session_id: currentSessionId,
+        node_id: nodeId,
+        value,
+        ...(attachments && { attachments }),
+      };
+
+      if (field === "input") {
+        ws.send(JSON.stringify({ type: "edit_input", ...baseMsg }));
+      } else if (field === "output") {
+        ws.send(JSON.stringify({ type: "edit_output", ...baseMsg }));
       } else {
         ws.send(
           JSON.stringify({
             type: "updateNode",
-            session_id: selectedExperiment.session_id,
+            session_id: currentSessionId,
             nodeId,
             field,
             value,
+            ...(attachments && { attachments }),
           })
         );
       }
@@ -160,16 +181,27 @@ function App() {
   };
 
   const handleExperimentClick = (experiment: ProcessInfo) => {
+    // Clear graph data when switching experiments to avoid showing stale data
+    setGraphData(null);
     setSelectedExperiment(experiment);
-    setShowDetailsPanel(true);
-    if (ws) ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
+    }
   };
 
-  // const running = experiments.filter((e) => e.status === "running");
-  // const finished = experiments.filter((e) => e.status === "finished");
+  // Keep selectedExperiment in sync with experiments array when updates arrive
+  useEffect(() => {
+    if (selectedExperiment) {
+      const updated = experiments.find(exp => exp.session_id === selectedExperiment.session_id);
+      if (updated) {
+        setSelectedExperiment(updated);
+      }
+    }
+  }, [experiments]);
 
   const sortedExperiments = experiments;
-  
+
   const similarExperiments = sortedExperiments[0];
   const running = sortedExperiments.filter((e) => e.status === "running");
   const finished = sortedExperiments.filter((e) => e.status === "finished");
@@ -191,19 +223,14 @@ function App() {
       </div>
 
       <div className="graph-container" ref={containerRef}>
-        {/* <button className="toggle-button" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? "Hide Experiments" : "Show Experiments"}
-        </button> */}
-
         {selectedExperiment && graphData ? (
-          <GraphView
-            nodes={graphData.nodes}
-            edges={graphData.edges}
-            onNodeUpdate={handleNodeUpdate}
-            session_id={selectedExperiment.session_id}
+          <GraphTabApp
             experiment={selectedExperiment}
+            graphData={graphData}
+            sessionId={selectedExperiment.session_id}
             messageSender={messageSender}
             isDarkTheme={isDarkTheme}
+            onNodeUpdate={handleNodeUpdate}
           />
         ) : (
           <div className="no-graph">
@@ -211,35 +238,6 @@ function App() {
           </div>
         )}
       </div>
-
-      {showDetailsPanel && selectedExperiment && (
-        <div className="details-panel">
-          <WorkflowRunDetailsPanel
-            runName={selectedExperiment.title || selectedExperiment.session_id}
-            result=""
-            notes=""
-            log=""
-            onBack={() => setShowDetailsPanel(true)}
-          />
-        </div>
-      )}
-
-      {editDialog && (
-        <EditDialog
-          title={`Edit ${editDialog.label}`}
-          value={editDialog.value}
-          onSave={(newValue) => {
-            handleNodeUpdate(
-              editDialog.nodeId,
-              editDialog.field as keyof GraphNode,
-              newValue
-            );
-            setEditDialog(null);
-          }}
-          onCancel={() => setEditDialog(null)}
-          isDarkTheme={isDarkTheme}
-        />
-      )}
     </div>
   );
 }
