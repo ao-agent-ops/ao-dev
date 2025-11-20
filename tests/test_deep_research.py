@@ -10,8 +10,6 @@ from aco.runner.develop_shim import ensure_server_running
 
 
 async def main():
-    # Ensure we're using local SQLite for this test
-    DB.switch_mode("local")
     
     shim = DevelopShim(
         script_path="./example_workflows/miroflow_deep_research/single_task.py",
@@ -26,8 +24,14 @@ async def main():
     ensure_server_running()
     shim._connect_to_server()
     
-    # Give the server a moment to complete database transaction after handshake
-    time.sleep(0.1)
+    # Explicitly set both server and client to use local SQLite database
+    # Send message to server to switch to local mode
+    DB.switch_mode("local")
+    set_db_mode_msg = {"type": "set_database_mode", "mode": "local"}
+    shim.server_conn.sendall((json.dumps(set_db_mode_msg) + "\n").encode("utf-8"))
+    
+    # Give the server a moment to complete database mode switch and transaction
+    time.sleep(0.2)
 
     # Start background thread to listen for server messages
     shim.listener_thread = threading.Thread(
