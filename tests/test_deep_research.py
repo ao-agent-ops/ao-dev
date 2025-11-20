@@ -16,13 +16,10 @@ async def main():
     
     # Ensure we're using local SQLite for this test
     DB.switch_mode("local")
-    print(f"DEBUG: Database mode set to: {DB.mode}")
     
     # Check database file exists
     import os as os_debug
     db_path = os_debug.path.expanduser("~/.cache/agent-copilot/db/experiments.sqlite")
-    print(f"DEBUG: SQLite database path: {db_path}")
-    print(f"DEBUG: Database file exists: {os_debug.path.exists(db_path)}")
     
     shim = DevelopShim(
         script_path="./example_workflows/miroflow_deep_research/single_task.py",
@@ -33,17 +30,12 @@ async def main():
     )
     aco_random_seed = random.randint(0, 2**31 - 1)
     os.environ["ACO_SEED"] = str(aco_random_seed)
-    print(f"DEBUG: ACO_SEED set to: {aco_random_seed}")
-
-    print("DEBUG: Ensuring server is running...")
     ensure_server_running()
     
-    print("DEBUG: Connecting to server...")
     shim._connect_to_server()
     
     # Debug: Check if session_id was set after connection
     print(f"DEBUG: After _connect_to_server, shim.session_id = {shim.session_id}")
-    print(f"DEBUG: shim.server_conn = {shim.server_conn}")
     assert shim.session_id is not None, "session_id was not set after connecting to server"
     
     # Check if experiment was created in database immediately after connection
@@ -55,8 +47,8 @@ async def main():
     print(f"DEBUG: Immediate experiment check result: {immediate_check}")
     
     # Also check all experiments
-    all_experiments = DB.query_all("SELECT session_id, name FROM experiments", ())
-    print(f"DEBUG: All experiments in database: {[exp['session_id'] for exp in all_experiments] if all_experiments else 'NONE'}")
+    # all_experiments = DB.query_all("SELECT session_id, name FROM experiments", ())
+    # print(f"DEBUG: All experiments in database: {[exp['session_id'] for exp in all_experiments] if all_experiments else 'NONE'}")
 
     # Start background thread to listen for server messages
     shim.listener_thread = threading.Thread(
@@ -65,22 +57,22 @@ async def main():
     shim.listener_thread.start()
 
     try:
-        print("DEBUG: Setting up subprocess environment...")
-        env = shim._setup_monkey_patching_env()
-        print(f"DEBUG: AGENT_COPILOT_SESSION_ID in env: {'AGENT_COPILOT_SESSION_ID' in env}")
-        if 'AGENT_COPILOT_SESSION_ID' in env:
-            print(f"DEBUG: AGENT_COPILOT_SESSION_ID value: {env['AGENT_COPILOT_SESSION_ID']}")
-        print(f"DEBUG: AGENT_COPILOT_ENABLE_TRACING in env: {env.get('AGENT_COPILOT_ENABLE_TRACING', 'NOT SET')}")
+        # print("DEBUG: Setting up subprocess environment...")
+        # env = shim._setup_monkey_patching_env()
+        # print(f"DEBUG: AGENT_COPILOT_SESSION_ID in env: {'AGENT_COPILOT_SESSION_ID' in env}")
+        # if 'AGENT_COPILOT_SESSION_ID' in env:
+        #     print(f"DEBUG: AGENT_COPILOT_SESSION_ID value: {env['AGENT_COPILOT_SESSION_ID']}")
+        # print(f"DEBUG: AGENT_COPILOT_ENABLE_TRACING in env: {env.get('AGENT_COPILOT_ENABLE_TRACING', 'NOT SET')}")
         
-        print("DEBUG: Running user script subprocess...")
+        # print("DEBUG: Running user script subprocess...")
         return_code = shim._run_user_script_subprocess()
         print(f"DEBUG: Subprocess returned with code: {return_code}")
         assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
 
         # Check database after subprocess
-        print("DEBUG: Checking database after subprocess execution...")
-        all_experiments_after = DB.query_all("SELECT session_id, name FROM experiments", ())
-        print(f"DEBUG: All experiments after subprocess: {[exp['session_id'] for exp in all_experiments_after] if all_experiments_after else 'NONE'}")
+        # print("DEBUG: Checking database after subprocess execution...")
+        # all_experiments_after = DB.query_all("SELECT session_id, name FROM experiments", ())
+        # print(f"DEBUG: All experiments after subprocess: {[exp['session_id'] for exp in all_experiments_after] if all_experiments_after else 'NONE'}")
         
         rows = DB.query_all(
             "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
