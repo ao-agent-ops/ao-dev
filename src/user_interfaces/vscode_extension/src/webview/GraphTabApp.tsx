@@ -91,9 +91,11 @@ export const GraphTabApp: React.FC = () => {
           break;
         case 'experiment_list':
           // Handle experiment list updates from server
-          if (message.experiments && sessionId) {
+          // Use either the state sessionId or window.sessionId as fallback
+          const currentSessionId = sessionId || window.sessionId;
+          if (message.experiments && currentSessionId) {
             const updatedExperiment = message.experiments.find(
-              (exp: any) => exp.session_id === sessionId
+              (exp: any) => exp.session_id === currentSessionId
             );
             if (updatedExperiment) {
               // Map server experiment format to ProcessInfo format
@@ -102,7 +104,7 @@ export const GraphTabApp: React.FC = () => {
                 status: updatedExperiment.status,
                 timestamp: updatedExperiment.timestamp,
                 run_name: updatedExperiment.run_name,
-                result: updatedExperiment.success,
+                result: updatedExperiment.result,
                 notes: updatedExperiment.notes,
                 log: updatedExperiment.log,
                 color_preview: updatedExperiment.color_preview
@@ -114,7 +116,7 @@ export const GraphTabApp: React.FC = () => {
                 window.vscode.postMessage({
                   type: 'updateTabTitle',
                   payload: {
-                    sessionId: sessionId,
+                    sessionId: currentSessionId,
                     title: processInfo.run_name
                   }
                 });

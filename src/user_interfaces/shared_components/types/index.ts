@@ -78,6 +78,7 @@ export interface WorkflowRunDetailsPanelProps {
   notes?: string;
   log?: string;
   onOpenInTab?: () => void;
+  messageSender?: import('./MessageSender').MessageSender;
 }
 
 //LayoutEngine

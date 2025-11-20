@@ -44,7 +44,9 @@ function App() {
     label: string;
     attachments?: any;
   } | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const graphContainerRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const messageBufferRef = useRef<string>(''); // Buffer for incomplete WebSocket frames
 
   // Detect dark theme reactively
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
@@ -62,7 +64,7 @@ function App() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
-  // Create webapp MessageSender
+  // Create webapp MessageSender that always uses the current WebSocket from the ref
   const messageSender: MessageSender = {
     send: (message: any) => {
       if (message.type === "showNodeEditModal") {
@@ -74,11 +76,11 @@ function App() {
         message.type === "trackNodeInputView" ||
         message.type === "trackNodeOutputView"
       ) {
-        console.log("Telemetry:", message.type, message.payload);
+        // Telemetry - no action needed in webapp
       } else if (message.type === "navigateToCode") {
-        console.log("Code navigation not available in webapp");
-      } else if (ws) {
-        ws.send(JSON.stringify(message));
+        // Code navigation not available in webapp
+      } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(message));
       }
     },
   };
@@ -96,37 +98,54 @@ function App() {
 
     const socket = new WebSocket(wsUrl);
     setWs(socket);
+    wsRef.current = socket; // Keep ref in sync
 
     socket.onopen = () => console.log("Connected to backend");
 
     socket.onmessage = (event: MessageEvent) => {
-      const msg: WSMessage = JSON.parse(event.data);
+      // WebSocket can fragment large messages across multiple frames
+      // We need to buffer incomplete JSON until we get a complete message
+      const chunk = event.data;
+
+      // Add chunk to buffer
+      messageBufferRef.current += chunk;
+
+      // Try to parse the buffered content
+      let msg: WSMessage;
+      try {
+        msg = JSON.parse(messageBufferRef.current);
+        // Successfully parsed - clear the buffer and process the message
+        messageBufferRef.current = '';
+      } catch (error) {
+        // JSON is incomplete - wait for more chunks
+        return;
+      }
+
+      // Process the complete message
       switch (msg.type) {
         case "experiment_list":
           if (msg.experiments) {
             setExperiments(msg.experiments);
           }
           break;
-    
+
         case "graph_update":
           if (msg.payload) {
             setGraphData(msg.payload);
           }
           break;
-    
+
         case "color_preview_update":
           if (msg.session_id) {
             const sid = msg.session_id;
             const color_preview = msg.color_preview;
-            console.log(`Color preview update for ${sid}:`, color_preview);
-    
+
             setExperiments((prev) => {
               const updated = prev.map(process =>
                 process.session_id === sid
                   ? { ...process, color_preview }
                   : process
               );
-              console.log('Updated processes:', updated);
               return updated;
             });
           }
@@ -144,7 +163,6 @@ function App() {
         default:
           console.warn(`Unhandled message type: ${msg.type}`);
       }
-
     };
 
     return () => socket.close();
@@ -186,8 +204,13 @@ function App() {
   };
 
   const handleExperimentClick = (experiment: ProcessInfo) => {
+    // Clear graph data when switching experiments to avoid showing stale data
+    setGraphData(null);
     setSelectedExperiment(experiment);
-    if (ws) ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "get_graph", session_id: experiment.session_id }));
+    }
   };
 
   const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
@@ -207,7 +230,7 @@ function App() {
   // const finished = experiments.filter((e) => e.status === "finished");
 
   const sortedExperiments = experiments;
-  
+
   const similarExperiments = sortedExperiments[0];
   const running = sortedExperiments.filter((e) => e.status === "running");
   const finished = sortedExperiments.filter((e) => e.status === "finished");
@@ -231,7 +254,7 @@ function App() {
         />
       </div>
 
-      <div className="graph-container" ref={containerRef}>
+      <div className="graph-container" ref={graphContainerRef}>
         {selectedExperiment && graphData ? (
           <GraphTabApp
             experiment={selectedExperiment}

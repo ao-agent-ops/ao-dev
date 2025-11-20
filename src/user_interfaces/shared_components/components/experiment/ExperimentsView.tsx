@@ -20,11 +20,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'similar', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   
-  // Debug logging
-  console.log('ExperimentsView render - similarProcesses:', similarProcesses);
-  console.log('ExperimentsView render - runningProcesses:', runningProcesses);
-  console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
-  
   const containerStyle: React.CSSProperties = {
     padding: '20px 20px 40px 20px',
     height: '100%',

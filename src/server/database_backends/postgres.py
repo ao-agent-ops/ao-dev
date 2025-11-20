@@ -183,10 +183,7 @@ def _init_db(conn):
 
 
 def query_one(sql, params=()):
-    """Execute a query and return one result"""
-    # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
-    sql = sql.replace("?", "%s")
-        
+    """Execute a query and return one result"""        
     conn = get_conn()
     try:
         c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -201,10 +198,7 @@ def query_one(sql, params=()):
 
 
 def query_all(sql, params=()):
-    """Execute a query and return all results"""
-    # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
-    sql = sql.replace("?", "%s")
-        
+    """Execute a query and return all results"""        
     conn = get_conn()
     try:
         c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -219,10 +213,7 @@ def query_all(sql, params=()):
 
 
 def execute(sql, params=()):
-    """Execute SQL statement"""
-    # Convert SQLite placeholders (?) to PostgreSQL placeholders (%s)
-    sql = sql.replace("?", "%s")
-        
+    """Execute SQL statement"""        
     conn = get_conn()
     try:
         c = conn.cursor()
