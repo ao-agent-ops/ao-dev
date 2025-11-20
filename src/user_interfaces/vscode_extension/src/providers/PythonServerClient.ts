@@ -19,21 +19,15 @@ export class PythonServerClient {
     }
 
     private connect() {
-        // Prevent multiple simultaneous connection attempts
-        if (this.isConnecting) {
-            return;
-        }
-        this.isConnecting = true;
-
-        // Clean up existing socket if present
+        // Clean up existing client before reconnecting
         if (this.client) {
             this.client.removeAllListeners();
             this.client.destroy();
         }
-
-        // Create fresh socket
+        
+        // Create a new socket for each connection attempt
         this.client = new net.Socket();
-
+        
         this.client.connect(5959, '127.0.0.1', () => {
             this.isConnecting = false;
             this.client.write(JSON.stringify({
@@ -68,12 +62,8 @@ export class PythonServerClient {
         });
 
         this.client.on('error', () => {
-            this.isConnecting = false;
-            // Clear any pending reconnect
-            if (this.reconnectTimeout) {
-                clearTimeout(this.reconnectTimeout);
-            }
-            this.reconnectTimeout = setTimeout(() => this.connect(), 2000);
+            // Don't call connect() again here since 'close' will also fire
+            // This prevents double reconnection attempts
         });
     }
 

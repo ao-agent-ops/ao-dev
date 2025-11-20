@@ -132,6 +132,14 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         this._pythonClient.sendMessage(data);
                     }
                     break;
+                case 'setDatabaseMode':
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ 
+                            type: 'set_database_mode', 
+                            mode: data.mode 
+                        });
+                    }
+                    break;
                 case 'ready':
                     // Webview is ready - now connect to the Python server and set up message forwarding
                     if (!this._pythonClient) {

@@ -34,8 +34,7 @@ import ast
 from dill import PicklingError, dumps
 from inspect import getsourcefile, iscoroutinefunction
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
-from aco.server.db import hash_input
-from aco.common.utils import get_aco_py_files
+from aco.common.utils import get_aco_py_files, hash_input
 
 
 def is_pyc_rewritten(pyc_path: str) -> bool:

@@ -61,14 +61,14 @@ def launch_daemon_server() -> None:
 
 def server_command_parser():
     parser = ArgumentParser(
-        usage="aco-server {start, stop, restart, clear, logs}",
+        usage="aco-server {start, stop, restart, clear, logs, clear-logs}",
         description="Server utilities.",
         allow_abbrev=False,
     )
 
     parser.add_argument(
         "command",
-        choices=["start", "stop", "restart", "clear", "logs", "_serve"],
+        choices=["start", "stop", "restart", "clear", "logs", "clear-logs", "_serve"],
         help="The command to execute for the server.",
     )
     return parser
@@ -141,6 +141,20 @@ def execute_server_command(args):
             print(f"Log file not found at {ACO_LOG_PATH}")
         except Exception as e:
             print(f"Error reading log file: {e}")
+        return
+
+    elif args.command == "clear-logs":
+        # Clear the contents of the server log file
+        try:
+            # Ensure log directory exists
+            os.makedirs(os.path.dirname(ACO_LOG_PATH), exist_ok=True)
+            # Clear the log file by opening in write mode
+            with open(ACO_LOG_PATH, "w") as log_file:
+                pass  # Opening in 'w' mode truncates the file
+            logger.info("Server log file cleared.")
+        except Exception as e:
+            logger.error(f"Error clearing log file: {e}")
+            sys.exit(1)
         return
 
     elif args.command == "_serve":

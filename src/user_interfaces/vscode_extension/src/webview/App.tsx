@@ -17,6 +17,7 @@ declare global {
 
 export const App: React.FC = () => {
   const [processes, setProcesses] = useLocalStorage<ProcessInfo[]>("experiments", []);
+  const [databaseMode, setDatabaseMode] = useLocalStorage<'Local' | 'Remote'>("databaseMode", 'Local');
   const isDarkTheme = useIsVsCodeDarkTheme();
 
   // Listen for backend messages and update state
@@ -25,6 +26,12 @@ export const App: React.FC = () => {
       const message = event.data;
       switch (message.type) {
         case "session_id":
+          // Handle initial connection message with database mode
+          if (message.database_mode) {
+            const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
+            setDatabaseMode(mode);
+            console.log(`Synchronized database mode to: ${mode}`);
+          }
           break;
         case "configUpdate":
           // Config changed - forward to config bridge
@@ -81,6 +88,19 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
+    // Update local state immediately for responsive UI
+    setDatabaseMode(mode);
+    
+    // Send message to VS Code extension to relay to server
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'setDatabaseMode',
+        mode: mode.toLowerCase()
+      });
+    }
+  };
+
   // Use experiments in the order sent by server (already sorted by name ascending)
   const sortedProcesses = processes;
   
@@ -100,26 +120,7 @@ export const App: React.FC = () => {
         background: isDarkTheme ? "#252525" : "#F0F0F0",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--vscode-editorWidget-border)",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h3
-          style={{
-            margin: 0,
-            padding: "10px 20px",
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "var(--vscode-editor-foreground)"
-          }}
-        >
-          Experiments
-        </h3>
-      </div>
+      {/* The Experiments header and dropdown are now handled by ExperimentsView when showHeader=true */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         <ExperimentsView
           similarProcesses={similarExperiments ? [similarExperiments] : []}
@@ -127,6 +128,9 @@ export const App: React.FC = () => {
           finishedProcesses={finishedExperiments}
           onCardClick={handleExperimentCardClick}
           isDarkTheme={isDarkTheme}
+          showHeader={true}
+          onModeChange={handleDatabaseModeChange}
+          currentMode={databaseMode}
         />
       </div>
     </div>

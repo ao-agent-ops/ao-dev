@@ -4,12 +4,16 @@ import os
 import random
 import json
 import time
-from aco.server import db
+from aco.server.database_manager import DB
 from aco.runner.develop_shim import DevelopShim
 from aco.runner.develop_shim import ensure_server_running
+from tests.utils import restart_server
 
 
 async def main():
+    # Restart server to ensure clean state for this test
+    restart_server()
+    
     shim = DevelopShim(
         script_path="./example_workflows/miroflow_deep_research/single_task.py",
         script_args=[],
@@ -22,6 +26,15 @@ async def main():
 
     ensure_server_running()
     shim._connect_to_server()
+    
+    # Explicitly set both server and client to use local SQLite database
+    # Send message to server to switch to local mode
+    DB.switch_mode("local")
+    set_db_mode_msg = {"type": "set_database_mode", "mode": "local"}
+    shim.server_conn.sendall((json.dumps(set_db_mode_msg) + "\n").encode("utf-8"))
+    
+    # Give the server a moment to complete database mode switch and transaction
+    time.sleep(0.2)
 
     # Start background thread to listen for server messages
     shim.listener_thread = threading.Thread(
@@ -32,12 +45,14 @@ async def main():
     return_code = shim._run_user_script_subprocess()
     assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
 
-    rows = db.query_all(
+    print("~~~~ session_id", shim.session_id)
+
+    rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
         (shim.session_id,),
     )
 
-    graph_topology = db.query_one(
+    graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
         (shim.session_id,),
     )
@@ -54,12 +69,12 @@ async def main():
     returncode_rerun = shim._run_user_script_subprocess()
     assert returncode_rerun == 0, f"[DeepResearch] re-run failed with return_code {return_code}"
 
-    new_rows = db.query_all(
+    new_rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
         (shim.session_id,),
     )
 
-    new_graph_topology = db.query_one(
+    new_graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
         (shim.session_id,),
     )

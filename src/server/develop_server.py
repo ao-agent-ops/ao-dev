@@ -1,4 +1,3 @@
-import re
 import socket
 import os
 import json
@@ -11,8 +10,11 @@ import shlex
 import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
+
+from common.utils import MODULE2FILE
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
 from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
@@ -49,7 +51,7 @@ class DevelopServer:
         self.ui_connections = set()  # All UI connections (simplified)
         self.sessions = {}  # session_id -> Session (only for shim connections)
         self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
-        self.module_to_file = module_to_file or {}  # Module mapping for file watcher
+        self.module_to_file = module_to_file or MODULE2FILE  # Module mapping for file watcher
         self.file_watcher_process = None  # Child process for file watching
 
     # ============================================================
@@ -158,6 +160,8 @@ class DevelopServer:
 
             # Get data from DB entries.
             timestamp = row["timestamp"]
+            # Format timestamp for display (MM/DD HH:MM)
+            timestamp = timestamp.strftime("%m/%d %H:%M")
             run_name = row["name"]
             success = row["success"]
             notes = row["notes"]
@@ -212,15 +216,18 @@ class DevelopServer:
 
     def load_finished_runs(self):
         # Load only session_id and timestamp for finished runs
-        rows = CACHE.get_finished_runs()
-        for row in rows:
-            session_id = row["session_id"]
-            # Mark as finished (not running)
-            session = self.sessions.get(session_id)
-            if not session:
-                session = Session(session_id)
-                session.status = "finished"
-                self.sessions[session_id] = session
+        try:
+            rows = CACHE.get_finished_runs()
+            for row in rows:
+                session_id = row["session_id"]
+                # Mark as finished (not running)
+                session = self.sessions.get(session_id)
+                if not session:
+                    session = Session(session_id)
+                    session.status = "finished"
+                    self.sessions[session_id] = session
+        except Exception as e:
+            logger.warning(f"Failed to load finished runs from database: {e}")
 
     def handle_graph_request(self, conn, session_id):
         # Query graph_topology for the session and reconstruct the in-memory graph
@@ -424,7 +431,7 @@ class DevelopServer:
             cwd = msg.get("cwd")
             command = msg.get("command")
             environment = msg.get("environment")
-            timestamp = datetime.now().strftime("%d/%m %H:%M")
+            timestamp = datetime.now()
             name = msg.get("name")
             parent_session_id = msg.get("parent_session_id")
             EDIT.add_experiment(
@@ -529,7 +536,7 @@ class DevelopServer:
                 if session:
                     session.status = "running"
                     # Update database timestamp so it sorts correctly
-                    new_timestamp = datetime.now().strftime("%d/%m %H:%M")
+                    new_timestamp = datetime.now()
                     EDIT.update_timestamp(child_session_id, new_timestamp)
                     # Broadcast updated experiment list with rerun session at the front
                     self.broadcast_experiment_list_to_uis()
@@ -574,6 +581,29 @@ class DevelopServer:
         )
         logger.info("[DevelopServer] Database and in-memory state cleared.")
 
+    def handle_set_database_mode(self, msg: dict):
+        """Handle database mode switching from UI dropdown."""
+        mode = msg.get("mode")  # "local" or "remote"
+        logger.debug(f"[DevelopServer] received set DB mode: {mode}")
+        if mode not in ["local", "remote"]:
+            logger.error(f"[DevelopServer] Invalid database mode: {mode}")
+            return
+        
+        try:
+            current_mode = DB.get_current_mode()
+            if current_mode != mode:
+                logger.info(f"[DevelopServer] Switching database mode from {current_mode} to {mode}")
+                DB.switch_mode(mode)
+                
+                # Refresh experiment list with new database - UI will see different data
+                self.broadcast_experiment_list_to_uis()
+                logger.info(f"[DevelopServer] Successfully switched to {mode} database mode")
+            else:
+                logger.debug(f"[DevelopServer] Database mode already set to {mode}")
+                
+        except Exception as e:
+            logger.error(f"[DevelopServer] Failed to switch database mode: {e}")
+
     # ============================================================
     # Message rounting logic.
     # ============================================================
@@ -615,6 +645,8 @@ class DevelopServer:
             self.handle_erase(msg)
         elif msg_type == "clear":
             self.handle_clear()
+        elif msg_type == "set_database_mode":
+            self.handle_set_database_mode(msg)
         else:
             logger.error(f"[DevelopServer] Unknown message type. Message:\n{msg}")
 
@@ -644,7 +676,7 @@ class DevelopServer:
                     cwd = handshake.get("cwd")
                     command = handshake.get("command")
                     environment = handshake.get("environment")
-                    timestamp = datetime.now().strftime("%d/%m %H:%M")
+                    timestamp = datetime.now()
                     name = handshake.get("name")
                     EDIT.add_experiment(
                         session_id,
@@ -683,7 +715,8 @@ class DevelopServer:
                 # Log shim-control registration to telemetry
                 log_shim_control_registration(handshake, session_id)
             elif role == "shim-runner":
-                pass  # Don't do anything if shim-runner
+                # Send acknowledgment to shim-runner that experiment is ready
+                send_json(conn, {"type": "ready", "database_mode": DB.get_current_mode()})
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()
@@ -691,7 +724,12 @@ class DevelopServer:
                 # Send session_id and config_path to this UI connection (None for UI)
                 self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(
-                    conn, {"type": "session_id", "session_id": None, "config_path": ACO_CONFIG}
+                    conn, {
+                        "type": "session_id", 
+                        "session_id": None, 
+                        "config_path": ACO_CONFIG,
+                        "database_mode": DB.get_current_mode()
+                    }
                 )
                 # Send experiment_list only to this UI connection
                 self.broadcast_experiment_list_to_uis(conn)
@@ -738,13 +776,13 @@ class DevelopServer:
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
         # Clear the log file on server startup
-        try:
-            with open(ACO_LOG_PATH, "w") as f:
-                pass  # Just truncate the file
-            logger.debug("Server log file cleared on startup")
-        except Exception as e:
-            logger.warning(f"Could not clear log file on startup: {e}")
-
+        # try:
+        #     with open(ACO_LOG_PATH, 'w') as f:
+        #         pass  # Just truncate the file
+        #     logger.debug("Server log file cleared on startup")
+        # except Exception as e:
+        #     logger.warning(f"Could not clear log file on startup: {e}")
+        
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 

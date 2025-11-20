@@ -25,6 +25,7 @@ if os.path.exists(ast_transformer_path):
 
 # Now safe to import other modules
 import argparse
+import os
 from aco.common.config import (
     Config,
     _ask_field,
@@ -42,6 +43,13 @@ def get_user_input() -> Config:
         default=ACO_PROJECT_ROOT,
         error_message="Please enter a valid path to a directory.",
     )
+
+    # database_url = _ask_field(
+    #     "Database URL (leave empty for SQLite): ",
+    #     str,
+    #     default=os.environ.get("DATABASE_URL"),
+    #     error_message="Please enter a valid database URL or leave empty.",
+    # )
 
     collect_telemetry = _ask_field(
         "Enable telemetry collection? [yes/NO]: ",
@@ -83,6 +91,7 @@ def get_user_input() -> Config:
         telemetry_url=telemetry_url,
         telemetry_key=telemetry_key,
         telemetry_username=telemetry_username,
+        database_url=None,
     )
     return config
 

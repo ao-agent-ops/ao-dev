@@ -4,7 +4,7 @@ import threading
 from typing import Any, Set
 from types import ModuleType
 from enum import Enum
-
+from aco.server.database_manager import DB
 
 class TaintObject:
     """
@@ -1530,11 +1530,9 @@ class TaintFile:
         # For text mode, check if there's taint from previous sessions
         if hasattr(self._file, "name") and data:
             try:
-                from aco.server.db import get_taint_info
-
                 # Check line 0 for now (we'd need to track all lines for full read)
                 logger.info(f"Checking for taint in read(): file={self._file.name}")
-                prev_session_id, taint_nodes = get_taint_info(self._file.name, 0)
+                prev_session_id, taint_nodes = DB.get_taint_info(self._file.name, 0)
                 logger.info(
                     f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}"
                 )
@@ -1575,10 +1573,8 @@ class TaintFile:
         # Check for existing taint from previous sessions
         if hasattr(self._file, "name"):
             try:
-                from aco.server.db import get_taint_info
-
                 logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
-                prev_session_id, taint_nodes = get_taint_info(self._file.name, self._line_no)
+                prev_session_id, taint_nodes = DB.get_taint_info(self._file.name, self._line_no)
                 logger.debug(
                     f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}"
                 )
@@ -1627,9 +1623,7 @@ class TaintFile:
             if taint_nodes:
                 # Store taint for the current line being written
                 try:
-                    from aco.server.db import store_taint_info
-
-                    store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
+                    DB.store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
                 except Exception as e:
                     # Log but don't fail the write operation
                     import sys
@@ -1651,9 +1645,7 @@ class TaintFile:
                 taint_nodes = get_taint_origins(line)
                 if taint_nodes:
                     try:
-                        from aco.server.db import store_taint_info
-
-                        store_taint_info(
+                        DB.store_taint_info(
                             self._session_id, self._file.name, self._line_no, taint_nodes
                         )
                     except Exception as e:

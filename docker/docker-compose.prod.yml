@@ -10,6 +10,7 @@ services:
       - HOST=0.0.0.0
       - PORT=5959
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
     restart: unless-stopped
     networks:
       - app-network
