@@ -42,8 +42,6 @@ async def main():
     return_code = shim._run_user_script_subprocess()
     assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
 
-    print("~~~~~~~ shim session id:", shim.session_id)
-
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
         (shim.session_id,),

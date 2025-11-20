@@ -1,6 +1,6 @@
 name: Pytest
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   test:
@@ -89,14 +89,14 @@ jobs:
         
         pip install -e ".[dev]"
 
-    # - name: Lint with flake8 (DISABLED FOR DEBUGGING)
-    #   run: |
-    #     export PATH="$HOME/miniconda/bin:$PATH"
-    #     source $HOME/miniconda/bin/activate aco
-    #     
-    #     pip install flake8
-    #     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-    #     flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Lint with flake8
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source $HOME/miniconda/bin/activate aco
+        
+        pip install flake8
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Setup MiroFlow dependencies
       run: |
@@ -115,7 +115,7 @@ jobs:
         
         aco-server start
 
-    - name: Test ONLY test_deep_research with debugging
+    - name: Test with pytest
       env:
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -126,13 +126,7 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        
-        # Enable debug logging
-        export AGENT_COPILOT_LOG_LEVEL=DEBUG
-        
-        
-        # Run ONLY test_deep_research with max verbosity
-        pytest -v -s --tb=long tests/test_deep_research.py::test_deepresearch
+        pytest -v -s tests/
 
     - name: Clean up shim server
       run: |
