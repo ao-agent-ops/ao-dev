@@ -23,6 +23,7 @@ from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
 from aco.common.constants import ACO_LOG_PATH, REMOTE_DATABASE_URL
 from aco.server.cache_manager import CACHE
+from tests.utils import restart_server
 from tests.get_api_objects import (
     create_anthropic_response,
     create_openai_input,
@@ -270,11 +271,9 @@ def test_api_calls(program_file, api_type, create_response_func, create_input_fu
     print(f"ANTHROPIC_API_KEY set: {'ANTHROPIC_API_KEY' in os.environ}")
     print(f"GOOGLE_API_KEY set: {'GOOGLE_API_KEY' in os.environ}")
 
-    # Start server
-    print("Starting daemon server...")
-    launch_daemon_server()
-    print("Waiting 3 seconds for server to start...")
-    time.sleep(3)
+    # Start server with clean state
+    print("Restarting server for clean state...")
+    restart_server()
 
     print("Checking if server is ready...")
     if not wait_for_server():

@@ -7,9 +7,12 @@ import time
 from aco.server.database_manager import DB
 from aco.runner.develop_shim import DevelopShim
 from aco.runner.develop_shim import ensure_server_running
+from tests.utils import restart_server
 
 
 async def main():
+    # Restart server to ensure clean state for this test
+    restart_server()
     
     shim = DevelopShim(
         script_path="./example_workflows/miroflow_deep_research/single_task.py",
@@ -41,6 +44,8 @@ async def main():
 
     return_code = shim._run_user_script_subprocess()
     assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
+
+    print("~~~~ session_id", shim.session_id)
 
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
