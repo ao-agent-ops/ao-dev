@@ -178,6 +178,106 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.update_experiment_log_query(updated_log, updated_success, color_preview_json, graph_json, session_id)
 
+    # Attachment-related queries
+    def check_attachment_exists_query(self, file_id):
+        """Check if attachment with given file_id exists."""
+        backend = self._get_backend_module()
+        return backend.check_attachment_exists_query(file_id)
+
+    def get_attachment_by_content_hash_query(self, content_hash):
+        """Get attachment file path by content hash."""
+        backend = self._get_backend_module()
+        return backend.get_attachment_by_content_hash_query(content_hash)
+
+    def insert_attachment_query(self, file_id, content_hash, file_path):
+        """Insert new attachment record."""
+        backend = self._get_backend_module()
+        return backend.insert_attachment_query(file_id, content_hash, file_path)
+
+    def get_attachment_file_path_query(self, file_id):
+        """Get file path for attachment by file_id."""
+        backend = self._get_backend_module()
+        return backend.get_attachment_file_path_query(file_id)
+
+    # Subrun queries
+    def get_subrun_by_parent_and_name_query(self, parent_session_id, name):
+        """Get subrun session_id by parent session and name."""
+        backend = self._get_backend_module()
+        return backend.get_subrun_by_parent_and_name_query(parent_session_id, name)
+
+    def get_parent_session_id_query(self, session_id):
+        """Get parent session ID for a given session."""
+        backend = self._get_backend_module()
+        return backend.get_parent_session_id_query(session_id)
+
+    # LLM calls queries
+    def get_llm_call_by_session_and_hash_query(self, session_id, input_hash):
+        """Get LLM call by session_id and input_hash."""
+        backend = self._get_backend_module()
+        return backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
+
+    def insert_llm_call_query(self, session_id, input_pickle, input_hash, node_id, api_type):
+        """Insert new LLM call record."""
+        backend = self._get_backend_module()
+        return backend.insert_llm_call_query(session_id, input_pickle, input_hash, node_id, api_type)
+
+    def update_llm_call_output_query(self, output_pickle, session_id, node_id):
+        """Update LLM call output."""
+        backend = self._get_backend_module()
+        return backend.update_llm_call_output_query(output_pickle, session_id, node_id)
+
+    # Experiment list and graph queries
+    def get_finished_runs_query(self):
+        """Get all finished runs ordered by timestamp."""
+        backend = self._get_backend_module()
+        return backend.get_finished_runs_query()
+
+    def get_all_experiments_sorted_query(self):
+        """Get all experiments sorted by timestamp desc."""
+        backend = self._get_backend_module()
+        return backend.get_all_experiments_sorted_query()
+
+    def get_experiment_graph_topology_query(self, session_id):
+        """Get graph topology for an experiment."""
+        backend = self._get_backend_module()
+        return backend.get_experiment_graph_topology_query(session_id)
+
+    def get_experiment_color_preview_query(self, session_id):
+        """Get color preview for an experiment."""
+        backend = self._get_backend_module()
+        return backend.get_experiment_color_preview_query(session_id)
+
+    def get_experiment_environment_query(self, parent_session_id):
+        """Get experiment cwd, command, and environment."""
+        backend = self._get_backend_module()
+        return backend.get_experiment_environment_query(parent_session_id)
+
+    def update_experiment_color_preview_query(self, color_preview_json, session_id):
+        """Update experiment color preview."""
+        backend = self._get_backend_module()
+        return backend.update_experiment_color_preview_query(color_preview_json, session_id)
+
+    def get_experiment_exec_info_query(self, session_id):
+        """Get experiment execution info (cwd, command, environment)."""
+        backend = self._get_backend_module()
+        return backend.get_experiment_exec_info_query(session_id)
+
+    # Database cleanup queries
+    def delete_all_experiments_query(self):
+        """Delete all records from experiments table."""
+        backend = self._get_backend_module()
+        return backend.delete_all_experiments_query()
+
+    def delete_all_llm_calls_query(self):
+        """Delete all records from llm_calls table."""
+        backend = self._get_backend_module()
+        return backend.delete_all_llm_calls_query()
+
+    def get_session_name_query(self, session_id):
+        """Get session name by session_id."""
+        backend = self._get_backend_module()
+        return backend.get_session_name_query(session_id)
+
 
 # Create singleton instance following the established pattern
 DB = DatabaseManager()

@@ -49,8 +49,6 @@ TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
 TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
 
-# DATABASE_URL is no longer needed - DatabaseManager handles backend selection
-
 # Remote PostgreSQL database URL for "Remote" mode in UI dropdown
 REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
 

@@ -284,3 +284,103 @@ def update_experiment_log_query(updated_log, updated_success, color_preview_json
         "UPDATE experiments SET log=?, success=?, color_preview=?, graph_topology=? WHERE session_id=?",
         (updated_log, updated_success, color_preview_json, graph_json, session_id),
     )
+
+
+# Attachment-related queries
+def check_attachment_exists_query(file_id):
+    """Check if attachment with given file_id exists."""
+    return query_one("SELECT file_id FROM attachments WHERE file_id=?", (file_id,))
+
+
+def get_attachment_by_content_hash_query(content_hash):
+    """Get attachment file path by content hash."""
+    return query_one("SELECT file_path FROM attachments WHERE content_hash=?", (content_hash,))
+
+
+def insert_attachment_query(file_id, content_hash, file_path):
+    """Insert new attachment record."""
+    execute("INSERT INTO attachments (file_id, content_hash, file_path) VALUES (?, ?, ?)", (file_id, content_hash, file_path))
+
+
+def get_attachment_file_path_query(file_id):
+    """Get file path for attachment by file_id."""
+    return query_one("SELECT file_path FROM attachments WHERE file_id=?", (file_id,))
+
+
+# Subrun queries
+def get_subrun_by_parent_and_name_query(parent_session_id, name):
+    """Get subrun session_id by parent session and name."""
+    return query_one("SELECT session_id FROM experiments WHERE parent_session_id = ? AND name = ?", (parent_session_id, name))
+
+
+def get_parent_session_id_query(session_id):
+    """Get parent session ID for a given session."""
+    return query_one("SELECT parent_session_id FROM experiments WHERE session_id=?", (session_id,))
+
+
+# LLM calls queries
+def get_llm_call_by_session_and_hash_query(session_id, input_hash):
+    """Get LLM call by session_id and input_hash."""
+    return query_one("SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=? AND input_hash=?", (session_id, input_hash))
+
+
+def insert_llm_call_query(session_id, input_pickle, input_hash, node_id, api_type):
+    """Insert new LLM call record."""
+    execute("INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type) VALUES (?, ?, ?, ?, ?)", (session_id, input_pickle, input_hash, node_id, api_type))
+
+
+def update_llm_call_output_query(output_pickle, session_id, node_id):
+    """Update LLM call output."""
+    execute("UPDATE llm_calls SET output=? WHERE session_id=? AND node_id=?", (output_pickle, session_id, node_id))
+
+
+# Experiment list and graph queries
+def get_finished_runs_query():
+    """Get all finished runs ordered by timestamp."""
+    return query_all("SELECT session_id, timestamp FROM experiments ORDER BY timestamp DESC", ())
+
+
+def get_all_experiments_sorted_query():
+    """Get all experiments sorted by timestamp desc."""
+    return query_all("SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC", ())
+
+
+def get_experiment_graph_topology_query(session_id):
+    """Get graph topology for an experiment."""
+    return query_one("SELECT graph_topology FROM experiments WHERE session_id=?", (session_id,))
+
+
+def get_experiment_color_preview_query(session_id):
+    """Get color preview for an experiment."""
+    return query_one("SELECT color_preview FROM experiments WHERE session_id=?", (session_id,))
+
+
+def get_experiment_environment_query(parent_session_id):
+    """Get experiment cwd, command, and environment."""
+    return query_one("SELECT cwd, command, environment FROM experiments WHERE session_id=?", (parent_session_id,))
+
+
+def update_experiment_color_preview_query(color_preview_json, session_id):
+    """Update experiment color preview."""
+    execute("UPDATE experiments SET color_preview=? WHERE session_id=?", (color_preview_json, session_id))
+
+
+def get_experiment_exec_info_query(session_id):
+    """Get experiment execution info (cwd, command, environment)."""
+    return query_one("SELECT cwd, command, environment FROM experiments WHERE session_id=?", (session_id,))
+
+
+# Database cleanup queries
+def delete_all_experiments_query():
+    """Delete all records from experiments table."""
+    execute("DELETE FROM experiments")
+
+
+def delete_all_llm_calls_query():
+    """Delete all records from llm_calls table."""
+    execute("DELETE FROM llm_calls")
+
+
+def get_session_name_query(session_id):
+    """Get session name by session_id."""
+    return query_one("SELECT name FROM experiments WHERE session_id=?", (session_id,))
