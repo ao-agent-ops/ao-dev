@@ -130,9 +130,6 @@ jobs:
         # Enable debug logging
         export AGENT_COPILOT_LOG_LEVEL=DEBUG
         
-        # Show server status before test
-        echo "=== Server status before test ==="
-        aco-server status
         
         # Run ONLY test_deep_research with max verbosity
         pytest -v -s --tb=long tests/test_deep_research.py::test_deepresearch
