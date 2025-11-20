@@ -420,6 +420,10 @@ class DevelopServer:
 
         self.handle_graph_request(conn, session_id)
 
+    def handle_get_all_experiments(self, conn: socket.socket) -> None:
+        """Handle request to refresh the experiment list (e.g., when VS Code window regains focus)."""
+        self.broadcast_experiment_list_to_uis(conn)
+
     def handle_add_subrun(self, msg: dict, conn: socket.socket) -> None:
         # If rerun, use previous session_id. Else, assign new one.
         prev_session_id = msg.get("prev_session_id")
@@ -652,6 +656,8 @@ class DevelopServer:
             self.handle_clear()
         elif msg_type == "set_database_mode":
             self.handle_set_database_mode(msg)
+        elif msg_type == "get_all_experiments":
+            self.handle_get_all_experiments(conn)
         else:
             logger.error(f"[DevelopServer] Unknown message type. Message:\n{msg}")
 

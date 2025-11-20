@@ -5,6 +5,8 @@ from typing import Any, Set
 from types import ModuleType
 from enum import Enum
 from aco.server.database_manager import DB
+from aco.common.logger import logger
+
 
 class TaintObject:
     """
@@ -354,9 +356,8 @@ def untaint_if_needed(val, _seen=None):
         for slot, value in untainted.items():
             try:
                 setattr(val, slot, value)
-            except Exception as e:
-                print(f"Why are we here? Is {val} immutable?")
-                raise e
+            except Exception:
+                logger.error(f"[TaintWrapper] error untainting {val}")
         return val
 
     # Return primitive types and other objects as-is
@@ -1623,7 +1624,9 @@ class TaintFile:
             if taint_nodes:
                 # Store taint for the current line being written
                 try:
-                    DB.store_taint_info(self._session_id, self._file.name, self._line_no, taint_nodes)
+                    DB.store_taint_info(
+                        self._session_id, self._file.name, self._line_no, taint_nodes
+                    )
                 except Exception as e:
                     # Log but don't fail the write operation
                     import sys

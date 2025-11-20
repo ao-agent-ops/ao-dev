@@ -1,9 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExperimentsView } from '../../../shared_components/components/experiment/ExperimentsView';
 import { ProcessInfo } from '../../../shared_components/types';
 import { sendReady } from '../../../shared_components/utils/messaging';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
-import { useLocalStorage } from '../../../shared_components/hooks/useLocalStorage';
 
 
 // Add global type augmentation for window.vscode
@@ -16,8 +15,8 @@ declare global {
 }
 
 export const App: React.FC = () => {
-  const [processes, setProcesses] = useLocalStorage<ProcessInfo[]>("experiments", []);
-  const [databaseMode, setDatabaseMode] = useLocalStorage<'Local' | 'Remote'>("databaseMode", 'Local');
+  const [processes, setProcesses] = useState<ProcessInfo[]>([]);
+  const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote'>('Local');
   const isDarkTheme = useIsVsCodeDarkTheme();
 
   // Listen for backend messages and update state
@@ -69,10 +68,6 @@ export const App: React.FC = () => {
           break;
         case "experiment_list":
           setProcesses(message.experiments || []);
-          localStorage.setItem(
-            "experiments",
-            JSON.stringify(message.experiments || [])
-          );
           break;
       }
     };

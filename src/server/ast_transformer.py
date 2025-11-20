@@ -735,8 +735,8 @@ def exec_func(func, args, kwargs, user_py_files=None):
                 all_origins.update(get_taint_origins(bound_self))
 
             # Untaint arguments for the function call
-            untainted_args = untaint_if_needed(args)
-            untainted_kwargs = untaint_if_needed(kwargs)
+            untainted_args = untaint_if_needed(args) if all_origins else args
+            untainted_kwargs = untaint_if_needed(kwargs) if all_origins else kwargs
 
             # Call the original function with untainted arguments
             bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None

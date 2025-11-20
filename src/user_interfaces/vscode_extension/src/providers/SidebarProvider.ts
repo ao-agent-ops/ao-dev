@@ -13,12 +13,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     private _pendingMessages: any[] = [];
     private _pythonClient: PythonServerClient | null = null;
     private _messageHandler?: (msg: any) => void;
+    private _windowStateListener?: vscode.Disposable;
     // The Python server connection is deferred until the webview sends 'ready'.
     // Buffering is needed to ensure no messages are lost if the server sends messages before the webview is ready.
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Set up Python server message forwarding with buffering
         // Removed _pendingEdit
+
+        // Set up window focus detection to request experiments when VS Code regains focus
+        this._windowStateListener = vscode.window.onDidChangeWindowState((state) => {
+            if (state.focused && this._pythonClient) {
+                // Window regained focus - request fresh experiment list from server
+                this._pythonClient.sendMessage({ type: 'get_all_experiments' });
+            }
+        });
     }
 
 
@@ -69,6 +78,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         // Clean up reference when disposed
         webviewView.onDidDispose(() => {
             this._view = undefined;
+        });
+
+        // Request fresh experiment list when the webview becomes visible
+        webviewView.onDidChangeVisibility(() => {
+            if (webviewView.visible && this._pythonClient) {
+                this._pythonClient.sendMessage({ type: 'get_all_experiments' });
+            }
         });
 
         // Flush any pending messages to the webview
@@ -263,6 +279,11 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         if (this._pythonClient && this._messageHandler) {
             this._pythonClient.removeMessageListener(this._messageHandler);
             this._messageHandler = undefined;
+        }
+        // Clean up window state listener
+        if (this._windowStateListener) {
+            this._windowStateListener.dispose();
+            this._windowStateListener = undefined;
         }
         // Clean up is handled by ConfigManager
     }
