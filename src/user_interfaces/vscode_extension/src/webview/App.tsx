@@ -21,7 +21,7 @@ export const App: React.FC = () => {
   const isDarkTheme = useIsVsCodeDarkTheme();
 
   // Listen for backend messages and update state
-  useEffect(() => {   
+  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       switch (message.type) {
@@ -33,12 +33,20 @@ export const App: React.FC = () => {
             console.log(`Synchronized database mode to: ${mode}`);
           }
           break;
+        case "database_mode_changed":
+          // Handle database mode change broadcast from server
+          if (message.database_mode) {
+            const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
+            setDatabaseMode(mode);
+            console.log(`Database mode changed by another UI to: ${mode}`);
+          }
+          break;
         case "configUpdate":
           // Config changed - forward to config bridge
           console.log('Config update received:', message.detail);
           window.dispatchEvent(new CustomEvent('configUpdate', { detail: message.detail }));
           break;
-        case "graph_update": 
+        case "graph_update":
           // Graph updates are now handled by individual graph tabs
           break;
         case "color_preview_update": {
@@ -46,8 +54,8 @@ export const App: React.FC = () => {
           const color_preview = message.color_preview;
           console.log(`Color preview update for ${sid}:`, color_preview);
           setProcesses((prev) => {
-            const updated = prev.map(process => 
-              process.session_id === sid 
+            const updated = prev.map(process =>
+              process.session_id === sid
                 ? { ...process, color_preview }
                 : process
             );

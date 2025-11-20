@@ -44,6 +44,8 @@ function App() {
     label: string;
     attachments?: any;
   } | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(250);
+  const [isResizing, setIsResizing] = useState(false);
   const graphContainerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const messageBufferRef = useRef<string>(''); // Buffer for incomplete WebSocket frames
@@ -63,6 +65,41 @@ function App() {
     mediaQuery.addEventListener("change", handleChange);
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
+
+  // Handle sidebar resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing) {
+        const newWidth = e.clientX;
+        // Constrain width between 150px and 600px
+        if (newWidth >= 150 && newWidth <= 600) {
+          setSidebarWidth(newWidth);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
+
+  const handleResizeStart = () => {
+    setIsResizing(true);
+  };
 
   // Create webapp MessageSender that always uses the current WebSocket from the ref
   const messageSender: MessageSender = {
@@ -150,7 +187,7 @@ function App() {
             });
           }
           break;
-    
+
         case "session_id":
           // Handle initial connection message with database mode
           if (msg.database_mode) {
@@ -159,7 +196,16 @@ function App() {
             console.log(`Synchronized database mode to: ${mode}`);
           }
           break;
-    
+
+        case "database_mode_changed":
+          // Handle database mode change broadcast from server
+          if (msg.database_mode) {
+            const mode = msg.database_mode === 'local' ? 'Local' : 'Remote';
+            setDatabaseMode(mode);
+            console.log(`Database mode changed by another UI to: ${mode}`);
+          }
+          break;
+
         default:
           console.warn(`Unhandled message type: ${msg.type}`);
       }
@@ -241,7 +287,7 @@ function App() {
 
   return (
     <div className={`app-container ${isDarkTheme ? 'dark' : ''}`}>
-      <div className="sidebar">
+      <div className="sidebar" style={{ width: `${sidebarWidth}px` }}>
         <ExperimentsView
           similarProcesses={similarExperiments ? [similarExperiments] : []}
           runningProcesses={running}
@@ -251,6 +297,10 @@ function App() {
           showHeader={true}
           onModeChange={handleDatabaseModeChange}
           currentMode={databaseMode}
+        />
+        <div
+          className="sidebar-resize-handle"
+          onMouseDown={handleResizeStart}
         />
       </div>
 

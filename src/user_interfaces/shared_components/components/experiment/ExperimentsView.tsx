@@ -216,6 +216,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({ similarProcess
         style={dropdownButtonStyle}
         onClick={() => setDropdownOpen(!dropdownOpen)}
       >
+        <i className="codicon codicon-database" />
         {currentMode}
         <i className={`codicon ${dropdownOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
       </button>

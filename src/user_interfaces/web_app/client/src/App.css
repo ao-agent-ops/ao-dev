@@ -51,6 +51,23 @@ html, body {
   padding: 16px;
   overflow-y: auto;
   background-color: var(--sidebar-bg);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: ew-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+}
+
+.sidebar-resize-handle:hover {
+  background-color: var(--sidebar-border);
 }
 
 .sidebar-title {

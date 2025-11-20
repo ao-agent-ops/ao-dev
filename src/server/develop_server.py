@@ -588,19 +588,24 @@ class DevelopServer:
         if mode not in ["local", "remote"]:
             logger.error(f"[DevelopServer] Invalid database mode: {mode}")
             return
-        
+
         try:
             current_mode = DB.get_current_mode()
             if current_mode != mode:
-                logger.info(f"[DevelopServer] Switching database mode from {current_mode} to {mode}")
+                logger.info(
+                    f"[DevelopServer] Switching database mode from {current_mode} to {mode}"
+                )
                 DB.switch_mode(mode)
-                
+
+                # Broadcast the mode change to all UIs so they can update their UI controls
+                self.broadcast_to_all_uis({"type": "database_mode_changed", "database_mode": mode})
+
                 # Refresh experiment list with new database - UI will see different data
                 self.broadcast_experiment_list_to_uis()
                 logger.info(f"[DevelopServer] Successfully switched to {mode} database mode")
             else:
                 logger.debug(f"[DevelopServer] Database mode already set to {mode}")
-                
+
         except Exception as e:
             logger.error(f"[DevelopServer] Failed to switch database mode: {e}")
 
@@ -724,12 +729,13 @@ class DevelopServer:
                 # Send session_id and config_path to this UI connection (None for UI)
                 self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(
-                    conn, {
-                        "type": "session_id", 
-                        "session_id": None, 
+                    conn,
+                    {
+                        "type": "session_id",
+                        "session_id": None,
                         "config_path": ACO_CONFIG,
-                        "database_mode": DB.get_current_mode()
-                    }
+                        "database_mode": DB.get_current_mode(),
+                    },
                 )
                 # Send experiment_list only to this UI connection
                 self.broadcast_experiment_list_to_uis(conn)
@@ -776,13 +782,13 @@ class DevelopServer:
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
         # Clear the log file on server startup
-        # try:
-        #     with open(ACO_LOG_PATH, 'w') as f:
-        #         pass  # Just truncate the file
-        #     logger.debug("Server log file cleared on startup")
-        # except Exception as e:
-        #     logger.warning(f"Could not clear log file on startup: {e}")
-        
+        try:
+            with open(ACO_LOG_PATH, "w") as f:
+                pass  # Just truncate the file
+            logger.debug("Server log file cleared on startup")
+        except Exception as e:
+            logger.warning(f"Could not clear log file on startup: {e}")
+
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
