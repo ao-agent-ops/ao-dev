@@ -101,11 +101,6 @@ def patch_openai_chat_completions_create(completions):
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
-        # HACK: We need content to be string. Just do quick and dirty for BIRD.
-        for message in input_dict.get("messages", []):
-            if "content" in message:
-                message["content"] = str(message["content"])
-
         # 4. Get result from cache or call LLM.
         input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
         if result is None:
