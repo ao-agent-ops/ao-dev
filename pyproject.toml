@@ -30,7 +30,7 @@ description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"
 requires-python = ">=3.10"
 
-dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase", "debugpy", "psutil"]
+dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase", "debugpy", "psutil", "psycopg2-binary"]
 
 [project.optional-dependencies]
 dev = [

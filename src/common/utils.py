@@ -9,6 +9,14 @@ from typing import Optional, Union
 from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT
 
 
+def hash_input(input_bytes):
+    """Hash input for deduplication"""
+    if isinstance(input_bytes, bytes):
+        return hashlib.sha256(input_bytes).hexdigest()
+    else:
+        return hashlib.sha256(input_bytes.encode("utf-8")).hexdigest()
+
+
 def set_seed(node_id: str) -> None:
     """Set the seed based on the node_id."""
     seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)

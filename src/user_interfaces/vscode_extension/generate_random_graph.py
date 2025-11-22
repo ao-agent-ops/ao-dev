@@ -66,7 +66,6 @@ def generate_random_dag(num_nodes: int, num_edges: int, seed: int = None) -> Dic
             "codeLocation": f"/path/to/code/node_{i+1}.py:{random.randint(10, 100)}",
             "model": "undefined_model",
             "attachments": [],
-            "tab_title": f"undefined_model ({i})" if i > 0 else "undefined_model",
         }
         nodes.append(node)
 

@@ -16,6 +16,7 @@ Key Features:
 import os
 import sys
 import time
+import signal
 from typing import Dict
 from aco.common.logger import logger
 from aco.common.constants import FILE_POLL_INTERVAL
@@ -42,8 +43,9 @@ class FileWatcher:
         self.module_to_file = module_to_file
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
-        logger.debug(f"[FileWatcher] Initialized FileWatcher. process id (pid) {self.pid}")
+        self._shutdown = False  # Flag to signal shutdown
         self._populate_initial_mtimes()
+        self._setup_signal_handlers()
 
     def _populate_initial_mtimes(self):
         """Initialize modification times for all tracked files."""
@@ -53,15 +55,23 @@ class FileWatcher:
                 if os.path.exists(file_path):
                     mtime = os.path.getmtime(file_path)
                     self.file_mtimes[file_path] = mtime
-                    logger.info(
-                        f"[FileWatcher] Tracking {module_name}: {file_path} (mtime: {mtime})"
-                    )
                 else:
                     logger.warning(
                         f"[FileWatcher] Module file not found: {module_name} -> {file_path}"
                     )
             except OSError as e:
                 logger.error(f"[FileWatcher] Error accessing file {file_path}: {e}")
+
+    def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown."""
+        signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
+        signal.signal(signal.SIGINT, self._handle_shutdown_signal)
+        logger.debug(f"[FileWatcher] Signal handlers installed for pid {self.pid}")
+
+    def _handle_shutdown_signal(self, signum, frame):
+        """Handle shutdown signals gracefully."""
+        logger.info(f"[FileWatcher] Received signal {signum}, shutting down gracefully...")
+        self._shutdown = True
 
     def _needs_recompilation(self, file_path: str) -> bool:
         """
@@ -111,28 +121,28 @@ class FileWatcher:
         Returns:
             True if compilation succeeded, False otherwise
         """
-        logger.debug(f"[FileWatcher] Starting compilation of {module_name}: {file_path}")
+        # logger.debug(f"[FileWatcher] Starting compilation of {module_name}: {file_path}")
         try:
             # Read source code
             with open(file_path, "r", encoding="utf-8") as f:
                 source = f.read()
-            logger.debug(f"[FileWatcher] Read {len(source)} characters from {file_path}")
+            # logger.debug(f"[FileWatcher] Read {len(source)} characters from {file_path}")
 
             # Apply AST rewrites and compile to code object
-            logger.debug(f"[FileWatcher] Applying AST rewrites to {module_name}")
+            # logger.debug(f"[FileWatcher] Applying AST rewrites to {module_name}")
             code_object = rewrite_source_to_code(
                 source, file_path, module_to_file=self.module_to_file
             )
-            logger.debug(f"[FileWatcher] AST rewrite successful for {module_name}")
+            # logger.debug(f"[FileWatcher] AST rewrite successful for {module_name}")
 
             # Get target .pyc path
             pyc_path = get_pyc_path(file_path)
-            logger.debug(f"[FileWatcher] Target .pyc path: {pyc_path}")
+            # logger.debug(f"[FileWatcher] Target .pyc path: {pyc_path}")
 
             # Ensure __pycache__ directory exists
             cache_dir = os.path.dirname(pyc_path)
             os.makedirs(cache_dir, exist_ok=True)
-            logger.debug(f"[FileWatcher] Created cache directory: {cache_dir}")
+            # logger.debug(f"[FileWatcher] Created cache directory: {cache_dir}")
 
             # Write compiled code to .pyc file
             # We need to write the .pyc file manually since py_compile.compile()
@@ -144,9 +154,9 @@ class FileWatcher:
             source_mtime = int(os.path.getmtime(file_path))
             source_size = os.path.getsize(file_path)
 
-            logger.debug(
-                f"[FileWatcher] Writing .pyc file with mtime={source_mtime}, size={source_size}"
-            )
+            # logger.debug(
+            #     f"[FileWatcher] Writing .pyc file with mtime={source_mtime}, size={source_size}"
+            # )
 
             # .pyc file format: magic number + flags + timestamp + source size + marshaled code
             with open(pyc_path, "wb") as f:
@@ -168,10 +178,10 @@ class FileWatcher:
             # Verify .pyc file was created
             if os.path.exists(pyc_path):
                 pyc_size = os.path.getsize(pyc_path)
-                logger.debug(f"[FileWatcher] ✓ Successfully compiled {module_name}")
-                logger.debug(f"[FileWatcher]   Source: {file_path}")
-                logger.debug(f"[FileWatcher]   Target: {pyc_path} ({pyc_size} bytes)")
-                logger.debug(f"[FileWatcher]   Source mtime: {source_mtime}")
+                # logger.debug(f"[FileWatcher] ✓ Successfully compiled {module_name}")
+                # logger.debug(f"[FileWatcher]   Source: {file_path}")
+                # logger.debug(f"[FileWatcher]   Target: {pyc_path} ({pyc_size} bytes)")
+                # logger.debug(f"[FileWatcher]   Source mtime: {source_mtime}")
             else:
                 logger.error(f"[FileWatcher] ✗ .pyc file was not created: {pyc_path}")
                 return False
@@ -196,6 +206,8 @@ class FileWatcher:
         and handle file changes.
         """
         for module_name, file_path in self.module_to_file.items():
+            if self._shutdown:
+                return
             if self._needs_recompilation(file_path):
                 logger.debug(f"File changed, recompiling: {file_path}")
                 self._compile_file(file_path, module_name)
@@ -204,8 +216,8 @@ class FileWatcher:
         """
         Main polling loop that monitors files and triggers recompilation.
 
-        This method runs indefinitely, checking for file changes every
-        FILE_POLL_INTERVAL seconds and recompiling changed files.
+        This method runs until a shutdown signal is received, checking for
+        file changes every FILE_POLL_INTERVAL seconds and recompiling changed files.
         """
         logger.debug(f"[FileWatcher] Starting file watcher process")
 
@@ -213,6 +225,9 @@ class FileWatcher:
         compiled_count = 0
         failed_count = 0
         for module_name, file_path in self.module_to_file.items():
+            if self._shutdown:
+                logger.info("[FileWatcher] Shutdown requested during initial compilation")
+                return
             if self._compile_file(file_path, module_name):
                 compiled_count += 1
             else:
@@ -225,7 +240,7 @@ class FileWatcher:
         # Start polling loop
         try:
             logger.info("[FileWatcher] Starting polling loop...")
-            while True:
+            while not self._shutdown:
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
         except KeyboardInterrupt:
@@ -236,6 +251,8 @@ class FileWatcher:
 
             logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")
             raise
+        finally:
+            logger.info(f"[FileWatcher] File watcher process {self.pid} exiting")
 
 
 def run_file_watcher_process(module_to_file: Dict[str, str]):

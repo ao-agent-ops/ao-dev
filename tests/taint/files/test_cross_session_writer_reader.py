@@ -11,8 +11,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from aco.runner.taint_wrappers import TaintStr
-from aco.server.db import store_taint_info, get_taint_info
-from ...utils import cleanup_taint_db
+from aco.server.database_manager import DB
+from ...utils import cleanup_taint_db, setup_test_session
 
 # Add the project root to Python path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -43,6 +43,9 @@ def test_cross_session_writer_reader():
 
         writer_session_id = "writer-session-12345"
         writer_node_id = "node-writer-67890"
+
+        # Create experiment record for writer session
+        setup_test_session(writer_session_id, name="Writer Session")
 
         # Set environment for writer session
         os.environ["AGENT_COPILOT_SESSION_ID"] = writer_session_id
@@ -82,7 +85,7 @@ def test_cross_session_writer_reader():
             print(f"Writing tainted content to {content_file}")
             with open(str(content_file), "w") as f:
                 # Manually simulate what TaintFile would do
-                store_taint_info(writer_session_id, str(content_file), 0, [writer_node_id])
+                DB.store_taint_info(writer_session_id, str(content_file), 0, [writer_node_id])
                 f.write(str(tainted_content))
 
         # Verify content file was created
@@ -90,7 +93,7 @@ def test_cross_session_writer_reader():
         print(f"✅ Writer created content file: {content_file}")
 
         # Verify taint info was stored
-        stored_session_id, stored_taint = get_taint_info(str(content_file), 0)
+        stored_session_id, stored_taint = DB.get_taint_info(str(content_file), 0)
         assert (
             stored_session_id == writer_session_id
         ), f"Expected writer session {writer_session_id}, got {stored_session_id}"
@@ -104,6 +107,9 @@ def test_cross_session_writer_reader():
 
         reader_session_id = "reader-session-54321"
         reader_node_id = "node-reader-09876"
+
+        # Create experiment record for reader session
+        setup_test_session(reader_session_id, name="Reader Session")
 
         # Set environment for reader session
         os.environ["AGENT_COPILOT_SESSION_ID"] = reader_session_id
@@ -130,7 +136,7 @@ def test_cross_session_writer_reader():
             with open(str(content_file), "r") as f:
                 # Manually simulate what TaintFile would do
                 original_content = f.read()
-                prev_session_id, taint_nodes = get_taint_info(str(content_file), 0)
+                prev_session_id, taint_nodes = DB.get_taint_info(str(content_file), 0)
 
                 if prev_session_id and taint_nodes:
                     # Create tainted string with previous session's taint
@@ -169,7 +175,7 @@ def test_cross_session_writer_reader():
                 f.write(str(tainted_response))
 
                 # Store taint info for the extended file
-                store_taint_info(reader_session_id, str(extended_file), 0, expected_taint)
+                DB.store_taint_info(reader_session_id, str(extended_file), 0, expected_taint)
 
         # === VERIFICATION ===
         print("\n3. Verifying Cross-Session Taint Tracking...")
@@ -188,7 +194,7 @@ def test_cross_session_writer_reader():
         print("✅ Extended file contains both original and new content")
 
         # Verify taint propagation
-        stored_session_id, stored_taint = get_taint_info(str(extended_file), 0)
+        stored_session_id, stored_taint = DB.get_taint_info(str(extended_file), 0)
         assert (
             stored_session_id == reader_session_id
         ), f"Expected reader session {reader_session_id}, got {stored_session_id}"

@@ -5,7 +5,7 @@ const cors = require("cors");
 const path = require("path");
 
 
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.PYTHON_HOST || "127.0.0.1";
 const PORT = process.env.PYTHON_PORT ? parseInt(process.env.PYTHON_PORT) : 5959;
 const WS_PORT = process.env.WS_PORT ? parseInt(process.env.WS_PORT) : 4000;
 

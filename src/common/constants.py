@@ -36,6 +36,7 @@ if not os.path.exists(ACO_CONFIG):
         telemetry_url=None,
         telemetry_key=None,
         telemetry_username=generate_random_username(),
+        database_url=None,
     )
     default_config.to_yaml_file(ACO_CONFIG)
 
@@ -47,6 +48,9 @@ COLLECT_TELEMETRY = config.collect_telemetry
 TELEMETRY_URL = config.telemetry_url
 TELEMETRY_KEY = config.telemetry_key
 TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
+
+# Remote PostgreSQL database URL for "Remote" mode in UI dropdown
+REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
 
 # server-related constants
 HOST = os.environ.get("HOST", "127.0.0.1")

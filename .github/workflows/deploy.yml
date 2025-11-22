@@ -1,4 +1,4 @@
-name: Deploy multi-container to AWS ECR
+name: Deploy web app to AWS
 
 on:
   push:
@@ -55,6 +55,7 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           # Save SSH key to temporary file
           echo "$EC2_SSH_KEY" > ec2_key.pem
@@ -67,6 +68,7 @@ jobs:
             # Export environment variables
             export ECR_REGISTRY="$ECR_REGISTRY"
             export OPENAI_API_KEY="$OPENAI_API_KEY"
+            export DATABASE_URL="$DATABASE_URL"
             
             # Login to ECR
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin \$ECR_REGISTRY
@@ -88,6 +90,7 @@ jobs:
                 - HOST=0.0.0.0
                 - PORT=5959
                 - OPENAI_API_KEY=\${OPENAI_API_KEY}
+                - DATABASE_URL=\${DATABASE_URL}
               restart: unless-stopped
               networks:
                 - app-network
@@ -116,6 +119,7 @@ jobs:
             cat > .env << ENVFILE
           ECR_REGISTRY=\$ECR_REGISTRY
           OPENAI_API_KEY=\$OPENAI_API_KEY
+          DATABASE_URL=\$DATABASE_URL
           ENVFILE
             
             # Pull new images from ECR

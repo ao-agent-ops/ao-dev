@@ -25,7 +25,7 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
     nodeColors,
   }) => {
     // Debug logging
-    console.log(`ProcessCard render for ${process.session_id}:`, { nodeColors, color_preview: process.color_preview });
+    // console.log(`ProcessCard render for ${process.session_id}:`, { nodeColors, color_preview: process.color_preview });
     
     const handleClick = async () => {
       // Call original onClick (experiment clicks now handled by server)
@@ -49,7 +49,7 @@ export const ProcessCard: React.FC<ProcessCardProps> = React.memo(
           style={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "space-between", gap: 8 }}
         >
           <div className={styles.title} style={{ textAlign: "left", flex: 1, minWidth: 0, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-            {process.title ? process.title : "Untitled"}
+            {process.run_name ? process.run_name : "Untitled"}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, gap: 8, minWidth: 0, justifyContent: 'flex-end' }}>           
             <div

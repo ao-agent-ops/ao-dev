@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { WorkflowRunDetailsPanelProps } from "../../types";
 import { useIsVsCodeDarkTheme } from "../../utils/themeUtils";
 
 interface Props extends WorkflowRunDetailsPanelProps {
   onBack?: () => void;
   sessionId?: string;
+  isDarkTheme?: boolean;
 }
 
 const resultOptions = ["Select a result", "Satisfactory", "Failed"];
@@ -17,54 +18,58 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   onOpenInTab,
   onBack,
   sessionId = "",
+  isDarkTheme: isDarkThemeProp,
+  messageSender,
 }) => {
   const [localRunName, setLocalRunName] = useState(runName);
   const [localResult, setLocalResult] = useState(result);
   const [localNotes, setLocalNotes] = useState(notes);
-  const isDarkTheme = useIsVsCodeDarkTheme();
+  const vscodeTheme = useIsVsCodeDarkTheme();
+  const isDarkTheme = isDarkThemeProp !== undefined ? isDarkThemeProp : vscodeTheme;
+
+  // Sync local state with props when they change (e.g., new data from database)
+  useEffect(() => {
+    setLocalRunName(runName);
+  }, [runName]);
+
+  useEffect(() => {
+    setLocalResult(result);
+  }, [result]);
+
+  useEffect(() => {
+    setLocalNotes(notes);
+  }, [notes]);
 
   const handleRunNameChange = (value: string) => {
-    console.log('[WorkflowRunDetailsPanel] Run name changed:', value, 'sessionId:', sessionId);
     setLocalRunName(value);
-    if (window.vscode && sessionId) {
-      console.log('[WorkflowRunDetailsPanel] Sending update_run_name message to VSCode');
-      window.vscode.postMessage({
+    if (messageSender && sessionId) {
+      messageSender.send({
         type: "update_run_name",
         session_id: sessionId,
         run_name: value,
       });
-    } else {
-      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
     }
   };
 
   const handleResultChange = (value: string) => {
-    console.log('[WorkflowRunDetailsPanel] Result changed:', value, 'sessionId:', sessionId);
     setLocalResult(value);
-    if (window.vscode && sessionId) {
-      console.log('[WorkflowRunDetailsPanel] Sending update_result message to VSCode');
-      window.vscode.postMessage({
+    if (messageSender && sessionId) {
+      messageSender.send({
         type: "update_result",
         session_id: sessionId,
         result: value,
       });
-    } else {
-      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
     }
   };
 
   const handleNotesChange = (value: string) => {
-    console.log('[WorkflowRunDetailsPanel] Notes changed (length:', value.length, ') sessionId:', sessionId);
     setLocalNotes(value);
-    if (window.vscode && sessionId) {
-      console.log('[WorkflowRunDetailsPanel] Sending update_notes message to VSCode');
-      window.vscode.postMessage({
+    if (messageSender && sessionId) {
+      messageSender.send({
         type: "update_notes",
         session_id: sessionId,
         notes: value,
       });
-    } else {
-      console.warn('[WorkflowRunDetailsPanel] Cannot send message - window.vscode:', !!window.vscode, 'sessionId:', sessionId);
     }
   };
  
@@ -76,18 +81,21 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
     boxSizing: "border-box",
     backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
     color: isDarkTheme ? "#FFFFFF" : "#000000",
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
     };
 
     const fieldStyle: React.CSSProperties = {
       width: "100%",
       padding: "6px 8px",
-      fontSize: "14px",
-      background: "#2d2d2d",
-      color: "#fff",
-      border: "1px solid #555",
-      borderRadius: "3px",
+      fontSize: "13px",
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+      background: isDarkTheme ? "#2d2d2d" : "#ffffff",
+      color: isDarkTheme ? "#cccccc" : "#333333",
+      border: `1px solid ${isDarkTheme ? "#555555" : "#d0d0d0"}`,
+      borderRadius: "2px",
       boxSizing: "border-box",
       marginBottom: "16px",
+      outline: "none",
     };
 
     const selectStyle: React.CSSProperties = {
@@ -101,11 +109,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
 
     const buttonStyle: React.CSSProperties = {
       ...fieldStyle,
-      background: "#007acc",
-      color: "#fff",
+      background: isDarkTheme ? "#0e639c" : "#007acc",
+      color: "#ffffff",
       cursor: "pointer",
-      fontSize: "16px",
-      border: "1px solid #555",
+      fontSize: "13px",
+      border: `1px solid ${isDarkTheme ? "#0e639c" : "#007acc"}`,
+      transition: "background-color 0.2s",
+      fontWeight: "normal",
     };
 
     const textareaStyle: React.CSSProperties = {
@@ -114,7 +124,6 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       minHeight: "80px",
       maxHeight: "150px",
       overflowY: "auto",
-      color: "#fff",
       marginBottom: "5px",
     };
     
@@ -124,9 +133,10 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         style={{
           display: "flex",
           alignItems: "center",
-          fontWeight: "bold",
-          fontSize: 20,
-          marginBottom: 20,
+          fontWeight: "600",
+          fontSize: "16px",
+          marginBottom: "24px",
+          color: isDarkTheme ? "#ffffff" : "#000000",
         }}
       >
         {onBack && (
@@ -135,22 +145,32 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             style={{
               background: "none",
               border: "none",
-              color: "#fff",
-              fontSize: 20,
+              color: isDarkTheme ? "#ffffff" : "#000000",
+              fontSize: "16px",
               cursor: "pointer",
-              marginRight: 8,
+              marginRight: "8px",
               lineHeight: 1,
-              padding: 0,
+              padding: "4px",
+              borderRadius: "2px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
             title="Back"
           >
-            ⬅️
+            ← {/* Unicode left arrow instead of codicon */}
           </button>
         )}
         Workflow run
       </div>
       {/* Title */}
-      <label style={{ fontSize: "20px" }}>Run name</label>
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
+        display: "block",
+        color: isDarkTheme ? "#cccccc" : "#333333",
+      }}>Run name</label>
       <input
         type="text"
         value={localRunName}
@@ -159,7 +179,13 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Result */}
-      <label style={{ fontSize: "20px" }}>Result</label>
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
+        display: "block",
+        color: isDarkTheme ? "#cccccc" : "#333333",
+      }}>Result</label>
       <div style={{ position: "relative", width: "100%" }}>
         <select
           value={localResult}
@@ -181,17 +207,23 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
             display: "flex",
             alignItems: "center",
             pointerEvents: "none",
-            color: "#aaa",
-            fontSize: "16px",
-            lineHeight: 1,
           }}
         >
-          ▼
+          {/* Codicon triangle-down icon */}
+          <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill={isDarkTheme ? "#888888" : "#666666"}>
+            <path d="M4.95693 5C4.14924 5 3.67479 5.90803 4.13603 6.57107L6.76866 10.3555C7.36545 11.2134 8.6346 11.2133 9.23138 10.3555L11.864 6.57106C12.3253 5.90803 11.8508 5 11.0431 5H4.95693Z"/>
+          </svg>
         </span>
       </div>
 
       {/* Notes */}
-      <label style={{ fontSize: "20px" }}>Notes</label>
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
+        display: "block",
+        color: isDarkTheme ? "#cccccc" : "#333333",
+      }}>Notes</label>
       <textarea
         value={localNotes}
         onChange={(e) => handleNotesChange(e.target.value)}
@@ -199,12 +231,18 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
       />
 
       {/* Log */}
-      <label style={{ fontSize: "20px" }}>Log</label>
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
+        display: "block",
+        color: isDarkTheme ? "#cccccc" : "#333333",
+      }}>Log</label>
       <textarea value={log} readOnly style={textareaStyle} />
 
 
       {/* Button open in tab */}
-      <button
+      {/* <button
         onClick={() => {
           if (window.vscode) {
             window.vscode.postMessage({
@@ -220,7 +258,7 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
         style={buttonStyle}
       >
         Open in tab
-      </button>
+      </button> */}
     </div>
   );
 };

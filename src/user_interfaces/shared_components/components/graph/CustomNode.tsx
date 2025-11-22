@@ -62,17 +62,16 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
             label: data.label || ''
           }
         });
-        
+
+        // Request to show node edit modal
         data.messageSender.send({
-          type: "showEditDialog",
+          type: "showNodeEditModal",
           payload: {
             nodeId: id,
             field: "input",
             value: data.input,
-            label: data.tab_title || "Input",
-            session_id: data.session_id,
-            attachments: data.attachments,
-          },
+            label: data.label || "Node",
+          }
         });
         break;
       case "editOutput":
@@ -87,16 +86,15 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           }
         });
         
+        // Request to show node edit modal
         data.messageSender.send({
-          type: "showEditDialog",
+          type: "showNodeEditModal",
           payload: {
             nodeId: id,
             field: "output",
             value: data.output,
-            label: data.tab_title || "Output",
-            session_id: data.session_id,
-            attachments: data.attachments,
-          },
+            label: data.label || "Node",
+          }
         });
         break;
       case "changeLabel":
@@ -124,27 +122,21 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   useEffect(() => {
     if (showPopover && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      // Calculate the position so that the popover does not cover the node
-      let top, left;
-      const POPOVER_HEIGHT = 70; // estimated height of the popover
-      const SEPARATION = 2; // Extra space around the popover
-      const BOTTOM_SEPARATION = 45; // Extra space below the node
-      const HORIZONTAL_OFFSET = 0; // Can you adjust this if needed
-
-      // Adjust the popover position based on the node's position
-      if (yPos < NODE_HEIGHT + 20) {
-        // Popover Below the node
-        top = rect.bottom + window.scrollY + SEPARATION;
-      } else {
-        // Popover Above the node
-        top = rect.top + window.scrollY - BOTTOM_SEPARATION - POPOVER_HEIGHT;
-      }
-      left = rect.left + rect.width / 2 + window.scrollX + HORIZONTAL_OFFSET;
+      // Always position popover below the node, centered precisely
+      const top = rect.bottom + window.scrollY;
+      // Calculate exact center point of the node, with slight left adjustment
+      const centerX = rect.left + (rect.width / 2) - 3; // Move 3px to the left
+      const left = centerX + window.scrollX;
+      
+      // Debug logging to check values
+      console.log('Node rect:', { left: rect.left, width: rect.width, centerX });
+      console.log('Popover position:', { top, left });
+      
       setPopoverCoords({ top, left });
     } else if (!showPopover) {
       setPopoverCoords(null);
     }
-  }, [showPopover, yPos]);
+  }, [showPopover]);
 
   return (
     <div
@@ -183,7 +175,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           onAction={handleAction}
           onMouseEnter={() => setShowPopover(true)}
           onMouseLeave={() => setShowPopover(false)}
-          position={yPos < NODE_HEIGHT + 20 ? 'below' : 'above'}
+          position="below"
           top={popoverCoords.top}
           left={popoverCoords.left}
           isDarkTheme={isDarkTheme}
@@ -209,7 +201,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         style={handleStyle}
       />
 
-      {/* Side handles */}
+      {/* Side handles - offset positions */}
       <Handle
         type="target"
         position={Position.Left}
@@ -235,21 +227,48 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         style={rightSourceStyle}
       />
 
+      {/* Centered side handles for single arrows */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-center"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-center-source"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-center"
+        style={{...handleStyle, top: '50%'}}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-center-source"
+        style={{...handleStyle, top: '50%'}}
+      />
+
       {/* Label */}
       <div
         style={{
-          fontSize: 12,
-          fontWeight: "bold",
+          fontSize: "11px",
+          fontWeight: "600",
+          fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
           opacity: isEditingLabel ? 0 : 1,
-          color: isDarkTheme ? "#fff" : "#303030",
+          color: isDarkTheme ? "#cccccc" : "#303030",
           textAlign: "center",
           padding: "0 4px",
           wordBreak: "break-word",
-          lineHeight: "1.2",
+          lineHeight: "1.3",
         }}
       >
         {data.label}
