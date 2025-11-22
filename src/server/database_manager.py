@@ -11,7 +11,7 @@ from aco.common.logger import logger
 class DatabaseManager:
     """
     Manages database backend selection and routes operations to appropriate backend.
-    
+
     Supports switching between:
     - Local mode: SQLite database for local development
     - Remote mode: PostgreSQL database for shared/production use
@@ -21,29 +21,31 @@ class DatabaseManager:
         """Initialize with default SQLite backend."""
         # Default to SQLite, user can switch via UI dropdown
         self.backend = "sqlite"
-        
+
         # Lazy-loaded backend modules
         self._sqlite_module = None
         self._postgres_module = None
-        
+
         logger.info(f"DatabaseManager initialized with backend: {self.get_current_mode()}")
 
     def _get_backend_module(self):
         """
         Lazy load and return the appropriate backend module.
-        
+
         Returns:
             Backend module (sqlite or postgres) with database functions
         """
         if self.backend == "sqlite":
             if self._sqlite_module is None:
                 from aco.server.database_backends import sqlite
+
                 self._sqlite_module = sqlite
                 logger.debug("Loaded SQLite backend module")
             return self._sqlite_module
         else:
             if self._postgres_module is None:
                 from aco.server.database_backends import postgres
+
                 self._postgres_module = postgres
                 logger.debug("Loaded PostgreSQL backend module")
             return self._postgres_module
@@ -51,10 +53,10 @@ class DatabaseManager:
     def switch_mode(self, mode: str):
         """
         Switch between 'local' (SQLite) and 'remote' (PostgreSQL) database modes.
-        
+
         Args:
             mode: Either 'local' for SQLite or 'remote' for PostgreSQL
-            
+
         Raises:
             ValueError: If mode is not 'local' or 'remote'
         """
@@ -63,11 +65,12 @@ class DatabaseManager:
             logger.info("Switched to local SQLite database")
         elif mode == "remote":
             from aco.common.constants import REMOTE_DATABASE_URL
+
             self.backend = REMOTE_DATABASE_URL
             logger.info("Switched to remote PostgreSQL database")
         else:
             raise ValueError(f"Invalid mode: {mode}. Use 'local' or 'remote'")
-        
+
         # Clear cached connections to force reconnection with new backend
         self._clear_backend_connections()
 
@@ -84,7 +87,7 @@ class DatabaseManager:
     def get_current_mode(self) -> str:
         """
         Get the current database mode.
-        
+
         Returns:
             'local' if using SQLite, 'remote' if using PostgreSQL
         """
@@ -133,10 +136,35 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.get_taint_info(file_path, line_number)
 
-    def add_experiment_query(self, session_id, parent_session_id, name, default_graph, timestamp, cwd, command, env_json, default_success, default_note, default_log):
+    def add_experiment_query(
+        self,
+        session_id,
+        parent_session_id,
+        name,
+        default_graph,
+        timestamp,
+        cwd,
+        command,
+        env_json,
+        default_success,
+        default_note,
+        default_log,
+    ):
         """Add experiment to database using backend-specific SQL syntax."""
         backend = self._get_backend_module()
-        return backend.add_experiment_query(session_id, parent_session_id, name, default_graph, timestamp, cwd, command, env_json, default_success, default_note, default_log)
+        return backend.add_experiment_query(
+            session_id,
+            parent_session_id,
+            name,
+            default_graph,
+            timestamp,
+            cwd,
+            command,
+            env_json,
+            default_success,
+            default_note,
+            default_log,
+        )
 
     def set_input_overwrite_query(self, input_overwrite, session_id, node_id):
         """Update llm_calls input_overwrite using backend-specific SQL syntax."""
@@ -173,10 +201,14 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.update_experiment_notes_query(notes, session_id)
 
-    def update_experiment_log_query(self, updated_log, updated_success, color_preview_json, graph_json, session_id):
+    def update_experiment_log_query(
+        self, updated_log, updated_success, color_preview_json, graph_json, session_id
+    ):
         """Update experiments log, success, color_preview, and graph_topology using backend-specific SQL syntax."""
         backend = self._get_backend_module()
-        return backend.update_experiment_log_query(updated_log, updated_success, color_preview_json, graph_json, session_id)
+        return backend.update_experiment_log_query(
+            updated_log, updated_success, color_preview_json, graph_json, session_id
+        )
 
     # Attachment-related queries
     def check_attachment_exists_query(self, file_id):
@@ -216,15 +248,14 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
 
-    def insert_llm_call_query(self, session_id, input_pickle, input_hash, node_id, api_type):
-        """Insert new LLM call record."""
+    def insert_llm_call_with_output_query(
+        self, session_id, input_pickle, input_hash, node_id, api_type, output_pickle
+    ):
+        """Insert new LLM call record with output in a single operation."""
         backend = self._get_backend_module()
-        return backend.insert_llm_call_query(session_id, input_pickle, input_hash, node_id, api_type)
-
-    def update_llm_call_output_query(self, output_pickle, session_id, node_id):
-        """Update LLM call output."""
-        backend = self._get_backend_module()
-        return backend.update_llm_call_output_query(output_pickle, session_id, node_id)
+        return backend.insert_llm_call_with_output_query(
+            session_id, input_pickle, input_hash, node_id, api_type, output_pickle
+        )
 
     # Experiment list and graph queries
     def get_finished_runs_query(self):

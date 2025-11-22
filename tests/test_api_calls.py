@@ -73,7 +73,9 @@ def wait_for_server():
     return False
 
 
-def run_test(program_file, api_type, create_response_func, create_input_func, http_calls, db_backend="local"):
+def run_test(
+    program_file, api_type, create_response_func, create_input_func, http_calls, db_backend="local"
+):
     """Run the actual test logic."""
     print(f"\n=== Starting test for {program_file} with {api_type} ===")
     print(f"Database backend: {db_backend}")
@@ -94,11 +96,11 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     print(f"Switching server database backend to: {db_backend}")
     admin_sock = socket.create_connection(("127.0.0.1", 5959))
     admin_file = admin_sock.makefile("rw")
-    
+
     admin_handshake = {"type": "hello", "role": "admin", "script": "test_admin"}
     admin_file.write(json.dumps(admin_handshake) + "\n")
     admin_file.flush()
-    
+
     db_mode_msg = {"type": "set_database_mode", "mode": db_backend}
     admin_file.write(json.dumps(db_mode_msg) + "\n")
     DB.switch_mode(db_backend)
@@ -159,10 +161,10 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     print(f"Caching {len(inputs)} responses...")
     for i, (input_text, output_text) in enumerate(zip(inputs, outputs)):
         print(f"  Caching response {i+1}: '{input_text}' -> '{output_text}'")
-        _, _, node_id = CACHE.get_in_out(create_input_func(input_text), api_type)
+        cache_output = CACHE.get_in_out(create_input_func(input_text), api_type)
         response = create_response_func(output_text)
-        CACHE.cache_output(node_id, response)
-        print(f"  Cached with node_id: {node_id}")
+        CACHE.cache_output(cache_result=cache_output, output_obj=response, api_type=api_type)
+        print(f"  Cached with node_id: {cache_output.node_id}")
 
     # 6. Send restart to trigger execution
     restart_msg = {"type": "restart", "session_id": session_id}
@@ -175,7 +177,7 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
     start_time = time.time()
     print("Waiting for graph updates...")
 
-    while time.time() - start_time < 10: # Messages need to arrive within 8s
+    while time.time() - start_time < 10:  # Messages need to arrive within 8s
         try:
             msg = message_queue.get(timeout=1)
             if msg.get("type") == "graph_update" and msg.get("session_id") == session_id:
@@ -244,7 +246,9 @@ def run_test(program_file, api_type, create_response_func, create_input_func, ht
         ),
     ],
 )
-def test_api_calls(program_file, api_type, create_response_func, create_input_func, db_backend, http_calls):
+def test_api_calls(
+    program_file, api_type, create_response_func, create_input_func, db_backend, http_calls
+):
     """Test API calls with cached responses."""
     print(f"\n=== Starting test_api_calls for {program_file} ===")
     print(f"API type: {api_type}")
@@ -284,7 +288,9 @@ def test_api_calls(program_file, api_type, create_response_func, create_input_fu
         print("Server is ready!")
 
     try:
-        run_test(program_file, api_type, create_response_func, create_input_func, http_calls, db_backend)
+        run_test(
+            program_file, api_type, create_response_func, create_input_func, http_calls, db_backend
+        )
         print(f"=== Test {program_file} completed successfully ===")
     except Exception as e:
         print(f"=== Test {program_file} failed with exception: {e} ===")
@@ -329,16 +335,18 @@ if __name__ == "__main__":
     # Generate test cases with both backends
     test_cases = []
     for program_file, api_type, create_response_func, create_input_func in base_test_cases:
-        test_cases.extend([
-            (program_file, api_type, create_response_func, create_input_func, "local"),
-            (program_file, api_type, create_response_func, create_input_func, "remote"),
-        ])
+        test_cases.extend(
+            [
+                (program_file, api_type, create_response_func, create_input_func, "local"),
+                (program_file, api_type, create_response_func, create_input_func, "remote"),
+            ]
+        )
 
     # Parse command line arguments
     if len(sys.argv) > 1:
         api_filter = sys.argv[1].lower()
         db_filter = sys.argv[2].lower() if len(sys.argv) > 2 else None
-        
+
         if api_filter in ["openai", "anthropic"]:
             # Filter by API type
             filtered_cases = []
@@ -350,7 +358,7 @@ if __name__ == "__main__":
             print(f"Unknown API argument: {api_filter}")
             print("Usage: python test_api_calls.py [openai|anthropic|both] [local|remote]")
             sys.exit(1)
-        
+
         if db_filter in ["local", "remote"]:
             # Filter by database backend
             filtered_cases = []
@@ -371,7 +379,12 @@ if __name__ == "__main__":
         test_name = f"{program_file}({db_backend})"
         try:
             test_api_calls(
-                program_file, api_type, create_response_func, create_input_func, db_backend, http_calls
+                program_file,
+                api_type,
+                create_response_func,
+                create_input_func,
+                db_backend,
+                http_calls,
             )
             print(f"\n✓ Test passed: {test_name}\n")
         except AssertionError as e:

@@ -60,34 +60,34 @@ def patch_BaseChatModel_invoke(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_chat_model_class.invoke = patched_function.__get__(None, base_chat_model_class)
@@ -117,34 +117,34 @@ def patch_BaseLanguageModel_generate(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_language_model_class.generate = patched_function.__get__(None, base_language_model_class)
@@ -174,34 +174,34 @@ def patch_BaseLanguageModel_generate_prompt(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_language_model_class.generate_prompt = patched_function.__get__(
@@ -233,34 +233,34 @@ def patch_BaseChatModel_generate(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_chat_model_class.generate = patched_function.__get__(None, base_chat_model_class)
@@ -290,34 +290,34 @@ def patch_BaseChatModel_ainvoke(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_chat_model_class.ainvoke = patched_function.__get__(None, base_chat_model_class)
@@ -347,34 +347,34 @@ def patch_BaseLanguageModel_agenerate(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_language_model_class.agenerate = patched_function.__get__(None, base_language_model_class)
@@ -404,34 +404,34 @@ def patch_BaseLanguageModel_agenerate_prompt(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_language_model_class.agenerate_prompt = patched_function.__get__(
@@ -463,34 +463,34 @@ def patch_BaseChatModel_agenerate(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
             try:
                 # Filter out extra fields that shouldn't be passed to the original function
                 original_args = {
                     k: v
-                    for k, v in input_to_use.items()
+                    for k, v in cache_output.input_dict.items()
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(node_id, result)
+                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_dict,
-            output_obj=result,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     base_chat_model_class.agenerate = patched_function.__get__(None, base_chat_model_class)

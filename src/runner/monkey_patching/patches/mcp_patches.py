@@ -52,22 +52,22 @@ def patch_mcp_call_tool(session_instance):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call tool.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
             result = await original_function(*args, **kwargs)
-            CACHE.cache_output(node_id, result)
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this tool call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     session_instance.call_tool = patched_function.__get__(session_instance, ClientSession)

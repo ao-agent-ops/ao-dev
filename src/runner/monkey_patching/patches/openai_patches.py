@@ -59,22 +59,22 @@ def patch_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = original_function(**cache_output.input_dict)  # Call LLM.
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     responses.create = patched_function.__get__(responses, Responses)
@@ -107,22 +107,22 @@ def patch_openai_chat_completions_create(completions):
                 message["content"] = str(message["content"])
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = original_function(**cache_output.input_dict)  # Call LLM.
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     completions.create = patched_function.__get__(completions, Completions)
@@ -242,8 +242,8 @@ def patch_openai_beta_threads_create(threads_instance):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get input to use and run API call with it.
-        input_to_use, _, _ = CACHE.get_in_out(input_dict, api_type)
-        result = original_function(**input_to_use)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        result = original_function(**cache_output.input_dict)
 
         # 5. We don't report this call to the server (no LLM inference).
 
@@ -296,7 +296,7 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Always call the LLM (no caching for runs since they're stateful)
-        _, _, node_id = CACHE.get_in_out(input_obj, api_type, cache=False)
+        cache_output = CACHE.get_in_out(input_obj, api_type, cache=False)
         run_result = original_function(**input_dict)  # Call LLM.
 
         # Get the actual message result for the server reporting
@@ -306,7 +306,7 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         # HACK: The model is not denoted in input_obj so we just add it here.
         input_obj.model = assistant.model
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_obj,
             output_obj=message_result,
             source_node_ids=taint_origins,
@@ -314,7 +314,7 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         )
 
         # 6. Taint the output object and return the run result (not the message)
-        return taint_wrap(run_result, [node_id])
+        return taint_wrap(run_result, [cache_output.node_id])
 
     runs.create_and_poll = patched_function.__get__(runs, Runs)
 
@@ -372,22 +372,22 @@ def patch_async_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = await original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = await original_function(**cache_output.input_dict)  # Call LLM.
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     responses.create = patched_function.__get__(responses, AsyncResponses)
@@ -473,22 +473,22 @@ def patch_async_openai_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = await original_function(**input_to_use)  # Call LLM.
-            CACHE.cache_output(node_id, result)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = await original_function(**cache_output.input_dict)  # Call LLM.
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, taint_origin=[node_id])
+        return taint_wrap(cache_output.output, taint_origin=[cache_output.node_id])
 
     # Install patch.
     completions.create = patched_function.__get__(completions, AsyncCompletions)
@@ -544,13 +544,13 @@ def patch_async_openai_beta_threads_create(threads_instance):
         # 2. Get input to use and create thread.
         # We need to cache an input object that does not depend on
         # dynamically assigned OpenAI ids.
-        input_to_use, _, _ = CACHE.get_in_out(input_dict, api_type)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
 
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
         # different than the cached ones). Therefore below is commented out.
-        # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
-        result = await original_function(**input_to_use)
+        # input_dict['messages'][-1]['attachments'] = cache_output.input_dict["attachments"]
+        result = await original_function(**cache_output.input_dict)
 
         # 3. Taint and return.
         return taint_wrap(result, taint_origins)
@@ -599,7 +599,7 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # NOTE: Editing attachments is not supported.
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
-        _, _, node_id = CACHE.get_in_out(input_dict, api_type)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
 
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
@@ -613,7 +613,7 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
+            node_id=cache_output.node_id,
             input_dict=input_obj,
             output_obj=output_obj,
             source_node_ids=taint_origins,
@@ -621,6 +621,6 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         )
 
         # 5. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(result, [cache_output.node_id])
 
     runs.create_and_poll = patched_function.__get__(runs, AsyncRuns)

@@ -1,12 +1,7 @@
-import asyncio
 import inspect
-import functools
-import threading
-import functools
 from aco.runner.context_manager import get_session_id
-from aco.common.constants import CERTAINTY_GREEN, CERTAINTY_RED, CERTAINTY_YELLOW
+from aco.common.constants import CERTAINTY_YELLOW
 from aco.common.utils import send_to_server
-from aco.server.cache_manager import CACHE
 from aco.common.logger import logger
 from aco.runner.monkey_patching.api_parser import get_input, get_model_name, get_output
 from aco.runner.taint_wrappers import untaint_if_needed
@@ -15,86 +10,6 @@ from aco.runner.taint_wrappers import untaint_if_needed
 # ===========================================================
 # Generic wrappers for caching and server notification
 # ===========================================================
-
-
-def notify_server_patch(fn):
-    """
-    Wrap `fn` to cache results and notify server of calls.
-
-    - On cache hit, returns stored result immediately
-    - On cache miss, invokes `fn` and stores result
-    - Cache keys include function inputs and caller location
-    - Sends call details to server for monitoring
-    """
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        # Get caller location
-        frame = inspect.currentframe()
-        caller = frame and frame.f_back
-        file_name = caller.f_code.co_filename
-        line_no = caller.f_lineno
-
-        # Check cache first
-        cached_out = CACHE.get_output(file_name, line_no, fn, args, kwargs)
-        if cached_out is not None:
-            result = cached_out
-        else:
-            result = fn(*args, **kwargs)
-            CACHE.cache_output(result, file_name, line_no, fn, args, kwargs)
-
-        # Notify server
-        thread_id = threading.get_ident()
-        try:
-            task_id = id(asyncio.current_task())
-        except RuntimeError:
-            task_id = None
-
-        message = {
-            "type": "call",
-            "file": file_name,
-            "line": line_no,
-            "thread": thread_id,
-            "task": task_id,
-        }
-        try:
-            send_to_server(message)
-        except Exception:
-            pass  # best-effort only
-
-        return result
-
-    return wrapper
-
-
-def no_notify_patch(fn):
-    """
-    Wrap `fn` to cache results without server notification.
-
-    - On cache hit, returns stored result immediately
-    - On cache miss, invokes `fn` and stores result
-    - Cache keys include function inputs and caller location
-    """
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        # Get caller location
-        frame = inspect.currentframe()
-        caller = frame and frame.f_back
-        file_name = caller.f_code.co_filename
-        line_no = caller.f_lineno
-
-        # Check cache first
-        cached_out = CACHE.get_output(file_name, line_no, fn, args, kwargs)
-        if cached_out is not None:
-            return cached_out
-
-        # Run function and cache result
-        result = fn(*args, **kwargs)
-        CACHE.cache_output(result, file_name, line_no, fn, args, kwargs)
-        return result
-
-    return wrapper
 
 
 def get_input_dict(func, *args, **kwargs):

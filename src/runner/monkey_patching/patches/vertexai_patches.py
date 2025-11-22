@@ -46,22 +46,22 @@ def patch_client_models_generate_content(models_instance):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        input_to_use, result, node_id = CACHE.get_in_out(input_dict, api_type)
-        if result is None:
-            result = original_function(**input_to_use)
-            CACHE.cache_output(node_id, result)
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = original_function(**cache_output.input_dict)
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
-            node_id=node_id,
-            input_dict=input_to_use,
-            output_obj=result,
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
             source_node_ids=taint_origins,
             api_type=api_type,
         )
 
         # 6. Taint the output object and return it.
-        return taint_wrap(result, [node_id])
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
     # Install patch.
     models_instance.generate_content = patched_function.__get__(models_instance, Models)
