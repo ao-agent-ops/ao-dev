@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Tuple
 from aco.runner.monkey_patching.api_parsers.openai_api_parser import (
     func_kwargs_to_json_str_openai,
@@ -17,6 +18,20 @@ from aco.runner.monkey_patching.api_parsers.google_api_parser import (
     json_str_to_api_obj_google,
     get_model_google,
 )
+from aco.runner.monkey_patching.api_parsers.mcp_api_parser import (
+    func_kwargs_to_json_str_mcp,
+    api_obj_to_json_str_mcp,
+    json_str_to_api_obj_mcp,
+    json_str_to_original_inp_dict_mcp,
+    get_model_mcp,
+)
+
+
+def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str) -> dict:
+    if api_type == "MCP.ClientSession.send_request":
+        return json_str_to_original_inp_dict_mcp(json_str, input_dict)
+    else:
+        return json.loads(json_str)
 
 
 def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str]]:
@@ -34,6 +49,8 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
         "google.genai.models._api_client.request_streamed",
     ]:
         return func_kwargs_to_json_str_google(input_dict)
+    elif api_type == "MCP.ClientSession.send_request":
+        return func_kwargs_to_json_str_mcp(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -53,6 +70,8 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
         "google.genai.models._api_client.request_streamed",
     ]:
         return api_obj_to_json_str_google(response_obj)
+    elif api_type == "MCP.ClientSession.send_request":
+        return api_obj_to_json_str_mcp(response_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -72,6 +91,8 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
         "google.genai.models._api_client.request_streamed",
     ]:
         return json_str_to_api_obj_google(new_output_text)
+    elif api_type == "MCP.ClientSession.send_request":
+        return json_str_to_api_obj_mcp(new_output_text)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -91,5 +112,7 @@ def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
         "google.genai.models._api_client.request_streamed",
     ]:
         return get_model_google(input_dict)
+    elif api_type == "MCP.ClientSession.send_request":
+        return get_model_mcp(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")

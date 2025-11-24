@@ -136,6 +136,4 @@ ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspat
 
 # Whitelist of third-party modules to include in module_to_file mapping
 # Add modules here that you want to track for AST rewrites
-WHITELISTED_THIRD_PARTY_MODULES = [
-    "google.genai.models",
-]
+WHITELISTED_THIRD_PARTY_MODULES = ["google.genai.models", "mcp.client.session"]

@@ -13,6 +13,7 @@ from aco.runner.monkey_patching.api_parser import (
     func_kwargs_to_json_str,
     json_str_to_api_obj,
     api_obj_to_json_str,
+    json_str_to_original_inp_dict,
 )
 from aco.common.utils import hash_input
 
@@ -140,14 +141,18 @@ class CacheManager:
         if row["input_overwrite"] is not None:
             overwrite_json_str = row["input_overwrite"]
             overwrite_text = json.loads(overwrite_json_str)["input"]
-            input_dict = json.loads(overwrite_text)
+            # the format of the input is not always a JSON dict.
+            # sometimes, you need to parse the JSON dict into a
+            # specific input format. To do that, API libraries often
+            # provide helper functions
+            input_dict = json_str_to_original_inp_dict(overwrite_text, input_dict, api_type)
+
+        # Here, no matter if we made an edit to the input or not, the input dict should
+        # be a valid input to the underlying function
 
         if row["output"] is not None:
             output = json_str_to_api_obj(row["output"], api_type)
-        else:
-            logger.warning(
-                f"Found result in the cache, but output is None. Is this call doing something useful?"
-            )
+
         set_seed(node_id)
         return CacheOutput(
             input_dict=input_dict,
