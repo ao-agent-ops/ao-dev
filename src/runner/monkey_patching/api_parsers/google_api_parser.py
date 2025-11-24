@@ -8,17 +8,31 @@ def func_kwargs_to_json_str_google(
     return json.dumps(input_dict), []
 
 
-def api_obj_to_json_str_google(obj: Any) -> str:
-    body_json = json.loads(obj.body)
-    complete_json = {"headers": obj.headers, "body": body_json}
-    return json.dumps(complete_json)
+def api_obj_to_json_str_google(obj: Any | list) -> str:
+    def get_obj_dump(_obj: Any):
+        body_json = json.loads(_obj.body)
+        complete_json = {"headers": _obj.headers, "body": body_json}
+        return json.dumps(complete_json)
+
+    if isinstance(obj, list):
+        result = json.dumps([get_obj_dump(chunk) for chunk in obj])
+    else:
+        result = get_obj_dump(obj)
+    return result
 
 
 def json_str_to_api_obj_google(new_output_text: str) -> None:
     from google.genai.types import HttpResponse
 
     json_dict = json.loads(new_output_text)
-    return HttpResponse(headers=json_dict["headers"], body=json.dumps(json_dict["body"]))
+    if isinstance(json_dict, list):
+        result = [
+            HttpResponse(headers=chunk["headers"], body=json.dumps(chunk["body"]))
+            for chunk in map(json.loads, json_dict)
+        ]
+    else:
+        result = HttpResponse(headers=json_dict["headers"], body=json.dumps(json_dict["body"]))
+    return result
 
 
 def get_model_google(input_dict: Dict[str, Any]) -> str:
