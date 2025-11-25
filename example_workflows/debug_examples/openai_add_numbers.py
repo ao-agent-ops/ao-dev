@@ -1,4 +1,10 @@
+import time
+start = time.time()
+
 from openai import OpenAI
+
+import_time = time.time()
+print("UNTIL IMPORT", import_time - start)
 
 client = OpenAI()
 
@@ -18,3 +24,14 @@ response2 = client.responses.create(model="gpt-3.5-turbo", input=prompt_add_2, t
 sum_prompt = f"Add these two numbers together and just output the result: {response1.output_text} + {response2.output_text}"
 
 final_sum = client.responses.create(model="gpt-3.5-turbo", input=sum_prompt, temperature=0)
+
+print("Total:", time.time() - start)
+print("no import:", time.time() - import_time)
+
+# UNTIL IMPORT 1.0484449863433838
+# Total: 11.300607919692993
+# no import: 10.252225875854492
+
+# UNTIL IMPORT 0.05247020721435547
+# Total: 11.551378965377808
+# no import: 11.66481876373291

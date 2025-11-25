@@ -2,7 +2,8 @@ import inspect
 import textwrap
 import os
 from datetime import datetime
-from aco.server.ast_transformer import rewrite_source_to_code
+
+from server.file_watcher import rewrite_source_to_code
 from aco.server.database_manager import DB
 from aco.server.edit_manager import EDIT
 

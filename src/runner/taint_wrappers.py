@@ -231,8 +231,11 @@ def untaint_if_needed(val, _seen=None):
     Returns:
         The untainted version of the value
     """
+    # print("~~ untaint if needed")
     if _seen is None:
         _seen = set()
+        import sys
+        # print(f"[UNTAINT DEBUG] Starting untaint_if_needed on type: {type(val).__name__}", file=sys.stderr)
 
     obj_id = id(val)
     if obj_id in _seen:
@@ -246,39 +249,81 @@ def untaint_if_needed(val, _seen=None):
 
     # Handle nested data structures by creating clean copies ONLY if they contain taint
     if isinstance(val, dict):
+        import sys
         # Check if any values contain taint before creating a new dict
-        has_taint = any(is_tainted(v) for v in val.values())
-        if has_taint:
+        tainted_keys = [k for k, v in val.items() if get_taint_origins(v)]
+        if tainted_keys:
+            # print(f"[UNTAINT DEBUG] Dict has {len(tainted_keys)} tainted values for keys: {tainted_keys[:5]}", file=sys.stderr)
             return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
         else:
             return val  # Return original dict if no taint
     elif isinstance(val, list):
+        import sys
         # Check if any items contain taint before creating a new list
-        has_taint = any(is_tainted(item) for item in val)
-        if has_taint:
+        tainted_indices = [i for i, item in enumerate(val) if get_taint_origins(item)]
+        if tainted_indices:
+            # print(f"[UNTAINT DEBUG] List has {len(tainted_indices)} tainted items at indices: {tainted_indices[:5]}", file=sys.stderr)
+            # for i in tainted_indices[:2]:  # Debug first 2 tainted items
+            #     item = val[i]
+            #     # print(f"[UNTAINT DEBUG]   - Item {i}: type={type(item).__name__}", file=sys.stderr)
+            #     # if isinstance(item, dict) and 'role' in item:
+            #     #   print(f"[UNTAINT DEBUG]     Role: {item.get('role')}, has content: {'content' in item}", file=sys.stderr)
             return [untaint_if_needed(item, _seen) for item in val]
         else:
             return val  # Return original list if no taint
     elif isinstance(val, tuple):
         # Check if any items contain taint before creating a new tuple
-        has_taint = any(is_tainted(item) for item in val)
+        has_taint = any(get_taint_origins(item) for item in val)
         if has_taint:
             return tuple(untaint_if_needed(item, _seen) for item in val)
         else:
             return val  # Return original tuple if no taint
     elif isinstance(val, set):
         # Check if any items contain taint before creating a new set
-        has_taint = any(is_tainted(item) for item in val)
+        has_taint = any(get_taint_origins(item) for item in val)
         if has_taint:
             return {untaint_if_needed(item, _seen) for item in val}
         else:
             return val  # Return original set if no taint
+    
+    # For custom objects, check if they contain any tainted attributes
+    # Only process objects that have a __dict__ (i.e., custom classes with attributes)
+    if hasattr(val, '__dict__'):
+        import sys
+        obj_dict = val.__dict__
+        # print(f"[UNTAINT DEBUG] Checking object of type {type(val).__name__} with {len(obj_dict)} attributes", file=sys.stderr)
+        
+        # Check each attribute for taint (including nested taint in collections)
+        tainted_attrs = []
+        for key, value in obj_dict.items():
+            # Check if the value itself is wrapped OR contains tainted elements
+            if get_taint_origins(value, _seen.copy()):
+                tainted_attrs.append(key)
+                # print(f"[UNTAINT DEBUG]   - Attribute '{key}' has taint (type: {type(value).__name__})", file=sys.stderr)
+        
+        if tainted_attrs:
+            # print(f"[UNTAINT DEBUG] Found {len(tainted_attrs)} tainted attributes, creating untainted copy", file=sys.stderr)
+            # Create a shallow copy and untaint all attributes
+            import copy
+            new_obj = copy.copy(val)
+            for key, value in obj_dict.items():
+                if key in tainted_attrs:
+                    pass
+                untainted_value = untaint_if_needed(value, _seen)
+                setattr(new_obj, key, untainted_value)
+                # if key in tainted_attrs:
+                #     # print(f"[UNTAINT DEBUG]   - Untainted '{key}': {type(value).__name__} -> {type(untainted_value).__name__}", file=sys.stderr)
+            return new_obj
+        else:
+            # print(f"[UNTAINT DEBUG] No tainted attributes found in {type(val).__name__}", file=sys.stderr)
+            return val  # Return original object if no taint
 
     # Return all other objects as-is (primitives, types, modules, etc.)
+    # print("[UNTAINT DEBUG] Don't untaint!")
     return val
 
 
-def is_tainted(obj):
+def is_wrapped(obj):
     """
     Check if an object has taint information.
 
@@ -291,7 +336,7 @@ def is_tainted(obj):
     try:
         # Use object.__getattribute__ to avoid triggering __getattr__ on proxy objects
         taint_origin = object.__getattribute__(obj, "_taint_origin")
-        return bool(taint_origin) and bool(get_taint_origins(obj))
+        return bool(taint_origin)
     except AttributeError:
         return False
 
@@ -350,7 +395,7 @@ def taint_wrap(obj, taint_origin=[]):
         it shouldn't be wrapped
     """
     # Don't wrap objects that are already tainted
-    if is_tainted(obj):
+    if is_wrapped(obj):
         return obj
     
     # Don't wrap booleans or None

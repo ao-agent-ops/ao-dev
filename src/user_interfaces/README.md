@@ -5,7 +5,7 @@ We support two user interfaces:
 1. VS Code extension
 2. Web app
 
-They currently display the same things. Many of the web view UI components are shared between them. Those are placed inside the `shared_components/` folder. Messaging for the extension has a caveat where the VS Code extension web views can't communicate with the server directly but must take a hop through the VS Code extension itself.
+They currently display the same things. Many of the web view UI components are shared between them. Those are placed inside the `shared_components/` folder. Messaging for the extension has a caveat where the VS Code extension ***web views*** can't communicate with the server directly but must take a hop through the VS Code extension itself.
 
 
 ## Installation
@@ -39,12 +39,13 @@ In `src/user_interfaces/` run `npm run build:webapp`
 
 If you encounter issues:
 
- - **Clean install**: `npm run clean && npm install`
+ - **Clean install**: If you have unexpected compilation issues: `npm run clean && npm install` 
  - **Check workspace links**: `npm ls --workspaces`
  - **Rebuild extension**: `cd vscode_extension && npm run compile`
  - If you want to see the logs in the extension: `Cmd+P` and then type `> Developer: Toggle Developer Tools`.
  - If you want to see logs in the web app (in Google Chrome): `Right click` -> `Inspect` -> `Console`
 
 ## Graph layout
-We use our custom algorithm to determine where nodes are placed in the web view pannel and where edge flow between them. [The algo can be found here.](https://drive.google.com/file/d/1eKiijfvaGs_-5sajpeqk923Xbvro7x3X/view?usp=drive_link)
+
+We use our custom algorithm to determine where nodes are placed and how edges flow between them. [Here's a description of how the algo works.](https://drive.google.com/file/d/1eKiijfvaGs_-5sajpeqk923Xbvro7x3X/view?usp=drive_link)
 

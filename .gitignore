@@ -240,3 +240,6 @@ aco
 
 # Claude local
 CLAUDE.local.md
+
+# Debug AST rewrites
+*.rewritten.py

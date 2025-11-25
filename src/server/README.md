@@ -64,3 +64,8 @@ To distinguish between standard Python-compiled `.pyc` files and our taint-track
 As the first line of every rewritten module, we put `__ACO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
 
 Also see [here](/src/runner/README.md) on how the whole taint propagation process fits together.
+
+### Debugging
+
+If you want to see the rewritten python code (not only the binary): `export ACO_DEBUG_AST_REWRITES=1`. 
+This will store `xxx.rewritten.py` files next to the original ones that are rewritten. If you don't see these files, maybe you're not rewriting the originals.

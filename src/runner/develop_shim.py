@@ -191,6 +191,7 @@ class DevelopShim:
         env["AGENT_COPILOT_ENABLE_TRACING"] = "1"
         env["AGENT_COPILOT_SERVER_HOST"] = HOST
         env["AGENT_COPILOT_SERVER_PORT"] = str(PORT)
+        env["AGENT_COPILOT_PROJECT_ROOT"] = self.project_root
 
         # Pass the session id to the child process
         if self.session_id:
@@ -199,6 +200,7 @@ class DevelopShim:
         return env
 
     def _is_debugpy_session(self) -> bool:
+        return False
         """Detect if we're running under debugpy (VSCode debugging)."""
         # Check if debugpy is in the call stack or if we're launched through debugpy
         try:

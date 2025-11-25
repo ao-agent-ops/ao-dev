@@ -13,14 +13,107 @@ Key Features:
 - Runs as a separate process spawned by the develop server
 """
 
+import ast
 import os
 import sys
 import time
 import signal
-from typing import Dict
+import glob
+from typing import Dict, Set
 from aco.common.logger import logger
-from aco.common.constants import FILE_POLL_INTERVAL
-from aco.server.ast_transformer import rewrite_source_to_code
+from aco.common.constants import FILE_POLL_INTERVAL, ACO_PROJECT_ROOT
+from aco.server.ast_transformer import TaintPropagationTransformer
+
+
+def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = None, return_tree=False):
+    """
+    Transform and compile Python source code with AST rewrites.
+
+    This is a pure function that applies AST transformations and compiles
+    the result to a code object. Same input always produces same output,
+    making it suitable for caching.
+
+    Args:
+        source: Python source code as a string
+        filename: Path to the source file (used in error messages and code object)
+        module_to_file: Dict mapping user module names to their file paths.
+                       Used to distinguish user code from third-party code.
+        return_tree: If True, return (code_object, tree) tuple for debugging
+
+    Returns:
+        A compiled code object ready for execution, or (code_object, tree) if return_tree=True
+
+    Raises:
+        SyntaxError: If the source code is invalid
+        Exception: If AST transformation fails
+    """
+    # Inject future imports to prevent type annotations from being evaluated at import time
+    # This must be done before parsing to avoid AST transformation of type subscripts
+    if "from __future__ import annotations" not in source:
+        source = "from __future__ import annotations\n" + source
+    
+    # Parse source into AST
+    tree = ast.parse(source, filename=filename)
+
+    # Add rewrite marker after any __future__ imports
+    # This allows us to verify that a .pyc file was created by our AST transformer
+    marker = ast.Assign(
+        targets=[ast.Name(id="__ACO_AST_REWRITTEN__", ctx=ast.Store())],
+        value=ast.Constant(value=True),
+    )
+
+    # Find insertion point after any __future__ imports
+    insertion_point = 0
+    for i, node in enumerate(tree.body):
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            insertion_point = i + 1
+
+    # Set location info for the marker
+    marker.lineno = 1
+    marker.col_offset = 0
+    tree.body.insert(insertion_point, marker)
+
+    # Apply AST transformations for taint propagation
+    # Unified transformer handles: f-strings, .format(), % formatting, and third-party calls
+    transformer = TaintPropagationTransformer(module_to_file=module_to_file, current_file=filename)
+    tree = transformer.visit(tree)
+
+    # Inject taint function imports if any transformations were made
+    tree = transformer._inject_taint_imports(tree)
+
+    # Fix missing location information
+    ast.fix_missing_locations(tree)
+
+    # Compile to code object
+    code_object = compile(tree, filename, "exec")
+
+    if return_tree:
+        return code_object, tree
+    return code_object
+
+
+def is_pyc_rewritten(pyc_path: str) -> bool:
+    """
+    Check if a .pyc file was created by our AST transformer.
+
+    Args:
+        pyc_path: Path to a .pyc file
+
+    Returns:
+        True if the .pyc contains our rewrite marker, False otherwise
+    """
+    try:
+        import marshal
+
+        with open(pyc_path, "rb") as f:
+            # Skip the .pyc header (magic number, flags, timestamp, size)
+            f.read(16)
+            code = marshal.load(f)
+
+            # Check if our marker is in the code object's names or constants
+            return "__ACO_AST_REWRITTEN__" in code.co_names
+    except (IOError, OSError, Exception):
+        return False
 
 
 class FileWatcher:
@@ -44,6 +137,7 @@ class FileWatcher:
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
         self._shutdown = False  # Flag to signal shutdown
+        self.project_root = ACO_PROJECT_ROOT  # Use project root from config
         self._populate_initial_mtimes()
         self._setup_signal_handlers()
 
@@ -67,6 +161,99 @@ class FileWatcher:
         signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
         signal.signal(signal.SIGINT, self._handle_shutdown_signal)
         logger.debug(f"[FileWatcher] Signal handlers installed for pid {self.pid}")
+
+
+    def _scan_for_python_files(self) -> Set[str]:
+        """
+        Scan the project root for all Python files.
+        
+        Returns:
+            Set of absolute paths to Python files (excluding .rewritten.py files)
+        """
+        python_files = set()
+        
+        # Search for all .py files recursively from project root
+        pattern = os.path.join(self.project_root, '**', '*.py')
+        for file_path in glob.glob(pattern, recursive=True):
+            # Skip .rewritten.py files (these are debugging files, not real code)
+            if file_path.endswith('.rewritten.py'):
+                continue
+                
+            # Skip files in __pycache__ directories
+            if '__pycache__' in file_path:
+                continue
+                
+            # Convert to absolute path
+            abs_path = os.path.abspath(file_path)
+            python_files.add(abs_path)
+        
+        return python_files
+
+    def _generate_module_name(self, file_path: str) -> str:
+        """
+        Generate a module name for a discovered Python file.
+        
+        Args:
+            file_path: Absolute path to the Python file
+            
+        Returns:
+            Module name suitable for the module_to_file mapping
+        """
+        # Get relative path from project root
+        rel_path = os.path.relpath(file_path, self.project_root)
+        
+        # Convert path separators to dots and remove .py extension
+        module_name = rel_path.replace(os.sep, '.').replace('.py', '')
+        
+        # Handle special cases like __init__.py
+        if module_name.endswith('.__init__'):
+            module_name = module_name[:-9]  # Remove .__init__
+        
+        return module_name
+
+    def _update_tracked_files(self):
+        """
+        Update the tracked files by discovering new Python files and removing deleted ones.
+        """
+        discovered_files = self._scan_for_python_files()
+        current_tracked_files = set(self.module_to_file.values())
+        
+        # Find new files to add
+        new_files = discovered_files - current_tracked_files
+        for new_file in new_files:
+            module_name = self._generate_module_name(new_file)
+            self.module_to_file[module_name] = new_file
+            logger.info(f"[FileWatcher] Discovered new Python file: {module_name} -> {new_file}")
+            
+            # Initialize mtime for the new file
+            try:
+                if os.path.exists(new_file):
+                    mtime = os.path.getmtime(new_file)
+                    self.file_mtimes[new_file] = mtime
+            except OSError as e:
+                logger.error(f"[FileWatcher] Error accessing new file {new_file}: {e}")
+        
+        # Find deleted files to remove
+        deleted_files = current_tracked_files - discovered_files
+        for deleted_file in deleted_files:
+            # Remove from module_to_file mapping
+            modules_to_remove = [mod for mod, path in self.module_to_file.items() if path == deleted_file]
+            for module_name in modules_to_remove:
+                del self.module_to_file[module_name]
+                logger.info(f"[FileWatcher] Removed deleted file: {module_name} -> {deleted_file}")
+            
+            # Remove from mtime tracking
+            if deleted_file in self.file_mtimes:
+                del self.file_mtimes[deleted_file]
+                
+            # Clean up associated .pyc file if it exists
+            try:
+                pyc_path = get_pyc_path(deleted_file)
+                if os.path.exists(pyc_path):
+                    os.remove(pyc_path)
+                    logger.debug(f"[FileWatcher] Removed orphaned .pyc file: {pyc_path}")
+            except OSError as e:
+                logger.warning(f"[FileWatcher] Could not remove .pyc file for {deleted_file}: {e}")
 
     def _handle_shutdown_signal(self, signum, frame):
         """Handle shutdown signals gracefully."""
@@ -94,8 +281,6 @@ class FileWatcher:
                 return True
 
             # Check if the .pyc file was created by our AST transformer
-            from aco.server.ast_transformer import is_pyc_rewritten
-
             if not is_pyc_rewritten(pyc_path):
                 logger.debug(
                     f"[FileWatcher] .pyc file {pyc_path} not rewritten, forcing recompilation"
@@ -130,9 +315,25 @@ class FileWatcher:
 
             # Apply AST rewrites and compile to code object
             # logger.debug(f"[FileWatcher] Applying AST rewrites to {module_name}")
-            code_object = rewrite_source_to_code(
-                source, file_path, module_to_file=self.module_to_file
-            )
+            debug_ast = os.environ.get("ACO_DEBUG_AST_REWRITES")
+            if debug_ast:
+                code_object, tree = rewrite_source_to_code(
+                    source, file_path, module_to_file=self.module_to_file, return_tree=True
+                )
+                # Write transformed source to .rewritten.py for debugging
+                import ast
+                debug_path = file_path.replace(".py", ".rewritten.py")
+                try:
+                    rewritten_source = ast.unparse(tree)
+                    with open(debug_path, "w", encoding="utf-8") as f:
+                        f.write(rewritten_source)
+                    logger.debug(f"[FileWatcher] Wrote rewritten source to {debug_path}")
+                except Exception as e:
+                    logger.error(f"[FileWatcher] Failed to write debug AST: {e}")
+            else:
+                code_object = rewrite_source_to_code(
+                    source, file_path, module_to_file=self.module_to_file
+                )
             # logger.debug(f"[FileWatcher] AST rewrite successful for {module_name}")
 
             # Get target .pyc path
@@ -201,10 +402,15 @@ class FileWatcher:
     def check_and_recompile(self):
         """
         Check all tracked files and recompile those that have changed.
+        Also discovers new files and handles deleted files.
 
         This method is called periodically by the polling loop to detect
         and handle file changes.
         """
+        # First, update the list of tracked files (discover new, remove deleted)
+        self._update_tracked_files()
+        
+        # Then check existing files for changes
         for module_name, file_path in self.module_to_file.items():
             if self._shutdown:
                 return

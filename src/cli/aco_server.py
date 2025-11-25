@@ -31,16 +31,58 @@ builtins.exec_func = exec_func
 import socket
 import time
 import subprocess
+import shutil
+import glob
 from argparse import ArgumentParser
 from aco.common.logger import logger
-from aco.common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
+from aco.common.constants import ACO_LOG_PATH, ACO_PROJECT_ROOT, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
 from aco.server.develop_server import DevelopServer, send_json
+
+
+def clear_compiled_files(path: str = None) -> None:
+    """
+    Clear all __pycache__ directories and .rewritten.py files from the specified path.
+    
+    Args:
+        path: Directory path to clear compiled files from. Defaults to ACO_PROJECT_ROOT.
+    """
+    if path is None:
+        path = ACO_PROJECT_ROOT
+    
+    if not os.path.exists(path):
+        logger.warning(f"Path does not exist: {path}")
+        return
+    
+    # Remove all __pycache__ directories
+    pycache_dirs = glob.glob(os.path.join(path, "**", "__pycache__"), recursive=True)
+    for pycache_dir in pycache_dirs:
+        try:
+            shutil.rmtree(pycache_dir)
+            logger.debug(f"Removed __pycache__ directory: {pycache_dir}")
+        except Exception as e:
+            logger.warning(f"Could not remove {pycache_dir}: {e}")
+    
+    # Remove all .rewritten.py files (including multiple .rewritten suffixes)
+    all_py_files = glob.glob(os.path.join(path, "**", "*.py"), recursive=True)
+    rewritten_files = [f for f in all_py_files if ".rewritten" in f]
+    
+    for rewritten_file in rewritten_files:
+        try:
+            os.remove(rewritten_file)
+            logger.debug(f"Removed rewritten file: {rewritten_file}")
+        except Exception as e:
+            logger.warning(f"Could not remove {rewritten_file}: {e}")
+    
+    logger.info(f"Cleared {len(pycache_dirs)} __pycache__ directories and {len(rewritten_files)} .rewritten.py files from {path}")
 
 
 def launch_daemon_server() -> None:
     """
     Launch the develop server as a detached daemon process with proper stdio handling.
     """
+    # Clear compiled files on server start
+    # clear_compiled_files()
+    
     # Create log file path
     log_file = ACO_LOG_PATH
 
@@ -61,15 +103,20 @@ def launch_daemon_server() -> None:
 
 def server_command_parser():
     parser = ArgumentParser(
-        usage="aco-server {start, stop, restart, clear, logs, clear-logs}",
+        usage="aco-server {start, stop, restart, clear, logs, clear-logs, clear-compiles}",
         description="Server utilities.",
         allow_abbrev=False,
     )
 
     parser.add_argument(
         "command",
-        choices=["start", "stop", "restart", "clear", "logs", "clear-logs", "_serve"],
+        choices=["start", "stop", "restart", "clear", "logs", "clear-logs", "clear-compiles", "_serve"],
         help="The command to execute for the server.",
+    )
+    parser.add_argument(
+        "--path",
+        default=None,
+        help="Path for clear-compiles command (defaults to ACO_PROJECT_ROOT)",
     )
     return parser
 
@@ -155,6 +202,12 @@ def execute_server_command(args):
         except Exception as e:
             logger.error(f"Error clearing log file: {e}")
             sys.exit(1)
+        return
+
+    elif args.command == "clear-compiles":
+        # Clear all compiled files (__pycache__ and .rewritten.py files)
+        path = args.path if hasattr(args, 'path') and args.path else None
+        clear_compiled_files(path)
         return
 
     elif args.command == "_serve":

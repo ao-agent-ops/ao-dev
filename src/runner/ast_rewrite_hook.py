@@ -5,8 +5,11 @@ TODO
 import sys
 import os
 import marshal
+import ast
 from importlib.abc import MetaPathFinder, SourceLoader
 from importlib.util import spec_from_loader
+
+from server.ast_transformer import TaintPropagationTransformer
 from aco.common.logger import logger
 from aco.server.file_watcher import rewrite_source_to_code, get_pyc_path
 
