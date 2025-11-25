@@ -14,8 +14,3 @@ response = client.models.generate_content(
         ),
     ),
 )
-
-for part in response.parts:
-    if part.inline_data:
-        generated_image = part.as_image()
-        generated_image.show()

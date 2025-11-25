@@ -70,7 +70,7 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
 
 
 def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
-    if api_type in ["OpenAI.AsyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
+    if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_api_obj_openai(new_output_text)
     elif api_type == "Anthropic.messages.create":
         return json_str_to_api_obj_anthropic(new_output_text)

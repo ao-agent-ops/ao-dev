@@ -20,6 +20,11 @@ jobs:
       with:
         python-version: '3.13'
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
     - name: Download and install Miniconda
       run: |
         # Check if we're running in act (local testing)
@@ -102,11 +107,25 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        
+
         # Install MiroFlow packages (submodules already initialized by checkout)
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-contrib
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-tool
         pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow
+
+    - name: Create cross-platform temp directory
+      run: |
+        # Create /tmp if it doesn't exist (standard on Ubuntu)
+        mkdir -p /tmp
+        # On Ubuntu, create /private/tmp as a symlink to /tmp (for macOS compatibility)
+        if [ ! -d /private/tmp ]; then
+          sudo mkdir -p /private
+          sudo ln -s /tmp /private/tmp
+        fi
+        # Verify the directory exists and is writable
+        ls -la /private/tmp
+        touch /private/tmp/test_write && rm /private/tmp/test_write
+        echo "Successfully created and verified /private/tmp"
 
     - name: Launch shim server
       run: |
