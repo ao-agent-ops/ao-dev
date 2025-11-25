@@ -3,7 +3,8 @@ name: Pytest
 on: [push]
 
 jobs:
-  test:
+  test-general:
+    name: General Tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -15,93 +16,60 @@ jobs:
         submodules: recursive
         token: ${{ secrets.GH_TOKEN }}
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
+    - name: Setup test environment
+      uses: ./.github/actions/setup-test-environment
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
+    - name: Setup isolated test database
+      run: mkdir -p ~/.cache/agent-copilot/tests/general
 
-    - name: Download and install Miniconda
-      run: |
-        # Check if we're running in act (local testing)
-        if [ -n "$ACT" ]; then
-          echo "Running in act (local environment)"
-        fi
-        
-        # Detect system architecture and OS
-        ARCH=$(uname -m)
-        OS=$(uname -s)
-        echo "Detected OS: $OS, Architecture: $ARCH"
-        
-        # Determine the correct Miniconda download URL
-        if [[ "$OS" == "Linux" ]]; then
-          if [[ "$ARCH" == "x86_64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-          elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"
-          else
-            echo "Unsupported Linux architecture: $ARCH"
-            exit 1
-          fi
-        elif [[ "$OS" == "Darwin" ]]; then
-          if [[ "$ARCH" == "x86_64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh"
-          elif [[ "$ARCH" == "arm64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh"
-          else
-            echo "Unsupported macOS architecture: $ARCH"
-            exit 1
-          fi
-        else
-          echo "Unsupported OS: $OS"
-          exit 1
-        fi
-        
-        echo "Downloading Miniconda from: $MINICONDA_URL"
-        curl -sSL "$MINICONDA_URL" -o miniconda.sh
-        
-        # Install Miniconda
-        bash miniconda.sh -b -p $HOME/miniconda
-        
-        # Initialize conda
-        source $HOME/miniconda/bin/activate
-        conda init bash
-        
-        # Add to PATH for current and future steps
-        echo "$HOME/miniconda/bin" >> $GITHUB_PATH
-        export PATH="$HOME/miniconda/bin:$PATH"
-        
-        # Verify installation
-        conda --version
-
-    - name: Create conda environment
+    - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        conda create -n aco python=3.13 -y
-        conda info --envs
+        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/general"
+        export PYTHON_PORT=5959
+        source $HOME/miniconda/bin/activate aco
+        aco-server start
 
-    - name: Install dev dependencies for testing
+    - name: Test with pytest (excluding deep research)
+      env:
+        ACO_DB_PATH: ~/.cache/agent-copilot/tests/general
+        PYTHON_PORT: 5959
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+        TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        
-        which python
-        which pip
-        
-        pip install -e ".[dev]"
+        # Run all tests except test_deepresearch
+        pytest -v -s tests/ -k "not test_deepresearch"
 
-    - name: Lint with flake8
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
-        
-        pip install flake8
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Clean up test database
+      if: always()
+      run: rm -rf ~/.cache/agent-copilot/tests/general
+
+  test-deep-research:
+    name: Deep Research Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+        token: ${{ secrets.GH_TOKEN }}
+
+    - name: Setup test environment
+      uses: ./.github/actions/setup-test-environment
+
+    - name: Setup isolated test database
+      run: mkdir -p ~/.cache/agent-copilot/tests/deep-research
 
     - name: Setup MiroFlow dependencies
       run: |
@@ -116,12 +84,15 @@ jobs:
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
+        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/deep-research"
+        export PYTHON_PORT=5960
         source $HOME/miniconda/bin/activate aco
-        
         aco-server start
 
-    - name: Test with pytest
+    - name: Test deep research with pytest
       env:
+        ACO_DB_PATH: ~/.cache/agent-copilot/tests/deep-research
+        PYTHON_PORT: 5960
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -133,11 +104,9 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        pytest -v -s tests/
+        # Run only test_deepresearch
+        pytest -v -s tests/test_caching.py::test_deepresearch
 
-    - name: Clean up shim server
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
-        
-        aco-server stop
+    - name: Clean up test database
+      if: always()
+      run: rm -rf ~/.cache/agent-copilot/tests/deep-research

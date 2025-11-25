@@ -1,21 +1,10 @@
-#!/usr/bin/env python3
-
-"""
-Unified taint propagation tests that run all test cases via develop launcher.
-
-This replaces the previous approach of having separate test files for each module.
-Instead, it discovers all test case files in taint/integration/ and runs them
-through the develop process to ensure .pyc files with AST rewrites are used.
-"""
-
-import os
 import json
 import socket
-import subprocess
 import time
 import pytest
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
+from aco.common.constants import PORT, HOST
 
 
 class TaintTestLauncher:
@@ -59,7 +48,7 @@ class TaintTestLauncher:
 
         # Check server is ready
         try:
-            socket.create_connection(("127.0.0.1", 5959), timeout=2).close()
+            socket.create_connection((HOST, PORT), timeout=2).close()
             print("Server is ready")
             return True
         except:

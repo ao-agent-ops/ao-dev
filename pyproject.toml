@@ -42,7 +42,8 @@ dev = [
     "anthropic",
     "openai-agents",
     "google-genai",
-    "hydra-core"
+    "hydra-core",
+    "e2b_code_interpreter"
 ]
 
 examples = [
