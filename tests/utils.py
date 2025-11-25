@@ -28,7 +28,7 @@ def restart_server():
     import time
 
     subprocess.run(["aco-server", "restart"], check=False)
-    time.sleep(3)  # Give server and file watcher time to fully restart and compile .pyc files
+    time.sleep(1)
 
 
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
