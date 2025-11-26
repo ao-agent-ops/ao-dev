@@ -26,6 +26,13 @@ from aco.runner.monkey_patching.api_parsers.mcp_api_parser import (
     json_str_to_original_inp_dict_mcp,
     get_model_mcp,
 )
+from aco.runner.monkey_patching.api_parsers.together_api_parser import (
+    func_kwargs_to_json_str_together,
+    api_obj_to_json_str_together,
+    json_str_to_api_obj_together,
+    json_str_to_original_inp_dict_together,
+    get_model_together,
+)
 
 
 def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str) -> dict:
@@ -33,6 +40,8 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
         return json_str_to_original_inp_dict_mcp(json_str, input_dict)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_original_inp_dict_openai(json_str, input_dict)
+    elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
+        return json_str_to_original_inp_dict_together(json_str, input_dict)
     else:
         return json.loads(json_str)
 
@@ -49,6 +58,8 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
         return func_kwargs_to_json_str_google(input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         return func_kwargs_to_json_str_mcp(input_dict)
+    elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
+        return func_kwargs_to_json_str_together(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -65,6 +76,8 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
         return api_obj_to_json_str_google(response_obj)
     elif api_type == "MCP.ClientSession.send_request":
         return api_obj_to_json_str_mcp(response_obj)
+    elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
+        return api_obj_to_json_str_together(response_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -81,6 +94,8 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
         return json_str_to_api_obj_google(new_output_text)
     elif api_type == "MCP.ClientSession.send_request":
         return json_str_to_api_obj_mcp(new_output_text)
+    elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
+        return json_str_to_api_obj_together(new_output_text)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -97,5 +112,7 @@ def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
         return get_model_google(input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         return get_model_mcp(input_dict)
+    elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
+        return get_model_together(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")

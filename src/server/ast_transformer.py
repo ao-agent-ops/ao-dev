@@ -32,7 +32,8 @@ function operations, ensuring sensitive data remains tainted throughout executio
 
 import ast
 from dill import PicklingError, dumps
-from inspect import getsourcefile, iscoroutinefunction
+from functools import partial
+from inspect import getsourcefile, iscoroutinefunction, isbuiltin
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
 from aco.common.utils import get_aco_py_files, hash_input
 
@@ -373,7 +374,8 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         elif isinstance(node.func, ast.Attribute):
             func_name = node.func.attr
 
-            # Skip dunder methods - never wrap these
+            # Skip dunder methods - never wrap these, regardless of what they're called on
+            # This is important for patterns like super().__init__() or obj.method().__getitem__()
             dunder_methods = {
                 "__init__",
                 "__new__",
@@ -406,16 +408,22 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             if func_name in dunder_methods:
                 return node
 
+            # For chained expressions (e.g., obj.method().__init__()), we need to check
+            # if the base of the chain is a Call node. If it is, and the final method is a dunder,
+            # we should skip wrapping the entire chain to avoid wrapping super().__init__() etc.
+            # Note: The above check already handles this, but we keep this comment for clarity
+
             # Extract the full dotted path (e.g., "google.genai.models" from google.genai.models.generate_content)
-            full_path, base_name = self._extract_dotted_name(node.func.value)
+            if isinstance(node.func.value, (ast.Attribute, ast.Name)):
+                full_path, base_name = self._extract_dotted_name(node.func.value)
 
-            if full_path is None:
-                # Couldn't extract a dotted path, skip wrapping
-                return node
+                if full_path is None:
+                    # Couldn't extract a dotted path, skip wrapping
+                    return node
 
-            # Check if this is user code - check both the base name and full path
-            if self._is_user_module(base_name) or self._is_user_module(full_path):
-                return node
+                # Check if this is user code - check both the base name and full path
+                if self._is_user_module(base_name) or self._is_user_module(full_path):
+                    return node
 
             # This is a third-party call, wrap it with exec_func
             # Mark that we need taint imports
@@ -458,8 +466,21 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         elif isinstance(node.func, ast.Name):
             func_name = node.func.id
 
-            # Only wrap specific built-in functions that can propagate taint
-            if not func_name in {"str", "repr", "int", "float", "bool", "min", "max", "sum"}:
+            # Skip certain builtin functions that should never be wrapped
+            # - super: Used in super().__init__() patterns, wrapping it breaks inheritance
+            # - type, isinstance, issubclass: Type introspection functions
+            # - hasattr, getattr, setattr, delattr: Attribute access functions
+            builtins_to_skip = {
+                "super",
+                "isinstance",
+                "issubclass",
+                "type",
+                "hasattr",
+                "getattr",
+                "setattr",
+                "delattr",
+            }
+            if func_name in builtins_to_skip:
                 return node
 
             # Mark that we need taint imports
@@ -679,6 +700,15 @@ def _is_user_function(func, user_py_files=None):
     """
     if not user_py_files:
         # there are no user files and not builtin, must be 3rd party
+        return False
+
+    if func == reversed or isinstance(func, partial):
+        # Special case: Function that should not be wrapped, because it returns
+        # an object that cannot be tainted, e.g. an iterator
+        return True
+
+    # All builtins that are not on the whitelist are not taint-wrapped
+    if isbuiltin(func) and not func in [str, repr, int, float, bool, min, max, sum]:
         return False
 
     # Strategy 1: Direct source file check (handles undecorated functions)

@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict
-from base64 import b64encode
+
+# from base64 import b64encode
 
 
 def json_str_to_original_inp_dict_openai(json_str: str, input_dict: dict) -> dict:
@@ -10,12 +11,12 @@ def json_str_to_original_inp_dict_openai(json_str: str, input_dict: dict) -> dic
 
 def func_kwargs_to_json_str_openai(input_dict: Dict[str, Any]):
     attachments = []
-    if "files" in input_dict and input_dict["files"]:
-        for file_id, io_obj in input_dict["files"]:
-            io_obj.seek(0)
-            file_str = b64encode(io_obj.read()).decode("ascii")
-            attachments.append((file_id, file_str))
-            io_obj.seek(0)
+    # if "files" in input_dict and input_dict["files"]:
+    #     for file_id, io_obj in input_dict["files"]:
+    #         io_obj.seek(0)
+    #         file_str = b64encode(io_obj.read()).decode("utf-8")
+    #         attachments.append((file_id, file_str))
+    #         io_obj.seek(0)
     return json.dumps(input_dict["body"]), attachments
 
 

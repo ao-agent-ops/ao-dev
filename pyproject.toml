@@ -43,7 +43,8 @@ dev = [
     "openai-agents",
     "google-genai",
     "hydra-core",
-    "e2b_code_interpreter"
+    "e2b_code_interpreter",
+    "together"
 ]
 
 examples = [

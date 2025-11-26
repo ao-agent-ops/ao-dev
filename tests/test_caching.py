@@ -173,13 +173,14 @@ def test_deepresearch():
 @pytest.mark.parametrize(
     "script_path",
     [
+        "./example_workflows/debug_examples/together_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_image_tool_call.py",
         "./example_workflows/debug_examples/anthropic_add_numbers.py",
-        "./example_workflows/debug_examples/async_openai_add_numbers.py",
         "./example_workflows/debug_examples/mcp_simple_test.py",
         "./example_workflows/debug_examples/multiple_runs_asyncio.py",
         "./example_workflows/debug_examples/multiple_runs_sequential.py",
         "./example_workflows/debug_examples/multiple_runs_threading.py",
+        "./example_workflows/debug_examples/openai_async_add_numbers.py",
         "./example_workflows/debug_examples/openai_add_numbers.py",
         "./example_workflows/debug_examples/openai_chat.py",
         "./example_workflows/debug_examples/openai_chat_async.py",
