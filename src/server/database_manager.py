@@ -111,10 +111,10 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.execute(query, params or ())
 
-    # def get_conn(self):
-    #     """Get database connection."""
-    #     backend = self._get_backend_module()
-    #     return backend.get_conn()
+    def get_conn(self):
+        """Get database connection."""
+        backend = self._get_backend_module()
+        return backend.get_conn()
 
     def deserialize_input(self, data):
         """Deserialize input data."""
@@ -312,6 +312,16 @@ class DatabaseManager:
         """Get session name by session_id."""
         backend = self._get_backend_module()
         return backend.get_session_name_query(session_id)
+
+    def query_one_llm_call_input(self, session_id, node_id):
+        """Get one llm-call input by session id and node id"""
+        backend = self._get_backend_module()
+        return backend.query_one_llm_call_input(session_id, node_id)
+
+    def query_one_llm_call_output(self, session_id, node_id):
+        """Get one llm-call output by session id and node id"""
+        backend = self._get_backend_module()
+        return backend.query_one_llm_call_output(session_id, node_id)
 
 
 # Create singleton instance following the established pattern

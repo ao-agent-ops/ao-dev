@@ -19,10 +19,7 @@ class EditManager:
 
     def set_input_overwrite(self, session_id, node_id, new_input):
         # Overwrite input for node.
-        row = DB.query_one(
-            "SELECT input, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
-            (session_id, node_id),
-        )
+        row = DB.query_one_llm_call_input(session_id, node_id)
         input_overwrite = json.loads(row["input"])
         input_overwrite["input"] = new_input
         input_overwrite = json.dumps(input_overwrite)
@@ -30,10 +27,7 @@ class EditManager:
 
     def set_output_overwrite(self, session_id, node_id, new_output: str):
         # Overwrite output for node.
-        row = DB.query_one(
-            "SELECT output, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
-            (session_id, node_id),
-        )
+        row = DB.query_one_llm_call_output(session_id, node_id)
 
         if not row:
             logger.error(

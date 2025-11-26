@@ -426,3 +426,19 @@ def delete_all_llm_calls_query():
 def get_session_name_query(session_id):
     """Get session name by session_id."""
     return query_one("SELECT name FROM experiments WHERE session_id=?", (session_id,))
+
+
+def query_one_llm_call_input(session_id, node_id):
+    """Get one llm-call input by session id and node id"""
+    return query_one(
+        "SELECT input, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
+        (session_id, node_id),
+    )
+
+
+def query_one_llm_call_output(session_id, node_id):
+    """Get one llm-call output by session id and node id"""
+    return query_one(
+        "SELECT output, api_type FROM llm_calls WHERE session_id=? AND node_id=?",
+        (session_id, node_id),
+    )
