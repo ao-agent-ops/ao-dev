@@ -47,32 +47,15 @@ def api_obj_to_json_str_openai(obj: Any) -> str:
             if v is not None
         }
         json_dict["api_response"]["retries_taken"] = obj.retries_taken
-
-        # Stuff for the http response, also needed to reconstruct the API response
         json_dict["http_response"]["status_code"] = obj.http_response.status_code
-        # str_headers_list = [
-        #     tuple([e.decode(obj.http_response.headers._encoding) for e in t])
-        #     for t in obj.http_response.headers._list
-        # ]
-        # json_dict["http_response"]["headers._list"] = str_headers_list
-        # json_dict["http_response"]["headers._encoding"] = obj.http_response.headers._encoding
         json_dict["http_response"]["content"] = obj.http_response.content.decode(
             encoding=obj.http_response.encoding
         )
         json_dict["http_response"]["encoding"] = obj.http_response.encoding
-        # json_dict["http_response"]["text"] = obj.http_response.text
-        # json_dict["obj.http_response.html"] = None
-        # json_dict["obj.http_response.stream"] = None
-        # json_dict["obj.http_response.request"] = None
-        # json_dict["obj.http_response.extensions"] = None
-        # json_dict["obj.http_response.history"] = None
     else:
         json_dict = obj.to_dict(mode="json")
-
     json_dict["_type"] = _type
-
     json_str = json.dumps(json_dict)
-    # json_str_to_api_obj_openai(json_str)
     return json_str
 
 
@@ -84,7 +67,7 @@ def json_str_to_api_obj_openai(new_output_text: str) -> None:
     import openai._legacy_response
     import openai.types.chat
     import openai.types.responses
-    from httpx import Headers, Response
+    from httpx import Response
 
     name2obj = {
         **vars(openai._response),
@@ -112,20 +95,10 @@ def json_str_to_api_obj_openai(new_output_text: str) -> None:
         retries_takes = output_dict["api_response"]["retries_taken"]
 
         status_code = output_dict["http_response"]["status_code"]
-        # headers = Headers()
-        # headers._list = [
-        #     tuple([e.encode(output_dict["http_response"]["headers._encoding"]) for e in t])
-        #     for t in output_dict["http_response"]["headers._list"]
-        # ]
         content = output_dict["http_response"]["content"].encode(
             output_dict["http_response"]["encoding"]
         )
-        httpx_response = Response(
-            status_code=status_code,
-            # headers=headers,
-            # content=content,
-            # text=text,
-        )
+        httpx_response = Response(status_code=status_code)
         httpx_response._content = content
         output_obj = LegacyAPIResponse(
             raw=httpx_response,
@@ -138,7 +111,6 @@ def json_str_to_api_obj_openai(new_output_text: str) -> None:
         )
     else:
         output_obj = construct_type(value=output_dict, type_=_cls)
-
     return output_obj
 
 

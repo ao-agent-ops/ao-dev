@@ -32,10 +32,10 @@ function operations, ensuring sensitive data remains tainted throughout executio
 
 import ast
 from dill import PicklingError, dumps
-from functools import partial
 from inspect import getsourcefile, iscoroutinefunction, isbuiltin
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
 from aco.common.utils import get_aco_py_files, hash_input
+from aco.common.logger import logger
 
 
 def is_pyc_rewritten(pyc_path: str) -> bool:
@@ -58,7 +58,8 @@ def is_pyc_rewritten(pyc_path: str) -> bool:
 
             # Check if our marker is in the code object's names or constants
             return "__ACO_AST_REWRITTEN__" in code.co_names
-    except (IOError, OSError, Exception):
+    except (IOError, OSError, Exception) as e:
+        logger.error(f"Error is_pyc_rewritten: {e}")
         return False
 
 
@@ -660,10 +661,16 @@ def taint_format_string(fmt, *args, **kwargs):
     return fmt.format(*args, **kwargs)
 def taint_percent_format(fmt, values):
     return fmt % values
+def set_lost_taint(values):
+    return
 try:
     # only if we are in aco-launch mode, try to import
     if os.environ.get("AGENT_COPILOT_ENABLE_TRACING", False):
         from aco.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format
+        try:
+            from aco.runner.monkey_patching.patching_utils import set_lost_taint
+        except Exception:
+            pass
 except Exception:
     pass
 """
@@ -702,7 +709,7 @@ def _is_user_function(func, user_py_files=None):
         # there are no user files and not builtin, must be 3rd party
         return False
 
-    if func == reversed or isinstance(func, partial):
+    if func in [reversed, enumerate]:
         # Special case: Function that should not be wrapped, because it returns
         # an object that cannot be tainted, e.g. an iterator
         return True
@@ -785,6 +792,8 @@ def exec_func(func, args, kwargs, user_py_files=None):
         # Rewritten from: result = json.dumps({"key": tainted_value})
         # To: result = exec_func(json.dumps, ({"key": tainted_value},), {}, ["/path/to/user/files"])
     """
+    from aco.runner.monkey_patching.patching_utils import set_lost_taint
+
     if iscoroutinefunction(func):
 
         async def wrapper():
@@ -888,6 +897,9 @@ def exec_func(func, args, kwargs, user_py_files=None):
         bound_taint = get_taint_origins(bound_self)
         all_origins.update(bound_taint)
 
+    if all_origins:
+        set_lost_taint(all_origins)
+
     # Untaint arguments for the function call
     untainted_args = untaint_if_needed(args)
     untainted_kwargs = untaint_if_needed(kwargs)
@@ -896,6 +908,9 @@ def exec_func(func, args, kwargs, user_py_files=None):
     bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
     result = func(*untainted_args, **untainted_kwargs)
     bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
+
+    if all_origins:
+        set_lost_taint(set())
 
     no_side_effect = (
         bound_hash_before_func is not None
