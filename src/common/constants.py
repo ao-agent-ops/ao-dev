@@ -143,4 +143,6 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "openai.resources.chat.completions.completions",
     "together.resources.chat.completions",
     "together.abstract.api_requestor",
+    "langchain_core.language_models.chat_models",
+    "langchain_openai.chat_models.base",
 ]

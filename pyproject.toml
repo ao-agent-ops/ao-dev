@@ -44,7 +44,10 @@ dev = [
     "google-genai",
     "hydra-core",
     "e2b_code_interpreter",
-    "together"
+    "together",
+    "langchain",
+    "langchain-anthropic",
+    "langchain-openai"
 ]
 
 examples = [

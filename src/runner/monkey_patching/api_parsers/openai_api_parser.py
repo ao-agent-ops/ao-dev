@@ -1,8 +1,6 @@
 import json
 from typing import Any, Dict
 
-# from base64 import b64encode
-
 
 def json_str_to_original_inp_dict_openai(json_str: str, input_dict: dict) -> dict:
     input_dict["body"] = json.loads(json_str)
@@ -10,36 +8,137 @@ def json_str_to_original_inp_dict_openai(json_str: str, input_dict: dict) -> dic
 
 
 def func_kwargs_to_json_str_openai(input_dict: Dict[str, Any]):
-    attachments = []
-    # if "files" in input_dict and input_dict["files"]:
-    #     for file_id, io_obj in input_dict["files"]:
-    #         io_obj.seek(0)
-    #         file_str = b64encode(io_obj.read()).decode("utf-8")
-    #         attachments.append((file_id, file_str))
-    #         io_obj.seek(0)
-    return json.dumps(input_dict["body"]), attachments
+    return json.dumps(input_dict["body"]), []
 
 
 def api_obj_to_json_str_openai(obj: Any) -> str:
-    json_str = json.dumps(obj.to_dict(mode="json"))
+    import openai
+    import openai._response
+    import openai._legacy_response
+    import openai.types.chat
+    import openai.types.responses
+
+    name2obj = {
+        **vars(openai._response),
+        **vars(openai._legacy_response),
+        **vars(openai.types.chat),
+        **vars(openai.types.responses),
+    }
+
+    def find_match_str(cls) -> str:
+        possible_type_matches = [k for k, v in name2obj.items() if v == cls]
+        if not len(possible_type_matches) == 1:
+            return f"Error retrieving JSON repr of obj {obj}"
+        return possible_type_matches[0]
+
+    _type = find_match_str(obj.__class__)
+
+    if _type == "LegacyAPIResponse":
+        json_dict = {"api_response": {}, "http_response": {}}
+        json_dict["api_response"]["cast_to"] = find_match_str(obj._cast_to)
+        json_dict["api_response"]["client"] = str(obj._client.__class__)
+        json_dict["api_response"]["stream"] = obj._stream
+        json_dict["api_response"]["stream_cls"] = str(obj._stream_cls)
+        json_dict["api_response"]["options"] = {
+            k: v
+            for k, v in obj._options.model_dump(
+                mode="json", exclude_none=True, fallback=lambda _: None
+            ).items()
+            if v is not None
+        }
+        json_dict["api_response"]["retries_taken"] = obj.retries_taken
+
+        # Stuff for the http response, also needed to reconstruct the API response
+        json_dict["http_response"]["status_code"] = obj.http_response.status_code
+        # str_headers_list = [
+        #     tuple([e.decode(obj.http_response.headers._encoding) for e in t])
+        #     for t in obj.http_response.headers._list
+        # ]
+        # json_dict["http_response"]["headers._list"] = str_headers_list
+        # json_dict["http_response"]["headers._encoding"] = obj.http_response.headers._encoding
+        json_dict["http_response"]["content"] = obj.http_response.content.decode(
+            encoding=obj.http_response.encoding
+        )
+        json_dict["http_response"]["encoding"] = obj.http_response.encoding
+        # json_dict["http_response"]["text"] = obj.http_response.text
+        # json_dict["obj.http_response.html"] = None
+        # json_dict["obj.http_response.stream"] = None
+        # json_dict["obj.http_response.request"] = None
+        # json_dict["obj.http_response.extensions"] = None
+        # json_dict["obj.http_response.history"] = None
+    else:
+        json_dict = obj.to_dict(mode="json")
+
+    json_dict["_type"] = _type
+
+    json_str = json.dumps(json_dict)
+    # json_str_to_api_obj_openai(json_str)
     return json_str
 
 
 def json_str_to_api_obj_openai(new_output_text: str) -> None:
-    from openai._models import construct_type
-    from openai.types.chat import ChatCompletion
-    from openai.types.responses import Response
+    from openai import Stream, AsyncStream, OpenAI, AsyncOpenAI
+    from openai._models import FinalRequestOptions, construct_type
+    from openai._legacy_response import LegacyAPIResponse
+    import openai._response
+    import openai._legacy_response
+    import openai.types.chat
+    import openai.types.responses
+    from httpx import Headers, Response
+
+    name2obj = {
+        **vars(openai._response),
+        **vars(openai._legacy_response),
+        **vars(openai.types.chat),
+        **vars(openai.types.responses),
+    }
 
     output_dict = json.loads(new_output_text)
+    _type = output_dict.pop("_type", None)
+    if not _type:
+        raise TypeError("_type not set")
 
-    if output_dict["object"] == "response":
-        type_ = Response
-    elif output_dict["object"] == "chat.completion":
-        type_ = ChatCompletion
+    _cls = name2obj[_type]
+    if _cls == LegacyAPIResponse:
+        cast_to = name2obj[output_dict["api_response"]["cast_to"]]
+        client = (
+            AsyncOpenAI() if "AsyncOpenAI" in output_dict["api_response"]["client"] else OpenAI()
+        )
+        stream = output_dict["api_response"]["stream"]
+        stream_cls = (
+            AsyncStream if "AsyncStream" in output_dict["api_response"]["stream_cls"] else Stream
+        )
+        options = FinalRequestOptions.model_validate(output_dict["api_response"]["options"])
+        retries_takes = output_dict["api_response"]["retries_taken"]
+
+        status_code = output_dict["http_response"]["status_code"]
+        # headers = Headers()
+        # headers._list = [
+        #     tuple([e.encode(output_dict["http_response"]["headers._encoding"]) for e in t])
+        #     for t in output_dict["http_response"]["headers._list"]
+        # ]
+        content = output_dict["http_response"]["content"].encode(
+            output_dict["http_response"]["encoding"]
+        )
+        httpx_response = Response(
+            status_code=status_code,
+            # headers=headers,
+            # content=content,
+            # text=text,
+        )
+        httpx_response._content = content
+        output_obj = LegacyAPIResponse(
+            raw=httpx_response,
+            cast_to=cast_to,
+            client=client,
+            stream=stream,
+            stream_cls=stream_cls,
+            options=options,
+            retries_taken=retries_takes,
+        )
     else:
-        raise TypeError(f"Unknown object type {output_dict['object']}")
+        output_obj = construct_type(value=output_dict, type_=_cls)
 
-    output_obj = construct_type(value=output_dict, type_=type_)
     return output_obj
 
 
