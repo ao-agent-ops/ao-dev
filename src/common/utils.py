@@ -2,6 +2,7 @@ import hashlib
 import random
 import json
 import os
+import sys
 import importlib
 from pathlib import Path
 import threading
@@ -56,7 +57,11 @@ def is_valid_mod(mod_name: str):
 
 def get_module_file_path(module_name: str) -> str | None:
     """
-    Get the file path for an installed module.
+    Get the file path for an installed module without importing it.
+
+    This function searches sys.path manually to avoid the side effects of
+    importlib.util.find_spec(), which can trigger partial imports and cause
+    module initialization issues.
 
     Args:
         module_name: The module name (e.g., 'google.genai.models')
@@ -64,21 +69,31 @@ def get_module_file_path(module_name: str) -> str | None:
     Returns:
         The absolute path to the module file, or None if not found
     """
-    try:
-        spec = importlib.util.find_spec(module_name)
-        if spec is None or spec.origin is None:
-            return None
+    # Convert module name to file path components
+    # e.g., 'google.genai.models' -> ['google', 'genai', 'models']
+    parts = module_name.split(".")
 
-        # spec.origin gives us the file path
-        origin = spec.origin
+    # Search each directory in sys.path
+    for base_path in sys.path:
+        if not base_path or not os.path.isdir(base_path):
+            continue
 
-        # For packages, origin points to __init__.py, which is what we want
-        if os.path.exists(origin):
-            return os.path.abspath(origin)
+        # Build the full path by traversing the package hierarchy
+        current_path = base_path
+        for part in parts:
+            current_path = os.path.join(current_path, part)
 
-        return None
-    except (ImportError, ModuleNotFoundError, ValueError, AttributeError):
-        return None
+        # Check if it's a package (has __init__.py)
+        init_path = os.path.join(current_path, "__init__.py")
+        if os.path.exists(init_path):
+            return os.path.abspath(init_path)
+
+        # Check if it's a module (.py file)
+        module_path = current_path + ".py"
+        if os.path.exists(module_path):
+            return os.path.abspath(module_path)
+
+    return None
 
 
 def add_whitelisted_modules_to_mapping(module_to_file: dict, whitelist: list[str]) -> dict:
@@ -100,9 +115,6 @@ def add_whitelisted_modules_to_mapping(module_to_file: dict, whitelist: list[str
         file_path = get_module_file_path(module_name)
         if file_path:
             module_to_file[module_name] = file_path
-        else:
-            # Module not installed or not found
-            pass
 
     return module_to_file
 

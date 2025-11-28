@@ -101,9 +101,14 @@ def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = No
         if isinstance(node, ast.ImportFrom) and node.module == "__future__":
             insertion_point = i + 1
 
-    # Set location info for the marker
-    marker.lineno = 1
+    # Set location info for the marker to line 0 to hide from debugger
+    marker.lineno = 0
     marker.col_offset = 0
+    for node in ast.walk(marker):
+        if hasattr(node, "lineno"):
+            node.lineno = 0
+        if hasattr(node, "col_offset"):
+            node.col_offset = 0
     tree.body.insert(insertion_point, marker)
 
     # Apply AST transformations for taint propagation
@@ -679,6 +684,18 @@ except Exception:
         # Parse the safe import code and inject it
         safe_import_tree = ast.parse(safe_import_code)
 
+        # Set line numbers to 0 for injected code to hide it from debugger
+        # This prevents the debugger from trying to map these lines to the original source
+        for node in ast.walk(safe_import_tree):
+            if hasattr(node, "lineno"):
+                node.lineno = 0
+            if hasattr(node, "end_lineno"):
+                node.end_lineno = 0
+            if hasattr(node, "col_offset"):
+                node.col_offset = 0
+            if hasattr(node, "end_col_offset"):
+                node.end_col_offset = 0
+
         # Insert all nodes from the safe import at the proper insertion point
         for i, node in enumerate(safe_import_tree.body):
             tree.body.insert(insertion_point + i, node)
@@ -706,11 +723,7 @@ def _is_user_function(func, user_py_files=None):
     Returns:
         bool: True if this is user code, False if third-party
     """
-    if not user_py_files:
-        # there are no user files and not builtin, must be 3rd party
-        return False
-
-    if func in [reversed, enumerate]:
+    if func in [reversed, enumerate, iter, map, filter, zip, range]:
         # Special case: Function that should not be wrapped, because it returns
         # an object that cannot be tainted, e.g. an iterator
         return True
@@ -719,7 +732,11 @@ def _is_user_function(func, user_py_files=None):
     if isbuiltin(func) and not func in [str, repr, int, float, bool, min, max, sum]:
         return False
 
-    # Strategy 1: Direct source file check (handles undecorated functions)
+    # there are no user files, everything is 3rd party
+    if not user_py_files:
+        return False
+
+    # direct source file check (handles undecorated functions)
     try:
         source_file = getsourcefile(func)
     except TypeError:
@@ -729,8 +746,9 @@ def _is_user_function(func, user_py_files=None):
     if source_file and source_file in user_py_files:
         return True
 
-    # Strategy 2: Check __wrapped__ attribute (functools.wraps pattern)
-    # This handles most well-behaved decorators including @retry, @lru_cache, etc.
+    # source file not found, or source_file not in user_py_files
+    # check __wrapped__ attribute (functools.wraps pattern)
+    # this handles most well-behaved decorators including @retry, @lru_cache, etc.
     current_func = func
     max_unwrap_depth = 10  # Prevent infinite loops
     depth = 0
@@ -798,183 +816,139 @@ def exec_func(func, args, kwargs, user_py_files=None):
     """
     from aco.runner.monkey_patching.patching_utils import set_lost_taint
 
+    def _get_bound_self(f):
+        """Extract the bound object from a method or partial."""
+        if hasattr(f, "__self__"):
+            return f.__self__
+        if hasattr(f, "func") and hasattr(f.func, "__self__"):
+            return f.func.__self__
+        return None
+
+    def _compute_hashes(items):
+        return [_get_bound_obj_hash(el) for el in items]
+
+    def _was_mutated(hash_before, hash_after):
+        """Return True if the object was mutated (hashes differ or couldn't be computed)."""
+        if hash_before is None or hash_after is None:
+            return True
+        return hash_before != hash_after
+
+    def _collect_all_origins(a, kw, bound):
+        """Collect taint origins from args, kwargs, and bound self."""
+        origins = set()
+        origins.update(get_taint_origins(a))
+        origins.update(get_taint_origins(kw))
+        if bound is not None:
+            origins.update(get_taint_origins(bound))
+        return origins
+
+    def _retaint_mutated_args(untainted_a, untainted_kw, hashes_before, hashes_after, origins):
+        """Re-taint any arguments that were mutated during the function call."""
+        args_before, kwargs_before = hashes_before
+        args_after, kwargs_after = hashes_after
+
+        for arg, before, after in zip(untainted_a, args_before, args_after):
+            if _was_mutated(before, after):
+                taint_wrap(arg, origins, inplace=True)
+
+        for val, before, after in zip(untainted_kw.values(), kwargs_before, kwargs_after):
+            if _was_mutated(before, after):
+                taint_wrap(val, origins, inplace=True)
+
+    def _update_bound_self_taint(bound, a, kw):
+        """Update a TaintObject's taint with new taint from inputs."""
+        if bound is None or not hasattr(bound, "_taint_origin"):
+            return
+
+        input_taint = set(get_taint_origins(a)) | set(get_taint_origins(kw))
+        if not input_taint:
+            return
+
+        try:
+            current = object.__getattribute__(bound, "_taint_origin")
+            object.__setattr__(bound, "_taint_origin", list(set(current) | input_taint))
+        except (AttributeError, TypeError):
+            pass
+
+    def _taint_bound_self_if_mutated(bound, hash_before, hash_after, origins):
+        """Taint the bound object in-place if it was mutated."""
+        if bound is not None and _was_mutated(hash_before, hash_after):
+            taint_wrap(bound, taint_origin=origins, inplace=True)
+
     if iscoroutinefunction(func):
 
         async def wrapper():
-            # Check if this function is actually user code (including decorated user functions)
             if _is_user_function(func, user_py_files):
-                # This is a builtin function like l.append which we want to call normally
-                # or this is user code (potentially decorated) - call normally without taint wrapping
                 return await func(*args, **kwargs)
 
-            # Collect taint from all arguments before unwrapping
-            all_origins = set()
-            all_origins.update(get_taint_origins(args))
-            all_origins.update(get_taint_origins(kwargs))
+            bound_self = _get_bound_self(func)
+            all_origins = _collect_all_origins(args, kwargs, bound_self)
 
-            # If func is a bound method (or partial with a bound method), extract taint from self (__self__)
-            # This handles cases like: match.expand(template) where match has taint
-            # For partial objects, we need to check func.func.__self__
-            bound_self = None
-            if hasattr(func, "__self__"):
-                bound_self = func.__self__
-            elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-                # Handle functools.partial objects
-                bound_self = func.func.__self__
+            if not all_origins:
+                return await func(*args, **kwargs)
 
-            if bound_self is not None:
-                all_origins.update(get_taint_origins(bound_self))
+            set_lost_taint(all_origins)
 
-            # Untaint arguments for the function call
-            untainted_args = untaint_if_needed(args) if all_origins else args
-            untainted_kwargs = untaint_if_needed(kwargs) if all_origins else kwargs
+            untainted_args = untaint_if_needed(args)
+            untainted_kwargs = untaint_if_needed(kwargs)
 
-            # Call the original function with untainted arguments
-            bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
+            hashes_before = (
+                _compute_hashes(untainted_args),
+                _compute_hashes(untainted_kwargs.values()),
+            )
+            bound_hash_before = _get_bound_obj_hash(bound_self)
+
             result = await func(*untainted_args, **untainted_kwargs)
-            bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
 
-            no_side_effect = (
-                bound_hash_before_func is not None
-                and bound_hash_after_func is not None
-                and bound_hash_before_func == bound_hash_after_func
+            hashes_after = (
+                _compute_hashes(untainted_args),
+                _compute_hashes(untainted_kwargs.values()),
+            )
+            bound_hash_after = _get_bound_obj_hash(bound_self)
+
+            _retaint_mutated_args(
+                untainted_args, untainted_kwargs, hashes_before, hashes_after, all_origins
+            )
+            set_lost_taint(set())
+
+            _update_bound_self_taint(bound_self, args, kwargs)
+            _taint_bound_self_if_mutated(
+                bound_self, bound_hash_before, bound_hash_after, all_origins
             )
 
-            # If func is a bound method on a TaintObject, update its taint with any new taint from inputs
-            # This ensures the object accumulates taint as it's used with tainted data
-            if bound_self is not None and hasattr(bound_self, "_taint_origin"):
-                # Get the current taint from inputs (excluding self's original taint)
-                input_taint = set()
-                input_taint.update(get_taint_origins(args))
-                input_taint.update(get_taint_origins(kwargs))
-                if input_taint:
-                    # Update the bound object's taint with new taint from inputs
-                    try:
-                        current_origins = object.__getattribute__(bound_self, "_taint_origin")
-                        new_origins = set(current_origins) | input_taint
-                        object.__setattr__(bound_self, "_taint_origin", list(new_origins))
-                    except (AttributeError, TypeError):
-                        # If we can't update, just continue - the taint will still be in all_origins for the result
-                        pass
-
-            # Wrap result with taint if there is any taint
-            if all_origins:
-                if no_side_effect:
-                    return taint_wrap(result, taint_origin=all_origins)
-
-                # need to taint bound object (if any) as well
-                # we need to use inplace because you cannot assign __self__ of
-                # builtin functions ([1].append.__self__ = [1,2] does not work)
-                if hasattr(func, "__self__"):
-                    taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-                elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-                    taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-                return taint_wrap(result, taint_origin=all_origins)
-
-            # If no taint, return result unwrapped
-            return result
+            return taint_wrap(result, taint_origin=all_origins)
 
         return wrapper()
 
-    # Check if this function is actually user code (including decorated user functions)
+    # Sync path
     if _is_user_function(func, user_py_files):
-        # This is a builtin function like l.append which we want to call normally
-        # or this is user code (potentially decorated) - call normally without taint wrapping
         return func(*args, **kwargs)
 
-    # Collect taint from all arguments before unwrapping
-    all_origins = set()
-    all_origins.update(get_taint_origins(args))
-    all_origins.update(get_taint_origins(kwargs))
+    bound_self = _get_bound_self(func)
+    all_origins = _collect_all_origins(args, kwargs, bound_self)
 
-    # If func is a bound method (or partial with a bound method), extract taint from self (__self__)
-    # This handles cases like: match.expand(template) where match has taint
-    # For partial objects, we need to check func.func.__self__
-    bound_self = None
-    if hasattr(func, "__self__"):
-        bound_self = func.__self__
-    elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-        # Handle functools.partial objects
-        bound_self = func.func.__self__
+    if not all_origins:
+        return func(*args, **kwargs)
 
-    if bound_self is not None:
-        bound_taint = get_taint_origins(bound_self)
-        all_origins.update(bound_taint)
+    set_lost_taint(all_origins)
 
-    if all_origins:
-        set_lost_taint(all_origins)
-
-    # Untaint arguments for the function call
     untainted_args = untaint_if_needed(args)
     untainted_kwargs = untaint_if_needed(kwargs)
 
-    untainted_args_hash_before = (
-        [_get_bound_obj_hash(el) for el in untainted_args] if all_origins else None
-    )
-    untainted_kwargs_hash_before = (
-        [_get_bound_obj_hash(val) for val in untainted_kwargs.values()] if all_origins else None
-    )
+    hashes_before = (_compute_hashes(untainted_args), _compute_hashes(untainted_kwargs.values()))
+    bound_hash_before = _get_bound_obj_hash(bound_self)
 
-    # Call the original function with untainted arguments
-    bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
     result = func(*untainted_args, **untainted_kwargs)
-    bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
 
-    untainted_args_hash_after = (
-        [_get_bound_obj_hash(el) for el in untainted_args] if all_origins else None
+    hashes_after = (_compute_hashes(untainted_args), _compute_hashes(untainted_kwargs.values()))
+    bound_hash_after = _get_bound_obj_hash(bound_self)
+
+    _retaint_mutated_args(
+        untainted_args, untainted_kwargs, hashes_before, hashes_after, all_origins
     )
-    untainted_kwargs_hash_after = (
-        [_get_bound_obj_hash(val) for val in untainted_kwargs.values()] if all_origins else None
-    )
+    set_lost_taint(set())
 
-    def has_side_effects(hash_before: str, hash_after: str) -> bool:
-        """Check if the hashes are the same and non-None"""
-        return not (
-            hash_before is not None and hash_after is not None and hash_before == hash_after
-        )
+    _update_bound_self_taint(bound_self, args, kwargs)
+    _taint_bound_self_if_mutated(bound_self, bound_hash_before, bound_hash_after, all_origins)
 
-    if all_origins:
-        for i, arg in enumerate(untainted_args):
-            if has_side_effects(untainted_args_hash_before[i], untainted_args_hash_after[i]):
-                taint_wrap(arg, all_origins, inplace=True)
-
-        for i, kwarg_v in enumerate(untainted_kwargs.values()):
-            if has_side_effects(untainted_kwargs_hash_before[i], untainted_kwargs_hash_after[i]):
-                taint_wrap(kwarg_v, all_origins, inplace=True)
-
-        set_lost_taint(set())
-
-    # If func is a bound method on a TaintObject, update its taint with any new taint from inputs
-    # This ensures the object accumulates taint as it's used with tainted data
-    if bound_self is not None and hasattr(bound_self, "_taint_origin"):
-        # Get the current taint from inputs (excluding self's original taint)
-        input_taint = set()
-        input_taint.update(get_taint_origins(args))
-        input_taint.update(get_taint_origins(kwargs))
-        if input_taint:
-            # Update the bound object's taint with new taint from inputs
-            try:
-                current_origins = object.__getattribute__(bound_self, "_taint_origin")
-                new_origins = set(current_origins) | input_taint
-                object.__setattr__(bound_self, "_taint_origin", list(new_origins))
-            except (AttributeError, TypeError):
-                # If we can't update, just continue - the taint will still be in all_origins for the result
-                pass
-
-    # Wrap result with taint if there is any taint
-    if all_origins:
-        if not has_side_effects(bound_hash_before_func, bound_hash_after_func):
-            return taint_wrap(result, taint_origin=all_origins)
-
-        # need to taint bound object (if any) as well
-        # we need to use inplace because you cannot assign __self__ of
-        # builtin functions ([1].append.__self__ = [1,2] does not work)
-        if hasattr(func, "__self__"):
-            taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-        elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-            taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-
-        return taint_wrap(result, taint_origin=all_origins)
-
-    # If no taint, return result unwrapped
-    return result
+    return taint_wrap(result, taint_origin=all_origins)

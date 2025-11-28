@@ -39,6 +39,7 @@ def main():
         contents=sum_prompt,
     )
 
+    print(f"Final sum: {final_sum}")
 
 if __name__ == "__main__":
     main()

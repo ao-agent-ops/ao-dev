@@ -1,7 +1,9 @@
+import together
 from together import Together
 
 
 def main():
+    version = together.version
 
     client = Together()
 
