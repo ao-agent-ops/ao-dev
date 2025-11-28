@@ -5,50 +5,49 @@ from aco.common.logger import logger
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 
+# ===========================================================
+# Patches for Anthropic Client
+# ===========================================================
+
+
 def anthropic_patch():
-    """
-    Patch Anthropic API to use persistent cache and edits.
-    """
     try:
-        import anthropic
+        from anthropic import Anthropic
     except ImportError:
         logger.info("Anthropic not installed, skipping Anthropic patches")
         return
 
-    original_init = anthropic.Anthropic.__init__
+    def create_patched_init(original_init):
 
-    @wraps(original_init)
-    def new_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        patch_anthropic_messages_create(self.messages)
-        patch_anthropic_files_upload(self.beta.files)
-        patch_anthropic_files_list(self.beta.files)
-        patch_anthropic_files_retrieve_metadata(self.beta.files)
-        patch_anthropic_files_delete(self.beta.files)
+        @wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            patch_anthropic_post(self, type(self))
 
-    anthropic.Anthropic.__init__ = new_init
+        return patched_init
+
+    original_init = Anthropic.__init__
+    Anthropic.__init__ = create_patched_init(original_init)
 
 
-def patch_anthropic_messages_create(messages_instance):
-    try:
-        from anthropic.resources.messages import Messages
-    except ImportError:
-        return
+def patch_anthropic_post(bound_obj, bound_cls):
+    # bound_obj has a _post method, which we are patching
+    original_function = bound_obj.post
 
-    # FIXME: Messages with attachments don't work (won't be cached and displayed)
-    original_function = messages_instance.create
-
-    # Patched function (executed instead of Anthropic.messages.create)
     @wraps(original_function)
     def patched_function(self, *args, **kwargs):
-        # 1. Set API identifier to fully qualified name of patched function.
-        api_type = "Anthropic.messages.create"
+
+        api_type = "Anthropic.SyncAPIClient.post"
 
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
+
+        if not input_dict["path"] in ["/v1/messages"]:
+            result = original_function(*args, **kwargs)
+            return taint_wrap(result, taint_origins)
 
         # 4. Get result from cache or call LLM.
         cache_output = CACHE.get_in_out(input_dict, api_type)
@@ -68,106 +67,69 @@ def patch_anthropic_messages_create(messages_instance):
         # 6. Taint the output object and return it.
         return taint_wrap(cache_output.output, [cache_output.node_id])
 
-    # Install patch.
-    messages_instance.create = patched_function.__get__(messages_instance, Messages)
+    bound_obj.post = patched_function.__get__(bound_obj, bound_cls)
 
 
-def patch_anthropic_files_upload(files_instance):
+# ===========================================================
+# Patches for AsyncAnthropic Client
+# ===========================================================
+
+
+def async_anthropic_patch():
     try:
-        from anthropic.resources.beta.files import Files
+        from anthropic import AsyncAnthropic
     except ImportError:
+        logger.info("Anthropic not installed, skipping AsyncAnthropic patches")
         return
 
-    original_function = files_instance.upload
+    def create_patched_init(original_init):
+
+        @wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            patch_async_anthropic_post(self, type(self))
+
+        return patched_init
+
+    original_init = AsyncAnthropic.__init__
+    AsyncAnthropic.__init__ = create_patched_init(original_init)
+
+
+def patch_async_anthropic_post(bound_obj, bound_cls):
+    # bound_obj has a post method, which we are patching
+    original_function = bound_obj.post
 
     @wraps(original_function)
-    def patched_function(self, *args, **kwargs):
-        # Extract file argument
-        file_arg = kwargs.get("file")
-        file_name = "unknown"
+    async def patched_function(self, *args, **kwargs):
 
-        if hasattr(file_arg, "name"):
-            file_name = file_arg.name
-        elif hasattr(file_arg, "read"):
-            file_name = getattr(file_arg, "name", "uploaded_file")
+        api_type = "AsyncAnthropic.AsyncAPIClient.post"
 
-        # Call original method
-        result = original_function(*args, **kwargs)
+        # 2. Get full input dict.
+        input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # Cache the file if we have caching enabled
-        file_id = getattr(result, "id", None)
-        if file_id and file_arg:
-            CACHE.cache_file(file_id, file_name, file_arg)
+        # 3. Get taint origins (did another LLM produce the input?).
+        taint_origins = get_taint_origins(input_dict)
 
-        # Propagate taint from file input
-        taint_origins = get_taint_origins(file_arg)
-        return taint_wrap(result, taint_origins)
+        if not input_dict["path"] in ["/v1/messages"]:
+            result = await original_function(*args, **kwargs)
+            return taint_wrap(result, taint_origins)
 
-    # Install patch.
-    files_instance.upload = patched_function.__get__(files_instance, Files)
+        # 4. Get result from cache or call LLM.
+        cache_output = CACHE.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = await original_function(**cache_output.input_dict)  # Call LLM.
+            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
+        # 5. Tell server that this LLM call happened.
+        send_graph_node_and_edges(
+            node_id=cache_output.node_id,
+            input_dict=cache_output.input_dict,
+            output_obj=cache_output.output,
+            source_node_ids=taint_origins,
+            api_type=api_type,
+        )
 
-def patch_anthropic_files_list(files_instance):
-    try:
-        from anthropic.resources.beta.files import Files
-    except ImportError:
-        return
+        # 6. Taint the output object and return it.
+        return taint_wrap(cache_output.output, [cache_output.node_id])
 
-    original_function = files_instance.list
-
-    @wraps(original_function)
-    def patched_function(self, *args, **kwargs):
-        # Call original method
-        result = original_function(*args, **kwargs)
-
-        # Propagate taint from any input arguments
-        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
-        return taint_wrap(result, taint_origins)
-
-    # Install patch.
-    files_instance.list = patched_function.__get__(files_instance, Files)
-
-
-def patch_anthropic_files_retrieve_metadata(files_instance):
-    """
-    Patch the .retrieve_metadata method of an Anthropic files instance to handle taint propagation.
-    """
-    try:
-        from anthropic.resources.beta.files import Files
-    except ImportError:
-        return
-
-    original_function = files_instance.retrieve_metadata
-
-    @wraps(original_function)
-    def patched_function(self, *args, **kwargs):
-        # Call original method
-        result = original_function(*args, **kwargs)
-
-        # Propagate taint from any input arguments
-        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
-        return taint_wrap(result, taint_origins)
-
-    # Install patch.
-    files_instance.retrieve_metadata = patched_function.__get__(files_instance, Files)
-
-
-def patch_anthropic_files_delete(files_instance):
-    try:
-        from anthropic.resources.beta.files import Files
-    except ImportError:
-        return
-
-    original_function = files_instance.delete
-
-    @wraps(original_function)
-    def patched_function(self, *args, **kwargs):
-        # Call original method
-        result = original_function(*args, **kwargs)
-
-        # Propagate taint from any input arguments
-        taint_origins = get_taint_origins(args) + get_taint_origins(kwargs)
-        return taint_wrap(result, taint_origins)
-
-    # Install patch.
-    files_instance.delete = patched_function.__get__(files_instance, Files)
+    bound_obj.post = patched_function.__get__(bound_obj, bound_cls)

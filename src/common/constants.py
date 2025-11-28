@@ -144,5 +144,9 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "together.resources.chat.completions",
     "together.abstract.api_requestor",
     "langchain_core.language_models.chat_models",
+    "langchain_openai.chat_models",
     "langchain_openai.chat_models.base",
+    "langchain_anthropic.chat_models",
+    "langchain_anthropic.chat_models.base",
+    "langgraph.pregel.main",
 ]

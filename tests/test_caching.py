@@ -173,8 +173,12 @@ def test_deepresearch():
 @pytest.mark.parametrize(
     "script_path",
     [
+        "./example_workflows/debug_examples/langchain_agent.py",
+        "./example_workflows/debug_examples/langchain_async_agent.py",
+        "./example_workflows/debug_examples/langchain_simple_chat.py",
         "./example_workflows/debug_examples/together_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_image_tool_call.py",
+        "./example_workflows/debug_examples/anthropic_async_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_add_numbers.py",
         "./example_workflows/debug_examples/mcp_simple_test.py",
         "./example_workflows/debug_examples/multiple_runs_asyncio.py",

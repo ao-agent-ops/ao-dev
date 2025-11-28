@@ -11,6 +11,7 @@ from aco.runner.monkey_patching.api_parsers.anthropic_api_parser import (
     func_kwargs_to_json_str_anthropic,
     api_obj_to_json_str_anthropic,
     json_str_to_api_obj_anthropic,
+    json_str_to_original_inp_dict_anthropic,
     get_model_anthropic,
 )
 from aco.runner.monkey_patching.api_parsers.google_api_parser import (
@@ -40,6 +41,8 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
         return json_str_to_original_inp_dict_mcp(json_str, input_dict)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_original_inp_dict_openai(json_str, input_dict)
+    elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
+        return json_str_to_original_inp_dict_anthropic(json_str, input_dict)
     elif api_type == "together.abstract.api_requestor.APIRequestor.request_raw":
         return json_str_to_original_inp_dict_together(json_str, input_dict)
     else:
@@ -49,7 +52,7 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
 def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str]]:
     if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return func_kwargs_to_json_str_openai(input_dict)
-    elif api_type == "Anthropic.messages.create":
+    elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return func_kwargs_to_json_str_anthropic(input_dict)
     elif api_type in [
         "google.genai.models._api_client.request",
@@ -67,7 +70,7 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
 def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
     if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return api_obj_to_json_str_openai(response_obj)
-    elif api_type == "Anthropic.messages.create":
+    elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return api_obj_to_json_str_anthropic(response_obj)
     elif api_type in [
         "google.genai.models._api_client.request",
@@ -85,7 +88,7 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
 def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
     if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_api_obj_openai(new_output_text)
-    elif api_type == "Anthropic.messages.create":
+    elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return json_str_to_api_obj_anthropic(new_output_text)
     elif api_type in [
         "google.genai.models._api_client.request",
@@ -103,7 +106,7 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
 def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
     if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return get_model_openai(input_dict)
-    elif api_type == "Anthropic.messages.create":
+    elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return get_model_anthropic(input_dict)
     elif api_type in [
         "google.genai.models._api_client.request",
