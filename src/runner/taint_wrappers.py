@@ -2129,12 +2129,14 @@ def taint_wrap(
                 taint_wrap(
                     k,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
                 ): taint_wrap(
                     v,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
@@ -2154,6 +2156,7 @@ def taint_wrap(
                 taint_wrap(
                     x,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
@@ -2172,6 +2175,7 @@ def taint_wrap(
                 taint_wrap(
                     x,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
