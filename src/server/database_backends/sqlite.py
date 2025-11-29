@@ -27,6 +27,27 @@ _db_lock = threading.RLock()
 _shared_conn = None
 
 
+def _enable_vector_extension(conn: sqlite3.Connection) -> None:
+    """
+    Optionally enable and load a SQLite vector extension.
+
+    We try to load a shared library named 'vec0' (sqlite-vec default). If the
+    extension is not installed, we just log a warning and continue; all other
+    DB operations still work.
+
+    Devs: to enable vector operations, install sqlite-vec and make sure the
+    shared library (e.g. vec0.dylib / vec0.so) is on the loader path.
+    """
+    try:
+        conn.enable_load_extension(True)
+        conn.load_extension("vec0")
+        logger.info("Loaded SQLite vector extension 'vec0'")
+    except Exception as e:
+        # This is best-effort only; similarity search will still work via
+        # Python-side computation even if the extension is missing.
+        logger.warning(f"Could not load SQLite vector extension 'vec0': {e}")
+
+
 def get_conn():
     """Get the shared SQLite connection"""
     global _shared_conn
@@ -49,6 +70,10 @@ def get_conn():
                 _shared_conn.execute("PRAGMA journal_mode=WAL")
                 _shared_conn.execute("PRAGMA synchronous=NORMAL")
                 _shared_conn.execute("PRAGMA busy_timeout=10000")  # 10 second timeout
+
+                # Optional vector extension (best-effort)
+                _enable_vector_extension(_shared_conn)
+
                 _init_db(_shared_conn)
                 logger.debug(f"Initialized shared DB connection at {db_path}")
 
@@ -98,6 +123,18 @@ def _init_db(conn):
         )
     """
     )
+    # NEW: embeddings table (one embedding per LLM call)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lessons_embeddings (
+            session_id TEXT,
+            node_id TEXT,
+            embedding TEXT,
+            PRIMARY KEY (session_id, node_id),
+            FOREIGN KEY (session_id) REFERENCES experiments (session_id)
+        )
+    """
+    )
     # Create attachments table
     c.execute(
         """
@@ -112,21 +149,7 @@ def _init_db(conn):
         )
     """
     )
-    c.execute(
-        """
-        CREATE INDEX IF NOT EXISTS attachments_content_hash_idx ON attachments(content_hash)
-    """
-    )
-    c.execute(
-        """
-        CREATE INDEX IF NOT EXISTS original_input_lookup ON llm_calls(session_id, input_hash)
-    """
-    )
-    c.execute(
-        """
-        CREATE INDEX IF NOT EXISTS experiments_timestamp_idx ON experiments(timestamp DESC)
-    """
-    )
+    ...
     conn.commit()
 
 
@@ -426,3 +449,56 @@ def delete_all_llm_calls_query():
 def get_session_name_query(session_id):
     """Get session name by session_id."""
     return query_one("SELECT name FROM experiments WHERE session_id=?", (session_id,))
+
+
+# ----------------------------------------------------------------------
+# Embedding-related queries (lessons_embeddings)
+# ----------------------------------------------------------------------
+
+
+def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str):
+    """
+    Insert or replace an embedding for a (session_id, node_id) pair.
+
+    embedding_json should be a JSON-serialized list[float].
+    """
+    execute(
+        """
+        INSERT OR REPLACE INTO lessons_embeddings (session_id, node_id, embedding)
+        VALUES (?, ?, ?)
+        """,
+        (session_id, node_id, embedding_json),
+    )
+
+
+def get_lesson_embedding_query(session_id: str, node_id: str):
+    """
+    Fetch the embedding row for a specific (session_id, node_id).
+
+    Returns a sqlite3.Row with columns: session_id, node_id, embedding
+    or None if not found.
+    """
+    return query_one(
+        """
+        SELECT session_id, node_id, embedding
+        FROM lessons_embeddings
+        WHERE session_id = ? AND node_id = ?
+        """,
+        (session_id, node_id),
+    )
+
+
+def get_all_lesson_embeddings_except_query(session_id: str, node_id: str):
+    """
+    Fetch all embeddings except the given (session_id, node_id).
+
+    Returns a list of rows with columns: session_id, node_id, embedding.
+    """
+    return query_all(
+        """
+        SELECT session_id, node_id, embedding
+        FROM lessons_embeddings
+        WHERE NOT (session_id = ? AND node_id = ?)
+        """,
+        (session_id, node_id),
+    )

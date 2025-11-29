@@ -8,9 +8,36 @@ optimization-related operations like similarity search.
 import socket
 import json
 import time
-from typing import Optional
+from typing import Optional, List
 from aco.common.logger import logger
 from aco.common.constants import HOST, PORT
+from aco.server.database_manager import DB
+
+
+def _text_to_embedding(text: str, dim: int = 64) -> List[float]:
+    """
+    Very lightweight, dependency-free text embedding.
+
+    We hash UTF-8 bytes into a fixed-length vector and L2-normalize it.
+    This is a placeholder; a real model can be plugged in later without
+    changing DB schema or call sites.
+    """
+    vec = [0.0] * dim
+    data = text.encode("utf-8", errors="ignore")
+    for i, b in enumerate(data):
+        vec[i % dim] += float(b)
+
+    # L2 normalize
+    norm_sq = sum(v * v for v in vec)
+    if norm_sq <= 0.0:
+        return vec
+    norm = norm_sq**0.5
+    return [v / norm for v in vec]
+
+
+def _cosine_similarity(a: List[float], b: List[float]) -> float:
+    """Cosine similarity between two same-length vectors."""
+    return sum(x * y for x, y in zip(a, b))
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -26,106 +53,177 @@ def send_json(conn: socket.socket, msg: dict) -> None:
 class OptimizationClient:
     """
     Optimization client that connects to the develop server.
-    
+
     This client handles optimization requests from the develop server,
-    processing operations like similarity search, clustering, and 
+    processing operations like similarity search, clustering, and
     graph transformations.
     """
-    
+
     def __init__(self):
         self.conn: Optional[socket.socket] = None
         self.running = True
-        
+
     # ============================================================
     # Message Handlers
     # ============================================================
-    
+
     def handle_add_node(self, msg: dict) -> None:
         """
-        Given (session_id, node_id, input_str), compute input_str embedding and 
-        add to DB. 
+        Given (session_id, node_id, input_str), compute input_str embedding and
+        add to DB.
         """
         session_id = msg.get("session_id")
         node_id = msg.get("node_id")
-        input_str = msg.get("input_str") # embed this string
+        input_str = msg.get("input_str")  # embed this string
 
-        # TODO(Mahit): Store in DB |session_id | node_id | input_str |
+        if not session_id or not node_id or input_str is None:
+            logger.error(f"[OptimizationServer] handle_add_node: missing fields in msg: {msg}")
+            return
 
+        try:
+            embedding = _text_to_embedding(input_str)
+            embedding_json = json.dumps(embedding)
+            DB.insert_lesson_embedding_query(session_id, node_id, embedding_json)
+            logger.debug(
+                f"[OptimizationServer] Stored embedding for session {session_id}, node {node_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[OptimizationServer] Failed to store embedding for "
+                f"session {session_id}, node {node_id}: {e}"
+            )
 
     def handle_similarity_search(self, msg: dict) -> None:
         """
-        Given (session_id, node_id) return the k most similar [(session_id, node_id)]. 
+        Given (session_id, node_id) return the k most similar [(session_id, node_id)].
         """
-        session_id = msg.get("session_id") # compute sim to this session_id
-        node_id = msg.get("node_id") # compute sim to this node_id
-        top_k = msg.get("k") # fetch so many other [(session_id, node_id)]
+        session_id = msg.get("session_id")  # compute sim to this session_id
+        node_id = msg.get("node_id")  # compute sim to this node_id
+        top_k = msg.get("k", 10)  # how many similar nodes to fetch
 
-        # TODO(Mahit): Let's implement a first, dummy approach here:
-        # 1. Get input from lesson_embeddings table (given session_id and node_id)
-        # 2. Compute the top-k session_ids and node_ids with the most similar input embeddings. Exluding the one given as input here.
-        # 3. Return the list of session_ids and node_ids.
+        if not session_id or not node_id:
+            logger.error(
+                f"[OptimizationServer] similarity_search: missing session_id/node_id: {msg}"
+            )
+            return
 
-        logger.debug(f"[OptimizationServer] Similarity search for session {session_id}, node {node_id}")
-        
-        # TODO: Fill in placeholder below
-        response = {
-            "type": "similarity_runs",
-            "session_id": session_id,
-            "results": []
-        }
-        
-        send_json(self.conn, response)
-    
+        logger.debug(
+            f"[OptimizationServer] Similarity search for session {session_id}, node {node_id}"
+        )
+
+        try:
+            # 1. Get target embedding
+            row = DB.get_lesson_embedding_query(session_id, node_id)
+            if not row or not row["embedding"]:
+                logger.warning(
+                    f"[OptimizationServer] No embedding found for session {session_id}, node {node_id}"
+                )
+                response = {
+                    "type": "similarity_search_result",
+                    "session_id": session_id,
+                    "node_id": node_id,
+                    "results": [],
+                }
+                send_json(self.conn, response)
+                return
+
+            target_emb = json.loads(row["embedding"])
+
+            # 2. Get all other embeddings
+            rows = DB.get_all_lesson_embeddings_except_query(session_id, node_id)
+
+            sims = []
+            for r in rows:
+                try:
+                    other_emb = json.loads(r["embedding"])
+                    sim = _cosine_similarity(target_emb, other_emb)
+                    sims.append(
+                        {
+                            "session_id": r["session_id"],
+                            "node_id": r["node_id"],
+                            "score": sim,
+                        }
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"[OptimizationServer] Error computing similarity for "
+                        f"session {r['session_id']}, node {r['node_id']}: {e}"
+                    )
+
+            # 3. Sort by similarity desc and take top_k
+            sims.sort(key=lambda x: x["score"], reverse=True)
+            results = sims[:top_k]
+
+            response = {
+                "type": "similarity_search_result",
+                "session_id": session_id,
+                "node_id": node_id,
+                "k": top_k,
+                "results": results,
+            }
+
+            send_json(self.conn, response)
+
+        except Exception as e:
+            logger.error(
+                f"[OptimizationServer] Failed similarity search for session {session_id}, "
+                f"node {node_id}: {e}"
+            )
+
+    def handle_cluster_nodes(self, msg: dict) -> None:
+        """Placeholder for future clustering logic."""
+        logger.warning("[OptimizationServer] handle_cluster_nodes is not implemented yet")
+
+    def handle_optimize_graph(self, msg: dict) -> None:
+        """Placeholder for future graph optimization logic."""
+        logger.warning("[OptimizationServer] handle_optimize_graph is not implemented yet")
 
     def handle_shutdown(self, msg: dict) -> None:
         """Handle shutdown command from develop server."""
         logger.info("[OptimizationServer] Shutdown command received")
         self.running = False
-    
+
     # ============================================================
     # Message Routing
     # ============================================================
-    
+
     def process_message(self, msg: dict) -> None:
         """
         Route messages to appropriate handlers based on message type.
-        
+
         Args:
             msg: The message dictionary with a 'type' field
         """
         msg_type = msg.get("type", "unknown")
         logger.debug(f"[OptimizationServer] Processing message type: {msg_type}")
-        
+
         handlers = {
             "similarity_search": self.handle_similarity_search,
             "cluster_nodes": self.handle_cluster_nodes,
             "optimize_graph": self.handle_optimize_graph,
             "shutdown": self.handle_shutdown,
         }
-        
+
         handler = handlers.get(msg_type)
         if handler:
             handler(msg)
         else:
             logger.warning(f"[OptimizationServer] Unknown message type: {msg_type}")
-    
+
     def connect_to_develop_server(self) -> bool:
         """
         Connect to the develop server as an optimization client.
-        
+
         Returns:
             True if connection successful, False otherwise
         """
         try:
             self.conn = socket.create_connection((HOST, PORT), timeout=5)
-            
+
             # Send handshake identifying as optimization role
-            handshake = {
-                "type": "handshake",
-                "role": "optimization"
-            }
+            handshake = {"type": "handshake", "role": "optimization"}
             send_json(self.conn, handshake)
-            
+
             # Wait for session_id acknowledgment
             file_obj = self.conn.makefile("r")
             response_line = file_obj.readline()
@@ -136,50 +234,53 @@ class OptimizationClient:
                     return True
                 else:
                     logger.error(f"[OptimizationServer] Unexpected handshake response: {response}")
-                    
+
         except Exception as e:
             logger.error(f"[OptimizationServer] Failed to connect to develop server: {e}")
-            
+
         return False
-    
+
     def run(self) -> None:
-        """
-        Main loop: connect to develop server and process messages.
-        """
+        """Main loop: connect to develop server and process messages."""
         # Retry connection with backoff
         retry_count = 0
         max_retries = 5
-        
+
         while retry_count < max_retries and self.running:
             if self.connect_to_develop_server():
                 break
             retry_count += 1
-            wait_time = min(2 ** retry_count, 30)  # Exponential backoff, max 30 seconds
+            wait_time = min(2**retry_count, 30)
             logger.info(f"[OptimizationServer] Retrying connection in {wait_time} seconds...")
             time.sleep(wait_time)
-        
+
         if not self.conn:
             logger.error("[OptimizationServer] Failed to connect after retries")
             return
-        
+
+        # Make socket non-blocking so we don't time out
+        self.conn.setblocking(False)
         file_obj = self.conn.makefile("r")
-        
+
         try:
-            # Main message processing loop
-            for line in file_obj:
-                if not self.running:
-                    break
-                    
+            buffer = ""
+            while self.running:
                 try:
-                    msg = json.loads(line.strip())
-                    self.process_message(msg)
-                except json.JSONDecodeError as e:
-                    logger.error(f"[OptimizationServer] Error parsing JSON: {e}")
+                    chunk = file_obj.readline()
+                    if chunk:
+                        msg = json.loads(chunk.strip())
+                        self.process_message(msg)
+                    else:
+                        time.sleep(0.1)  # idle wait
+                except json.JSONDecodeError:
+                    continue
+                except BlockingIOError:
+                    time.sleep(0.1)  # idle wait
+                    continue
                 except Exception as e:
-                    logger.error(f"[OptimizationServer] Error processing message: {e}")
-                    
-        except Exception as e:
-            logger.error(f"[OptimizationServer] Connection error: {e}")
+                    logger.error(f"[OptimizationServer] Error: {e}")
+                    break
+
         finally:
             if self.conn:
                 try:
@@ -199,6 +300,7 @@ def main():
     except Exception as e:
         logger.error(f"[OptimizationServer] Fatal error: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
 
 

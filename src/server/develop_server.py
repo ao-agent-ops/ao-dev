@@ -127,7 +127,7 @@ class DevelopServer:
     def start_optimization_server(self) -> None:
         """Start the optimization server process."""
         logger.info("[DevelopServer] Starting optimization server...")
-        
+
         if self.optimization_process and self.optimization_process.poll() is None:
             logger.warning("[DevelopServer] Optimization server is already running")
             return
@@ -135,25 +135,25 @@ class DevelopServer:
         try:
             # Start optimization server as a subprocess
             import sys
-            optimization_cmd = [
-                sys.executable,
-                "-m",
-                "aco.optimizations.optimization_server"
-            ]
-            
+
+            optimization_cmd = [sys.executable, "-m", "aco.optimizations.optimization_server"]
+
             self.optimization_process = subprocess.Popen(
                 optimization_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
-                start_new_session=True
+                start_new_session=True,
             )
-            
-            logger.info(f"[DevelopServer] Optimization server started (PID: {self.optimization_process.pid})")
-            
+
+            logger.info(
+                f"[DevelopServer] Optimization server started (PID: {self.optimization_process.pid})"
+            )
+
         except Exception as e:
             logger.error(f"[DevelopServer] Failed to start optimization server: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
 
     def stop_optimization_server(self) -> None:
@@ -165,7 +165,7 @@ class DevelopServer:
                 time.sleep(0.5)  # Give it time to shutdown gracefully
             except Exception:
                 pass
-                
+
         # Then terminate the process
         if self.optimization_process:
             try:
@@ -655,7 +655,9 @@ class DevelopServer:
         """Handle similarity search results from optimization server."""
         session_id = msg.get("session_id")
         results = msg.get("results", [])
-        logger.info(f"[DevelopServer] Similarity search results for session {session_id}: {len(results)} matches")
+        logger.info(
+            f"[DevelopServer] Similarity search results for session {session_id}: {len(results)} matches"
+        )
         # Broadcast results to UIs
         self.broadcast_to_all_uis(msg)
 
@@ -663,7 +665,9 @@ class DevelopServer:
         """Handle clustering results from optimization server."""
         session_id = msg.get("session_id")
         clusters = msg.get("clusters", [])
-        logger.info(f"[DevelopServer] Clustering results for session {session_id}: {len(clusters)} clusters")
+        logger.info(
+            f"[DevelopServer] Clustering results for session {session_id}: {len(clusters)} clusters"
+        )
         # Broadcast results to UIs
         self.broadcast_to_all_uis(msg)
 
@@ -748,6 +752,14 @@ class DevelopServer:
             self.handle_set_database_mode(msg)
         elif msg_type == "get_all_experiments":
             self.handle_get_all_experiments(conn)
+        elif msg_type == "similarity_search":
+            logger.debug("[DevelopServer] Forwarding similarity_search to optimization server")
+            if self.optimization_conn:
+                send_json(self.optimization_conn, msg)
+            else:
+                logger.error(
+                    "[DevelopServer] similarity_search received but no optimization server connected"
+                )
         elif msg_type == "similarity_search_result":
             self.handle_similarity_search_result(msg)
         elif msg_type == "cluster_result":
@@ -926,7 +938,7 @@ class DevelopServer:
 
         # Start file watcher process for AST recompilation
         self.start_file_watcher()
-        
+
         # Start optimization server
         self.start_optimization_server()
 

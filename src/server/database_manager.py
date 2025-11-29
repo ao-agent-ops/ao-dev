@@ -309,6 +309,41 @@ class DatabaseManager:
         backend = self._get_backend_module()
         return backend.get_session_name_query(session_id)
 
+        # Embedding-related queries (lessons_embeddings)
+
+    def insert_lesson_embedding_query(self, session_id: str, node_id: str, embedding_json: str):
+        """
+        Insert or replace an embedding for (session_id, node_id).
+
+        Note: currently only implemented for the SQLite backend.
+        """
+        backend = self._get_backend_module()
+        if not hasattr(backend, "insert_lesson_embedding_query"):
+            raise NotImplementedError(
+                "insert_lesson_embedding_query not implemented for this backend"
+            )
+        return backend.insert_lesson_embedding_query(session_id, node_id, embedding_json)
+
+    def get_lesson_embedding_query(self, session_id: str, node_id: str):
+        """
+        Fetch embedding row for (session_id, node_id).
+        """
+        backend = self._get_backend_module()
+        if not hasattr(backend, "get_lesson_embedding_query"):
+            raise NotImplementedError("get_lesson_embedding_query not implemented for this backend")
+        return backend.get_lesson_embedding_query(session_id, node_id)
+
+    def get_all_lesson_embeddings_except_query(self, session_id: str, node_id: str):
+        """
+        Fetch all embeddings except the given (session_id, node_id).
+        """
+        backend = self._get_backend_module()
+        if not hasattr(backend, "get_all_lesson_embeddings_except_query"):
+            raise NotImplementedError(
+                "get_all_lesson_embeddings_except_query not implemented for this backend"
+            )
+        return backend.get_all_lesson_embeddings_except_query(session_id, node_id)
+
 
 # Create singleton instance following the established pattern
 DB = DatabaseManager()
