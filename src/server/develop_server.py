@@ -653,6 +653,11 @@ class DevelopServer:
     # Handlers for optimization server responses
     def handle_similarity_search_result(self, msg: dict) -> None:
         """Handle similarity search results from optimization server."""
+        # TODO: Expect list of session_ids.
+        # Send new experiment list to UI, where we populate the "Similar" list
+        # with these session ids. 
+        # Also see "get_all_experiments"
+
         session_id = msg.get("session_id")
         results = msg.get("results", [])
         logger.info(
@@ -743,6 +748,7 @@ class DevelopServer:
         elif msg_type == "add_subrun":
             self.handle_add_subrun(msg, conn)
         elif msg_type == "get_graph":
+            # TODO: Trigger sim search here.
             self.handle_get_graph(msg, conn)
         elif msg_type == "erase":
             self.handle_erase(msg)
@@ -752,14 +758,6 @@ class DevelopServer:
             self.handle_set_database_mode(msg)
         elif msg_type == "get_all_experiments":
             self.handle_get_all_experiments(conn)
-        elif msg_type == "similarity_search":
-            logger.debug("[DevelopServer] Forwarding similarity_search to optimization server")
-            if self.optimization_conn:
-                send_json(self.optimization_conn, msg)
-            else:
-                logger.error(
-                    "[DevelopServer] similarity_search received but no optimization server connected"
-                )
         elif msg_type == "similarity_search_result":
             self.handle_similarity_search_result(msg)
         elif msg_type == "cluster_result":
