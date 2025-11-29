@@ -21,9 +21,8 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
     private readonly AUTH_BASE_URL: string;
 
     constructor(private readonly context: vscode.ExtensionContext) {
-        // Read from config or env vars
-        const config = vscode.workspace.getConfiguration('agopsAgentCopilot');
-        this.AUTH_BASE_URL = config.get('authServerUrl') || process.env.VITE_API_BASE || 'http://localhost:5958';
+        // Point to EC2 auth server (using HTTP, not HTTPS)
+        this.AUTH_BASE_URL = 'http://agops-project.com:5958';
         
         this._disposable = vscode.authentication.registerAuthenticationProvider(
             GoogleAuthenticationProvider.AUTH_TYPE,

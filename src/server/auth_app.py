@@ -24,9 +24,9 @@ app.add_middleware(
 )
 
 
-GOOGLE_CLIENT_ID = "200477698564-akv68pte65be4hd1hgkoloqfkh0im5t8.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = "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"
-CALLBACK_URL = "https://agops-project.com/api/auth/google/callback"
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+CALLBACK_URL = os.environ.get("GOOGLE_CALLBACK_URL", "http://agops-project.com:5958/auth/google/callback")
 
 AUTH_SCOPE = "openid email profile"
 
@@ -170,7 +170,7 @@ def google_callback_get(request: Request):
         raise HTTPException(status_code=400, detail="Missing code")
 
     # Process the code, set cookie, then redirect back to frontend
-    frontend = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
+    frontend = os.environ.get("FRONTEND_ORIGIN", "http://agops-project.com")
     response = RedirectResponse(url=frontend)
     _process_code_and_upsert(code, response)
     return response
