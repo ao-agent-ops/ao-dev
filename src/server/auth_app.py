@@ -26,7 +26,7 @@ app.add_middleware(
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-CALLBACK_URL = os.environ.get("GOOGLE_CALLBACK_URL", "http://agops-project.com:5958/auth/google/callback")
+CALLBACK_URL = os.environ.get("GOOGLE_CALLBACK_URL", "https://agops-project.com/api/auth/google/callback")
 
 AUTH_SCOPE = "openid email profile"
 
