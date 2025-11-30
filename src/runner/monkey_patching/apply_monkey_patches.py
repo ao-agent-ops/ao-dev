@@ -9,6 +9,7 @@ from aco.runner.monkey_patching.patches.together_patches import together_patch
 from aco.runner.monkey_patching.patches.uuid_patches import uuid_patch
 from aco.runner.monkey_patching.patches.builtin_patches import str_patch
 from aco.runner.monkey_patching.patches.file_patches import apply_file_patches
+from aco.runner.monkey_patching.patches.httpx_patch import httpx_patch
 
 
 def apply_all_monkey_patches():
@@ -31,11 +32,12 @@ CUSTOM_PATCH_FUNCTIONS = [
     str_patch,
     uuid_patch,
     apply_file_patches,
-    openai_patch,
-    async_openai_patch,
+    # openai_patch,
+    # async_openai_patch,
     together_patch,
     anthropic_patch,
     async_anthropic_patch,
     google_genai_patch,
     mcp_patch,
+    httpx_patch,
 ]

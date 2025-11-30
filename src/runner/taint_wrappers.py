@@ -92,6 +92,12 @@ class TaintObject:
         method = getattr(obj, method_name)
         return method(*args, **kwargs)
 
+    async def async_bound_method(self, method_name, *args, **kwargs):
+        """Same as bound_method, just async."""
+        obj = object.__getattribute__(self, "obj")
+        method = getattr(obj, method_name)
+        return await method(*args, **kwargs)
+
     def __getattr__(self, name):
         """Delegate attribute access to wrapped object."""
         if name in ("obj", "_taint_origin"):
@@ -103,6 +109,10 @@ class TaintObject:
         # This allows exec_func to extract taint from the TaintObject
         if callable(result):
             from functools import partial
+            from inspect import iscoroutinefunction
+
+            if iscoroutinefunction(result):
+                return partial(self.async_bound_method, name)
 
             return partial(self.bound_method, name)
 

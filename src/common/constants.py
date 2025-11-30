@@ -141,6 +141,7 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "mcp.client.session",
     "openai.resources.responses.responses",
     "openai.resources.chat.completions.completions",
+    "openai._base_client",
     "together.resources.chat.completions",
     "together.abstract.api_requestor",
     "langchain_core.language_models.chat_models",

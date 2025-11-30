@@ -34,10 +34,19 @@ from aco.runner.monkey_patching.api_parsers.together_api_parser import (
     json_str_to_original_inp_dict_together,
     get_model_together,
 )
+from aco.runner.monkey_patching.api_parsers.httpx_api_parser import (
+    func_kwargs_to_json_str_httpx,
+    api_obj_to_json_str_httpx,
+    json_str_to_api_obj_httpx,
+    json_str_to_original_inp_dict_httpx,
+    get_model_httpx,
+)
 
 
 def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str) -> dict:
-    if api_type == "MCP.ClientSession.send_request":
+    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+        return json_str_to_original_inp_dict_httpx(json_str, input_dict)
+    elif api_type == "MCP.ClientSession.send_request":
         return json_str_to_original_inp_dict_mcp(json_str, input_dict)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_original_inp_dict_openai(json_str, input_dict)
@@ -50,7 +59,9 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
 
 
 def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str]]:
-    if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
+    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+        return func_kwargs_to_json_str_httpx(input_dict)
+    elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return func_kwargs_to_json_str_openai(input_dict)
     elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return func_kwargs_to_json_str_anthropic(input_dict)
@@ -68,7 +79,9 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
 
 
 def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
-    if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
+    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+        return api_obj_to_json_str_httpx(response_obj)
+    elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return api_obj_to_json_str_openai(response_obj)
     elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return api_obj_to_json_str_anthropic(response_obj)
@@ -86,7 +99,9 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
 
 
 def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
-    if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
+    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+        return json_str_to_api_obj_httpx(new_output_text)
+    elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_api_obj_openai(new_output_text)
     elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return json_str_to_api_obj_anthropic(new_output_text)
@@ -104,7 +119,9 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
 
 
 def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
-    if api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
+    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+        return get_model_httpx(input_dict)
+    elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return get_model_openai(input_dict)
     elif api_type in ["Anthropic.SyncAPIClient.post", "AsyncAnthropic.AsyncAPIClient.post"]:
         return get_model_anthropic(input_dict)
