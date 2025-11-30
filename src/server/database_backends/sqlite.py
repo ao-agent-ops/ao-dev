@@ -26,26 +26,17 @@ from aco.common.utils import hash_input
 _db_lock = threading.RLock()
 _shared_conn = None
 
+import vectorlite_py
 
-def _enable_vector_extension(conn: sqlite3.Connection) -> None:
-    """
-    Optionally enable and load a SQLite vector extension.
 
-    We try to load a shared library named 'vec0' (sqlite-vec default). If the
-    extension is not installed, we just log a warning and continue; all other
-    DB operations still work.
-
-    Devs: to enable vector operations, install sqlite-vec and make sure the
-    shared library (e.g. vec0.dylib / vec0.so) is on the loader path.
-    """
+def _enable_vector_extension(conn):
     try:
         conn.enable_load_extension(True)
-        conn.load_extension("vec0")
-        logger.info("Loaded SQLite vector extension 'vec0'")
+        vectorlite_path = vectorlite_py.vectorlite_path()
+        conn.load_extension(vectorlite_path)
+        logger.info(f"Loaded vectorlite extension from: {vectorlite_path}")
     except Exception as e:
-        # This is best-effort only; similarity search will still work via
-        # Python-side computation even if the extension is missing.
-        logger.warning(f"Could not load SQLite vector extension 'vec0': {e}")
+        logger.warning(f"Could not load vectorlite: {e}")
 
 
 def get_conn():
@@ -135,6 +126,14 @@ def _init_db(conn):
         )
     """
     )
+    # ANN vector index for lessons (dim must match your OpenAI embedding)
+    c.execute(
+        """
+    CREATE VIRTUAL TABLE IF NOT EXISTS lessons_vec
+    USING vectorlite(embedding float32[1536], hnsw(max_elements=200000));
+    """
+    )
+
     # Create attachments table
     c.execute(
         """
@@ -457,15 +456,26 @@ def get_session_name_query(session_id):
 
 
 def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str):
-    """
-    Insert or replace an embedding for a (session_id, node_id) pair.
+    embedding_obj = json.loads(embedding_json)
 
-    embedding_json should be a JSON-serialized list[float].
-    """
+    # Insert into lessons_embeddings
     execute(
         """
         INSERT OR REPLACE INTO lessons_embeddings (session_id, node_id, embedding)
         VALUES (?, ?, ?)
+        """,
+        (session_id, node_id, embedding_json),
+    )
+
+    # Insert into ANN index (vectorlite)
+    execute(
+        """
+        INSERT INTO lessons_vec(rowid, embedding)
+        VALUES (
+            (SELECT rowid FROM lessons_embeddings 
+             WHERE session_id = ? AND node_id = ?),
+            vector_from_json(?)
+        )
         """,
         (session_id, node_id, embedding_json),
     )

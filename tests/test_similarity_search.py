@@ -1,7 +1,6 @@
 # tests/test_similarity_search.py
 
 import json
-
 import pytest
 
 from aco.optimizations.optimization_server import OptimizationClient
@@ -9,19 +8,22 @@ from aco.optimizations.optimization_server import OptimizationClient
 
 class DummyDB:
     """
-    Minimal fake DB that mimics exactly the methods the optimization server uses:
+    Fake DB that mimics the real DB API the optimization server uses:
       - get_lesson_embedding_query
-      - get_all_lesson_embeddings_except_query
+      - query_all (ANN stub)
+      - query_one  (rowid -> session/node)
     """
 
     def __init__(self):
-        # embeddings are stored as JSON strings, just like the real DB
+        # embeddings stored like real DB (JSON strings)
         self._store = {
             ("s1", "n1"): json.dumps([1.0, 0.0, 0.0]),
-            ("fake_session", "fake_node"): json.dumps([1.0, 0.0, 0.0]),  # identical to target
+            ("fake_session", "fake_node"): json.dumps([1.0, 0.0, 0.0]),  # best match
             ("test_session", "node1"): json.dumps([0.5, 0.0, 0.0]),
             ("s3", "n3"): json.dumps([-0.2, 0.0, 0.0]),
         }
+
+    # -------- PRIMARY QUERY USED BY OPT SERVER -------- #
 
     def get_lesson_embedding_query(self, session_id, node_id):
         key = (session_id, node_id)
@@ -33,45 +35,73 @@ class DummyDB:
             "embedding": self._store[key],
         }
 
-    def get_all_lesson_embeddings_except_query(self, session_id, node_id):
+    # ANN-like implementation for tests
+    def query_all(self, sql, params=()):
+        """
+        Simulates ANN search. Returns rows with:
+            { "session_id": ..., "node_id": ..., "distance": ... }
+        SQL contents are ignored – only params[0] (vector JSON) and params[1] (k) matter.
+        """
+        import numpy as np
+
+        target_vec = np.array(json.loads(params[0]), dtype=float)
+        k = params[1]
+
         rows = []
-        for (sid, nid), emb in self._store.items():
-            if (sid, nid) == (session_id, node_id):
+        for (sid, nid), emb_json in self._store.items():
+            # Skip the query vector itself
+            if (sid, nid) == ("s1", "n1"):
                 continue
+            v = np.array(json.loads(emb_json), dtype=float)
+            dist = float(np.linalg.norm(target_vec - v))
+
             rows.append(
                 {
                     "session_id": sid,
                     "node_id": nid,
-                    "embedding": emb,
+                    "distance": dist,
                 }
             )
-        return rows
+
+        rows.sort(key=lambda r: r["distance"])
+        return rows[:k]
+
+    # Used by production code to map rowid → (session_id, node_id)
+    def query_one(self, sql, params=()):
+        sid, nid = params[0]
+        return {"session_id": sid, "node_id": nid}
+
+
+# ======================================================================
+# TESTS
+# ======================================================================
 
 
 def test_similarity_search_happy_path(monkeypatch):
     """
-    End-to-end-ish unit test for OptimizationClient.handle_similarity_search:
-    - Uses a fake DB with three other embeddings.
-    - Verifies that we get a similarity_search_result with top-k sorted by score.
+    Full simulation of similarity search using dummy embeddings.
+    ANN path must work and return sorted results.
     """
-
-    from aco import optimizations as opt_mod
 
     captured = {}
 
     def fake_send_json(conn, msg):
-        # capture the response the optimization server would send back to the develop server
         captured["msg"] = msg
 
-    # Patch the module-level DB and send_json used inside OptimizationClient
+    # patch in the dummy DB + send_json
     monkeypatch.setattr("aco.optimizations.optimization_server.DB", DummyDB())
     monkeypatch.setattr("aco.optimizations.optimization_server.send_json", fake_send_json)
 
     client = OptimizationClient()
-    client.conn = object()  # just a dummy, not actually used by fake_send_json
+    client.conn = object()
 
     client.handle_similarity_search(
-        {"type": "similarity_search", "session_id": "s1", "node_id": "n1", "k": 3}
+        {
+            "type": "similarity_search",
+            "session_id": "s1",
+            "node_id": "n1",
+            "k": 3,
+        }
     )
 
     msg = captured["msg"]
@@ -82,14 +112,13 @@ def test_similarity_search_happy_path(monkeypatch):
     assert msg["k"] == 3
 
     results = msg["results"]
-    # We should get exactly 3 neighbors back
     assert len(results) == 3
 
-    # Scores should be sorted in descending order
+    # must be sorted by similarity
     scores = [r["score"] for r in results]
     assert scores == sorted(scores, reverse=True)
 
-    # The most similar one should be the identical embedding (fake_session, fake_node)
+    # best match must be the identical embedding
     top = results[0]
     assert top["session_id"] == "fake_session"
     assert top["node_id"] == "fake_node"
@@ -97,11 +126,12 @@ def test_similarity_search_happy_path(monkeypatch):
 
 def test_similarity_search_no_target_embedding(monkeypatch):
     """
-    If there is no embedding for (session_id, node_id), we should get an empty result list.
+    When the target embedding is missing,
+    similarity search returns an empty list.
     """
 
     class EmptyDB(DummyDB):
-        def get_lesson_embedding_query(self, session_id, node_id):
+        def get_lesson_embedding_query(self, s, n):
             return None
 
     captured = {}
@@ -116,10 +146,16 @@ def test_similarity_search_no_target_embedding(monkeypatch):
     client.conn = object()
 
     client.handle_similarity_search(
-        {"type": "similarity_search", "session_id": "s1", "node_id": "n1", "k": 5}
+        {
+            "type": "similarity_search",
+            "session_id": "s1",
+            "node_id": "n1",
+            "k": 5,
+        }
     )
 
     msg = captured["msg"]
+
     assert msg["type"] == "similarity_search_result"
     assert msg["session_id"] == "s1"
     assert msg["node_id"] == "n1"

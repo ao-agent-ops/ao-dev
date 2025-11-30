@@ -14,25 +14,20 @@ from aco.common.constants import HOST, PORT
 from aco.server.database_manager import DB
 
 
-def _text_to_embedding(text: str, dim: int = 64) -> List[float]:
-    """
-    Very lightweight, dependency-free text embedding.
+from openai import OpenAI
 
-    We hash UTF-8 bytes into a fixed-length vector and L2-normalize it.
-    This is a placeholder; a real model can be plugged in later without
-    changing DB schema or call sites.
-    """
-    vec = [0.0] * dim
-    data = text.encode("utf-8", errors="ignore")
-    for i, b in enumerate(data):
-        vec[i % dim] += float(b)
+openai_client = OpenAI()
 
-    # L2 normalize
-    norm_sq = sum(v * v for v in vec)
-    if norm_sq <= 0.0:
-        return vec
-    norm = norm_sq**0.5
-    return [v / norm for v in vec]
+
+def _text_to_embedding(text: str) -> List[float]:
+    """
+    Returns a 1536-dim embedding using OpenAI text-embedding-3-small.
+    """
+    emb = openai_client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+    )
+    return emb.data[0].embedding
 
 
 def _cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -130,29 +125,37 @@ class OptimizationClient:
             target_emb = json.loads(row["embedding"])
 
             # 2. Get all other embeddings
-            rows = DB.get_all_lesson_embeddings_except_query(session_id, node_id)
+            # ANN: find nearest neighbor rowids from lessons_vec
+            # 2. ANN search via vectorlite
+            ann_rows = DB.query_all(
+                """
+                SELECT e.session_id, e.node_id, v.distance
+                FROM lessons_vec AS v
+                JOIN lessons_embeddings AS e ON e.rowid = v.rowid
+                WHERE knn_search(
+                    v.embedding,
+                    knn_param(vector_from_json(?), ?)
+                )
+                ORDER BY v.distance ASC
+                LIMIT ?
+                """,
+                (
+                    json.dumps(target_emb),  # query vector JSON
+                    top_k,  # K
+                    top_k,  # LIMIT
+                ),
+            )
 
-            sims = []
-            for r in rows:
-                try:
-                    other_emb = json.loads(r["embedding"])
-                    sim = _cosine_similarity(target_emb, other_emb)
-                    sims.append(
-                        {
-                            "session_id": r["session_id"],
-                            "node_id": r["node_id"],
-                            "score": sim,
-                        }
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"[OptimizationServer] Error computing similarity for "
-                        f"session {r['session_id']}, node {r['node_id']}: {e}"
-                    )
-
-            # 3. Sort by similarity desc and take top_k
-            sims.sort(key=lambda x: x["score"], reverse=True)
-            results = sims[:top_k]
+            # Convert ANN rows → result format
+            results = [
+                {
+                    "session_id": r["session_id"],
+                    "node_id": r["node_id"],
+                    "score": 1
+                    - r["distance"],  # distance → similarity #TODO: May want to change it in future
+                }
+                for r in ann_rows
+            ]
 
             response = {
                 "type": "similarity_search_result",
