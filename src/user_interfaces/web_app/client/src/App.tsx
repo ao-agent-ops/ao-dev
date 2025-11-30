@@ -129,13 +129,16 @@ function App() {
     if (!authenticated) return;
     
     // Permitir definir la URL del WebSocket por variable de entorno
-    const wsUrl = import.meta.env.VITE_APP_WS_URL || (() => {
+    const baseWsUrl = import.meta.env.VITE_APP_WS_URL || (() => {
       const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsHost = window.location.hostname === "localhost"
         ? "localhost:4000"
         : window.location.host;
       return `${wsProtocol}//${wsHost}/ws`;
     })();
+    
+    // Include user_id in WebSocket URL if available for cleaner handshake authentication
+    const wsUrl = user && user.id ? `${baseWsUrl}?user_id=${encodeURIComponent(user.id)}` : baseWsUrl;
 
     const socket = new WebSocket(wsUrl);
     setWs(socket);
