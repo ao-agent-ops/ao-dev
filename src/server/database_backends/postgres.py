@@ -487,18 +487,11 @@ def get_finished_runs_query():
 def get_all_experiments_sorted_by_user_query(user_id=None):
     assert user_id is not None, "user id None"
     """Get all experiments sorted by timestamp desc, optionally filtered by user_id."""
-    if user_id is None:
-        # Return all experiments if no user_id filter
-        return query_all(
-            "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
-            (),
-        )
-    else:
-        # Filter by user_id
-        return query_all(
-            "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
-            (user_id,),
-        )
+    # Filter by user_id
+    return query_all(
+        "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
+        (user_id,),
+    )
 
 
 def get_experiment_graph_topology_query(session_id):

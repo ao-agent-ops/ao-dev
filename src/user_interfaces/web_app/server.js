@@ -25,19 +25,24 @@ wss.on("connection", (ws, req) => {
   let userId = null;
   try {
     const cookieHeader = req.headers.cookie || "";
+    console.log("🍪 Raw cookie header:", cookieHeader);
     cookieHeader.split(";").forEach((c) => {
       const parts = c.split("=");
       if (parts.length >= 2) {
         const key = parts[0].trim();
         const val = parts.slice(1).join("=").trim();
+        console.log(`🍪 Parsed cookie: ${key} = ${val}`);
         if (key === "user_id") {
           userId = val;
+          console.log(`✅ Found user_id cookie: ${userId}`);
         }
       }
     });
   } catch (e) {
     console.warn("Failed to parse cookies for user_id", e);
   }
+  
+  console.log(`👤 Final userId: ${userId}`);
 
   // connect to Python socket server
   const client = net.createConnection({ host: HOST, port: PORT }, () => {
@@ -47,7 +52,11 @@ wss.on("connection", (ws, req) => {
       // try to convert to integer, otherwise pass as string
       const n = parseInt(userId, 10);
       handshake.user_id = Number.isNaN(n) ? userId : n;
+      console.log(`📤 Sending handshake with user_id: ${handshake.user_id}`);
+    } else {
+      console.log(`📤 Sending handshake WITHOUT user_id`);
     }
+    console.log(`📤 Full handshake: ${JSON.stringify(handshake)}`);
     client.write(JSON.stringify(handshake) + "\n"); // handshake
   });
 

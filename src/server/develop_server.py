@@ -208,6 +208,7 @@ class DevelopServer:
             info = self.conn_info.get(conn)
             if info:
                 user_id = info.get("user_id")
+            logger.info(f"🔍 Broadcasting experiments to single connection - user_id: {user_id}")
             db_experiments = CACHE.get_all_experiments_sorted(user_id)
             build_and_send(conn, db_experiments)
             return
@@ -218,6 +219,7 @@ class DevelopServer:
             info = self.conn_info.get(ui_conn)
             if info:
                 user_id = info.get("user_id")
+            logger.info(f"🔍 Broadcasting experiments to UI connection - user_id: {user_id}")
             db_experiments = CACHE.get_all_experiments_sorted(user_id)
             build_and_send(ui_conn, db_experiments)
 
@@ -787,9 +789,14 @@ class DevelopServer:
                 self.ui_connections.add(conn)
                 # Read user_id from handshake (populated by web proxy from cookie)
                 user_id = handshake.get("user_id") if isinstance(handshake, dict) else None
+                logger.info(f"📨 Received handshake: {handshake}")
+                logger.info(f"👤 Extracted user_id: {user_id} (type: {type(user_id)})")
                 # Store the current authenticated user_id on the server
                 if user_id is not None:
                     self.current_user_id = user_id
+                    logger.info(f"✅ Set current_user_id to: {self.current_user_id}")
+                else:
+                    logger.warning("⚠️ No user_id in handshake - user not authenticated")
                 # Send session_id and config_path to this UI connection (None for UI)
                 self.conn_info[conn] = {"role": role, "session_id": None, "user_id": user_id}
                 send_json(
