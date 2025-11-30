@@ -144,6 +144,8 @@ function App() {
     socket.onopen = () => {
       console.log("Connected to backend");
       // No need to send separate auth message - user_id is already in handshake
+      // Request the experiment list after connecting
+      socket.send(JSON.stringify({ type: "get_all_experiments" }));
     };
 
     socket.onmessage = (event: MessageEvent) => {

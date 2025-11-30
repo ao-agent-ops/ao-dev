@@ -136,7 +136,7 @@ def _init_db(conn):
             success TEXT CHECK (success IN ('', 'Satisfactory', 'Failed')),
             notes TEXT,
             log TEXT,
-            user_id TEXT,
+            user_id INTEGER,
             FOREIGN KEY (parent_session_id) REFERENCES experiments (session_id),
             UNIQUE (parent_session_id, name)
         )

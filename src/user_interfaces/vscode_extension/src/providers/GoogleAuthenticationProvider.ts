@@ -83,12 +83,17 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
 
             const { user, accessToken } = await tokenResp.json();
 
-            // Step 4: Create session with user picture
+            // Ensure we have a database user ID
+            if (!user.id) {
+                throw new Error('Auth server did not return a database user ID');
+            }
+
+            // Step 4: Create session with user picture - always use database ID, not Google ID
             const session: vscode.AuthenticationSession = {
-                id: String(user.id || user.google_id),
+                id: String(user.id),
                 accessToken: accessToken,
                 account: {
-                    id: String(user.id || user.google_id),
+                    id: String(user.id),
                     label: user.email,
                     picture: user.picture // Include Google profile picture
                 } as any, // Use 'as any' to extend the Account interface

@@ -456,6 +456,7 @@ class DevelopServer:
         try:
             user_id = msg.get("user_id")
             # Store the current authenticated user_id on the server
+            logger.debug(f"self {self.current_user_id}, set {user_id}")
             self.current_user_id = user_id
             info = self.conn_info.get(conn)
             if info is None:
@@ -740,6 +741,7 @@ class DevelopServer:
                     environment = handshake.get("environment")
                     timestamp = datetime.now()
                     name = handshake.get("name")
+                    logger.debug(f"before add_exp {self.current_user_id}")
                     EDIT.add_experiment(
                         session_id,
                         name,
