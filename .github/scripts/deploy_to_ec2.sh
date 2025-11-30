@@ -28,6 +28,16 @@ cat > docker-compose.prod.yml <<'YML'
 version: '3.8'
 
 services:
+  frontend:
+    image: ${ECR_REGISTRY}/workflow-extension-frontend:latest
+    container_name: workflow-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    networks:
+      - app-network
+
   backend:
     image: ${ECR_REGISTRY}/workflow-extension-backend:latest
     container_name: workflow-backend
@@ -116,6 +126,8 @@ docker stop $(docker ps -q) 2>/dev/null || true
 
 docker container prune -f || true
 
+sudo fuser -k 80/tcp 2>/dev/null || true
+sudo fuser -k 443/tcp 2>/dev/null || true
 sudo fuser -k 5959/tcp 2>/dev/null || true
 sudo fuser -k 4000/tcp 2>/dev/null || true
 sleep 2
@@ -124,7 +136,7 @@ docker-compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphan
 
 docker image prune -f
 
-echo "✅ Backend and Proxy deployed on EC2."
+echo "✅ Frontend, Backend, and Proxy deployed on EC2."
 REMOTE
 
 # Cleanup
