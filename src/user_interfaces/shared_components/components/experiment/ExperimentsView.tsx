@@ -117,7 +117,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   };
 
   const footerStyle: React.CSSProperties = {
-    position: 'absolute',
+    position: 'fixed',
     left: 0,
     right: 0,
     bottom: 0,
