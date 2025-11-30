@@ -11,7 +11,7 @@ import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
 
-from common.utils import MODULE2FILE
+from aco.common.utils import MODULE2FILE
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
 from aco.server.database_manager import DB
