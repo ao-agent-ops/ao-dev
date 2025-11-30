@@ -5,6 +5,12 @@ ARG VITE_APP_WS_URL
 ENV VITE_APP_WS_URL=$VITE_APP_WS_URL
 ARG VITE_API_BASE
 ENV VITE_API_BASE=$VITE_API_BASE
+
+# Debug: Show what environment variables we actually have
+RUN echo "🔍 Build-time environment variables:" && \
+    echo "VITE_APP_WS_URL=$VITE_APP_WS_URL" && \
+    echo "VITE_API_BASE=$VITE_API_BASE"
+
 WORKDIR /app
 COPY src/user_interfaces/ /app/
 WORKDIR /app/web_app/client

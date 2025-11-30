@@ -224,27 +224,40 @@ function App() {
   // On app mount check session (useful after OAuth redirect)
   // Fetch session and set user+authenticated state
   const checkSession = async () => {
+    console.log('🔍 checkSession starting, API_BASE:', API_BASE);
     setCheckingSession(true);
     try {
-      const resp = await fetch(`${API_BASE}/auth/session`, { credentials: 'include' });
+      const sessionUrl = `${API_BASE}/auth/session`;
+      console.log('📡 Fetching session from:', sessionUrl);
+      const resp = await fetch(sessionUrl, { credentials: 'include' });
+      console.log('📡 Session response status:', resp.status, 'ok:', resp.ok);
+      
       if (!resp.ok) {
+        console.log('❌ Response not OK, setting authenticated=false');
         setAuthenticated(false);
         setUser(null);
         return;
       }
+      
       const data = await resp.json();
+      console.log('📋 Session data received:', data);
+      console.log('📋 Has user?', !!(data && data.user));
+      
       if (data && data.user) {
+        console.log('✅ Setting authenticated=true, user:', data.user);
         setAuthenticated(true);
         setUser(data.user);
       } else {
+        console.log('❌ No user in data, setting authenticated=false');
         setAuthenticated(false);
         setUser(null);
       }
     } catch (err) {
-      console.error('Failed to check session', err);
+      console.error('❌ Failed to check session', err);
       setAuthenticated(false);
       setUser(null);
     } finally {
+      console.log('🏁 checkSession finished, calling setCheckingSession(false)');
       setCheckingSession(false);
     }
   };
