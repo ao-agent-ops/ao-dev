@@ -107,8 +107,8 @@ export const App: React.FC = () => {
   // Use experiments in the order sent by server (already sorted by name ascending)
   const sortedProcesses = processes;
   
-  // const similarExperiments = sortedProcesses.filter(p => p.status === 'similar');
-  const similarExperiments = sortedProcesses[0];
+  // Filter experiments by status - now includes real similarity search results
+  const similarExperiments = sortedProcesses.filter(p => p.status === 'similar');
   const runningExperiments = sortedProcesses.filter(p => p.status === 'running');
   const finishedExperiments = sortedProcesses.filter(p => p.status === 'finished');
 
@@ -126,7 +126,7 @@ export const App: React.FC = () => {
       {/* The Experiments header and dropdown are now handled by ExperimentsView when showHeader=true */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         <ExperimentsView
-          similarProcesses={similarExperiments ? [similarExperiments] : []}
+          similarProcesses={similarExperiments}
           runningProcesses={runningExperiments}
           finishedProcesses={finishedExperiments}
           onCardClick={handleExperimentCardClick}

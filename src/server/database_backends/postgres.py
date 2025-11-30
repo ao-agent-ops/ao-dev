@@ -518,3 +518,19 @@ def delete_all_llm_calls_query():
 def get_session_name_query(session_id):
     """Get session name by session_id."""
     return query_one("SELECT name FROM experiments WHERE session_id=%s", (session_id,))
+
+
+def nearest_neighbors_query(target_embedding_json: str, top_k: int):
+    """
+    Find the k nearest neighbors to the target embedding using vector search.
+    
+    NOTE: PostgreSQL/pgvector implementation not yet implemented.
+    
+    Args:
+        target_embedding_json: JSON string representation of the target embedding
+        top_k: Number of nearest neighbors to return
+        
+    Returns:
+        Empty list (placeholder implementation)
+    """
+    return []

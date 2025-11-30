@@ -11,7 +11,7 @@ import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
 
-from common.utils import MODULE2FILE
+from aco.common.utils import MODULE2FILE
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
 from aco.server.database_manager import DB
@@ -55,6 +55,7 @@ class DevelopServer:
         self.file_watcher_process = None  # Child process for file watching
         self.optimization_process = None  # Child process for optimization server
         self.optimization_conn = None  # Connection from optimization server
+        self.similar_sessions = {}  # session_id -> list of similar session_ids
 
     # ============================================================
     # File Watcher Management
@@ -205,8 +206,13 @@ class DevelopServer:
                 }
             )
 
-    def broadcast_experiment_list_to_uis(self, conn=None) -> None:
-        """Only broadcast to one UI (conn) or, if conn is None, to all."""
+    def broadcast_experiment_list_to_uis(self, conn=None, target_session=None) -> None:
+        """Only broadcast to one UI (conn) or, if conn is None, to all.
+        
+        Args:
+            conn: Specific connection to send to
+            target_session: If provided, include similarity info for this session
+        """
         # Get all experiments from database (already sorted by name ASC)
         db_experiments = CACHE.get_all_experiments_sorted()
 
@@ -214,12 +220,19 @@ class DevelopServer:
         session_map = {session.session_id: session for session in self.sessions.values()}
 
         experiment_list = []
+        similar_session_ids = self.similar_sessions.get(target_session, []) if target_session else []
+        
         for row in db_experiments:
             session_id = row["session_id"]
             session = session_map.get(session_id)
 
-            # Get status from in-memory session, or default to "finished"
-            status = session.status if session else "finished"
+            # Determine status: similar, running, or finished
+            if session_id in similar_session_ids:
+                status = "similar"
+            elif session and session.status == "running":
+                status = "running"
+            else:
+                status = "finished"
 
             # Get data from DB entries.
             timestamp = row["timestamp"]
@@ -251,7 +264,11 @@ class DevelopServer:
                 }
             )
 
-        msg = {"type": "experiment_list", "experiments": experiment_list}
+        msg = {
+            "type": "experiment_list", 
+            "experiments": experiment_list,
+            "target_session": target_session  # Include which session triggered similarity search
+        }
         if conn:
             send_json(conn, msg)
         else:
@@ -343,12 +360,27 @@ class DevelopServer:
         """Add a node to a specific session's graph"""
         # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
+        node_is_new = True
         for n in graph["nodes"]:
             if n["id"] == node["id"]:
+                node_is_new = False
                 break
         else:
             graph["nodes"].append(node)
             logger.info(f"[DevelopServer] Added node {node['id']} to session {sid}")
+        
+        # Send node to optimization server for embedding generation (only for new nodes)
+        if node_is_new and self.optimization_conn and node.get("input"):
+            try:
+                send_json(self.optimization_conn, {
+                    "type": "add_node",
+                    "session_id": sid,
+                    "node_id": node["id"],
+                    "input_str": str(node["input"])  # Convert input to string for embedding
+                })
+                logger.debug(f"[DevelopServer] Sent node {node['id']} to optimization server for embedding")
+            except Exception as e:
+                logger.error(f"[DevelopServer] Failed to send node to optimization server: {e}")
 
         # Add incoming edges (only if source nodes exist in the graph)
         existing_node_ids = {n["id"] for n in graph["nodes"]}
@@ -482,6 +514,23 @@ class DevelopServer:
         session_id = msg["session_id"]
 
         self.handle_graph_request(conn, session_id)
+        
+        # Trigger similarity search if optimization server is connected
+        if self.optimization_conn and session_id in self.session_graphs:
+            nodes = self.session_graphs[session_id].get("nodes", [])
+            if nodes:
+                # Use the first node as representative for the experiment
+                representative_node = nodes[0]
+                logger.debug(f"[DevelopServer] Triggering similarity search for session {session_id}")
+                try:
+                    send_json(self.optimization_conn, {
+                        "type": "similarity_search",
+                        "session_id": session_id,
+                        "node_id": representative_node["id"],
+                        "k": 5  # Get top 5 similar experiments
+                    })
+                except Exception as e:
+                    logger.error(f"[DevelopServer] Failed to trigger similarity search: {e}")
 
     def handle_get_all_experiments(self, conn: socket.socket) -> None:
         """Handle request to refresh the experiment list (e.g., when VS Code window regains focus)."""
@@ -653,18 +702,26 @@ class DevelopServer:
     # Handlers for optimization server responses
     def handle_similarity_search_result(self, msg: dict) -> None:
         """Handle similarity search results from optimization server."""
-        # TODO: Expect list of session_ids.
-        # Send new experiment list to UI, where we populate the "Similar" list
-        # with these session ids. 
-        # Also see "get_all_experiments"
-
         session_id = msg.get("session_id")
         results = msg.get("results", [])
+        
+        # Extract similar session IDs from results
+        similar_session_ids = []
+        for result in results:
+            result_session_id = result.get("session_id")
+            # Don't include the queried session itself in similar results
+            if result_session_id and result_session_id != session_id:
+                similar_session_ids.append(result_session_id)
+        
+        # Store similarity results
+        self.similar_sessions[session_id] = similar_session_ids[:5]  # Keep top 5
+        
         logger.info(
-            f"[DevelopServer] Similarity search results for session {session_id}: {len(results)} matches"
+            f"[DevelopServer] Similarity search results for session {session_id}: {len(similar_session_ids)} similar sessions"
         )
-        # Broadcast results to UIs
-        self.broadcast_to_all_uis(msg)
+        
+        # Broadcast updated experiment list with similarity info
+        self.broadcast_experiment_list_to_uis(target_session=session_id)
 
     def handle_cluster_result(self, msg: dict) -> None:
         """Handle clustering results from optimization server."""

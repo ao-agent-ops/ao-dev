@@ -344,6 +344,22 @@ class DatabaseManager:
             )
         return backend.get_all_lesson_embeddings_except_query(session_id, node_id)
 
+    def nearest_neighbors_query(self, target_embedding_json: str, top_k: int):
+        """
+        Find the k nearest neighbors to the target embedding using vector search.
+        
+        Args:
+            target_embedding_json: JSON string representation of the target embedding
+            top_k: Number of nearest neighbors to return
+            
+        Returns:
+            List of rows with columns: session_id, node_id, distance
+        """
+        backend = self._get_backend_module()
+        if not hasattr(backend, "nearest_neighbors_query"):
+            raise NotImplementedError("nearest_neighbors_query not implemented for this backend")
+        return backend.nearest_neighbors_query(target_embedding_json, top_k)
+
 
 # Create singleton instance following the established pattern
 DB = DatabaseManager()

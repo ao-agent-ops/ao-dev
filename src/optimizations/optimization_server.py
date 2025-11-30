@@ -30,11 +30,6 @@ def _text_to_embedding(text: str) -> List[float]:
     return emb.data[0].embedding
 
 
-def _cosine_similarity(a: List[float], b: List[float]) -> float:
-    """Cosine similarity between two same-length vectors."""
-    return sum(x * y for x, y in zip(a, b))
-
-
 def send_json(conn: socket.socket, msg: dict) -> None:
     """Send a JSON message over a socket connection."""
     try:
@@ -88,6 +83,7 @@ class OptimizationClient:
                 f"session {session_id}, node {node_id}: {e}"
             )
 
+
     def handle_similarity_search(self, msg: dict) -> None:
         """
         Given (session_id, node_id) return the k most similar [(session_id, node_id)].
@@ -96,90 +92,56 @@ class OptimizationClient:
         node_id = msg.get("node_id")  # compute sim to this node_id
         top_k = msg.get("k", 10)  # how many similar nodes to fetch
 
-        if not session_id or not node_id:
-            logger.error(
-                f"[OptimizationServer] similarity_search: missing session_id/node_id: {msg}"
-            )
-            return
-
-        logger.debug(
-            f"[OptimizationServer] Similarity search for session {session_id}, node {node_id}"
-        )
-
         try:
             # 1. Get target embedding
             row = DB.get_lesson_embedding_query(session_id, node_id)
-            if not row or not row["embedding"]:
-                logger.warning(
-                    f"[OptimizationServer] No embedding found for session {session_id}, node {node_id}"
-                )
-                response = {
-                    "type": "similarity_search_result",
-                    "session_id": session_id,
-                    "node_id": node_id,
-                    "results": [],
-                }
-                send_json(self.conn, response)
-                return
-
+            assert row and row["embedding"], "Node embedding not present in DB"
             target_emb = json.loads(row["embedding"])
 
-            # 2. Get all other embeddings
-            # ANN: find nearest neighbor rowids from lessons_vec
-            # 2. ANN search via vectorlite
-            ann_rows = DB.query_all(
-                """
-                SELECT e.session_id, e.node_id, v.distance
-                FROM lessons_vec AS v
-                JOIN lessons_embeddings AS e ON e.rowid = v.rowid
-                WHERE knn_search(
-                    v.embedding,
-                    knn_param(vector_from_json(?), ?)
-                )
-                ORDER BY v.distance ASC
-                LIMIT ?
-                """,
-                (
-                    json.dumps(target_emb),  # query vector JSON
-                    top_k,  # K
-                    top_k,  # LIMIT
-                ),
+            # 2. Get closest vectors using the database backend
+            knn_rows = DB.nearest_neighbors_query(
+                json.dumps(target_emb),
+                top_k
             )
 
-            # Convert ANN rows → result format
+            # Convert to result format and return
             results = [
                 {
                     "session_id": r["session_id"],
                     "node_id": r["node_id"],
-                    "score": 1
-                    - r["distance"],  # distance → similarity #TODO: May want to change it in future
                 }
-                for r in ann_rows
+                for r in knn_rows
             ]
 
             response = {
                 "type": "similarity_search_result",
                 "session_id": session_id,
                 "node_id": node_id,
-                "k": top_k,
                 "results": results,
             }
 
             send_json(self.conn, response)
 
         except Exception as e:
-            logger.error(
-                f"[OptimizationServer] Failed similarity search for session {session_id}, "
-                f"node {node_id}: {e}"
-            )
+            logger.error(f"[SimSearch] Search failed: {e}")
+            response = {
+                "type": "similarity_search_result",
+                "session_id": session_id,
+                "node_id": node_id,
+                "results": [],
+            }
+            send_json(self.conn, response)
+
 
     def handle_cluster_nodes(self, msg: dict) -> None:
-        """Placeholder for future clustering logic."""
-        logger.warning("[OptimizationServer] handle_cluster_nodes is not implemented yet")
-
+        """Handle clustering request (not yet implemented)."""
+        logger.info("[OptimizationServer] Clustering request received (not implemented)")
+        # TODO: Implement clustering functionality
+        
     def handle_optimize_graph(self, msg: dict) -> None:
-        """Placeholder for future graph optimization logic."""
-        logger.warning("[OptimizationServer] handle_optimize_graph is not implemented yet")
+        """Handle graph optimization request (not yet implemented)."""
+        logger.info("[OptimizationServer] Graph optimization request received (not implemented)")
+        # TODO: Implement graph optimization functionality
 
     def handle_shutdown(self, msg: dict) -> None:
         """Handle shutdown command from develop server."""
@@ -201,6 +163,7 @@ class OptimizationClient:
         logger.debug(f"[OptimizationServer] Processing message type: {msg_type}")
 
         handlers = {
+            "add_node": self.handle_add_node,
             "similarity_search": self.handle_similarity_search,
             "cluster_nodes": self.handle_cluster_nodes,
             "optimize_graph": self.handle_optimize_graph,

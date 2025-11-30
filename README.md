@@ -71,6 +71,8 @@ Some Python linters will (incorrectly) say that the modules inside our code base
 ln -s src aco
 ```
 
+(Don't worry, this symlink won't mess with coding agents and they will ignore it)
+
 ### Server commands and log
 To manually start and stop our server. Just do:
 

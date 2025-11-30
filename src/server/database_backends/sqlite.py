@@ -512,3 +512,29 @@ def get_all_lesson_embeddings_except_query(session_id: str, node_id: str):
         """,
         (session_id, node_id),
     )
+
+
+def nearest_neighbors_query(target_embedding_json: str, top_k: int):
+    """
+    Find the k nearest neighbors to the target embedding using vectorlite ANN search.
+    
+    Args:
+        target_embedding_json: JSON string representation of the target embedding
+        top_k: Number of nearest neighbors to return
+        
+    Returns:
+        List of rows with columns: session_id, node_id, distance
+    """
+    return query_all(
+        """
+        SELECT e.session_id, e.node_id, v.distance
+        FROM lessons_vec AS v
+        JOIN lessons_embeddings AS e ON e.rowid = v.rowid
+        WHERE knn_search(
+            v.embedding,
+            knn_param(vector_from_json(?), ?)
+        )
+        ORDER BY v.distance ASC
+        """,
+        (target_embedding_json, top_k),
+    )

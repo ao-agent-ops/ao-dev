@@ -277,7 +277,8 @@ function App() {
 
   const sortedExperiments = experiments;
 
-  const similarExperiments = sortedExperiments[0];
+  // Filter experiments by status - now includes real similarity search results
+  const similarExperiments = sortedExperiments.filter((e) => e.status === "similar");
   const running = sortedExperiments.filter((e) => e.status === "running");
   const finished = sortedExperiments.filter((e) => e.status === "finished");
 
@@ -289,7 +290,7 @@ function App() {
     <div className={`app-container ${isDarkTheme ? 'dark' : ''}`}>
       <div className="sidebar" style={{ width: `${sidebarWidth}px` }}>
         <ExperimentsView
-          similarProcesses={similarExperiments ? [similarExperiments] : []}
+          similarProcesses={similarExperiments}
           runningProcesses={running}
           finishedProcesses={finished}
           onCardClick={handleExperimentClick}
