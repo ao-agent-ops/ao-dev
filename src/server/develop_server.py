@@ -451,6 +451,21 @@ class DevelopServer:
         """Handle request to refresh the experiment list (e.g., when VS Code window regains focus)."""
         self.broadcast_experiment_list_to_uis(conn)
 
+    def handle_auth(self, msg: dict, conn: socket.socket) -> None:
+        """Handle auth messages from UI clients: attach user_id to connection and store current user."""
+        try:
+            user_id = msg.get("user_id")
+            # Store the current authenticated user_id on the server
+            self.current_user_id = user_id
+            info = self.conn_info.get(conn)
+            if info is None:
+                self.conn_info[conn] = {"role": "ui", "session_id": None, "user_id": user_id}
+            else:
+                info["user_id"] = user_id
+            # Send filtered list to this connection
+            self.broadcast_experiment_list_to_uis(conn)
+        except Exception as e:
+            logger.error(f"Error handling auth message: {e}")
 
     def handle_add_subrun(self, msg: dict, conn: socket.socket) -> None:
         # If rerun, use previous session_id. Else, assign new one.
@@ -656,7 +671,9 @@ class DevelopServer:
         log_server_message(msg, self.session_graphs)
 
         msg_type = msg.get("type")
-        if msg_type == "shutdown":
+        if msg_type == "auth":
+            self.handle_auth(msg, conn)
+        elif msg_type == "shutdown":
             self.handle_shutdown()
         elif msg_type == "restart":
             self.handle_restart_message(msg)
