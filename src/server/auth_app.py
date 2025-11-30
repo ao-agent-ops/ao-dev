@@ -115,15 +115,18 @@ def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = 
         domain = None
         if "localhost" in str(request.url):
             domain = "localhost"  # This makes cookie available to all localhost ports
+        elif "agops-project.com" in str(request.url):
+            # For production, set cookie for the main domain (works for all subdomains)
+            domain = ".agops-project.com"
         
         response.set_cookie(
             "user_id",
             str(uid),
             httponly=True,
-            samesite="none" if secure_flag else "lax",  # Use 'none' for cross-site if secure
+            samesite="lax",  # Use 'lax' for same-site requests (more secure)
             secure=secure_flag,
             path="/",  # Make cookie available on all paths
-            domain=domain,  # Set domain for cross-port access on localhost
+            domain=domain,  # Set domain for proper scope
         )
     except Exception:
         # If conversion fails, ignore cookie set
