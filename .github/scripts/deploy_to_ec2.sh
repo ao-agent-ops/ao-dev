@@ -106,8 +106,11 @@ ENV
 TMPDIR=$(mktemp -d)
 cp docker-compose.prod.yml .env "$TMPDIR/"
 
+# Copy nginx config from repository
+cp docker/host-nginx-agops-project.conf "$TMPDIR/"
+
 # Copy files to EC2
-scp -o StrictHostKeyChecking=no -i "$KEYFILE" "$TMPDIR/docker-compose.prod.yml" "$TMPDIR/.env" ${EC2_USER}@${EC2_HOST}:~/workflow-extension/
+scp -o StrictHostKeyChecking=no -i "$KEYFILE" "$TMPDIR/docker-compose.prod.yml" "$TMPDIR/.env" "$TMPDIR/host-nginx-agops-project.conf" ${EC2_USER}@${EC2_HOST}:~/workflow-extension/
 
 # Execute remote deploy commands (source .env on remote to export variables)
 ssh -o StrictHostKeyChecking=no -i "$KEYFILE" ${EC2_USER}@${EC2_HOST} <<'REMOTE'
@@ -137,11 +140,19 @@ sudo fuser -k 5959/tcp 2>/dev/null || true
 sudo fuser -k 4000/tcp 2>/dev/null || true
 sleep 2
 
+# Update host nginx configuration
+sudo cp host-nginx-agops-project.conf /etc/nginx/conf.d/agops-project.conf
+sudo nginx -t
+
 docker-compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
 docker image prune -f
 
-echo "✅ Frontend, Backend, and Proxy deployed on EC2."
+# Restart host nginx to pick up config changes and ensure it's running
+sudo systemctl restart nginx
+sudo systemctl status nginx --no-pager
+
+echo "✅ Frontend, Backend, Proxy deployed and host nginx restarted on EC2."
 REMOTE
 
 # Cleanup
