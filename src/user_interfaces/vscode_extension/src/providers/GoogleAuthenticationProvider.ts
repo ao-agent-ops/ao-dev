@@ -22,7 +22,7 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
 
     constructor(private readonly context: vscode.ExtensionContext) {
         // Point to EC2 auth server (using HTTPS)
-        this.AUTH_BASE_URL = 'https://agops-project.com:5958';
+        this.AUTH_BASE_URL = 'http://agops-project.com:5958';
         
         this._disposable = vscode.authentication.registerAuthenticationProvider(
             GoogleAuthenticationProvider.AUTH_TYPE,
