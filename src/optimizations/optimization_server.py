@@ -8,46 +8,17 @@ optimization-related operations like similarity search.
 import socket
 import json
 import time
-import logging
 import os
 import signal
 from typing import Optional, List
 
-from aco.common.constants import ACO_OPT_LOG_PATH
-from aco.common.constants import HOST, PORT
+from aco.common.logger import setup_file_logger
+from aco.common.constants import OPT_SERVER_LOG_PATH, HOST, PORT
 from aco.server.database_manager import DB
 
 
-def setup_optimization_logger():
-    """Set up a separate logger for the optimization server."""
-    logger = logging.getLogger("OptimizationServer")
-
-    # Clear any existing handlers
-    if logger.handlers:
-        logger.handlers.clear()
-
-    logger.setLevel(logging.DEBUG)
-
-    # Create file handler for optimization_server.log
-    file_handler = logging.FileHandler(ACO_OPT_LOG_PATH, mode="a")
-
-    # Create console handler as well
-    console_handler = logging.StreamHandler()
-
-    # Create formatter
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # Add handlers
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
-
-
 # Set up the optimization server logger
-logger = setup_optimization_logger()
+logger = setup_file_logger("OptimizationServer", OPT_SERVER_LOG_PATH)
 
 
 from openai import OpenAI
@@ -322,7 +293,6 @@ class OptimizationClient:
 def main():
     """Main entry point for the optimization server."""
     logger.info("[OptimizationServer] Starting optimization server process...")
-    logger.info(f"[OptimizationServer] Logs will be written to ~/.cache/agent-copilot/logs/opt_server.log")
     client = OptimizationClient()
     try:
         client.run()

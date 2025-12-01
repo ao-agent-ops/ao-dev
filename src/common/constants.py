@@ -111,15 +111,15 @@ default_log_path = os.path.join(ACO_HOME, "logs")
 log_dir = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_LOG_PATH",
+            "BACKEND_SERVER_LOG_PATH",
             default_log_path,
         )
     )
 )
 os.makedirs(log_dir, exist_ok=True)
-ACO_LOG_PATH = os.path.join(log_dir, "server.log")
-ACO_OPT_LOG_PATH = os.path.join(log_dir, "opt_server.log")
-ACO_FW_LOG_PATH = os.path.join(log_dir, "file_watcher.log")
+BACKEND_SERVER_LOG_PATH = os.path.join(log_dir, "backend_server.log")
+OPT_SERVER_LOG_PATH = os.path.join(log_dir, "opt_server.log")
+FILE_WATCHER_LOG_PATH = os.path.join(log_dir, "file_watcher.log")
 
 default_attachment_cache = os.path.join(ACO_CACHE, "attachments")
 ACO_ATTACHMENT_CACHE = os.path.expandvars(

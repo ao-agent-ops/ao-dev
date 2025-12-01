@@ -21,7 +21,7 @@ sys.path.insert(0, str(parent_dir))
 
 from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
-from aco.common.constants import ACO_LOG_PATH, REMOTE_DATABASE_URL
+from aco.common.constants import BACKEND_SERVER_LOG_PATH, REMOTE_DATABASE_URL
 from aco.server.cache_manager import CACHE
 from tests.utils import restart_server
 from tests.get_api_objects import (
@@ -34,7 +34,7 @@ from tests.get_api_objects import (
 
 def print_server_logs():
     """Print recent server logs for debugging."""
-    log_file = ACO_LOG_PATH
+    log_file = BACKEND_SERVER_LOG_PATH
     print(f"Looking for server logs at: {log_file}")
     if os.path.exists(log_file):
         try:
@@ -262,7 +262,7 @@ def test_api_calls(
     print(f"Environment info:")
     print(f"  Current working directory: {os.getcwd()}")
     print(f"  Python path: {sys.executable}")
-    print(f"  ACO_LOG_PATH: {ACO_LOG_PATH}")
+    print(f"  BACKEND_SERVER_LOG_PATH: {BACKEND_SERVER_LOG_PATH}")
     print(f"  HOME: {os.environ.get('HOME', 'Not set')}")
     print(f"  User: {os.environ.get('USER', 'Not set')}")
     print(f"  CI: {os.environ.get('CI', 'Not set')}")

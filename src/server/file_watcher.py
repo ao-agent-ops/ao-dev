@@ -17,43 +17,14 @@ import os
 import sys
 import time
 import signal
-import logging
 from typing import Dict
-from aco.common.constants import ACO_FW_LOG_PATH
-from aco.common.constants import FILE_POLL_INTERVAL
+from aco.common.logger import setup_file_logger
+from aco.common.constants import FILE_WATCHER_LOG_PATH, FILE_POLL_INTERVAL
 from aco.server.ast_transformer import rewrite_source_to_code
 
 
-def setup_file_watcher_logger():
-    """Set up a separate logger for the file watcher."""
-    logger = logging.getLogger("FileWatcher")
-
-    # Clear any existing handlers
-    if logger.handlers:
-        logger.handlers.clear()
-
-    logger.setLevel(logging.DEBUG)
-
-    # Create file handler for file_watcher.log
-    file_handler = logging.FileHandler(ACO_FW_LOG_PATH, mode="a")
-
-    # Create console handler as well
-    console_handler = logging.StreamHandler()
-
-    # Create formatter
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # Add handlers
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-
-    return logger
-
-
 # Set up the file watcher logger
-logger = setup_file_watcher_logger()
+logger = setup_file_logger("FileWatcher", FILE_WATCHER_LOG_PATH)
 
 
 class FileWatcher:

@@ -83,7 +83,11 @@ If you make changes to the server code, you can also do `aco-server restart` so 
 
 If the server isn't running already, it will automatically be started upon running `aco-launch`.
 
-If you want to print the server logs, do `aco-server logs`. The server logs can be found in `~/.cache/agent-copilot/logs/server.log`.
+If you want to print the server logs:
+
+ - `aco-server logs` prints the logs of the develop server. The server logs can be found in `~/.cache/agent-copilot/logs/backend_server.log`.
+ - `aco-server opt-logs` prints the logs of the optimization server. The optimization server logs can be found in `~/.cache/agent-copilot/logs/opt_server.log`.
+ - `aco-server fw-logs` prints the logs of the file watcher. The file watcher logs can be found in `~/.cache/agent-copilot/logs/file_watcher.log`.
 
 ### Architecture
 

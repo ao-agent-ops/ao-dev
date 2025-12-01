@@ -15,8 +15,8 @@ from aco.common.utils import MODULE2FILE
 from aco.server.edit_manager import EDIT
 from aco.server.cache_manager import CACHE
 from aco.server.database_manager import DB
-from aco.common.logger import logger
-from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
+from aco.common.logger import setup_file_logger
+from aco.common.constants import ACO_CONFIG, BACKEND_SERVER_LOG_PATH, HOST, PORT
 from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
 from aco.server.file_watcher import run_file_watcher_process
 
@@ -38,6 +38,10 @@ class Session:
         self.shim_conn: Optional[socket.socket] = None
         self.status = "running"
         self.lock = threading.Lock()
+
+
+# Set up the develop server logger
+logger = setup_file_logger("DevelopServer", BACKEND_SERVER_LOG_PATH)
 
 
 class DevelopServer:
@@ -1088,14 +1092,6 @@ class DevelopServer:
 
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
-        # Clear the log file on server startup
-        try:
-            with open(ACO_LOG_PATH, "w") as f:
-                pass  # Just truncate the file
-            logger.debug("Server log file cleared on startup")
-        except Exception as e:
-            logger.warning(f"Could not clear log file on startup: {e}")
-
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
