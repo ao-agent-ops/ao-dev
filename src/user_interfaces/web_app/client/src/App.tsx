@@ -162,7 +162,17 @@ function App() {
       switch (msg.type) {
         case "experiment_list":
           if (msg.experiments) {
-            setExperiments(msg.experiments);
+            const updatedExperiments = msg.experiments;
+            setExperiments(updatedExperiments);
+            // Update selectedExperiment if it matches one in the updated list
+            // This ensures metadata edits are reflected in the UI
+            setSelectedExperiment((current) => {
+              if (!current) return null;
+              const updated = updatedExperiments.find(
+                (exp: ProcessInfo) => exp.session_id === current.session_id
+              );
+              return updated || current;
+            });
           }
           break;
 
