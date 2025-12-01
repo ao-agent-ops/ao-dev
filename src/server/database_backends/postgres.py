@@ -103,7 +103,7 @@ def close_all_connections():
 def _init_db(conn):
     """Initialize database schema (create tables if not exist)"""
     c = conn.cursor()
-    
+
     # Create users table
     c.execute(
         """
@@ -118,7 +118,7 @@ def _init_db(conn):
         )
     """
     )
-    
+
     # Create experiments table
     c.execute(
         """
@@ -179,7 +179,34 @@ def _init_db(conn):
     """
     )
 
-    # TODO(Mahit): Add lessons table to schema
+    # ----------- LESSONS TABLE + PGVECTOR -----------
+    # Install pgvector extension
+    c.execute("CREATE EXTENSION IF NOT EXISTS vector")
+
+    # Create lessons embeddings table
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lessons_embeddings (
+            session_id TEXT,
+            node_id TEXT,
+            embedding_json TEXT,
+            embedding_vec vector(1536),
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (session_id, node_id)
+        )
+    """
+    )
+
+    # Index for vector search (IVFFLAT)
+    # NOTE: Requires a large table before usable, but harmless now
+    c.execute(
+        """
+        CREATE INDEX IF NOT EXISTS lessons_embeddings_vec_idx
+        ON lessons_embeddings
+        USING ivfflat (embedding_vec vector_cosine_ops)
+        WITH (lists = 100);
+    """
+    )
 
     # Create indexes
     c.execute(
@@ -548,36 +575,77 @@ def get_session_name_query(session_id):
 
 
 def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str, user_id: int):
-    # TODO(Mahit)
-    return
+    """
+    Insert or upsert an embedding into Postgres.
+    We store both the raw JSON and the pgvector form.
+    """
+
+    emb_list = json.loads(embedding_json)
+    vector_literal = f"[{', '.join(str(x) for x in emb_list)}]"
+
+    execute(
+        """
+        INSERT INTO lessons_embeddings (session_id, node_id, embedding_json, embedding_vec, user_id)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (session_id, node_id)
+        DO UPDATE SET 
+            embedding_json = EXCLUDED.embedding_json,
+            embedding_vec = EXCLUDED.embedding_vec,
+            user_id = EXCLUDED.user_id
+        """,
+        (session_id, node_id, embedding_json, vector_literal, user_id),
+    )
 
 
 def get_lesson_embedding_query(session_id: str, node_id: str):
     """
     Fetch the embedding row for a specific (session_id, node_id).
-    
+
     Returns a sqlite3.Row with columns: session_id, node_id, embedding
     or None if not found.
     """
-    # TODO(Mahit)
-    return None
+    return query_one(
+        """
+        SELECT
+            session_id,
+            node_id,
+            embedding_json AS embedding,
+            user_id
+        FROM lessons_embeddings
+        WHERE session_id = %s AND node_id = %s
+        """,
+        (session_id, node_id),
+    )
 
 
 def nearest_neighbors_query(target_embedding_json: str, top_k: int, user_id: int):
     """
     Find the k nearest neighbors to the target embedding using vector search.
-    
-    NOTE: PostgreSQL/pgvector implementation not yet implemented.
-    
+
     Args:
         target_embedding_json: JSON string representation of the target embedding
         top_k: Number of nearest neighbors to return
-        
+
     Returns:
         Empty list (placeholder implementation)
     """
-    # TODO(Mahit)
-    return []
+    emb_list = json.loads(target_embedding_json)
+    vector_literal = f"[{', '.join(str(x) for x in emb_list)}]"
+
+    return query_all(
+        """
+        SELECT 
+            session_id || ':' || node_id AS rowid,
+            session_id,
+            node_id,
+            (embedding_vec <=> %s) AS distance
+        FROM lessons_embeddings
+        WHERE user_id = %s
+        ORDER BY embedding_vec <=> %s
+        LIMIT %s
+        """,
+        (vector_literal, user_id, vector_literal, top_k),
+    )
 
 
 def get_llm_call_input_api_type_query(session_id, node_id):
@@ -607,19 +675,19 @@ def get_experiment_log_success_graph_query(session_id):
 def upsert_user(google_id, email, name, picture):
     """
     Upsert user - insert if not exists, update if exists.
-    
+
     Args:
         google_id: Google OAuth ID
         email: User email
         name: User name
         picture: User profile picture URL
-        
+
     Returns:
         The user record after upsert
     """
     # Check if user exists
     existing = query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
-    
+
     if existing:
         # Update existing user
         execute(
@@ -633,7 +701,7 @@ def upsert_user(google_id, email, name, picture):
             "VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
             (google_id, email, name, picture),
         )
-    
+
     # Return the user record
     return query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
 
@@ -641,10 +709,10 @@ def upsert_user(google_id, email, name, picture):
 def get_user_by_id_query(user_id):
     """
     Get user by their ID.
-    
+
     Args:
         user_id: The user's ID
-        
+
     Returns:
         The user record or None if not found
     """
