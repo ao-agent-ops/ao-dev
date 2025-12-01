@@ -1,3 +1,0 @@
-[submodule "example_workflows/DeepResearch/MiroFlow"]
-	path = example_workflows/DeepResearch/MiroFlow
-	url = git@github.com:MiroMindAI/MiroFlow.git

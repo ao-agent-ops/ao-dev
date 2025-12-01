@@ -1,9 +1,0 @@
-=== Document Processing Results ===
-Source: /Users/kennethchoi/Desktop/agent-copilot/example_workflows/debug_examples/user_files/example.pdf
-Model: gpt-3.5-turbo
-System Prompt: "Welcome to the document processing LLM. How can I assist you with your document processing needs today?"
-
---- Summary ---
-Sure! Could you please provide the title of the research paper or a brief description of the study so I can better assist you with summarizing it?
-
-=== End of Results ===
