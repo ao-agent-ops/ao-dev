@@ -13,7 +13,7 @@ import os
 import signal
 from typing import Optional, List
 
-from common.constants import ACO_OPT_LOG_PATH
+from aco.common.constants import ACO_OPT_LOG_PATH
 from aco.common.constants import HOST, PORT
 from aco.server.database_manager import DB
 
@@ -165,8 +165,7 @@ class OptimizationClient:
             )
 
             # 2. Get closest vectors using the database backend
-            user_id = row.get("user_id", None)
-            knn_rows = DB.nearest_neighbors_query(json.dumps(target_emb), top_k, user_id)
+            knn_rows = DB.nearest_neighbors_query(json.dumps(target_emb), top_k)
 
             # Convert to result format and return
             results = [
