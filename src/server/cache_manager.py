@@ -1,3 +1,4 @@
+import time
 import uuid
 import json
 import dill
@@ -60,8 +61,28 @@ class CacheManager:
             return result["session_id"]
 
     def get_parent_session_id(self, session_id):
-        result = DB.get_parent_session_id_query(session_id)
-        return result["parent_session_id"]
+        """
+        Get parent session ID with retry logic to handle race conditions.
+        
+        Since experiments can be inserted and immediately restarted, there can be a race
+        condition where the restart handler tries to read parent_session_id before the
+        insert transaction is committed. This method retries a few times with short delays.
+        """
+        max_retries = 3
+        retry_delay = 0.05  # 50ms between retries
+        
+        for attempt in range(max_retries):
+            result = DB.get_parent_session_id_query(session_id)
+            if result is not None:
+                return result["parent_session_id"]
+            
+            if attempt < max_retries - 1:  # Don't sleep on last attempt
+                logger.debug(f"Parent session not found for {session_id}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
+        
+        # If we get here, all retries failed
+        logger.error(f"Failed to find parent session for {session_id} after {max_retries} attempts")
+        raise ValueError(f"Parent session not found for session_id: {session_id}")
 
     def cache_file(self, file_id, file_name, io_stream):
         if not getattr(self, "cache_attachments", False):
