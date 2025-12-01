@@ -191,7 +191,7 @@ def _init_db(conn):
             node_id TEXT,
             embedding_json TEXT,
             embedding_vec vector(1536),
-            user_id INTEGER NOT NULL,
+            user_id INTEGER,
             PRIMARY KEY (session_id, node_id)
         )
     """
@@ -382,10 +382,9 @@ def set_input_overwrite_query(input_overwrite, session_id, node_id):
     execute(
         """
         UPDATE llm_calls
-        SET input_overwrite=%s,
-            output=NULL,
-            input_hash=NULL
-        WHERE session_id=%s AND node_id=%s
+        SET input_overwrite = %s,
+            output = NULL
+        WHERE session_id = %s AND node_id = %s
         """,
         (input_overwrite, session_id, node_id),
     )
@@ -490,14 +489,10 @@ def get_llm_call_by_session_and_hash_query(session_id, input_hash):
         """
         SELECT
             node_id,
-            input,
             input_overwrite,
-            output,
-            color,
-            label,
-            api_type
+            output
         FROM llm_calls
-        WHERE session_id=%s AND input_hash=%s
+        WHERE session_id = %s AND input_hash = %s
         """,
         (session_id, input_hash),
     )
@@ -506,7 +501,6 @@ def get_llm_call_by_session_and_hash_query(session_id, input_hash):
 def insert_llm_call_with_output_query(
     session_id, input_pickle, input_hash, node_id, api_type, output_pickle
 ):
-    """Insert new LLM call record with output in a single operation (upsert)."""
     execute(
         """
         INSERT INTO llm_calls (
@@ -608,26 +602,46 @@ def get_session_name_query(session_id):
     return query_one("SELECT name FROM experiments WHERE session_id=%s", (session_id,))
 
 
-def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str, user_id: int):
+def insert_lesson_embedding_query(
+    session_id: str, node_id: str, embedding_json: str, user_id: int | None
+):
     """
     Insert or upsert an embedding into Postgres.
     We store both the raw JSON and the pgvector form.
     """
 
-    emb_list = json.loads(embedding_json)
-    vector_literal = f"[{', '.join(str(x) for x in emb_list)}]"
+    emb = json.loads(embedding_json)
+    vector_literal = f"[{', '.join(str(x) for x in emb)}]"
 
     execute(
         """
         INSERT INTO lessons_embeddings (session_id, node_id, embedding_json, embedding_vec, user_id)
         VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (session_id, node_id)
-        DO UPDATE SET 
+        DO UPDATE SET
             embedding_json = EXCLUDED.embedding_json,
-            embedding_vec = EXCLUDED.embedding_vec,
-            user_id = EXCLUDED.user_id
+            embedding_vec  = EXCLUDED.embedding_vec,
+            user_id        = EXCLUDED.user_id
         """,
         (session_id, node_id, embedding_json, vector_literal, user_id),
+    )
+
+
+def get_all_lesson_embeddings():
+    """
+    Get all lesson embeddings (for debugging / logging).
+    Returns rows with: session_id, node_id, embedding
+    """
+    return query_all(
+        """
+        SELECT
+            session_id,
+            node_id,
+            embedding_json AS embedding,
+            user_id
+        FROM lessons_embeddings
+        """,
+        (),
     )
 
 
@@ -652,34 +666,48 @@ def get_lesson_embedding_query(session_id: str, node_id: str):
     )
 
 
-def nearest_neighbors_query(target_embedding_json: str, top_k: int, user_id: int):
+def nearest_neighbors_query(target_embedding_json: str, top_k: int, user_id: int | None = None):
     """
     Find the k nearest neighbors to the target embedding using vector search.
 
     Args:
         target_embedding_json: JSON string representation of the target embedding
         top_k: Number of nearest neighbors to return
+        user_id: If provided, restrict to this user; if None, search across all users.
 
     Returns:
-        Empty list (placeholder implementation)
+        List of rows with columns: rowid, session_id, node_id, distance
     """
-    emb_list = json.loads(target_embedding_json)
-    vector_literal = f"[{', '.join(str(x) for x in emb_list)}]"
+    emb = json.loads(target_embedding_json)
+    vector_literal = f"[{', '.join(str(x) for x in emb)}]"
 
-    return query_all(
-        """
-        SELECT 
-            session_id || ':' || node_id AS rowid,
-            session_id,
-            node_id,
-            (embedding_vec <=> %s) AS distance
-        FROM lessons_embeddings
-        WHERE user_id = %s
-        ORDER BY embedding_vec <=> %s
-        LIMIT %s
-        """,
-        (vector_literal, user_id, vector_literal, top_k),
-    )
+    if user_id is not None:
+        return query_all(
+            """
+            SELECT
+                session_id,
+                node_id,
+                (embedding_vec <=> %s) AS distance
+            FROM lessons_embeddings
+            WHERE user_id = %s
+            ORDER BY embedding_vec <=> %s
+            LIMIT %s
+            """,
+            (vector_literal, user_id, vector_literal, top_k),
+        )
+    else:
+        return query_all(
+            """
+            SELECT
+                session_id,
+                node_id,
+                (embedding_vec <=> %s) AS distance
+            FROM lessons_embeddings
+            ORDER BY embedding_vec <=> %s
+            LIMIT %s
+            """,
+            (vector_literal, vector_literal, top_k),
+        )
 
 
 def get_llm_call_input_api_type_query(session_id, node_id):

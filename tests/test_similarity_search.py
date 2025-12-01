@@ -10,6 +10,7 @@ from aco.server.database_manager import DB
 # Test session IDs to use for isolation
 TEST_SESSION_PREFIX = "test_similarity_"
 
+
 @pytest.fixture(autouse=True)
 def cleanup_database():
     """Clean up database before and after each test - only test data."""
@@ -18,8 +19,7 @@ def cleanup_database():
     # Only clean up test-specific data using the test session prefix
     try:
         DB.execute(
-            "DELETE FROM lessons_embeddings WHERE session_id LIKE ?", 
-            (f"{TEST_SESSION_PREFIX}%",)
+            "DELETE FROM lessons_embeddings WHERE session_id LIKE ?", (f"{TEST_SESSION_PREFIX}%",)
         )
         # Note: lessons_vec will be cleaned up automatically via foreign key constraints
     except Exception:
@@ -28,8 +28,7 @@ def cleanup_database():
     # Clean up after test - only test data
     try:
         DB.execute(
-            "DELETE FROM lessons_embeddings WHERE session_id LIKE ?", 
-            (f"{TEST_SESSION_PREFIX}%",)
+            "DELETE FROM lessons_embeddings WHERE session_id LIKE ?", (f"{TEST_SESSION_PREFIX}%",)
         )
     except Exception:
         pass  # Tables might not exist, that's ok
@@ -38,7 +37,8 @@ def cleanup_database():
 def setup_test_embeddings():
     """
     Set up test embeddings in the real database.
-    """    
+    """
+
     # Create 1536-dimensional embeddings (matching OpenAI's text-embedding-3-small)
     # Use mostly zeros but set a few dimensions to create distinct vectors
     def create_embedding(base_value, offset_dim=0, offset_value=0.0):
@@ -47,17 +47,21 @@ def setup_test_embeddings():
         if offset_dim > 0 and offset_dim < 1536:
             emb[offset_dim] = offset_value
         return emb
-    
+
     # Insert test embeddings with proper dimensions and test session prefix
     test_embeddings = [
-        (f"{TEST_SESSION_PREFIX}s1", "n1", create_embedding(1.0)),                      # Query vector
-        (f"{TEST_SESSION_PREFIX}fake_session", "fake_node", create_embedding(1.0)),     # Identical match (distance=0)
-        (f"{TEST_SESSION_PREFIX}test_session", "node1", create_embedding(0.5)),         # Close match
-        (f"{TEST_SESSION_PREFIX}s3", "n3", create_embedding(-0.2)),                     # Further match
+        (f"{TEST_SESSION_PREFIX}s1", "n1", create_embedding(1.0)),  # Query vector
+        (
+            f"{TEST_SESSION_PREFIX}fake_session",
+            "fake_node",
+            create_embedding(1.0),
+        ),  # Identical match (distance=0)
+        (f"{TEST_SESSION_PREFIX}test_session", "node1", create_embedding(0.5)),  # Close match
+        (f"{TEST_SESSION_PREFIX}s3", "n3", create_embedding(-0.2)),  # Further match
     ]
-    
+
     for session_id, node_id, embedding in test_embeddings:
-        DB.insert_lesson_embedding_query(session_id, node_id, json.dumps(embedding))
+        DB.insert_lesson_embedding_query(session_id, node_id, json.dumps(embedding), "test_user")
 
 
 # ======================================================================
@@ -138,7 +142,7 @@ def test_similarity_search_no_target_embedding(monkeypatch):
         {
             "type": "similarity_search",
             "session_id": f"{TEST_SESSION_PREFIX}nonexistent",
-            "node_id": "n1", 
+            "node_id": "n1",
             "k": 5,
         }
     )
