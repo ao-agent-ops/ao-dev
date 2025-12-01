@@ -318,7 +318,9 @@ class DatabaseManager:
 
         # Embedding-related queries (lessons_embeddings)
 
-    def insert_lesson_embedding_query(self, session_id: str, node_id: str, embedding_json: str):
+    def insert_lesson_embedding_query(
+        self, session_id: str, node_id: str, embedding_json: str, user_id: int = None
+    ):
         """
         Insert or replace an embedding for (session_id, node_id).
 
@@ -360,22 +362,22 @@ class DatabaseManager:
             )
         return backend.get_all_lesson_embeddings_except_query(session_id, node_id, user_id)
 
-    def nearest_neighbors_query(self, target_embedding_json: str, top_k: int):
+    def nearest_neighbors_query(self, target_embedding_json: str, top_k: int, user_id: int = None):
         """
         Find the k nearest neighbors to the target embedding using vector search.
-        
+
         Args:
             target_embedding_json: JSON string representation of the target embedding
             top_k: Number of nearest neighbors to return
-            
+
         Returns:
             List of rows with columns: session_id, node_id, distance
         """
         backend = self._get_backend_module()
         if not hasattr(backend, "nearest_neighbors_query"):
             raise NotImplementedError("nearest_neighbors_query not implemented for this backend")
-        return backend.nearest_neighbors_query(target_embedding_json, top_k, user_id=None)
-    
+        return backend.nearest_neighbors_query(target_embedding_json, top_k, user_id)
+
     def get_llm_call_input_api_type_query(self, session_id, node_id):
         """Get input and api_type from llm_calls by session_id and node_id."""
         backend = self._get_backend_module()
@@ -394,33 +396,34 @@ class DatabaseManager:
     def upsert_user_postgres_only(self, google_id, email, name, picture):
         """
         Upsert user only in PostgreSQL database.
-        
+
         Users are only managed remotely via the auth service.
         SQLite is single-user and doesn't need user management.
-        
+
         Args:
             google_id: Google OAuth ID
             email: User email
             name: User name
             picture: User profile picture URL
-            
+
         Returns:
             User record from PostgreSQL
         """
         from aco.common.constants import REMOTE_DATABASE_URL
-        
+
         if not REMOTE_DATABASE_URL:
             raise Exception("PostgreSQL not available - users can only be managed remotely")
-        
+
         try:
             if self._postgres_module is None:
                 from aco.server.database_backends import postgres
+
                 self._postgres_module = postgres
-            
+
             user_record = self._postgres_module.upsert_user(google_id, email, name, picture)
             logger.debug(f"User {email} upserted in PostgreSQL database")
             return user_record
-            
+
         except Exception as e:
             logger.error(f"Failed to upsert user in PostgreSQL: {e}")
             raise
@@ -428,25 +431,26 @@ class DatabaseManager:
     def get_user_by_id_postgres_only(self, user_id):
         """
         Get user by their ID from PostgreSQL only.
-        
+
         Args:
             user_id: The user's ID
-            
+
         Returns:
             The user record or None if not found
         """
         from aco.common.constants import REMOTE_DATABASE_URL
-        
+
         if not REMOTE_DATABASE_URL:
             raise Exception("PostgreSQL not available - users can only be queried remotely")
-        
+
         try:
             if self._postgres_module is None:
                 from aco.server.database_backends import postgres
+
                 self._postgres_module = postgres
-            
+
             return self._postgres_module.get_user_by_id_query(user_id)
-            
+
         except Exception as e:
             logger.error(f"Failed to get user from PostgreSQL: {e}")
             raise

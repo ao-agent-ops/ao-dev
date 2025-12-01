@@ -73,10 +73,10 @@ def get_conn():
 
 def _init_db(conn):
     c = conn.cursor()
-    
+
     # Note: Users are only managed in PostgreSQL for remote authentication
     # Local SQLite runs are single-user and don't need user management
-    
+
     # Create experiments table
     c.execute(
         """
@@ -495,7 +495,7 @@ def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json:
 def get_lesson_embedding_query(session_id: str, node_id: str):
     """
     Fetch the embedding row for a specific (session_id, node_id).
-    
+
     Returns a sqlite3.Row with columns: session_id, node_id, embedding
     or None if not found.
     """
@@ -530,7 +530,7 @@ def get_all_lesson_embeddings_except_query(session_id: str, node_id: str, user_i
         SELECT session_id, node_id, embedding
         FROM lessons_embeddings
         WHERE NOT (session_id = ? AND node_id = ?)
-        """,        
+        """,
         (session_id, node_id),
     )
 
@@ -546,11 +546,11 @@ def get_llm_call_output_api_type_query(session_id, node_id):
 def nearest_neighbors_query(target_embedding_json: str, top_k: int, user_id: int = None):
     """
     Find the k nearest neighbors to the target embedding using vectorlite ANN search.
-    
+
     Args:
         target_embedding_json: JSON string representation of the target embedding
         top_k: Number of nearest neighbors to return
-        
+
     Returns:
         List of rows with columns: session_id, node_id, distance
     """
