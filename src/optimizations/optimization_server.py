@@ -8,10 +8,46 @@ optimization-related operations like similarity search.
 import socket
 import json
 import time
+import logging
+import os
+import signal
 from typing import Optional, List
-from aco.common.logger import logger
+
+from common.constants import ACO_OPT_LOG_PATH
 from aco.common.constants import HOST, PORT
 from aco.server.database_manager import DB
+
+
+def setup_optimization_logger():
+    """Set up a separate logger for the optimization server."""
+    logger = logging.getLogger("OptimizationServer")
+    
+    # Clear any existing handlers
+    if logger.handlers:
+        logger.handlers.clear()
+    
+    logger.setLevel(logging.DEBUG)
+    
+    # Create file handler for optimization_server.log
+    file_handler = logging.FileHandler(ACO_OPT_LOG_PATH, mode='a')
+    
+    # Create console handler as well
+    console_handler = logging.StreamHandler()
+    
+    # Create formatter
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # Add handlers
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+
+# Set up the optimization server logger
+logger = setup_optimization_logger()
 
 
 from openai import OpenAI
@@ -52,6 +88,18 @@ class OptimizationClient:
     def __init__(self):
         self.conn: Optional[socket.socket] = None
         self.running = True
+        self._setup_signal_handlers()
+
+    def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown."""
+        signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
+        signal.signal(signal.SIGINT, self._handle_shutdown_signal)
+        logger.debug(f"[OptimizationServer] Signal handlers installed for pid {os.getpid()}")
+
+    def _handle_shutdown_signal(self, signum, frame):
+        """Handle shutdown signals gracefully."""
+        logger.info(f"[OptimizationServer] Received signal {signum}, shutting down gracefully...")
+        self.running = False
 
     # ============================================================
     # Message Handlers
@@ -95,14 +143,24 @@ class OptimizationClient:
         try:
             # 1. Get target embedding
             row = DB.get_lesson_embedding_query(session_id, node_id)
-            assert row and row["embedding"], "Node embedding not present in DB"
+            logger.info(f"[OptimizationServer] Similarity search: Looking for embedding for session {session_id}, node {node_id}")
+            
+            if not row or not row["embedding"]:
+                logger.warning(f"[OptimizationServer] No embedding found for session {session_id}, node {node_id}")
+                # Check if there are any embeddings in the database at all
+                all_embeddings_count = len(DB.get_all_lesson_embeddings())
+                logger.info(f"[OptimizationServer] Total embeddings in database: {all_embeddings_count}")
+                raise AssertionError("Node embedding not present in DB")
+                
             target_emb = json.loads(row["embedding"])
+            logger.info(f"[OptimizationServer] Found target embedding for session {session_id}, node {node_id}")
 
             # 2. Get closest vectors using the database backend
             knn_rows = DB.nearest_neighbors_query(
                 json.dumps(target_emb),
                 top_k
             )
+            logger.info(f"[OptimizationServer] Found {len(knn_rows)} potential matches from nearest neighbors query")
 
             # Convert to result format and return
             results = [
@@ -112,6 +170,7 @@ class OptimizationClient:
                 }
                 for r in knn_rows
             ]
+            logger.info(f"[OptimizationServer] Found {len(results)} similar experiments")
 
             response = {
                 "type": "similarity_search_result",
@@ -258,6 +317,8 @@ class OptimizationClient:
 
 def main():
     """Main entry point for the optimization server."""
+    logger.info("[OptimizationServer] Starting optimization server process...")
+    logger.info(f"[OptimizationServer] Logs will be written to ~/.aco/optimization_server.log")
     client = OptimizationClient()
     try:
         client.run()

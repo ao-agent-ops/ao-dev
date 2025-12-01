@@ -468,7 +468,7 @@ def get_session_name_query(session_id):
 # ----------------------------------------------------------------------
 
 
-def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str, user_id: int):
+def insert_lesson_embedding_query(session_id: str, node_id: str, embedding_json: str, user_id: int = None):
     # Insert into lessons_embeddings
     execute(
         """
@@ -517,11 +517,13 @@ def get_llm_call_input_api_type_query(session_id, node_id):
     )
 
 
-def get_all_lesson_embeddings_except_query(session_id: str, node_id: str):
+def get_all_lesson_embeddings_except_query(session_id: str, node_id: str, user_id: int = None):
     """
     Fetch all embeddings except the given (session_id, node_id).
 
     Returns a list of rows with columns: session_id, node_id, embedding.
+
+    TODO(Mahit): This is not needed, right? Should delete after done debugging.
     """
     return query_all(
         """
@@ -541,7 +543,7 @@ def get_llm_call_output_api_type_query(session_id, node_id):
     )
 
 
-def nearest_neighbors_query(target_embedding_json: str, top_k: int):
+def nearest_neighbors_query(target_embedding_json: str, top_k: int, user_id: int = None):
     """
     Find the k nearest neighbors to the target embedding using vectorlite ANN search.
     
@@ -564,6 +566,14 @@ def nearest_neighbors_query(target_embedding_json: str, top_k: int):
         ORDER BY v.distance ASC
         """,
         (target_embedding_json, top_k),
+    )
+
+
+def get_all_lesson_embeddings():
+    """Get all lesson embeddings for debugging purposes."""
+    return query_all(
+        "SELECT session_id, node_id, embedding FROM lessons_embeddings",
+        (),
     )
 
 

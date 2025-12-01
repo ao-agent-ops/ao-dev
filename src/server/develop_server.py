@@ -130,10 +130,11 @@ class DevelopServer:
         """Start the optimization server process."""
         logger.info("[DevelopServer] Starting optimization server...")
 
-        if self.optimization_process and self.optimization_process.poll() is None:
-            logger.warning("[DevelopServer] Optimization server is already running")
-            return
-
+        # Always stop any existing optimization server first
+        if self.optimization_process:
+            logger.info("[DevelopServer] Stopping existing optimization server before starting new one")
+            self.stop_optimization_server()
+            
         try:
             # Start optimization server as a subprocess
             import sys
@@ -171,17 +172,25 @@ class DevelopServer:
         # Then terminate the process
         if self.optimization_process:
             try:
+                pid = self.optimization_process.pid
+                logger.info(f"[DevelopServer] Stopping optimization server (PID: {pid})")
+                
+                # Try graceful termination first
                 self.optimization_process.terminate()
                 self.optimization_process.wait(timeout=2)
+                
                 if self.optimization_process.poll() is None:
                     # Force kill if it doesn't terminate gracefully
+                    logger.warning(f"[DevelopServer] Optimization server didn't terminate gracefully, killing (PID: {pid})")
                     self.optimization_process.kill()
                     self.optimization_process.wait()
-                logger.info("[DevelopServer] Optimization server stopped")
+                    
+                logger.info(f"[DevelopServer] Optimization server stopped (PID: {pid})")
             except Exception as e:
                 logger.error(f"[DevelopServer] Error stopping optimization server: {e}")
             finally:
                 self.optimization_process = None
+                self.optimization_conn = None
 
     # ============================================================
     # Utils
@@ -539,7 +548,8 @@ class DevelopServer:
             if nodes:
                 # Use the first node as representative for the experiment
                 representative_node = nodes[0]
-                logger.debug(f"[DevelopServer] Triggering similarity search for session {session_id}")
+                logger.info(f"[DevelopServer] Triggering similarity search for session {session_id}, node {representative_node['id']}")
+                logger.info(f"[DevelopServer] Optimization server connected: {self.optimization_conn is not None}")
                 try:
                     send_json(self.optimization_conn, {
                         "type": "similarity_search",
@@ -549,6 +559,13 @@ class DevelopServer:
                     })
                 except Exception as e:
                     logger.error(f"[DevelopServer] Failed to trigger similarity search: {e}")
+            else:
+                logger.info(f"[DevelopServer] No nodes found for session {session_id}, skipping similarity search")
+        else:
+            if not self.optimization_conn:
+                logger.info(f"[DevelopServer] Optimization server not connected, skipping similarity search for session {session_id}")
+            if session_id not in self.session_graphs:
+                logger.info(f"[DevelopServer] Session {session_id} not in session_graphs, skipping similarity search")
 
     def handle_get_all_experiments(self, conn: socket.socket) -> None:
         """Handle request to refresh the experiment list (e.g., when VS Code window regains focus)."""

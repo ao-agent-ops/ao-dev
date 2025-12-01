@@ -329,7 +329,7 @@ class DatabaseManager:
             raise NotImplementedError(
                 "insert_lesson_embedding_query not implemented for this backend"
             )
-        return backend.insert_lesson_embedding_query(session_id, node_id, embedding_json)
+        return backend.insert_lesson_embedding_query(session_id, node_id, embedding_json, user_id=None)
 
     def get_lesson_embedding_query(self, session_id: str, node_id: str):
         """
@@ -340,7 +340,16 @@ class DatabaseManager:
             raise NotImplementedError("get_lesson_embedding_query not implemented for this backend")
         return backend.get_lesson_embedding_query(session_id, node_id)
 
-    def get_all_lesson_embeddings_except_query(self, session_id: str, node_id: str):
+    def get_all_lesson_embeddings(self):
+        """
+        Get all lesson embeddings for debugging purposes.
+        """
+        backend = self._get_backend_module()
+        if not hasattr(backend, "get_all_lesson_embeddings"):
+            raise NotImplementedError("get_all_lesson_embeddings not implemented for this backend")
+        return backend.get_all_lesson_embeddings()
+
+    def get_all_lesson_embeddings_except_query(self, session_id: str, node_id: str, user_id: int):
         """
         Fetch all embeddings except the given (session_id, node_id).
         """
@@ -349,7 +358,7 @@ class DatabaseManager:
             raise NotImplementedError(
                 "get_all_lesson_embeddings_except_query not implemented for this backend"
             )
-        return backend.get_all_lesson_embeddings_except_query(session_id, node_id)
+        return backend.get_all_lesson_embeddings_except_query(session_id, node_id, user_id)
 
     def nearest_neighbors_query(self, target_embedding_json: str, top_k: int):
         """
@@ -365,7 +374,7 @@ class DatabaseManager:
         backend = self._get_backend_module()
         if not hasattr(backend, "nearest_neighbors_query"):
             raise NotImplementedError("nearest_neighbors_query not implemented for this backend")
-        return backend.nearest_neighbors_query(target_embedding_json, top_k)
+        return backend.nearest_neighbors_query(target_embedding_json, top_k, user_id=None)
     
     def get_llm_call_input_api_type_query(self, session_id, node_id):
         """Get input and api_type from llm_calls by session_id and node_id."""

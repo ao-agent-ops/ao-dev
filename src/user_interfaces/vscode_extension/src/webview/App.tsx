@@ -175,6 +175,12 @@ export const App: React.FC = () => {
   const runningExperiments = sortedProcesses.filter(p => p.status === 'running');
   const finishedExperiments = sortedProcesses.filter(p => p.status === 'finished');
 
+  // Debug logging for similarity search
+  console.log('App.tsx - All processes:', sortedProcesses);
+  console.log('App.tsx - Similar experiments:', similarExperiments);
+  console.log('App.tsx - Running experiments:', runningExperiments);
+  console.log('App.tsx - Finished experiments:', finishedExperiments);
+
 
   // Show login screen if user is not authenticated
   if (!user) {
@@ -252,7 +258,7 @@ export const App: React.FC = () => {
       >
         {activeTab === "experiments" ? (
           <ExperimentsView
-            similarProcesses={similarExperiments ? [similarExperiments] : []}
+            similarProcesses={similarExperiments}
             runningProcesses={runningExperiments}
             finishedProcesses={finishedExperiments}
             onCardClick={handleExperimentCardClick}

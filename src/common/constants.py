@@ -118,6 +118,7 @@ log_dir = os.path.expandvars(
 )
 os.makedirs(log_dir, exist_ok=True)
 ACO_LOG_PATH = os.path.join(log_dir, "server.log")
+ACO_OPT_LOG_PATH = os.path.join(log_dir, "opt_server.log")
 
 default_attachment_cache = os.path.join(ACO_CACHE, "attachments")
 ACO_ATTACHMENT_CACHE = os.path.expandvars(
