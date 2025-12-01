@@ -21,28 +21,28 @@ from aco.server.database_manager import DB
 def setup_optimization_logger():
     """Set up a separate logger for the optimization server."""
     logger = logging.getLogger("OptimizationServer")
-    
+
     # Clear any existing handlers
     if logger.handlers:
         logger.handlers.clear()
-    
+
     logger.setLevel(logging.DEBUG)
-    
+
     # Create file handler for optimization_server.log
-    file_handler = logging.FileHandler(ACO_OPT_LOG_PATH, mode='a')
-    
+    file_handler = logging.FileHandler(ACO_OPT_LOG_PATH, mode="a")
+
     # Create console handler as well
     console_handler = logging.StreamHandler()
-    
+
     # Create formatter
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
-    
+
     # Add handlers
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
-    
+
     return logger
 
 
@@ -121,7 +121,9 @@ class OptimizationClient:
         try:
             embedding = _text_to_embedding(input_str)
             embedding_json = json.dumps(embedding)
-            DB.insert_lesson_embedding_query(session_id, node_id, embedding_json)
+            user_id = msg.get("user_id", None)  # or whatever default you're using
+            DB.insert_lesson_embedding_query(session_id, node_id, embedding_json, user_id)
+
             logger.debug(
                 f"[OptimizationServer] Stored embedding for session {session_id}, node {node_id}"
             )
@@ -130,7 +132,6 @@ class OptimizationClient:
                 f"[OptimizationServer] Failed to store embedding for "
                 f"session {session_id}, node {node_id}: {e}"
             )
-
 
     def handle_similarity_search(self, msg: dict) -> None:
         """
@@ -143,24 +144,29 @@ class OptimizationClient:
         try:
             # 1. Get target embedding
             row = DB.get_lesson_embedding_query(session_id, node_id)
-            logger.info(f"[OptimizationServer] Similarity search: Looking for embedding for session {session_id}, node {node_id}")
-            
+            logger.info(
+                f"[OptimizationServer] Similarity search: Looking for embedding for session {session_id}, node {node_id}"
+            )
+
             if not row or not row["embedding"]:
-                logger.warning(f"[OptimizationServer] No embedding found for session {session_id}, node {node_id}")
+                logger.warning(
+                    f"[OptimizationServer] No embedding found for session {session_id}, node {node_id}"
+                )
                 # Check if there are any embeddings in the database at all
                 all_embeddings_count = len(DB.get_all_lesson_embeddings())
-                logger.info(f"[OptimizationServer] Total embeddings in database: {all_embeddings_count}")
+                logger.info(
+                    f"[OptimizationServer] Total embeddings in database: {all_embeddings_count}"
+                )
                 raise AssertionError("Node embedding not present in DB")
-                
+
             target_emb = json.loads(row["embedding"])
-            logger.info(f"[OptimizationServer] Found target embedding for session {session_id}, node {node_id}")
+            logger.info(
+                f"[OptimizationServer] Found target embedding for session {session_id}, node {node_id}"
+            )
 
             # 2. Get closest vectors using the database backend
-            knn_rows = DB.nearest_neighbors_query(
-                json.dumps(target_emb),
-                top_k
-            )
-            logger.info(f"[OptimizationServer] Found {len(knn_rows)} potential matches from nearest neighbors query")
+            user_id = row.get("user_id", None)
+            knn_rows = DB.nearest_neighbors_query(json.dumps(target_emb), top_k, user_id)
 
             # Convert to result format and return
             results = [
@@ -191,12 +197,11 @@ class OptimizationClient:
             }
             send_json(self.conn, response)
 
-
     def handle_cluster_nodes(self, msg: dict) -> None:
         """Handle clustering request (not yet implemented)."""
         logger.info("[OptimizationServer] Clustering request received (not implemented)")
         # TODO: Implement clustering functionality
-        
+
     def handle_optimize_graph(self, msg: dict) -> None:
         """Handle graph optimization request (not yet implemented)."""
         logger.info("[OptimizationServer] Graph optimization request received (not implemented)")

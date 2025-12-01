@@ -380,7 +380,13 @@ def add_experiment_query(
 def set_input_overwrite_query(input_overwrite, session_id, node_id):
     """Execute PostgreSQL-specific UPDATE for llm_calls input_overwrite"""
     execute(
-        "UPDATE llm_calls SET input_overwrite=%s, output=NULL WHERE session_id=%s AND node_id=%s",
+        """
+        UPDATE llm_calls
+        SET input_overwrite=%s,
+            output=NULL,
+            input_hash=NULL
+        WHERE session_id=%s AND node_id=%s
+        """,
         (input_overwrite, session_id, node_id),
     )
 
@@ -481,7 +487,18 @@ def get_parent_session_id_query(session_id):
 def get_llm_call_by_session_and_hash_query(session_id, input_hash):
     """Get LLM call by session_id and input_hash."""
     return query_one(
-        "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=%s AND input_hash=%s",
+        """
+        SELECT
+            node_id,
+            input,
+            input_overwrite,
+            output,
+            color,
+            label,
+            api_type
+        FROM llm_calls
+        WHERE session_id=%s AND input_hash=%s
+        """,
         (session_id, input_hash),
     )
 
@@ -492,12 +509,24 @@ def insert_llm_call_with_output_query(
     """Insert new LLM call record with output in a single operation (upsert)."""
     execute(
         """
-        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO llm_calls (
+            session_id,
+            node_id,
+            input,
+            input_hash,
+            input_overwrite,
+            output,
+            color,
+            label,
+            api_type
+        )
+        VALUES (%s, %s, %s, %s, NULL, %s, NULL, NULL, %s)
         ON CONFLICT (session_id, node_id)
-        DO UPDATE SET output = excluded.output
+        DO UPDATE SET
+            output = EXCLUDED.output,
+            api_type = EXCLUDED.api_type
         """,
-        (session_id, input_pickle, input_hash, node_id, api_type, output_pickle),
+        (session_id, node_id, input_pickle, input_hash, output_pickle, api_type),
     )
 
 
@@ -516,11 +545,16 @@ def get_finished_runs_query():
 
 
 def get_all_experiments_sorted_by_user_query(user_id=None):
-    assert user_id is not None, "user id None"
-    """Get all experiments sorted by timestamp desc, optionally filtered by user_id."""
-    # Filter by user_id
+    if user_id is None:
+        return query_all(
+            "SELECT session_id, timestamp, color_preview, name, success, notes, log "
+            "FROM experiments ORDER BY timestamp DESC",
+            (),
+        )
+
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, success, notes, log "
+        "FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
         (user_id,),
     )
 
