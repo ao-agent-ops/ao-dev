@@ -13,7 +13,7 @@ DOCX_PATH = os.path.join(current_dir, "user_files", "example.docx")
 
 # First, get a response to use as instructions
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-opus-4-5-20251101",
     max_tokens=10,
     messages=[
         {"role": "user", "content": "Just output: 'summarize the document` and nothing else."}
