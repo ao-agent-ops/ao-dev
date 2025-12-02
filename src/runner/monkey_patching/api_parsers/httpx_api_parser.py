@@ -58,4 +58,16 @@ def get_model_httpx(input_dict: Dict[str, Any]) -> str:
     try:
         return json.loads(input_dict["request"].content.decode("utf-8"))["model"]
     except KeyError:
+        # Fallback: try to extract model name from URL path
+        # Pattern: /v1/models/{model_name}:generateContent or similar
+        try:
+            import re
+
+            path = input_dict["request"].url.path
+            # Match patterns like /v1/models/gemini-2.5-flash:generateContent
+            match = re.search(r"/models/([^/]+?)(?::|$)", path)
+            if match:
+                return match.group(1)
+        except (AttributeError, KeyError):
+            pass
         return "undefined"

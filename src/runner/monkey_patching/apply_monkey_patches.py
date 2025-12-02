@@ -37,7 +37,7 @@ CUSTOM_PATCH_FUNCTIONS = [
     together_patch,
     anthropic_patch,
     async_anthropic_patch,
-    google_genai_patch,
+    # google_genai_patch,
     mcp_patch,
     httpx_patch,
 ]
