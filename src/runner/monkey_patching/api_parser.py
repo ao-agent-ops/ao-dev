@@ -44,7 +44,7 @@ from aco.runner.monkey_patching.api_parsers.httpx_api_parser import (
 
 
 def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str) -> dict:
-    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
         return json_str_to_original_inp_dict_httpx(json_str, input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         return json_str_to_original_inp_dict_mcp(json_str, input_dict)
@@ -59,7 +59,7 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
 
 
 def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str]]:
-    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
         return func_kwargs_to_json_str_httpx(input_dict)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return func_kwargs_to_json_str_openai(input_dict)
@@ -78,8 +78,15 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
         raise ValueError(f"Unknown API type {api_type}")
 
 
+def api_obj_to_response_ok(response_obj: Any, api_type: str) -> bool:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
+        return response_obj.ok
+    else:
+        return True
+
+
 def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
-    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
         return api_obj_to_json_str_httpx(response_obj)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return api_obj_to_json_str_openai(response_obj)
@@ -99,7 +106,7 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
 
 
 def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
-    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
         return json_str_to_api_obj_httpx(new_output_text)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return json_str_to_api_obj_openai(new_output_text)
@@ -119,7 +126,7 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
 
 
 def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
-    if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+    if api_type in ["requests.Session.send", "httpx.Client.send", "httpx.AsyncClient.send"]:
         return get_model_httpx(input_dict)
     elif api_type in ["OpenAI.SyncAPIClient.post", "AsyncOpenAI.AsyncAPIClient.post"]:
         return get_model_openai(input_dict)

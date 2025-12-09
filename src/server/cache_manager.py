@@ -14,6 +14,7 @@ from aco.runner.monkey_patching.api_parser import (
     json_str_to_api_obj,
     api_obj_to_json_str,
     json_str_to_original_inp_dict,
+    api_obj_to_response_ok,
 )
 from aco.common.utils import hash_input
 
@@ -185,8 +186,11 @@ class CacheManager:
         logger.debug(
             f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"
         )
-        output_json_str = api_obj_to_json_str(output_obj, api_type)
-        if cache:
+        # Avoid caching bad http responses
+        response_ok = api_obj_to_response_ok(output_obj, api_type)
+
+        if response_ok and cache:
+            output_json_str = api_obj_to_json_str(output_obj, api_type)
             DB.insert_llm_call_with_output_query(
                 cache_result.session_id,
                 cache_result.input_pickle,

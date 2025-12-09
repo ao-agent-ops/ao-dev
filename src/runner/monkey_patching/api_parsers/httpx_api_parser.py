@@ -4,12 +4,23 @@ from aco.common.logger import logger
 
 
 def json_str_to_original_inp_dict_httpx(json_str: str, input_dict: dict) -> dict:
-    input_dict["body"] = json.loads(json_str)
+    if "body" in input_dict:
+        # httpx
+        input_dict["body"] = json.loads(json_str)
+    else:
+        # requests
+        input_dict["request"].body = json_str.encode("utf-8")
     return input_dict
 
 
 def func_kwargs_to_json_str_httpx(input_dict: Dict[str, Any]):
-    return input_dict["request"].content.decode("utf-8"), []
+    if hasattr(input_dict["request"], "content"):
+        # httpx
+        json_str = input_dict["request"].content.decode("utf-8")
+    elif hasattr(input_dict["request"], "body"):
+        # requests
+        json_str = input_dict["request"].body.decode("utf-8")
+    return json_str, []
 
 
 def api_obj_to_json_str_httpx(obj: Any) -> str:
@@ -56,7 +67,11 @@ def json_str_to_api_obj_httpx(new_output_text: str) -> None:
 
 def get_model_httpx(input_dict: Dict[str, Any]) -> str:
     try:
-        return json.loads(input_dict["request"].content.decode("utf-8"))["model"]
+        if hasattr(input_dict["request"], "content"):
+            json_str = input_dict["request"].content.decode("utf-8")
+        elif hasattr(input_dict["request"], "body"):
+            json_str = input_dict["request"].body.decode("utf-8")
+        return json.loads(json_str)["model"]
     except KeyError:
         # Fallback: try to extract model name from URL path
         # Pattern: /v1/models/{model_name}:generateContent or similar

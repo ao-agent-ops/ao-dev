@@ -7,7 +7,12 @@ import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
-from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT
+from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
+
+
+def is_whitelisted_endpoint(path: str) -> bool:
+    """Check if a path matches any of the whitelist regex patterns."""
+    return any(pattern.match(path) for pattern in COMPILED_ENDPOINT_PATTERNS)
 
 
 def hash_input(input_bytes):

@@ -63,9 +63,17 @@ def get_input_dict(func, *args, **kwargs):
         # Many APIs only accept kwargs
         bound = sig.bind(**kwargs)
     bound.apply_defaults()
-    input_dict = dict(bound.arguments)
-    if "self" in input_dict:
-        del input_dict["self"]
+
+    input_dict = {}
+    for name, value in bound.arguments.items():
+        if name == "self":
+            continue
+        param = sig.parameters[name]
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            input_dict.update(value)  # Flatten the captured extras
+        else:
+            input_dict[name] = value
+
     return input_dict
 
 

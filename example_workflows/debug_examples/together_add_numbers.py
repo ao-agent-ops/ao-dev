@@ -1,12 +1,8 @@
-import together
 from together import Together
 
 
 def main():
-    version = together.version
-
     client = Together()
-
     model = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
 
     # First LLM call: Get the number 42

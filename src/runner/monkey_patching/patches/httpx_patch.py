@@ -1,25 +1,9 @@
 from functools import wraps
-import re
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from aco.server.cache_manager import CACHE
 from aco.common.logger import logger
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
-
-
-# paths that we want to intercept (regex patterns)
-WHITELIST_PATH_PATTERNS = [
-    r"^/v1/responses$",
-    r"^/v1/chat/completions$",
-    r"^/v1/models/[^/]+:generateContent$",
-]
-
-# Compile regex patterns for efficiency
-COMPILED_WHITELIST_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_PATH_PATTERNS]
-
-
-def is_whitelisted_path(path: str) -> bool:
-    """Check if a path matches any of the whitelist regex patterns."""
-    return any(pattern.match(path) for pattern in COMPILED_WHITELIST_PATTERNS)
+from aco.common.utils import is_whitelisted_endpoint
 
 
 def httpx_patch():
@@ -66,7 +50,7 @@ def patch_httpx_send(bound_obj, bound_cls):
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
-        if not is_whitelisted_path(input_dict["request"].url.path):
+        if not is_whitelisted_endpoint(input_dict["request"].url.path):
             result = original_function(*args, **kwargs)
             return taint_wrap(result, taint_origins)
 
@@ -106,7 +90,7 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         # 3. Get taint origins (did another LLM produce the input?).
         taint_origins = get_taint_origins(input_dict)
 
-        if not is_whitelisted_path(input_dict["request"].url.path):
+        if not is_whitelisted_endpoint(input_dict["request"].url.path):
             result = await original_function(*args, **kwargs)
             return taint_wrap(result, taint_origins)
 

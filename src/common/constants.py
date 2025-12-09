@@ -1,3 +1,4 @@
+import re
 import os
 from aco.common.config import Config
 from aco.common.config import derive_project_root, generate_random_username
@@ -141,6 +142,8 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "google.genai.models",
     "google.genai._api_client",
     "mcp.client.session",
+    "anthropic.resources.messages.messages",
+    "anthropic._base_client",
     "openai.resources.responses.responses",
     "openai.resources.chat.completions.completions",
     "openai._base_client",
@@ -153,3 +156,12 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "langchain_anthropic.chat_models.base",
     "langgraph.pregel.main",
 ]
+
+WHITELIST_ENDPOINT_PATTERNS = [
+    r"^/v1/messages$",
+    r"^/v1/responses$",
+    r"^/v1/chat/completions$",
+    r"^/v1/models/[^/]+:generateContent$",
+]
+
+COMPILED_ENDPOINT_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_ENDPOINT_PATTERNS]

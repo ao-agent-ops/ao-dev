@@ -188,6 +188,16 @@ class TaintObject:
         obj = object.__getattribute__(self, "obj")
         return iter(obj)
 
+    def __aiter__(self):
+        """Support async iteration by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return obj.__aiter__()
+
+    async def __anext__(self):
+        """Support async iteration by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__anext__()
+
     def __hash__(self):
         obj = object.__getattribute__(self, "obj")
         return hash(obj)
@@ -340,9 +350,10 @@ def untaint_if_needed(val, _seen=None):
 
     # Handle nested data structures
     if isinstance(val, dict):
-        for k, v in val.items():
-            val[k] = untaint_if_needed(v, _seen)
-        return val
+        new_dict = {
+            untaint_if_needed(k, _seen): untaint_if_needed(v, _seen) for k, v in val.items()
+        }
+        return new_dict
     elif isinstance(val, list):
         for i, item in enumerate(val):
             val[i] = untaint_if_needed(item, _seen)
