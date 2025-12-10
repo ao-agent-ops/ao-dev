@@ -1,7 +1,7 @@
 from functools import wraps
 from io import BytesIO
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
-from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
@@ -59,10 +59,10 @@ def patch_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = original_function(**cache_output.input_dict)  # Call LLM.
-            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -107,10 +107,10 @@ def patch_openai_chat_completions_create(completions):
                 message["content"] = str(message["content"])
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = original_function(**cache_output.input_dict)  # Call LLM.
-            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -175,7 +175,7 @@ def patch_openai_files_create(files_resource):
         result = original_function(*args, **kwargs)
         # Get file_id from result
         file_id = getattr(result, "id", None)
-        CACHE.cache_file(file_id, file_name, fileobj_copy)
+        DB.cache_file(file_id, file_name, fileobj_copy)
         # Pass on taint from fileobj if present.
         taint_origins = get_taint_origins(fileobj)
         return taint_wrap(result, taint_origins)
@@ -242,7 +242,7 @@ def patch_openai_beta_threads_create(threads_instance):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get input to use and run API call with it.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         result = original_function(**cache_output.input_dict)
 
         # 5. We don't report this call to the server (no LLM inference).
@@ -296,7 +296,7 @@ def patch_openai_beta_threads_runs_create_and_poll(runs):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Always call the LLM (no caching for runs since they're stateful)
-        cache_output = CACHE.get_in_out(input_obj, api_type, cache=False)
+        cache_output = DB.get_in_out(input_obj, api_type)
         run_result = original_function(**input_dict)  # Call LLM.
 
         # Get the actual message result for the server reporting
@@ -372,10 +372,10 @@ def patch_async_openai_responses_create(responses):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = await original_function(**cache_output.input_dict)  # Call LLM.
-            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -442,7 +442,7 @@ def patch_async_openai_files_create(files_resource):
         file_id = getattr(result, "id", None)
         if file_id is None:
             raise ValueError("OpenAI did not return a file id after file upload.")
-        CACHE.cache_file(file_id, file_name, fileobj_copy)
+        DB.cache_file(file_id, file_name, fileobj_copy)
         # Propagate taint from fileobj if present
         taint_origins = get_taint_origins(fileobj)
         return taint_wrap(result, taint_origins)
@@ -473,10 +473,10 @@ def patch_async_openai_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = await original_function(**cache_output.input_dict)  # Call LLM.
-            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(
@@ -544,7 +544,7 @@ def patch_async_openai_beta_threads_create(threads_instance):
         # 2. Get input to use and create thread.
         # We need to cache an input object that does not depend on
         # dynamically assigned OpenAI ids.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
 
         # FIXME: Overwriting attachments is not supported. Need UI support and
         # handle caveat that OAI can delete files online (and reassign IDs
@@ -599,14 +599,14 @@ def patch_async_openai_beta_threads_runs_create_and_poll(runs):
         # NOTE: Editing attachments is not supported.
         # TODO: Caching inputs and outputs currently not supported.
         # TODO: Output caching.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
 
         # input_dict = overwrite_input(original_function, **kwargs)
         # input_dict["messages"][-1]["content"] = input_to_use["messages"]
         # input_dict['messages'][-1]['attachments'] = input_to_use["attachments"]
 
         result = await original_function(**input_dict)  # Call LLM.
-        # CACHE.cache_output(node_id, result)
+        # DB.cache_output(node_id, result)
 
         # 4. Get actual, ultimate response.
         output_obj = (await client.beta.threads.messages.list(thread_id=thread_id)).data[0]

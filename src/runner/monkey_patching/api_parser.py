@@ -256,12 +256,12 @@ def _get_model_openai_responses_create(input_dict: Dict[str, Any]) -> str:
 def _get_input_openai_beta_threads_create_and_poll(
     input_obj: Any,
 ) -> Tuple[str, List[str], List[str]]:
-    from aco.server.cache_manager import CACHE
+    from aco.server.database_manager import DB
 
     # Get paths to cached attachments.
     message = input_obj.content[-1].text.value
     attachments = [attachment.file_id for attachment in input_obj.attachments]
-    attachments = CACHE.attachment_ids_to_paths(attachments)
+    attachments = DB.attachment_ids_to_paths(attachments)
     # Convert into format [(name, path), ...]
     attachments = [[os.path.basename(path), path] for path in attachments]
     return message, attachments, []
@@ -270,7 +270,7 @@ def _get_input_openai_beta_threads_create_and_poll(
 def _get_input_openai_beta_threads_create(
     input_dict: Dict[str, Any],
 ) -> Tuple[str, List[str], List[str]]:
-    from aco.server.cache_manager import CACHE
+    from aco.server.database_manager import DB
 
     # Get paths to cached attachments.
     message = input_dict["messages"][-1]
@@ -278,7 +278,7 @@ def _get_input_openai_beta_threads_create(
     attachments = []
     if "attachments" in message:
         attachments = [attachment["file_id"] for attachment in message["attachments"]]
-    attachments = CACHE.attachment_ids_to_paths(attachments)
+    attachments = DB.attachment_ids_to_paths(attachments)
     # Convert into format [(name, path), ...]
     attachments = [[os.path.basename(path), path] for path in attachments]
     return prompt, attachments, []

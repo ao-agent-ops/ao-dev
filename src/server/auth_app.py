@@ -5,7 +5,7 @@ import urllib.parse
 import requests
 from fastapi.middleware.cors import CORSMiddleware
 from aco.common.logger import logger
-from aco.server.edit_manager import EDIT
+from aco.server.database_manager import DB
 
 app = FastAPI()
 
@@ -103,7 +103,7 @@ def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = 
 
     # Upsert user into both SQLite and PostgreSQL databases
     try:
-        user = EDIT.upsert_user(google_id, email, name, picture)
+        user = DB.upsert_user(google_id, email, name, picture)
     except Exception as e:
         logger.error(f"DB error during user upsert: {e}")
 
@@ -145,7 +145,7 @@ def auth_session(request: Request):
     user_id = request.cookies.get("user_id")
     if not user_id:
         return {"user": None}
-    row = EDIT.get_user_by_id(user_id)
+    row = DB.get_user_by_id(user_id)
     if not row:
         return {"user": None}
     return {"user": dict(row)}
