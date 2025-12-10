@@ -4,7 +4,7 @@ import json
 import threading
 import os
 from aco.common.logger import logger
-from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.utils import send_to_server, send_to_server_and_receive
 
 
@@ -61,10 +61,10 @@ def aco_launch(run_name="Workflow run"):
 
     # Get rerun environment from parent
     # BUG: If parent sets env vars before calling this, these env vars are lost upon restart.
-    parent_env = CACHE.get_parent_environment(parent_session_id)
+    parent_env = DB.get_parent_environment(parent_session_id)
 
     # If rerun, get previous's runs session_id, else None.
-    prev_session_id = CACHE.get_subrun_id(parent_session_id, run_name)
+    prev_session_id = DB.get_subrun_id(parent_session_id, run_name)
 
     # Register new subrun with server.
     msg = {
@@ -117,7 +117,7 @@ def set_parent_session_id(session_id):
     global parent_session_id, current_session_id, run_names
     parent_session_id = session_id
     current_session_id.set(session_id)
-    run_names = set(CACHE.get_session_name(parent_session_id))
+    run_names = set(DB.get_session_name(parent_session_id))
 
 
 def set_server_connection(server_connection):

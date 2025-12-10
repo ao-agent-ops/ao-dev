@@ -6,7 +6,7 @@ from aco.runner.monkey_patching.patching_utils import (
     send_graph_node_and_edges,
     skip_lowlevel_patches,
 )
-from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
@@ -60,7 +60,7 @@ def patch_BaseChatModel_invoke(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -72,7 +72,7 @@ def patch_BaseChatModel_invoke(base_chat_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -117,7 +117,7 @@ def patch_BaseLanguageModel_generate(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -129,7 +129,7 @@ def patch_BaseLanguageModel_generate(base_language_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -174,7 +174,7 @@ def patch_BaseLanguageModel_generate_prompt(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -186,7 +186,7 @@ def patch_BaseLanguageModel_generate_prompt(base_language_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -233,7 +233,7 @@ def patch_BaseChatModel_generate(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -245,7 +245,7 @@ def patch_BaseChatModel_generate(base_chat_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -290,7 +290,7 @@ def patch_BaseChatModel_ainvoke(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -302,7 +302,7 @@ def patch_BaseChatModel_ainvoke(base_chat_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -347,7 +347,7 @@ def patch_BaseLanguageModel_agenerate(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -359,7 +359,7 @@ def patch_BaseLanguageModel_agenerate(base_language_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -404,7 +404,7 @@ def patch_BaseLanguageModel_agenerate_prompt(base_language_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -416,7 +416,7 @@ def patch_BaseLanguageModel_agenerate_prompt(base_language_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)
@@ -463,7 +463,7 @@ def patch_BaseChatModel_agenerate(base_chat_model_class):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             # Set flag to skip low-level patches when called from within Langchain
             skip_lowlevel_patches(True)
@@ -475,7 +475,7 @@ def patch_BaseChatModel_agenerate(base_chat_model_class):
                     if k not in ["model_name", "kwargs"] and not k.startswith("_")
                 }
                 result = await original_function(self, **original_args)  # Call LLM.
-                CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+                DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
             finally:
                 # Always clear the flag
                 skip_lowlevel_patches(False)

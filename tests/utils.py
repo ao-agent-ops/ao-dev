@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 from aco.server.ast_transformer import rewrite_source_to_code
 from aco.server.database_manager import DB
-from aco.server.edit_manager import EDIT
 
 
 def cleanup_taint_db():
@@ -58,7 +57,7 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     # Ensure we're using local SQLite for tests
     DB.switch_mode("local")
     
-    EDIT.add_experiment(
+    DB.add_experiment(
         session_id=session_id,
         name=name,
         timestamp=datetime.now(),

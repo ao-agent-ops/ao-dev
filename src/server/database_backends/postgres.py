@@ -100,6 +100,11 @@ def close_all_connections():
             logger.debug("Closed PostgreSQL connection pool")
 
 
+def clear_connections():
+    """Clear cached connections to force reconnection (alias for close_all_connections)."""
+    close_all_connections()
+
+
 def _init_db(conn):
     """Initialize database schema (create tables if not exist)"""
     c = conn.cursor()
@@ -240,22 +245,6 @@ def execute(sql, params=()):
         raise
     finally:
         return_conn(conn)
-
-
-def deserialize_input(input_blob, api_type=None):
-    """Deserialize input blob back to original dict"""
-    if input_blob is None:
-        return None
-    # Postgres stores as bytes directly
-    return dill.loads(bytes(input_blob))
-
-
-def deserialize(output_blob, api_type=None):
-    """Deserialize output blob back to response object"""
-    if output_blob is None:
-        return None
-    # Postgres now stores output as BYTEA (bytes) directly, same as input
-    return dill.loads(bytes(output_blob))
 
 
 def store_taint_info(session_id, file_path, line_no, taint_nodes):
