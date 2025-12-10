@@ -12,9 +12,10 @@ from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 def mcp_patch():
     try:
+        import mcp  # avoid circular import, hacky must be resolved
         from mcp.client.session import ClientSession
-    except ImportError:
-        logger.info("MCP not installed, skipping MCP patches")
+    except ImportError as e:
+        logger.info(f"MCP not installed, skipping MCP patches: {e}")
         return
 
     def create_patched_init(original_init):

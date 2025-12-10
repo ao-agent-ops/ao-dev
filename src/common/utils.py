@@ -12,7 +12,7 @@ from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT, COMPILED_END
 
 def is_whitelisted_endpoint(path: str) -> bool:
     """Check if a path matches any of the whitelist regex patterns."""
-    return any(pattern.match(path) for pattern in COMPILED_ENDPOINT_PATTERNS)
+    return any(pattern.search(path) for pattern in COMPILED_ENDPOINT_PATTERNS)
 
 
 def hash_input(input_bytes):
