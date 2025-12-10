@@ -160,21 +160,6 @@ def execute(sql, params=()):
         return c.lastrowid
 
 
-def deserialize_input(input_blob, api_type):
-    """Deserialize input blob back to original dict"""
-    if input_blob is None:
-        return None
-    return dill.loads(input_blob)
-
-
-def deserialize(output_blob, api_type):
-    """Deserialize output blob back to response object"""
-    if output_blob is None:
-        return None
-    # SQLite now stores output as BLOB (bytes), same as input
-    return dill.loads(output_blob)
-
-
 def store_taint_info(session_id, file_path, line_no, taint_nodes):
     """Store taint information for a line in a file"""
     file_id = f"{session_id}:{file_path}:{line_no}"
@@ -208,6 +193,20 @@ def get_taint_info(file_path, line_no):
         taint_nodes = json.loads(row["taint"]) if row["taint"] else []
         return row["session_id"], taint_nodes
     return None, []
+
+
+def clear_connections():
+    """Clear cached SQLite connections to force reconnection."""
+    global _shared_conn
+    with _db_lock:
+        if _shared_conn:
+            try:
+                _shared_conn.close()
+            except Exception as e:
+                logger.warning(f"Error closing SQLite connection: {e}")
+            finally:
+                _shared_conn = None
+            logger.debug("Cleared SQLite connection cache")
 
 
 def add_experiment_query(
@@ -465,5 +464,11 @@ def get_experiment_log_success_graph_query(session_id):
     )
 
 
-# Note: User management functions removed - SQLite is single-user
-# Users are only managed in PostgreSQL for remote authentication
+# User management functions - SQLite is single-user so these raise errors
+def upsert_user(google_id, email, name, picture):
+    """SQLite doesn't support user management - single user database."""
+    raise Exception("User management not supported in local SQLite database. Switch to remote mode for multi-user support.")
+
+def get_user_by_id_query(user_id):
+    """SQLite doesn't support user management - single user database.""" 
+    raise Exception("User management not supported in local SQLite database. Switch to remote mode for multi-user support.")

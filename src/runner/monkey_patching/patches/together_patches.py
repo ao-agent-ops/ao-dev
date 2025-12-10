@@ -1,7 +1,7 @@
 from functools import wraps
 
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
-from aco.server.cache_manager import CACHE
+from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
@@ -52,10 +52,10 @@ def patch_together_chat_completions_create(completions):
         taint_origins = get_taint_origins(input_dict)
 
         # 4. Get result from cache or call LLM.
-        cache_output = CACHE.get_in_out(input_dict, api_type)
+        cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = original_function(**cache_output.input_dict)  # Call LLM.
-            CACHE.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
         # 5. Tell server that this LLM call happened.
         send_graph_node_and_edges(

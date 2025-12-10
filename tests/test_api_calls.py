@@ -22,7 +22,6 @@ sys.path.insert(0, str(parent_dir))
 from aco.cli.aco_server import launch_daemon_server
 from aco.runner.context_manager import set_parent_session_id
 from aco.common.constants import ACO_LOG_PATH, REMOTE_DATABASE_URL
-from aco.server.cache_manager import CACHE
 from tests.utils import restart_server
 from tests.get_api_objects import (
     create_anthropic_response,
@@ -161,9 +160,9 @@ def run_test(
     print(f"Caching {len(inputs)} responses...")
     for i, (input_text, output_text) in enumerate(zip(inputs, outputs)):
         print(f"  Caching response {i+1}: '{input_text}' -> '{output_text}'")
-        cache_output = CACHE.get_in_out(create_input_func(input_text), api_type)
+        cache_output = DB.get_in_out(create_input_func(input_text), api_type)
         response = create_response_func(output_text)
-        CACHE.cache_output(cache_result=cache_output, output_obj=response, api_type=api_type)
+        DB.cache_output(cache_result=cache_output, output_obj=response, api_type=api_type)
         print(f"  Cached with node_id: {cache_output.node_id}")
 
     # 6. Send restart to trigger execution

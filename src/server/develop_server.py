@@ -12,8 +12,6 @@ from datetime import datetime
 from typing import Optional, Dict
 
 from aco.common.utils import MODULE2FILE
-from aco.server.edit_manager import EDIT
-from aco.server.cache_manager import CACHE
 from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
@@ -208,7 +206,7 @@ class DevelopServer:
             info = self.conn_info.get(conn)
             if info:
                 user_id = info.get("user_id")
-            db_experiments = CACHE.get_all_experiments_sorted(user_id)
+            db_experiments = DB.get_all_experiments_sorted(user_id)
             build_and_send(conn, db_experiments)
             return
 
@@ -218,7 +216,7 @@ class DevelopServer:
             info = self.conn_info.get(ui_conn)
             if info:
                 user_id = info.get("user_id")
-            db_experiments = CACHE.get_all_experiments_sorted(user_id)
+            db_experiments = DB.get_all_experiments_sorted(user_id)
             build_and_send(ui_conn, db_experiments)
 
     def print_graph(self, session_id):
@@ -244,7 +242,7 @@ class DevelopServer:
     def load_finished_runs(self):
         # Load only session_id and timestamp for finished runs
         try:
-            rows = CACHE.get_finished_runs()
+            rows = DB.get_finished_runs()
             for row in rows:
                 session_id = row["session_id"]
                 # Mark as finished (not running)
@@ -258,7 +256,7 @@ class DevelopServer:
 
     def handle_graph_request(self, conn, session_id):
         # Query graph_topology for the session and reconstruct the in-memory graph
-        row = CACHE.get_graph(session_id)
+        row = DB.get_graph(session_id)
         if row and row["graph_topology"]:
             graph = json.loads(row["graph_topology"])
             self.session_graphs[session_id] = graph
@@ -331,7 +329,7 @@ class DevelopServer:
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
         color_preview = node_colors[-6:]  # Only display last 6 colors
-        CACHE.update_color_preview(sid, color_preview)
+        DB.update_color_preview(sid, color_preview)
         # Broadcast color preview update to all UIs
         logger.debug(f"[DevelopServer] Broadcast color {time.time()}")
         self.broadcast_to_all_uis(
@@ -339,7 +337,7 @@ class DevelopServer:
         )
         logger.debug(f"[DevelopServer] Broadcast graph update {time.time()}")
         self.broadcast_graph_update(sid)
-        EDIT.update_graph_topology(sid, graph)
+        DB.update_graph_topology(sid, graph)
 
     def handle_edit_input(self, msg: dict) -> None:
         logger.debug(f"[DevelopServer] Received edit_input: {msg}")
@@ -347,13 +345,13 @@ class DevelopServer:
         node_id = msg["node_id"]
         new_input = msg["value"]
 
-        EDIT.set_input_overwrite(session_id, node_id, new_input)
+        DB.set_input_overwrite(session_id, node_id, new_input)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
                 if node["id"] == node_id:
                     node["input"] = new_input
                     break
-            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
+            DB.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
         logger.debug("[DevelopServer] Input overwrite completed")
 
@@ -363,13 +361,13 @@ class DevelopServer:
         node_id = msg["node_id"]
         new_output = msg["value"]
 
-        EDIT.set_output_overwrite(session_id, node_id, new_output)
+        DB.set_output_overwrite(session_id, node_id, new_output)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
                 if node["id"] == node_id:
                     node["output"] = new_output
                     break
-            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
+            DB.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
         logger.debug("[DevelopServer] Output overwrite completed")
 
@@ -396,7 +394,7 @@ class DevelopServer:
                     break
 
             # Update the graph topology and broadcast the change
-            EDIT.update_graph_topology(session_id, self.session_graphs[session_id])
+            DB.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
         else:
             logger.warning(f"[DevelopServer] Session {session_id} not found in session_graphs")
@@ -405,7 +403,7 @@ class DevelopServer:
         session_id = msg["session_id"]
         success = msg["success"]
         entry = msg["entry"]
-        EDIT.add_log(session_id, success, entry)
+        DB.add_log(session_id, success, entry)
 
         self.broadcast_experiment_list_to_uis()
 
@@ -413,7 +411,7 @@ class DevelopServer:
         session_id = msg.get("session_id")
         run_name = msg.get("run_name")
         if session_id and run_name is not None:
-            EDIT.update_run_name(session_id, run_name)
+            DB.update_run_name(session_id, run_name)
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
@@ -424,7 +422,7 @@ class DevelopServer:
         session_id = msg.get("session_id")
         result = msg.get("result")
         if session_id and result is not None:
-            EDIT.update_result(session_id, result)
+            DB.update_result(session_id, result)
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
@@ -435,7 +433,7 @@ class DevelopServer:
         session_id = msg.get("session_id")
         notes = msg.get("notes")
         if session_id and notes is not None:
-            EDIT.update_notes(session_id, notes)
+            DB.update_notes(session_id, notes)
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
@@ -486,7 +484,7 @@ class DevelopServer:
             if user_id is None:
                 user_id = self.current_user_id
 
-            EDIT.add_experiment(
+            DB.add_experiment(
                 session_id,
                 name,
                 timestamp,
@@ -511,9 +509,9 @@ class DevelopServer:
     def handle_erase(self, msg):
         session_id = msg.get("session_id")
 
-        EDIT.erase(session_id)
+        DB.erase(session_id)
         # Clear color preview in database
-        CACHE.update_color_preview(session_id, [])
+        DB.update_color_preview(session_id, [])
 
         # Broadcast color preview clearing to all UIs
         self.broadcast_to_all_uis(
@@ -524,14 +522,14 @@ class DevelopServer:
 
     def handle_restart_message(self, msg: dict) -> bool:
         child_session_id = msg.get("session_id")
-        session_id = CACHE.get_parent_session_id(child_session_id)
+        session_id = DB.get_parent_session_id(child_session_id)
         if not session_id:
             logger.error("[DevelopServer] Restart message missing session_id. Ignoring.")
             return
         session = self.sessions.get(session_id)
 
         # Reset color previews.
-        CACHE.update_color_preview(child_session_id, [])
+        DB.update_color_preview(child_session_id, [])
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": session_id, "color_preview": []}
         )
@@ -561,7 +559,7 @@ class DevelopServer:
                 logger.warning(f"[DevelopServer] No shim_conn for session_id: {session_id}")
         elif session and session.status == "finished":
             # Rerun for finished session: launch new shim-control with same session_id
-            cwd, command, environment = CACHE.get_exec_command(session_id)
+            cwd, command, environment = DB.get_exec_command(session_id)
 
             logger.debug(
                 f"[DevelopServer] Rerunning finished session {session_id} with cwd={cwd} and command={command}"
@@ -581,7 +579,7 @@ class DevelopServer:
 
                 # Rerun the original command. This starts the shim-control, which starts the shim-runner.
                 args = shlex.split(command)
-                EDIT.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
+                DB.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
                 subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
 
                 # Update the session status to running and update timestamp for rerun
@@ -590,7 +588,7 @@ class DevelopServer:
                     session.status = "running"
                     # Update database timestamp so it sorts correctly
                     new_timestamp = datetime.now()
-                    EDIT.update_timestamp(child_session_id, new_timestamp)
+                    DB.update_timestamp(child_session_id, new_timestamp)
                     # Broadcast updated experiment list with rerun session at the front
                     self.broadcast_experiment_list_to_uis()
             except Exception as e:
@@ -625,7 +623,7 @@ class DevelopServer:
         os._exit(0)
 
     def handle_clear(self):
-        CACHE.clear_db()
+        DB.clear_db()
         self.session_graphs.clear()
         self.sessions.clear()
         self.broadcast_experiment_list_to_uis()
@@ -740,7 +738,7 @@ class DevelopServer:
                     environment = handshake.get("environment")
                     timestamp = datetime.now()
                     name = handshake.get("name")
-                    EDIT.add_experiment(
+                    DB.add_experiment(
                         session_id,
                         name,
                         timestamp,
