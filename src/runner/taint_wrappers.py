@@ -274,6 +274,16 @@ class TaintObject:
         obj = object.__getattribute__(self, "obj")
         return obj.__exit__(exc_type, exc_val, exc_tb)
 
+    async def __aenter__(self):
+        """Support async context manager protocol by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Support async context manager protocol by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__aexit__(exc_type, exc_val, exc_tb)
+
     # Make this object more transparent to type checkers
     @property
     def __class__(self):
