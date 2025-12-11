@@ -207,13 +207,35 @@ class DatabaseManager:
     def set_input_overwrite(self, session_id, node_id, new_input):
         """Overwrite input for node."""
         import dill
+        logger.error(f"[DatabaseManager] DEBUG: set_input_overwrite called with session_id={session_id}, node_id={node_id}")
+        logger.error(f"[DatabaseManager] DEBUG: Using backend: {type(self.backend).__name__} from module: {self.backend.__name__ if hasattr(self.backend, '__name__') else str(self.backend)}")
+        
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
+        logger.error(f"[DatabaseManager] DEBUG: Query result: {row}")
+        logger.error(f"[DatabaseManager] DEBUG: Query result type: {type(row)}")
+        if hasattr(row, 'keys'):
+            logger.error(f"[DatabaseManager] DEBUG: Query result keys: {list(row.keys())}")
 
-        input_overwrite = dill.loads(row["input"])
+        if row is None:
+            logger.error(f"[DatabaseManager] DEBUG: No LLM call found for session_id={session_id}, node_id={node_id}")
+            return
+
+        # Handle both dictionary and tuple/list access
+        try:
+            input_pickle = row["input"]
+            logger.error(f"[DatabaseManager] DEBUG: Accessed input as dict key")
+        except (KeyError, TypeError):
+            # Fallback to index access for tuple/list results
+            input_pickle = row[0]
+            logger.error(f"[DatabaseManager] DEBUG: Accessed input as index 0")
+            
+        logger.error(f"[DatabaseManager] DEBUG: About to dill.loads input_pickle")
+        input_overwrite = dill.loads(input_pickle)
         input_overwrite["input"] = new_input
         input_overwrite = dill.dumps(input_overwrite)
 
         self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
+        logger.error(f"[DatabaseManager] DEBUG: Successfully updated input overwrite for node_id={node_id}")
 
     def set_output_overwrite(self, session_id, node_id, new_output):
         """Overwrite output for node."""
@@ -361,10 +383,12 @@ class DatabaseManager:
         condition where the restart handler tries to read parent_session_id before the
         insert transaction is committed. This method retries a few times with short delays.
         """
+        logger.debug("in get parent session id 1")
         max_retries = 3
         retry_delay = 0.05  # 50ms between retries
         
         for attempt in range(max_retries):
+            logger.debug(f"in get parent session id attempt {attempt}")
             result = self.backend.get_parent_session_id_query(session_id)
             if result is not None:
                 return result["parent_session_id"]
@@ -434,10 +458,13 @@ class DatabaseManager:
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
+        logger.error(f"[DatabaseManager] DEBUG: get_in_out - session_id={session_id}, input_hash={input_hash}")
 
         row = self.backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
+        logger.error(f"[DatabaseManager] DEBUG: get_in_out - cache lookup result: {row}")
 
         if row is None:
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Cache MISS, returning None node_id")
             return CacheOutput(
                 input_dict=input_dict,
                 output=None,
@@ -450,22 +477,30 @@ class DatabaseManager:
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
+        logger.error(f"[DatabaseManager] DEBUG: get_in_out - Cache HIT, node_id={node_id}")
 
         logger.debug(
             f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
         )
 
         if row["input_overwrite"] is not None:
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Found input overwrite, applying...")
             overwrite_pickle = row["input_overwrite"]
             overwrite_text = dill.loads(overwrite_pickle)["input"]
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Overwrite text: {overwrite_text}")
             set_input(input_dict, overwrite_text, api_type)
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Input dict after overwrite: {input_dict}")
 
         if row["output"] is not None:
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Loading cached output")
             output = dill.loads(row["output"])
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - Cached output loaded successfully")
         else:
+            logger.error(f"[DatabaseManager] DEBUG: get_in_out - No cached output, output=None")
             logger.warning(
                 f"Found result in the cache, but output is None. Is this call doing something useful?"
             )
+            output = None
         set_seed(node_id)
         return CacheOutput(
             input_dict=input_dict,
@@ -491,15 +526,41 @@ class DatabaseManager:
         """
         from aco.common.utils import set_seed
         
-        # Insert new row with a new node_id. reset randomness to avoid
-        # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
-        random.seed()
-        node_id = str(uuid.uuid4())
-        logger.debug(
-            f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"
-        )
+        # Check if we're updating an existing node (cache HIT with output=None) or creating new (cache MISS)
+        logger.error(f"[DatabaseManager] DEBUG: cache_output - cache_result.node_id={cache_result.node_id}")
+        if cache_result.node_id is not None:
+            # Update existing node that was found in cache but had no output
+            node_id = cache_result.node_id
+            logger.error(f"[DatabaseManager] DEBUG: cache_output - Cache HIT with output=None, updating existing node: {node_id}")
+            logger.debug(
+                f"Cache HIT with output=None, updating existing node: {node_id}"
+            )
+        else:
+            # Insert new row with a new node_id. reset randomness to avoid
+            # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
+            random.seed()
+            node_id = str(uuid.uuid4())
+            logger.error(f"[DatabaseManager] DEBUG: cache_output - Cache MISS, creating new node: {node_id}")
+            logger.debug(
+                f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"
+            )
+        
+        logger.error(f"[DatabaseManager] DEBUG: cache_output - About to pickle output_obj: {type(output_obj)}")
         output_pickle = dill.dumps(output_obj)
+        logger.error(f"[DatabaseManager] DEBUG: cache_output - Output pickled successfully, size: {len(output_pickle)} bytes")
         if cache:
+            logger.error(f"[DatabaseManager] DEBUG: Caching LLM call with node_id={node_id}, session_id={cache_result.session_id}")
+            logger.error(f"[DatabaseManager] DEBUG: Using backend: {type(self.backend).__name__} from module: {self.backend.__name__ if hasattr(self.backend, '__name__') else str(self.backend)}")
+            
+            # Use upsert (INSERT with ON CONFLICT DO UPDATE) which handles both new and existing nodes
+            logger.error(f"[DatabaseManager] DEBUG: About to call insert_llm_call_with_output_query with params:")
+            logger.error(f"[DatabaseManager] DEBUG:   session_id={cache_result.session_id}")
+            logger.error(f"[DatabaseManager] DEBUG:   input_pickle size={len(cache_result.input_pickle)}")
+            logger.error(f"[DatabaseManager] DEBUG:   input_hash={cache_result.input_hash}")
+            logger.error(f"[DatabaseManager] DEBUG:   node_id={node_id}")
+            logger.error(f"[DatabaseManager] DEBUG:   api_type={api_type}")
+            logger.error(f"[DatabaseManager] DEBUG:   output_pickle size={len(output_pickle)}")
+            
             self.backend.insert_llm_call_with_output_query(
                 cache_result.session_id,
                 cache_result.input_pickle,
@@ -508,6 +569,9 @@ class DatabaseManager:
                 api_type,
                 output_pickle,
             )
+            logger.error(f"[DatabaseManager] DEBUG: Successfully cached LLM call with node_id={node_id}")
+        else:
+            logger.error(f"[DatabaseManager] DEBUG: Skipping cache for node_id={node_id} (cache=False)")
         cache_result.node_id = node_id
         cache_result.output = output_obj
         set_seed(node_id)
