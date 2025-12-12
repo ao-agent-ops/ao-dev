@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { ProcessCard } from './ProcessCard';
 import { ProcessInfo } from '../../types';
 
@@ -38,7 +38,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'similar', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const userRowRef = useRef<HTMLDivElement | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Sign out icon from VSCode codicons
   const IconSignOut = ({ size = 16 }: { size?: number }) => (
@@ -93,12 +93,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
-  const emptyStateStyle: React.CSSProperties = {
-    textAlign: 'center',
-    padding: '40px 20px',
-    color: isDarkTheme ? '#CCCCCC' : '#666666',
-  };
-
   const footerStyle: React.CSSProperties = {
     position: 'fixed',
     left: 0,
@@ -140,11 +134,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     transition: 'background-color 0.2s, border-color 0.2s',
   };
 
-  const loginButtonHoverStyle: React.CSSProperties = {
-    ...loginButtonStyle,
-    backgroundColor: '#005a9e',
-  };
-
   const avatarStyle: React.CSSProperties = {
     width: 44,
     height: 44,
@@ -176,29 +165,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-  };
-
-  const menuStyle: React.CSSProperties = {
-    position: 'absolute',
-    right: 12,
-    bottom: `${footerHeight + 8}px`,
-    minWidth: 140,
-    borderRadius: 6,
-    overflow: 'hidden',
-    boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-    backgroundColor: isDarkTheme ? '#2b2b2b' : '#ffffff',
-    border: `1px solid ${isDarkTheme ? '#3a3a3a' : '#e6e6e6'}`,
-    zIndex: 20,
-  };
-
-  const menuItemStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '10px 12px',
-    fontSize: 14,
-    cursor: 'pointer',
-    color: isDarkTheme ? '#ffffff' : '#111111',
   };
 
   const handleCardHover = (cardId: string, isEntering: boolean) => {
@@ -238,12 +204,33 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   const handleModeChange = (mode: 'Local' | 'Remote') => {
     console.log(mode);
     setDropdownOpen(false);
-    
+
     // Call parent handler to send message to server
     if (onModeChange) {
       onModeChange(mode);
     }
   };
+
+  // Filter processes based on search query
+  const filterProcesses = (processes: ProcessInfo[]) => {
+    if (!searchQuery.trim()) return processes;
+
+    const query = searchQuery.toLowerCase();
+    return processes.filter(process => {
+      const runName = (process.run_name || '').toLowerCase();
+      const sessionId = (process.session_id || '').toLowerCase();
+      const notes = (process.notes || '').toLowerCase();
+
+      return runName.includes(query) ||
+             sessionId.includes(query) ||
+             notes.includes(query);
+    });
+  };
+
+  // Apply filtering to all process lists
+  const filteredRunning = filterProcesses(runningProcesses);
+  const filteredSimilar = filterProcesses(similarProcesses);
+  const filteredFinished = filterProcesses(finishedProcesses);
 
   const renderExperimentSection = (
     processes: ProcessInfo[],
@@ -376,6 +363,34 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     color: 'var(--vscode-editor-foreground)',
   };
 
+  const searchBarContainerStyle: React.CSSProperties = {
+    position: 'relative',
+    marginBottom: '16px',
+  };
+
+  const searchIconStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: isDarkTheme ? '#858585' : '#666666',
+    pointerEvents: 'none',
+    fontSize: '13px',
+  };
+
+  const searchBarInputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '5px 10px 5px 28px',
+    fontSize: '13px',
+    backgroundColor: isDarkTheme ? '#3c3c3c' : '#ffffff',
+    color: isDarkTheme ? '#cccccc' : '#333333',
+    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    borderRadius: '4px',
+    outline: 'none',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    boxSizing: 'border-box',
+  };
+
   const renderDropdown = () => (
     <div style={dropdownStyle}>
       <button
@@ -413,119 +428,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
 
   // Show lock screen if in Remote mode without user
   const showLockScreen = currentMode === 'Remote' && !user;
-
-  if (showLockScreen) {
-    return (
-      <div style={containerStyle}>
-        {showHeader && (
-          <div style={headerStyle}>
-            <h3 style={headerTitleStyle}>Experiments</h3>
-            {renderDropdown()}
-          </div>
-        )}
-        {showLockScreen ? (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            padding: '40px 20px',
-            textAlign: 'center'
-          }}>
-            <div style={{ marginBottom: '20px' }}>
-              <svg
-                width="64"
-                height="64"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="11" width="18" height="10" rx="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-            </div>
-            <h2 style={{ marginBottom: '10px', fontSize: '18px', fontWeight: 600 }}>Authentication Required</h2>
-            <p style={{ marginBottom: '30px', opacity: 0.8, fontSize: '14px' }}>
-              Please sign in to access remote experiments
-            </p>
-          </div>
-        ) : (
-          <>
-            <div style={titleStyle}>Develop Processes</div>
-            <div style={emptyStateStyle}>
-              <div style={{ fontSize: '16px', marginBottom: '8px' }}>No develop processes</div>
-              <div style={{ fontSize: '12px' }}>
-                Start a develop process to see it here
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Footer */}
-        <div style={footerStyle}>
-          {user ? (
-            <div
-              ref={userRowRef}
-              style={userRowStyle}
-            >
-              <img
-                src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
-                alt={user.displayName || 'User avatar'}
-                style={avatarStyle}
-              />
-              <div style={nameBlockStyle}>
-                <div style={nameStyle}>{user.displayName || 'User'}</div>
-                <div style={emailStyle}>{user.email || ''}</div>
-              </div>
-              <button
-                onClick={handleLogoutClick}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '4px',
-                  backgroundColor: 'transparent',
-                  color: isDarkTheme ? '#cccccc' : '#333333',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: 0.7,
-                  transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '0.7';
-                }}
-                title="Logout"
-              >
-                <IconSignOut size={20} />
-              </button>
-            </div>
-          ) : (
-            <button
-              style={loginButtonStyle}
-              onClick={handleLoginClick}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = '#0098ff';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = '#007acc';
-              }}
-            >
-              Sign in with
-              <IconGoogle />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={containerStyle}>
@@ -567,19 +469,28 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         </div>
       ) : (
         <>
-          {renderExperimentSection(runningProcesses, 'Running', 'running')}
-          {renderExperimentSection(similarProcesses, 'Similar', 'similar', runningProcesses.length > 0 ? 32 : 0)}
-          {renderExperimentSection(finishedProcesses, 'Finished', 'finished', (runningProcesses.length > 0 || similarProcesses.length > 0) ? 32 : 0)}
+          {/* Search Bar */}
+          <div style={searchBarContainerStyle}>
+            <i className="codicon codicon-search" style={searchIconStyle} />
+            <input
+              type="text"
+              placeholder="Search experiments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={searchBarInputStyle}
+            />
+          </div>
+
+          {renderExperimentSection(filteredRunning, 'Running', 'running')}
+          {renderExperimentSection(filteredSimilar, 'Similar', 'similar', filteredRunning.length > 0 ? 32 : 0)}
+          {renderExperimentSection(filteredFinished, 'Finished', 'finished', (filteredRunning.length > 0 || filteredSimilar.length > 0) ? 32 : 0)}
         </>
       )}
 
       {/* Footer (always present) */}
       <div style={footerStyle}>
         {user ? (
-          <div
-            ref={userRowRef}
-            style={userRowStyle}
-          >
+          <div style={userRowStyle}>
             <img
               src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
               alt={user.displayName || 'User avatar'}

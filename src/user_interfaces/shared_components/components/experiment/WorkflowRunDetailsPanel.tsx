@@ -75,9 +75,6 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
  
   const containerStyle: React.CSSProperties = {
     padding: "20px 20px 40px 20px",
-    height: "100%",
-    maxHeight: "100%",
-    overflowY: "auto",
     boxSizing: "border-box",
     backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
     color: isDarkTheme ? "#FFFFFF" : "#000000",

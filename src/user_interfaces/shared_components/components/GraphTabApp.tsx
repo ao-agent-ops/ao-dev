@@ -84,7 +84,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
     >
       {/* Graph View */}
       {graphData && (
-        <div style={{ flex: 1, overflow: "auto", position: "relative", minWidth: 0 }}>
+        <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
           {/* Loading overlay */}
           {!isGraphReady && (
             <div

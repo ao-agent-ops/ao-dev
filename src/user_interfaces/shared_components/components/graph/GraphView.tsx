@@ -212,21 +212,54 @@ export const GraphView: React.FC<GraphViewProps> = ({
     }
   }, [availableWidth, hasInitialized, metadataPanel]);
 
-  // Auto-collapse when window gets too narrow (but only if user hasn't manually toggled)
+  // Calculate the maximum X position of nodes and edges to detect overlap
+  const maxContentX = useMemo(() => {
+    if (nodes.length === 0 && edges.length === 0) return 0;
+
+    // Get maximum X from nodes
+    const maxNodeX = nodes.length > 0
+      ? Math.max(...nodes.map(node => node.position.x + NODE_WIDTH))
+      : 0;
+
+    // Get maximum X from edge points
+    const edgeXValues = edges.flatMap(edge => {
+      const edgeData = edge.data as any;
+      return edgeData?.points?.map((p: any) => p.x) ?? [];
+    });
+    const maxEdgeX = edgeXValues.length > 0 ? Math.max(...edgeXValues) : 0;
+
+    return Math.max(maxNodeX, maxEdgeX);
+  }, [nodes, edges]);
+
+  // Auto-collapse when metadata panel would overlap with content (but only if user hasn't manually toggled)
   useEffect(() => {
-    const MIN_WIDTH_FOR_AUTO_COLLAPSE = 1000;
-    if (!userToggledPanel && isMetadataPanelOpen && availableWidth > 0 && availableWidth < MIN_WIDTH_FOR_AUTO_COLLAPSE) {
+    const METADATA_PANEL_WIDTH = 350;
+    const BUTTON_COLUMN_WIDTH = 52;
+    const PADDING = 100; // Extra margin to close before hitting the edge
+
+    // Calculate if metadata panel would overlap with nodes/edges
+    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PADDING;
+    const wouldOverlap = availableWidth > 0 && availableWidth < spaceNeededForPanel;
+
+    if (!userToggledPanel && isMetadataPanelOpen && wouldOverlap) {
       setIsMetadataPanelOpen(false);
     }
-  }, [availableWidth, isMetadataPanelOpen, userToggledPanel]);
+  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, maxContentX]);
 
-  // Auto-expand when window gets wide enough (but only if user hasn't manually toggled)
+  // Auto-expand when there's enough space for metadata panel without overlap (but only if user hasn't manually toggled)
   useEffect(() => {
-    const MIN_WIDTH_FOR_AUTO_EXPAND = 1000;
-    if (!userToggledPanel && !isMetadataPanelOpen && metadataPanel && availableWidth >= MIN_WIDTH_FOR_AUTO_EXPAND) {
+    const METADATA_PANEL_WIDTH = 350;
+    const BUTTON_COLUMN_WIDTH = 52;
+    const PADDING = 100; // Extra margin to close before hitting the edge
+
+    // Calculate if there's enough space for metadata panel without overlap
+    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PADDING;
+    const hasEnoughSpace = availableWidth >= spaceNeededForPanel;
+
+    if (!userToggledPanel && !isMetadataPanelOpen && metadataPanel && hasEnoughSpace) {
       setIsMetadataPanelOpen(true);
     }
-  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, metadataPanel]);
+  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, metadataPanel, maxContentX]);
 
   // Always show the metadata button if we have a metadata panel
   const showMetadataButton = !!metadataPanel;
@@ -263,76 +296,101 @@ export const GraphView: React.FC<GraphViewProps> = ({
         width: "100%",
         height: "100%",
         fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-        position: "relative",
-        overflow: "hidden", // Prevent outer scrollbar
+        display: "flex",
+        flexDirection: "row",
       }}
     >
-      <div style={mainLayoutStyle}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            width: "100%",
-            height: "100%",
-            paddingTop: "30px",
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-        >
-          <ReactFlowProvider>
-            <div
-              className={styles.flowContainer}
-              style={{
-                height: `${containerHeight}px`,
-                marginTop: "0px",
-                paddingTop: "0px",
-              }}
-            >
-              <ReactFlow
-                key={rfKey}
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                fitView={false}
-                proOptions={{ hideAttribution: true }}
-                minZoom={0.4}
-                maxZoom={1}
-                defaultViewport={viewport}
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={true}
-                panOnDrag={false}
-                zoomOnScroll={false}
-                zoomOnPinch={false}
-                zoomOnDoubleClick={false}
-                panOnScroll={false}
-                preventScrolling={false}
+      {/* Left Section: Graph content (no scrolling) */}
+      <div
+        style={{
+          flex: 1,
+          position: "relative",
+          minWidth: 0,
+        }}
+      >
+        <div style={mainLayoutStyle}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "center",
+              width: "100%",
+              paddingTop: "30px",
+            }}
+          >
+            <ReactFlowProvider>
+              <div
+                className={styles.flowContainer}
                 style={{
-                  width: "100%",
-                  height: "auto",
-                  padding: "0",
-                  margin: "0",
+                  height: `${containerHeight}px`,
+                  marginTop: "0px",
+                  paddingTop: "0px",
                 }}
-              />
-            </div>
-          </ReactFlowProvider>
+              >
+                <ReactFlow
+                  key={rfKey}
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  fitView={false}
+                  proOptions={{ hideAttribution: true }}
+                  minZoom={0.4}
+                  maxZoom={1}
+                  defaultViewport={viewport}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  elementsSelectable={true}
+                  panOnDrag={false}
+                  zoomOnScroll={false}
+                  zoomOnPinch={false}
+                  zoomOnDoubleClick={false}
+                  panOnScroll={false}
+                  preventScrolling={false}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    padding: "0",
+                    margin: "0",
+                  }}
+                />
+              </div>
+            </ReactFlowProvider>
+          </div>
         </div>
+      </div>
+
+      {/* Metadata Panel - in normal flow */}
+      {isMetadataPanelOpen && showMetadataButton && metadataPanel && (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 4,
-            marginTop: "10px",
-            marginRight: "30px",
-            position: "relative",
-            zIndex: 200, // Higher than metadata panel
+            width: '350px',
+            backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
+            borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
+          {metadataPanel}
+        </div>
+      )}
+
+      {/* Right Section: Fixed Action Buttons */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          gap: 4,
+          padding: "10px",
+          backgroundColor: isDarkTheme ? "#1e1e1e" : "#f5f5f5",
+          borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
+          minWidth: "52px",
+        }}
+      >
           {/* Metadata Panel Toggle Button */}
           {showMetadataButton && (
             <button
@@ -419,29 +477,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
               <path d="M12.9991 8C12.9991 5.23858 10.7605 3 7.99909 3C6.36382 3 4.91128 3.78495 3.99863 5H5.99909C6.27524 5 6.49909 5.22386 6.49909 5.5C6.49909 5.77614 6.27524 6 5.99909 6H3.10868C3.10184 6.00014 3.09498 6.00014 3.08812 6H2.99909C2.72295 6 2.49909 5.77614 2.49909 5.5V2.5C2.49909 2.22386 2.72295 2 2.99909 2C3.27524 2 3.49909 2.22386 3.49909 2.5V4.03138C4.59815 2.78613 6.20656 2 7.99909 2C11.3128 2 13.9991 4.68629 13.9991 8C13.9991 11.3137 11.3128 14 7.99909 14C4.86898 14 2.29916 11.6035 2.02353 8.54488C1.99875 8.26985 2.20161 8.0268 2.47664 8.00202C2.75167 7.97723 2.99471 8.1801 3.0195 8.45512C3.2491 11.003 5.39117 13 7.99909 13C10.7605 13 12.9991 10.7614 12.9991 8Z"/>
             </svg>
           </button>
-        </div>
       </div>
-
-      {/* Metadata Panel Overlay - positioned to leave room for buttons */}
-      {isMetadataPanelOpen && showMetadataButton && metadataPanel && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: '62px', // Leave space for the button column (30px) + margin (30px) + small gap (2px)
-            width: '350px',
-            height: '100%',
-            backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
-            borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
-            borderRight: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
-            boxShadow: '-2px 0 8px rgba(0, 0, 0, 0.1)',
-            zIndex: 100,
-            overflow: 'hidden', // Prevent double scrollbar
-          }}
-        >
-          {metadataPanel}
-        </div>
-      )}
     </div>
   );
 };
