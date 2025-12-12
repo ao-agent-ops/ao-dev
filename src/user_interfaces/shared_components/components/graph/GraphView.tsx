@@ -237,6 +237,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
     alignItems: "start",
     width: "100%",
     height: "100%",
+    overflow: "hidden",
   };
 
   const restartButtonStyle: React.CSSProperties = {
@@ -267,18 +268,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
         flexDirection: "row",
       }}
     >
-      {/* Left Section: Scrollable Graph */}
-      <div
-        style={{
-          flex: 1,
-          height: "100%",
-          overflowY: "auto",
-          overflowX: "hidden",
-          position: "relative",
-          marginRight: isMetadataPanelOpen && showMetadataButton ? '350px' : '0',
-          transition: 'margin-right 0.3s ease',
-        }}
-      >
+      {/* Left Section: Graph */}
+
         <div style={mainLayoutStyle}>
           <div
             style={{
@@ -334,11 +325,13 @@ export const GraphView: React.FC<GraphViewProps> = ({
             </ReactFlowProvider>
           </div>
         </div>
-      </div>
 
       {/* Right Section: Fixed Action Buttons */}
       <div
         style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -348,7 +341,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
           backgroundColor: isDarkTheme ? "#1e1e1e" : "#f5f5f5",
           borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
           minWidth: "52px",
-          height: "100%"
+          height: "100vh",
+          zIndex: 101,
         }}
       >
           {/* Metadata Panel Toggle Button */}
@@ -439,21 +433,22 @@ export const GraphView: React.FC<GraphViewProps> = ({
           </button>
       </div>
 
-      {/* Metadata Panel Overlay - positioned to leave room for buttons */}
+      {/* Metadata Panel Overlay */}
       {isMetadataPanelOpen && showMetadataButton && metadataPanel && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: 0,
-            right: '72px', // Leave space for the button column (30px) + margin (30px) + small gap (2px)
+            right: '72px', // Leave space for the button column
             width: '350px',
-            height: '100%',
+            height: '100vh',
             backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
             borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
             borderRight: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
             boxShadow: '-2px 0 8px rgba(0, 0, 0, 0.1)',
             zIndex: 100,
-            overflow: 'hidden', // Prevent double scrollbar
+            overflowY: 'auto', // Allow scrolling within metadata panel
+            overflowX: 'hidden',
           }}
         >
           {metadataPanel}
