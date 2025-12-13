@@ -54,6 +54,18 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
     };
   }, []);
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (showNodeEditModal) {
+      // Prevent scroll on body
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [showNodeEditModal]);
+
   if (!experiment || !sessionId) {
     return (
       <div
@@ -157,14 +169,24 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
               setShowNodeEditModal(false);
             }
           }}
+          onWheel={(e) => {
+            // Prevent scroll events from propagating to background
+            e.stopPropagation();
+          }}
         >
           <div
             style={{
               backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
               border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
               borderRadius: '6px',
-              width: 'auto',
-              height: 'auto',
+              width: '600px',
+              height: '500px',
+              minWidth: '400px',
+              minHeight: '300px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              resize: 'both',
+              overflow: 'auto',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             }}
             onClick={(e) => e.stopPropagation()}

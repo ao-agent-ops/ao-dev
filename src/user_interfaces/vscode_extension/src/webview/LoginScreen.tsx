@@ -73,9 +73,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isDarkTheme =
     padding: '12px 24px',
     fontSize: 14,
     fontWeight: 'normal',
-    color: '#ffffff',
-    backgroundColor: '#000000',
-    border: '1px solid #007acc',
+    color: isDarkTheme ? '#cccccc' : '#303030',
+    backgroundColor: isDarkTheme ? '#3C3C3C' : '#fff',
+    border: isDarkTheme ? '1px solid #6B6B6B' : '1px solid #CCCCCC',
     borderRadius: 6,
     cursor: 'pointer',
     display: 'inline-flex',
@@ -158,10 +158,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isDarkTheme =
           onClick={onLogin}
           style={loginButtonStyle}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = '#0098ff';
+            e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#f5f5f5';
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = '#007acc';
+            e.currentTarget.style.backgroundColor = isDarkTheme ? '#3C3C3C' : '#fff';
           }}
         >
           Sign in with

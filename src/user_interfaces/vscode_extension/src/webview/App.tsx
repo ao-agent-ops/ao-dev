@@ -181,45 +181,6 @@ export const App: React.FC = () => {
       }}
     >
       <div
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--vscode-editorWidget-border)",
-        }}
-      >
-        <button
-          onClick={() => setActiveTab("experiments")}
-          style={{
-            padding: "10px 20px",
-            border: "none",
-            backgroundColor:
-              activeTab === "experiments"
-                ? "var(--vscode-button-background)"
-                : "transparent",
-            color:
-              activeTab === "experiments"
-                ? "var(--vscode-button-foreground)"
-                : "var(--vscode-editor-foreground)",
-            cursor: "pointer",
-          }}
-        >
-          Experiments
-        </button>
-        {activeTab === "experiment-graph" && selectedExperiment && (
-          <button
-            onClick={() => setActiveTab("experiment-graph")}
-            style={{
-              padding: "10px 20px",
-              border: "none",
-              backgroundColor: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
-              cursor: "pointer",
-            }}
-          >
-            Experiment {selectedExperiment.session_id.substring(0, 8)}...
-          </button>
-        )}
-      </div>
-      <div
         style={
           showDetailsPanel
             ? {
