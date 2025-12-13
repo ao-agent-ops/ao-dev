@@ -70,10 +70,10 @@ DEFAULT_LOG = "No entries"
 DEFAULT_SUCCESS = ""
 SUCCESS_STRING = {True: "Satisfactory", False: "Failed", None: ""}
 
-# Colors
-CERTAINTY_GREEN = "#00c542"
-CERTAINTY_YELLOW = "#FFC000"
-CERTAINTY_RED = "#B80F0A"
+# Colors (matching UI icons in GraphView)
+CERTAINTY_GREEN = "#7fc17b"  # Matches restart/rerun button
+CERTAINTY_YELLOW = "#d4a825"  # Matches tag icon
+CERTAINTY_RED = "#e05252"  # Matches erase button
 SUCCESS_COLORS = {
     "Satisfactory": CERTAINTY_GREEN,
     "": CERTAINTY_YELLOW,

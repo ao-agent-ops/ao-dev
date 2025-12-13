@@ -86,9 +86,9 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '14px',
-    fontWeight: '600',
-    marginBottom: '20px',
+    fontSize: '13px',
+    fontWeight: 'normal',
+    marginBottom: '8px',
     color: isDarkTheme ? '#FFFFFF' : '#000000',
     fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
@@ -293,7 +293,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           ) : (
             <div
               style={{
-                padding: '4px 16px 8px 16px',
+                padding: '4px 16px 16px 16px',
                 color: isDarkTheme ? '#CCCCCC' : '#666666',
                 fontSize: '12px',
                 fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
@@ -482,8 +482,8 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           </div>
 
           {renderExperimentSection(filteredRunning, 'Running', 'running')}
-          {renderExperimentSection(filteredSimilar, 'Similar', 'similar', filteredRunning.length > 0 ? 32 : 0)}
-          {renderExperimentSection(filteredFinished, 'Finished', 'finished', (filteredRunning.length > 0 || filteredSimilar.length > 0) ? 32 : 0)}
+          {renderExperimentSection(filteredSimilar, 'Similar', 'similar', filteredRunning.length > 0 ? 16 : 0)}
+          {renderExperimentSection(filteredFinished, 'Finished', 'finished', (filteredRunning.length > 0 || filteredSimilar.length > 0) ? 16 : 0)}
         </>
       )}
 
