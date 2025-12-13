@@ -61,8 +61,13 @@ def main(
     task_file_name: str = "",
 ):
     dotenv.load_dotenv()
+    
+    # Get absolute path to config directory relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_dir = os.path.join(script_dir, "config")
+    
     with hydra.initialize_config_dir(
-        config_dir=os.path.abspath("./example_workflows/miroflow_deep_research/config"), version_base=None
+        config_dir=config_dir, version_base=None
     ):
         cfg = hydra.compose(config_name="config")
         logger = bootstrap_logger(level="DEBUG")

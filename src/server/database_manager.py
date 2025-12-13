@@ -9,7 +9,6 @@ import time
 import uuid
 import json
 import dill
-import random
 from dataclasses import dataclass
 from typing import Optional, Any
 
@@ -207,8 +206,7 @@ class DatabaseManager:
     def set_input_overwrite(self, session_id, node_id, new_input):
         """Overwrite input for node."""
         import dill
-        logger.error(f"[DatabaseManager] DEBUG: set_input_overwrite called with session_id={session_id}, node_id={node_id}")
-        logger.error(f"[DatabaseManager] DEBUG: Using backend: {type(self.backend).__name__} from module: {self.backend.__name__ if hasattr(self.backend, '__name__') else str(self.backend)}")
+        logger.debug(f"[DatabaseManager] DEBUG: set_input_overwrite called with session_id={session_id}, node_id={node_id}")
         
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
         logger.error(f"[DatabaseManager] DEBUG: Query result: {row}")
@@ -383,23 +381,19 @@ class DatabaseManager:
         condition where the restart handler tries to read parent_session_id before the
         insert transaction is committed. This method retries a few times with short delays.
         """
-        logger.debug("in get parent session id 1")
-        max_retries = 3
+        max_retries = 4
         retry_delay = 0.05  # 50ms between retries
         
         for attempt in range(max_retries):
-            logger.debug(f"in get parent session id attempt {attempt}")
             result = self.backend.get_parent_session_id_query(session_id)
             if result is not None:
                 return result["parent_session_id"]
             
             if attempt < max_retries - 1:  # Don't sleep on last attempt
-                logger.debug(f"Parent session not found for {session_id}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
                 time.sleep(retry_delay)
         
         # If we get here, all retries failed
-        logger.error(f"Failed to find parent session for {session_id} after {max_retries} attempts")
-        raise ValueError(f"Parent session not found for session_id: {session_id}")
+        raise ValueError(f"Parent session not found for session_id: {session_id}. All retries failed.")
 
     def cache_file(self, file_id, file_name, io_stream):
         """Cache file attachment."""
@@ -537,8 +531,6 @@ class DatabaseManager:
             )
         else:
             # Insert new row with a new node_id. reset randomness to avoid
-            # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
-            random.seed()
             node_id = str(uuid.uuid4())
             logger.error(f"[DatabaseManager] DEBUG: cache_output - Cache MISS, creating new node: {node_id}")
             logger.debug(

@@ -341,6 +341,13 @@ class UnifiedShim:
     def _execute_user_code(self) -> None:
         """Execute the user's code directly in this process."""
         try:
+            # Ensure current working directory is in sys.path for module imports
+            cwd = os.getcwd()
+            if cwd not in sys.path:
+                sys.path.insert(0, cwd)
+                logger.info(f"[UnifiedShim] Added current directory to sys.path: {cwd}")
+                        
+            # Run user program.
             if self.is_module_execution:
                 sys.argv = [self.script_path] + self.script_args
                 runpy.run_module(self.script_path, run_name="__main__")
