@@ -98,16 +98,6 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Setup MiroFlow dependencies
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
-        
-        # Install MiroFlow packages (submodules already initialized by checkout)
-        pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-contrib
-        pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-tool
-        pip install -e example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow
-
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"

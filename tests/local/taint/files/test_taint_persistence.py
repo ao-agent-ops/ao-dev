@@ -12,9 +12,8 @@ import sys
 from pathlib import Path
 from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins
 
-# Add utils path for test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from utils import cleanup_taint_db, setup_test_session
+# Import test helpers from parent tests directory
+from ....utils import cleanup_taint_db, setup_test_session
 
 
 def session1_write():

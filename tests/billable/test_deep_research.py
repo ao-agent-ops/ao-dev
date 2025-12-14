@@ -19,6 +19,7 @@ def switch_to_cheap_model():
     config_path = os.path.join(
         script_dir,
         "..",
+        "..",
         "example_workflows",
         "miroflow_deep_research",
         "config",
@@ -59,6 +60,7 @@ def restore_original_model():
     config_path = os.path.join(
         script_dir,
         "..",
+        "..",
         "example_workflows",
         "miroflow_deep_research",
         "config",
@@ -79,7 +81,9 @@ def run_aco_launch(script_path):
     """Run aco-launch command and return the session_id from DB."""
     # Get absolute path to miroflow_deep_research directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    miroflow_dir = os.path.join(script_dir, "..", "example_workflows", "miroflow_deep_research")
+    miroflow_dir = os.path.join(
+        script_dir, "..", "..", "example_workflows", "miroflow_deep_research"
+    )
 
     # Run aco-launch command normally - let it handle everything
     cmd = [sys.executable, "-m", "aco.cli.aco_launch", script_path]

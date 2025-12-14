@@ -113,11 +113,11 @@ def run_test(
     shim_file = shim_sock.makefile("rw")
 
     # Use --project-root to override the project root for this test
-    test_project_root = str(Path(__file__).parent)  # /path/to/tests/
+    test_project_root = str(Path(__file__).parent.parent)  # /path/to/tests/
     handshake = {
         "role": "agent-runner",
         "cwd": test_project_root,
-        "command": f"aco-launch --project-root {test_project_root} user_programs/{program_file}",
+        "command": f"aco-launch --project-root {test_project_root} billable/user_programs/{program_file}",
         "environment": {},
         "name": "test_api_calls",
     }
