@@ -28,10 +28,10 @@ from aco.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_f
 from aco.runner.context_manager import set_parent_session_id, set_server_connection
 from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 from aco.server.ast_transformer import (
-    taint_fstring_join, 
-    taint_format_string, 
-    taint_percent_format, 
-    exec_func
+    taint_fstring_join,
+    taint_format_string,
+    taint_percent_format,
+    exec_func,
 )
 from aco.server.database_manager import DB
 
@@ -44,8 +44,9 @@ def get_runner_dir():
 def _log_error(context: str, exception: Exception) -> None:
     """Centralized error logging utility."""
     import traceback
-    logger.error(f"[UnifiedShim] {context}: {exception}")
-    logger.debug(f"[UnifiedShim] Traceback: {traceback.format_exc()}")
+
+    logger.error(f"[AgentRunner] {context}: {exception}")
+    logger.debug(f"[AgentRunner] Traceback: {traceback.format_exc()}")
 
 
 def ensure_server_running() -> None:
@@ -61,8 +62,8 @@ def ensure_server_running() -> None:
         logger.debug("Server started successfully")
 
 
-class UnifiedShim:
-    """Unified shim that combines orchestration and execution in a single process."""
+class AgentRunner:
+    """Unified agent runner that combines orchestration and execution in a single process."""
 
     def __init__(
         self,
@@ -99,7 +100,7 @@ class UnifiedShim:
         """Send a message to the develop server."""
         if not self.server_conn:
             return
-        message = {"type": msg_type, "role": "shim-control", **kwargs}
+        message = {"type": msg_type, "role": "agent-runner", **kwargs}
         if self.session_id:
             message["session_id"] = self.session_id
         try:
@@ -130,6 +131,7 @@ class UnifiedShim:
             while not self.shutdown_flag:
                 try:
                     import select
+
                     rlist, _, _ = select.select([sock], [], [], 1.0)
                     if rlist:
                         data = sock.recv(4096)
@@ -156,15 +158,15 @@ class UnifiedShim:
 
     def _handle_server_message(self, msg: dict) -> None:
         """Handle incoming server messages."""
-        logger.info(f"[UnifiedShim] Received message from aco.server: {msg}")
+        logger.info(f"[AgentRunner] Received message from aco.server: {msg}")
         msg_type = msg.get("type")
         if msg_type == "restart":
-            logger.info(f"[UnifiedShim] Received restart message: {msg}")
+            logger.info(f"[AgentRunner] Received restart message: {msg}")
             # In unified model, we exit gracefully and let server respawn us
             self.shutdown_flag = True
             sys.exit(0)
         elif msg_type == "shutdown":
-            logger.info(f"[UnifiedShim] Received shutdown message: {msg}")
+            logger.info(f"[AgentRunner] Received shutdown message: {msg}")
             self.shutdown_flag = True
             sys.exit(0)
 
@@ -178,7 +180,11 @@ class UnifiedShim:
         if "debugpy" in sys.modules:
             return True
 
-        debugpy_env_vars = ["DEBUGPY_LAUNCHER_PORT", "PYDEVD_LOAD_VALUES_ASYNC", "PYDEVD_USE_FRAME_EVAL"]
+        debugpy_env_vars = [
+            "DEBUGPY_LAUNCHER_PORT",
+            "PYDEVD_LOAD_VALUES_ASYNC",
+            "PYDEVD_USE_FRAME_EVAL",
+        ]
         return any(os.getenv(var) for var in debugpy_env_vars)
 
     def _get_parent_cmdline(self) -> List[str]:
@@ -198,19 +204,19 @@ class UnifiedShim:
 
         python_executable = sys.executable
         parent_cmdline = self._get_parent_cmdline()
-        
+
         # Handle debugpy launcher with -- separator
         if parent_cmdline and "launcher" in " ".join(parent_cmdline) and "--" in parent_cmdline:
             dash_index = parent_cmdline.index("--")
-            original_args = " ".join(parent_cmdline[dash_index + 1:])
+            original_args = " ".join(parent_cmdline[dash_index + 1 :])
             return f"/usr/bin/env {python_executable} {original_args}"
-        
+
         # Generate target args based on module execution
         if self.is_module_execution:
             target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
         else:
             target_args = f"{self.script_path} {' '.join(self.script_args)}"
-        
+
         return f"{python_executable} {target_args}"
 
     def _connect_to_server(self) -> None:
@@ -223,7 +229,7 @@ class UnifiedShim:
 
         handshake = {
             "type": "hello",
-            "role": "shim-control",
+            "role": "agent-runner",
             "name": "Workflow run",
             "cwd": os.getcwd(),
             "command": self._generate_restart_command(),
@@ -253,16 +259,16 @@ class UnifiedShim:
             raise
 
     def _setup_environment(self) -> None:
-        """Set up the execution environment (simplified from launch_scripts.py)."""
+        """Set up the execution environment for the agent runner."""
         # Set up PYTHONPATH for AST rewrite hooks
         runtime_tracing_dir = get_runner_dir()
-        
+
         if "PYTHONPATH" in os.environ:
             os.environ["PYTHONPATH"] = (
-                self.project_root 
-                + os.pathsep 
-                + runtime_tracing_dir 
-                + os.pathsep 
+                self.project_root
+                + os.pathsep
+                + runtime_tracing_dir
+                + os.pathsep
                 + os.environ["PYTHONPATH"]
             )
         else:
@@ -283,7 +289,7 @@ class UnifiedShim:
         builtins.exec_func = exec_func
 
     def _apply_runtime_setup(self) -> None:
-        """Apply runtime setup that was previously in launch_scripts.py."""
+        """Apply runtime setup for the agent runner execution environment."""
         # Set up context manager
         set_parent_session_id(self.session_id)
         set_server_connection(self.server_conn)
@@ -294,15 +300,17 @@ class UnifiedShim:
         # Set random seeds
         aco_random_seed = int(os.environ["ACO_SEED"])
         random.seed(aco_random_seed)
-        
+
         try:
             from numpy.random import seed
+
             seed(aco_random_seed)
         except ImportError:
             pass
-        
+
         try:
             from torch import manual_seed
+
             manual_seed(aco_random_seed)
         except ImportError:
             pass
@@ -345,8 +353,8 @@ class UnifiedShim:
             cwd = os.getcwd()
             if cwd not in sys.path:
                 sys.path.insert(0, cwd)
-                logger.info(f"[UnifiedShim] Added current directory to sys.path: {cwd}")
-                        
+                logger.info(f"[AgentRunner] Added current directory to sys.path: {cwd}")
+
             # Run user program.
             if self.is_module_execution:
                 sys.argv = [self.script_path] + self.script_args
@@ -362,16 +370,14 @@ class UnifiedShim:
             sys.exit(1)
 
     def run(self) -> None:
-        """Main entry point to run the unified shim."""
+        """Main entry point to run the unified agent runner."""
         try:
             self._setup_environment()
             ensure_server_running()
             self._connect_to_server()
 
             self.listener_thread = threading.Thread(
-                target=self._listen_for_server_messages, 
-                args=(self.server_conn,),
-                daemon=True
+                target=self._listen_for_server_messages, args=(self.server_conn,), daemon=True
             )
             self.listener_thread.start()
 

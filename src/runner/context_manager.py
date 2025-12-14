@@ -22,7 +22,6 @@ run_names = None
 
 
 def get_run_name(run_name):
-    logger.debug(f"Active runs in run_names set: {run_names}")
     # Run names must be unique for a given parent_session_id.
     if run_name not in run_names:
         run_names.add(run_name)
@@ -55,9 +54,6 @@ def aco_launch(run_name="Workflow run"):
     """
     # Get unique run name.
     run_name = get_run_name(run_name)
-    logger.debug(
-        f"Sub-run '{run_name}' starting in process {os.getpid()}, thread {threading.get_ident()}"
-    )
 
     # Get rerun environment from parent
     # BUG: If parent sets env vars before calling this, these env vars are lost upon restart.
@@ -124,4 +120,3 @@ def set_server_connection(server_connection):
     global server_conn, server_file
     server_conn = server_connection
     server_file = server_connection.makefile("rw")
-    logger.debug(f"Set server connection in context_manager")

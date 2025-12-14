@@ -8,7 +8,7 @@ Core system files:
 - @src/server/ast_transformer.py - AST rewrites for taint propagation
 - @src/server/file_watcher.py - Automatic file monitoring and recompilation
 - @src/runner/taint_wrappers.py - Taint-aware data types for tracking provenance
-- @src/runner/launch_scripts.py - Runtime environment setup
+- @src/runner/agent_runner.py - Runtime environment setup
 - @src/runner/ast_rewrite_hook.py - Import hook ensuring `.pyc` availability
 - @src/runner/monkey_patching/patches/openai_patches.py - LLM API interception example
 - @src/runner/README.md - Overall runner system documentation
@@ -23,7 +23,7 @@ The system creates dataflow graphs through three integrated layers:
 ## How It Works
 
 1. **Pre-execution**: @src/server/file_watcher.py monitors files and triggers AST rewrites via @src/server/ast_transformer.py
-2. **Runtime Setup**: @src/runner/launch_scripts.py registers taint functions and establishes server connection
+2. **Runtime Setup**: @src/runner/agent_runner.py registers taint functions and establishes server connection
 3. **Import Hook**: @src/runner/ast_rewrite_hook.py ensures AST-rewritten `.pyc` files exist before module imports
 4. **Execution**: User code runs with rewritten `.pyc` files that automatically propagate taint through operations
 5. **LLM Interception**: @src/runner/monkey_patching/patches/ intercept API calls to build dataflow graph

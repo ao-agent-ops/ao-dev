@@ -133,10 +133,10 @@ def send_graph_to_ui(graph: Dict, graph_name: str = "Random Graph"):
         return None
 
     try:
-        # Send handshake as shim-control
+        # Send handshake as agent-runner
         handshake = {
             "type": "hello",
-            "role": "shim-control",
+            "role": "agent-runner",
             "name": graph_name,
             "cwd": os.getcwd(),
             "command": f"python {__file__}",

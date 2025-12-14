@@ -14,7 +14,6 @@ def mcp_patch():
     try:
         from mcp.client.session import ClientSession
     except ImportError:
-        logger.info("MCP not installed, skipping MCP patches")
         return
 
     def create_patched_init(original_init):

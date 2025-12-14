@@ -12,7 +12,6 @@ def anthropic_patch():
     try:
         import anthropic
     except ImportError:
-        logger.info("Anthropic not installed, skipping Anthropic patches")
         return
 
     original_init = anthropic.Anthropic.__init__

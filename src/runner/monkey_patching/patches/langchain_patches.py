@@ -21,7 +21,6 @@ def langchain_patch():
         from langchain_core.language_models.chat_models import BaseChatModel
         from langchain_core.language_models.base import BaseLanguageModel
     except ImportError:
-        logger.info("Langchain not installed, skipping Langchain patches")
         return
 
     patch_BaseChatModel_invoke(BaseChatModel)

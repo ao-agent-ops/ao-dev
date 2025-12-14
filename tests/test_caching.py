@@ -107,21 +107,21 @@ def run_test(
     admin_sock.close()
     print(f"Switched server database to {db_backend} mode")
 
-    # 2. Connect as shim-control to register session
-    print("Connecting to shim-control...")
+    # 2. Connect as agent-runner to register session
+    print("Connecting to agent-runner...")
     shim_sock = socket.create_connection(("127.0.0.1", 5959))
     shim_file = shim_sock.makefile("rw")
 
     # Use --project-root to override the project root for this test
     test_project_root = str(Path(__file__).parent)  # /path/to/tests/
     handshake = {
-        "role": "shim-control",
+        "role": "agent-runner",
         "cwd": test_project_root,
         "command": f"aco-launch --project-root {test_project_root} user_programs/{program_file}",
         "environment": {},
         "name": "test_api_calls",
     }
-    
+
     # Add user_id for PostgreSQL tests (must be integer for PostgreSQL schema)
     if db_backend == "remote":
         handshake["user_id"] = 123

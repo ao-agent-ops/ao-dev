@@ -46,7 +46,7 @@ class DevelopServer:
         self.conn_info = {}  # conn -> {role, session_id}
         self.session_graphs = {}  # session_id -> graph_data
         self.ui_connections = set()  # All UI connections (simplified)
-        self.sessions = {}  # session_id -> Session (only for shim connections)
+        self.sessions = {}  # session_id -> Session (only for agent runner connections)
         self.module_to_file = module_to_file or MODULE2FILE  # Module mapping for file watcher
         self.file_watcher_process = None  # Child process for file watching
         self.current_user_id = None  # Store the current authenticated user_id
@@ -125,6 +125,7 @@ class DevelopServer:
 
     def broadcast_experiment_list_to_uis(self, conn=None) -> None:
         """Only broadcast to one UI (conn) or, if conn is None, to all."""
+
         # If a specific conn is provided, send experiments filtered by that conn's user
         def build_and_send(target_conn, db_rows):
             session_map = {session.session_id: session for session in self.sessions.values()}
@@ -139,18 +140,19 @@ class DevelopServer:
                 # Get data from DB entries.
                 timestamp = row["timestamp"]
                 # Format timestamp for display (MM/DD HH:MM)
-                if hasattr(timestamp, 'strftime'):
+                if hasattr(timestamp, "strftime"):
                     timestamp = timestamp.strftime("%m/%d %H:%M")
                 else:
                     # If it's already a string, try to parse and reformat
                     try:
                         from datetime import datetime
+
                         dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
                         timestamp = dt.strftime("%m/%d %H:%M")
                     except:
                         # If parsing fails, use as-is
                         pass
-                
+
                 run_name = row["name"]
                 success = row["success"]
                 notes = row["notes"]
@@ -182,6 +184,7 @@ class DevelopServer:
                 send_json(target_conn, msg)
             except Exception as e:
                 logger.error(f"Error sending experiment list to UI: {e}")
+
         if conn:
             user_id = None
             info = self.conn_info.get(conn)
@@ -227,7 +230,7 @@ class DevelopServer:
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": session_id, "color_preview": []}
         )
-        
+
         # Clear session graph
         self.session_graphs[session_id] = {"nodes": [], "edges": []}
         self.broadcast_to_all_uis(
@@ -242,24 +245,24 @@ class DevelopServer:
         """Spawn a new session process with the original command and environment."""
         try:
             cwd, command, environment = DB.get_exec_command(session_id)
-            
+
             # Set up environment
             env = os.environ.copy()
             env["AGENT_COPILOT_SESSION_ID"] = session_id
             env.update(environment)
-            
+
             # Spawn the process
             args = shlex.split(command)
             DB.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
             subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
-            
+
             # Update session status and timestamp
             session = self.sessions.get(child_session_id)
             if session:
                 session.status = "running"
                 DB.update_timestamp(child_session_id, datetime.now())
                 self.broadcast_experiment_list_to_uis()
-                
+
         except Exception as e:
             logger.error(f"[DevelopServer] Failed to rerun finished session: {e}")
 
@@ -509,7 +512,7 @@ class DevelopServer:
             session.shim_conn = conn
         session.status = "running"
         self.broadcast_experiment_list_to_uis()
-        self.conn_info[conn] = {"role": "shim-control", "session_id": session_id}
+        self.conn_info[conn] = {"role": "agent-runner", "session_id": session_id}
         send_json(conn, {"type": "session_id", "session_id": session_id})
 
     def handle_erase(self, msg):
@@ -532,10 +535,10 @@ class DevelopServer:
         if not session_id:
             logger.error("[DevelopServer] Restart message missing session_id. Ignoring.")
             return
-        
+
         # Clear UI state
         self._clear_session_ui(child_session_id)
-        
+
         # Send graceful restart signal to existing session if still connected
         session = self.sessions.get(session_id)
         if session and session.status == "running" and session.shim_conn:
@@ -543,7 +546,7 @@ class DevelopServer:
                 send_json(session.shim_conn, {"type": "restart", "session_id": session_id})
             except Exception as e:
                 logger.error(f"[DevelopServer] Error sending restart: {e}")
-        
+
         # Spawn new session process
         self._spawn_session_process(session_id, child_session_id)
 
@@ -658,8 +661,8 @@ class DevelopServer:
             handshake = json.loads(handshake_line.strip())
             role = handshake.get("role")
             session_id = None
-            # Only assign session_id for shim-control.
-            if role == "shim-control":
+            # Only assign session_id for agent-runner.
+            if role == "agent-runner":
                 # If rerun, use previous session_id. Else, assign new one.
                 prev_session_id = handshake.get("prev_session_id")
                 if prev_session_id is not None:
@@ -692,7 +695,14 @@ class DevelopServer:
                 session.status = "running"
                 self.broadcast_experiment_list_to_uis()
                 self.conn_info[conn] = {"role": role, "session_id": session_id}
-                send_json(conn, {"type": "session_id", "session_id": session_id, "database_mode": DB.get_current_mode()})
+                send_json(
+                    conn,
+                    {
+                        "type": "session_id",
+                        "session_id": session_id,
+                        "database_mode": DB.get_current_mode(),
+                    },
+                )
 
                 # Extract module mapping for file watcher
                 module_to_file = handshake.get("module_to_file", {})
@@ -703,9 +713,9 @@ class DevelopServer:
                     self.stop_file_watcher()
                     self.start_file_watcher()
                 else:
-                    logger.warning(f"[DevelopServer] No module mapping received from shim-control")
+                    logger.warning(f"[DevelopServer] No module mapping received from agent-runner")
 
-                # Log shim-control registration to telemetry
+                # Log agent-runner registration to telemetry
                 log_shim_control_registration(handshake, session_id)
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
@@ -752,8 +762,8 @@ class DevelopServer:
         finally:
             # Clean up connection
             info = self.conn_info.pop(conn, None)
-            # Only mark session finished for shim-control disconnects
-            if info and role == "shim-control":
+            # Only mark session finished for agent-runner disconnects
+            if info and role == "agent-runner":
                 session = self.sessions.get(info["session_id"])
                 if session:
                     with session.lock:

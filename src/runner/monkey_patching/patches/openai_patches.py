@@ -15,7 +15,6 @@ def openai_patch():
     try:
         from openai import OpenAI
     except ImportError:
-        logger.info("OpenAI not installed, skipping OpenAI patches")
         return
 
     def create_patched_init(original_init):
@@ -328,7 +327,6 @@ def async_openai_patch():
     try:
         from openai import AsyncOpenAI
     except ImportError:
-        logger.info("OpenAI not installed, skipping AsyncOpenAI patches")
         return
 
     def create_patched_init(original_init):
