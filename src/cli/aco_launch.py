@@ -4,7 +4,7 @@ import yaml
 from argparse import ArgumentParser, REMAINDER
 from typing import Optional
 from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
-from aco.runner.develop_shim import DevelopShim
+from aco.runner.agent_runner import AgentRunner
 
 
 def parse_sample_id() -> Optional[int]:
@@ -110,8 +110,8 @@ def _validate_launch_command(args):
 def launch_command(args, *, sample_id: Optional[int] = None, user_id: Optional[int] = None):
     args = _validate_launch_command(args)
 
-    # Note: UI event logging moved to DevelopShim where session_id is available
-    shim = DevelopShim(
+    # Note: UI event logging moved to AgentRunner where session_id is available
+    agent_runner = AgentRunner(
         script_path=args.script_path,
         script_args=args.script_args,
         is_module_execution=args.module,
@@ -119,7 +119,7 @@ def launch_command(args, *, sample_id: Optional[int] = None, user_id: Optional[i
         sample_id=sample_id,
         user_id=user_id,
     )
-    shim.run()
+    agent_runner.run()
 
 
 def main():
@@ -143,11 +143,11 @@ def main():
             continue
         filtered_argv.append(arg)
         i += 1
-    
+
     # Temporarily replace sys.argv for argparse
     original_argv = sys.argv
     sys.argv = filtered_argv
-    
+
     try:
         parser = launch_command_parser()
         args = parser.parse_args()

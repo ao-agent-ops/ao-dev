@@ -1,6 +1,6 @@
 # Server
 
-This is basically the core of the tool. All analysis happens here. It receives messages from the user's shim processes and controls the UI. I.e., communication goes shim <-> server <-> UI.
+This is basically the core of the tool. All analysis happens here. It receives messages from the user's agent runner process and controls the UI. I.e., communication goes agent_runner <-> server <-> UI.
 
 
 Manually start, stop, restart server:

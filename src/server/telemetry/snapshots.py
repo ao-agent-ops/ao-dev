@@ -64,11 +64,7 @@ def store_code_snapshot(
         # Encode binary data as base64 for JSON transport
         zip_data_b64 = base64.b64encode(zip_data).decode("utf-8")
 
-        # Debug the encoding
-        logger.debug(f"Original zip size: {len(zip_data)} bytes")
-        logger.debug(f"Base64 encoded size: {len(zip_data_b64)} chars")
-        logger.debug(f"Base64 preview: {zip_data_b64[:50]}...")
-        logger.debug(f"Base64 is valid text: {zip_data_b64.isprintable()}")
+        # Prepare data for storage
 
         # Prepare data for storage
         data = {"user_id": user_id, "code_snapshot": zip_data_b64, "snapshot_size": len(zip_data)}

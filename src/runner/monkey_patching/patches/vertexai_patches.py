@@ -12,7 +12,6 @@ def vertexai_patch():
     try:
         from google import genai
     except ImportError:
-        logger.info("Google GenAI not installed, skipping Vertex AI patches")
         return
 
     # Patch the Client.__init__ method to patch the models.generate_content method

@@ -109,7 +109,6 @@ def patch_builtin_open():
     """
     from aco.common.logger import logger
 
-    logger.debug("Patching built-in open() function")
     original_open = builtins.open
 
     @wraps(original_open)
@@ -122,7 +121,6 @@ def patch_builtin_open():
         # Only wrap text mode files that are user files
         # Don't wrap: binary files, system files, or library files
         if "b" not in mode and _should_wrap_file(file):
-            logger.debug(f"patched_open: Wrapping user file {file} with TaintFile, mode={mode}")
 
             # Get session ID from environment (set by the runner)
             import os
@@ -162,6 +160,4 @@ def apply_file_patches():
     """Apply all file-related patches."""
     from aco.common.logger import logger
 
-    logger.debug("apply_file_patches called - about to patch built-in open()")
     patch_builtin_open()
-    logger.debug("File patches applied successfully")

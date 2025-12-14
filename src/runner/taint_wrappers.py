@@ -1517,10 +1517,7 @@ class TaintFile:
         from aco.common.logger import logger
         import os
 
-        logger.info(
-            f"TaintFile.read called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
-        )
-        logger.info(f"Current environment session: {os.environ.get('AGENT_COPILOT_SESSION_ID')}")
+        # Read from file with taint tracking
 
         data = self._file.read(size)
         if isinstance(data, bytes):
@@ -1532,40 +1529,26 @@ class TaintFile:
         if hasattr(self._file, "name") and data:
             try:
                 # Check line 0 for now (we'd need to track all lines for full read)
-                logger.info(f"Checking for taint in read(): file={self._file.name}")
                 prev_session_id, taint_nodes = DB.get_taint_info(self._file.name, 0)
-                logger.info(
-                    f"Retrieved taint in read(): prev_session={prev_session_id}, nodes={taint_nodes}"
-                )
 
                 if prev_session_id and taint_nodes:
-                    logger.info(
-                        f"Found taint from previous session {prev_session_id}: {taint_nodes}"
-                    )
                     # Combine existing taint with file taint - the server will handle cross-session nodes
                     combined_taint = list(set(self._taint_origin + taint_nodes))
-                    logger.info(f"Returning TaintStr with combined taint: {combined_taint}")
                     return TaintStr(data, combined_taint)
             except Exception as e:
                 import sys
 
                 print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
                 logger.error(f"Exception in taint info retrieval: {e}")
-        else:
-            logger.info(
-                f"Skipping taint check - file has name: {hasattr(self._file, 'name')}, data length: {len(data) if data else 0}"
-            )
 
-        logger.info(f"Returning TaintStr with default taint: {self._taint_origin}")
+        # Return with default file taint
         return TaintStr(data, self._taint_origin)
 
     def readline(self, size=-1):
         """Read a line from the file and return tainted data."""
         from aco.common.logger import logger
 
-        logger.debug(
-            f"TaintFile.readline called for line {self._line_no} of {getattr(self._file, 'name', 'unknown')}"
-        )
+        # Read line with taint tracking
 
         line = self._file.readline(size)
         if isinstance(line, bytes):
@@ -1574,11 +1557,7 @@ class TaintFile:
         # Check for existing taint from previous sessions
         if hasattr(self._file, "name"):
             try:
-                logger.debug(f"Checking for taint: file={self._file.name}, line={self._line_no}")
                 prev_session_id, taint_nodes = DB.get_taint_info(self._file.name, self._line_no)
-                logger.debug(
-                    f"Retrieved taint: prev_session={prev_session_id}, nodes={taint_nodes}"
-                )
 
                 if prev_session_id and taint_nodes:
                     # Combine existing taint with file taint - the server will handle cross-session nodes
@@ -1610,9 +1589,7 @@ class TaintFile:
         """
         from aco.common.logger import logger
 
-        logger.debug(
-            f"TaintFile.write called for {getattr(self._file, 'name', 'unknown')}, session_id={self._session_id}"
-        )
+        # Write data with taint tracking
 
         # Extract raw data if tainted
         raw_data = untaint_if_needed(data)
@@ -1620,7 +1597,6 @@ class TaintFile:
         # Store taint information in database if we have a session ID and file name
         if self._session_id and hasattr(self._file, "name"):
             taint_nodes = get_taint_origins(data)
-            logger.debug(f"Writing with taint nodes: {taint_nodes}")
             if taint_nodes:
                 # Store taint for the current line being written
                 try:

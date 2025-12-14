@@ -57,10 +57,10 @@ def get_conn():
 
 def _init_db(conn):
     c = conn.cursor()
-    
+
     # Note: Users are only managed in PostgreSQL for remote authentication
     # Local SQLite runs are single-user and don't need user management
-    
+
     # Create experiments table
     c.execute(
         """
@@ -166,8 +166,6 @@ def store_taint_info(session_id, file_path, line_no, taint_nodes):
     content_hash = hash_input(f"{file_path}:{line_no}")
     taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
 
-    logger.debug(f"Storing taint info for {file_id}: {taint_json}")
-
     execute(
         """
         INSERT OR REPLACE INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
@@ -189,7 +187,6 @@ def get_taint_info(file_path, line_no):
         (file_path, line_no),
     )
     if row:
-        logger.debug(f"Taint info for {file_path}:{line_no}: {row['taint']}")
         taint_nodes = json.loads(row["taint"]) if row["taint"] else []
         return row["session_id"], taint_nodes
     return None, []
@@ -467,8 +464,13 @@ def get_experiment_log_success_graph_query(session_id):
 # User management functions - SQLite is single-user so these raise errors
 def upsert_user(google_id, email, name, picture):
     """SQLite doesn't support user management - single user database."""
-    raise Exception("User management not supported in local SQLite database. Switch to remote mode for multi-user support.")
+    raise Exception(
+        "User management not supported in local SQLite database. Switch to remote mode for multi-user support."
+    )
+
 
 def get_user_by_id_query(user_id):
-    """SQLite doesn't support user management - single user database.""" 
-    raise Exception("User management not supported in local SQLite database. Switch to remote mode for multi-user support.")
+    """SQLite doesn't support user management - single user database."""
+    raise Exception(
+        "User management not supported in local SQLite database. Switch to remote mode for multi-user support."
+    )

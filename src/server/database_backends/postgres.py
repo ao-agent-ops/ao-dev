@@ -108,7 +108,7 @@ def clear_connections():
 def _init_db(conn):
     """Initialize database schema (create tables if not exist)"""
     c = conn.cursor()
-    
+
     # Create users table
     c.execute(
         """
@@ -123,7 +123,7 @@ def _init_db(conn):
         )
     """
     )
-    
+
     # Create experiments table
     c.execute(
         """
@@ -253,8 +253,6 @@ def store_taint_info(session_id, file_path, line_no, taint_nodes):
     content_hash = hash_input(f"{file_path}:{line_no}")
     taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
 
-    logger.debug(f"Storing taint info for {file_id}: {taint_json}")
-
     execute(
         """
         INSERT INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
@@ -282,7 +280,6 @@ def get_taint_info(file_path, line_no):
         (file_path, line_no),
     )
     if row:
-        logger.debug(f"Taint info for {file_path}:{line_no}: {row['taint']}")
         taint_nodes = json.loads(row["taint"]) if row["taint"] else []
         return row["session_id"], taint_nodes
     return None, []
@@ -559,19 +556,19 @@ def get_experiment_log_success_graph_query(session_id):
 def upsert_user(google_id, email, name, picture):
     """
     Upsert user - insert if not exists, update if exists.
-    
+
     Args:
         google_id: Google OAuth ID
         email: User email
         name: User name
         picture: User profile picture URL
-        
+
     Returns:
         The user record after upsert
     """
     # Check if user exists
     existing = query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
-    
+
     if existing:
         # Update existing user
         execute(
@@ -585,7 +582,7 @@ def upsert_user(google_id, email, name, picture):
             "VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
             (google_id, email, name, picture),
         )
-    
+
     # Return the user record
     return query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
 
@@ -593,10 +590,10 @@ def upsert_user(google_id, email, name, picture):
 def get_user_by_id_query(user_id):
     """
     Get user by their ID.
-    
+
     Args:
         user_id: The user's ID
-        
+
     Returns:
         The user record or None if not found
     """

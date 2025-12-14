@@ -25,7 +25,7 @@ def restart_server():
     """Restart the server to ensure clean state for tests."""
     import subprocess
     import time
-    
+
     subprocess.run(["aco-server", "restart"], check=False)
     time.sleep(1)  # Give server time to fully restart
 
@@ -33,22 +33,22 @@ def restart_server():
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     """
     Helper to create necessary database records for testing.
-    
+
     This is a simplified approach that directly creates the experiment record
     in the database. A more thorough approach would be to:
-    
+
     1. Start a test server instance or mock the server connection
     2. Simulate the full handshake flow from launch_scripts.py:
-       - Send "hello" message with role="shim-runner"  
+       - Send "hello" message with role="agent-runner"
        - Server creates experiment record
        - Server responds with acknowledgment
     3. Use the actual monkey-patched flow for LLM calls
     4. File operations go through TaintFile which communicates with server
-    
+
     That approach would test the entire integration including server message
     handling, protocol, and session management, but would be more complex
     to set up and maintain.
-    
+
     Args:
         session_id: The session ID to create
         name: Name for the test session
@@ -56,7 +56,7 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     """
     # Ensure we're using local SQLite for tests
     DB.switch_mode("local")
-    
+
     DB.add_experiment(
         session_id=session_id,
         name=name,
@@ -64,7 +64,7 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
         cwd=os.getcwd(),
         command="test",
         environment={"TEST": "true"},
-        parent_session_id=parent_session_id or session_id
+        parent_session_id=parent_session_id or session_id,
     )
 
 

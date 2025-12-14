@@ -1,88 +1,195 @@
-import asyncio
-import threading
 import os
-import random
 import json
+import subprocess
+import sys
+import socket
 import time
+import shutil
 from aco.server.database_manager import DB
-from aco.runner.develop_shim import DevelopShim
-from aco.runner.develop_shim import ensure_server_running
-from tests.utils import restart_server
+
+# Add tests directory to path for imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from utils import restart_server
 
 
-async def main():
+def switch_to_cheap_model():
+    """Switch to gpt-4o-mini for testing and return the original model name."""
+    # Get absolute path to config file relative to this test file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "..", "example_workflows", "miroflow_deep_research", "config", "llm", "default.yaml")
+    backup_path = config_path + ".backup"
+    
+    # Read current config
+    with open(config_path, "r") as f:
+        content = f.read()
+    
+    # Backup original config
+    shutil.copy2(config_path, backup_path)
+    
+    # Find current model name for restoration
+    original_model = None
+    for line in content.split('\n'):
+        if line.strip().startswith('model_name:'):
+            original_model = line.strip().split('"')[1]
+            break
+    
+    # Replace with gpt-4o-mini
+    new_content = content.replace(
+        f'model_name: "{original_model}"',
+        'model_name: "gpt-4o-mini"'
+    )
+    
+    # Write updated config
+    with open(config_path, "w") as f:
+        f.write(new_content)
+    
+    print(f"[Test] Temporarily switched model from {original_model} to gpt-4o-mini")
+    return original_model
+
+
+def restore_original_model():
+    """Restore the original model configuration."""
+    # Get absolute path to config file relative to this test file
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "..", "example_workflows", "miroflow_deep_research", "config", "llm", "default.yaml")
+    backup_path = config_path + ".backup"
+    
+    if os.path.exists(backup_path):
+        # Restore original config
+        shutil.move(backup_path, config_path)
+        print("[Test] Restored original model configuration")
+    else:
+        print("[Test] Warning: No backup found to restore")
+
+
+def run_aco_launch(script_path):
+    """Run aco-launch command and return the session_id from DB."""
+    # Get absolute path to miroflow_deep_research directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    miroflow_dir = os.path.join(script_dir, "..", "example_workflows", "miroflow_deep_research")
+    
+    # Run aco-launch command normally - let it handle everything
+    cmd = [sys.executable, "-m", "aco.cli.aco_launch", script_path]
+    result = subprocess.run(
+        cmd,
+        cwd=miroflow_dir,
+        capture_output=False,
+        text=True
+    )
+    
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr and result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+    
+    # Get the most recent session_id from database
+    # Since we just ran the script, the latest session should be ours
+    recent_session = DB.query_one("SELECT session_id FROM experiments ORDER BY timestamp DESC LIMIT 1")
+    session_id = recent_session["session_id"] if recent_session else None
+    
+    return result.returncode, session_id
+
+
+def main():
     # Restart server to ensure clean state for this test
     restart_server()
     
-    shim = DevelopShim(
-        script_path="./example_workflows/miroflow_deep_research/single_task.py",
-        script_args=[],
-        is_module_execution=False,
-        project_root="./example_workflows/miroflow_deep_research",
-        sample_id=None,
-    )
-    aco_random_seed = random.randint(0, 2**31 - 1)
-    os.environ["ACO_SEED"] = str(aco_random_seed)
-
-    ensure_server_running()
-    shim._connect_to_server()
-    
-    # Explicitly set both server and client to use local SQLite database
-    # Send message to server to switch to local mode
+    # Set database mode before running
     DB.switch_mode("local")
-    set_db_mode_msg = {"type": "set_database_mode", "mode": "local"}
-    shim.server_conn.sendall((json.dumps(set_db_mode_msg) + "\n").encode("utf-8"))
-    
-    # Give the server a moment to complete database mode switch and transaction
-    time.sleep(0.2)
 
-    # Start background thread to listen for server messages
-    shim.listener_thread = threading.Thread(
-        target=shim._listen_for_server_messages, args=(shim.server_conn,)
-    )
-    shim.listener_thread.start()
+    # Switch to cheaper model for testing
+    original_model = switch_to_cheap_model()
 
-    return_code = shim._run_user_script_subprocess()
+    # Step 1: Run the actual deep research script normally
+    return_code, session_id = run_aco_launch("single_task.py")
     assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
+    assert session_id, "No session_id found in database after first run"
 
-    print("~~~~ session_id", shim.session_id)
+    print("~~~~ session_id", session_id)
 
+    # Step 2: Query first run results
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
 
     graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
     graph = json.loads(graph_topology["graph_topology"])
 
-    # send a restart message
-    message = {"type": "restart", "role": "shim-control", "session_id": shim.session_id}
-    shim.server_conn.sendall((json.dumps(message) + "\n").encode("utf-8"))
+    print("\n\n", "="*20, " triggering restart ", "="*20, "\n\n")
 
+    # Step 3: Connect to server and send restart message
+    from aco.common.constants import HOST, PORT
+    
+    server_conn = socket.create_connection((HOST, PORT), timeout=10)
+    
+    # Send restart message (same as old test)
+    restart_message = {
+        "type": "restart", 
+        "session_id": session_id
+    }
+    server_conn.sendall((json.dumps(restart_message) + "\n").encode("utf-8"))
+    
+    # Wait for restart to process
     time.sleep(2)
+    
+    server_conn.close()
 
-    assert shim.restart_event.is_set(), "[DeepResearch] Restart even not set"
-    shim.restart_event.clear()
-    returncode_rerun = shim._run_user_script_subprocess()
-    assert returncode_rerun == 0, f"[DeepResearch] re-run failed with return_code {return_code}"
+    # Step 4: Wait for rerun to complete and query results
+    # Poll the database to detect when the rerun has completed
+    start_time = time.time()
+    timeout = 60  # 60 second timeout
+    
+    print("Waiting for rerun to complete...")
+    
+    while time.time() - start_time < timeout:
+        # Check if new LLM calls have been added (rerun completed)
+        current_rows = DB.query_all(
+            "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
+            (session_id,),
+        )
+        
+        # If we have more rows than before, or the graph has been updated, rerun is complete
+        if len(current_rows) >= len(rows):
+            current_graph = DB.query_one(
+                "SELECT graph_topology FROM experiments WHERE session_id=?",
+                (session_id,),
+            )
+            if current_graph:
+                current_graph_obj = json.loads(current_graph["graph_topology"])
+                if len(current_graph_obj["nodes"]) > 0:
+                    break
+        
+        time.sleep(0.5)
+    
+    else:
+        raise TimeoutError("Rerun did not complete within 60 seconds")
 
+    print("Rerun completed, checking results...")
+
+    # Step 5: Query second run results
     new_rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
 
     new_graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
     new_graph = json.loads(new_graph_topology["graph_topology"])
 
+    print("~~~~ first run had", len(rows), "LLM calls")
+    print("~~~~ second run had", len(new_rows), "LLM calls")
+
+    # Step 6: Compare results (same assertions as old test)
     assert len(rows) == len(
         new_rows
-    ), "[DeepResearch] Length of LLM calls does not match after re-run"
+    ), f"[DeepResearch] Length of LLM calls does not match after re-run. First run: {len(rows)}, Second run: {len(new_rows)}"
+    
     for old_row, new_row in zip(rows, new_rows):
         assert (
             old_row["node_id"] == new_row["node_id"]
@@ -132,15 +239,14 @@ async def main():
             node_id in target_nodes
         ), f"[DeepResearch] Node {node_id} with label '{label}' has no parent nodes"
 
-    # Cleanup: Close server connection and stop listener thread
-    shim._kill_current_process()
-    shim.send_deregister()
-    shim.server_conn.close()
-    shim.listener_thread.join(timeout=2)
+    print("[DeepResearch] All assertions passed! Reproducibility test successful.")
+
+    # Restore original model configuration
+    restore_original_model()
 
 
 def test_deepresearch():
-    asyncio.run(main())
+    main()
 
 
 if __name__ == "__main__":

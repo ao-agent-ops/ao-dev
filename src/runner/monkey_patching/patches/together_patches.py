@@ -15,7 +15,6 @@ def together_patch():
     try:
         from together import Together
     except ImportError:
-        logger.info("Together not installed, skipping OpenAI patches")
         return
 
     def create_patched_init(original_init):
