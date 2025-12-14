@@ -491,7 +491,7 @@ class DatabaseManager:
 
         # Insert new row with a new node_id. reset randomness to avoid
         # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
-        random.seed()
+        # random.seed() # TODO: I think we shouldn't reset seed here?
         node_id = str(uuid.uuid4())
         logger.debug(
             f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"

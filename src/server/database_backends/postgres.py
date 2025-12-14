@@ -280,7 +280,6 @@ def get_taint_info(file_path, line_no):
         (file_path, line_no),
     )
     if row:
-        logger.debug(f"Taint info for {file_path}:{line_no}: {row['taint']}")
         taint_nodes = json.loads(row["taint"]) if row["taint"] else []
         return row["session_id"], taint_nodes
     return None, []

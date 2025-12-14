@@ -29,7 +29,6 @@ def log_server_message(msg: Dict[str, Any], session_graphs: Dict[str, Any]) -> N
 
         # Skip certain message types
         if event_type in ["get_graph", "clear", "add_node", "shutdown"]:
-            logger.debug(f"Skipping telemetry for message type: {event_type}")
             return
 
         # Prepare event data based on message type
@@ -55,16 +54,12 @@ def log_server_message(msg: Dict[str, Any], session_graphs: Dict[str, Any]) -> N
             .execute()
         )
 
-        logger.debug(f"Server message logged to telemetry: {final_event_type}")
-
         # Get the user_action ID for potential code snapshot
         user_action_id = None
         if response.data and len(response.data) > 0:
             user_action_id = response.data[0].get("id")
-            logger.debug(f"User action ID: {user_action_id} for event type: {final_event_type}")
         else:
             logger.warning(f"No user_action ID returned for event type: {final_event_type}")
-            logger.warning(f"Response data: {response.data}")
 
         # Create code snapshot for rerun or first-time run messages
         if event_type == "restart" or _is_first_time_run(msg):
@@ -222,17 +217,17 @@ def _create_user_log_entry(
 
 def log_shim_control_registration(handshake: Dict[str, Any], session_id: str) -> None:
     """
-    Log when a shim-control registers (user runs aco-launch script.py).
+    Log when a agent-runner registers (user runs aco-launch script.py).
 
     Args:
-        handshake: The handshake dictionary from the shim-control
+        handshake: The handshake dictionary from the agent-runner
         session_id: The assigned session ID
     """
     if not COLLECT_TELEMETRY:
         return
 
     if not supabase_client.is_available():
-        logger.debug("Supabase not available, skipping shim-control registration logging")
+        logger.debug("Supabase not available, skipping agent-runner registration logging")
         return
 
     try:
@@ -273,7 +268,7 @@ def log_shim_control_registration(handshake: Dict[str, Any], session_id: str) ->
         project_root = handshake.get("cwd") or os.getcwd()
         store_code_snapshot_background(user_id, project_root, user_action_id)
 
-        logger.debug(f"Code snapshot capture initiated for shim-control registration: {session_id}")
+        logger.debug(f"Code snapshot capture initiated for agent-runner registration: {session_id}")
 
     except Exception as e:
-        logger.error(f"Failed to log shim-control registration to telemetry: {e}")
+        logger.error(f"Failed to log agent-runner registration to telemetry: {e}")

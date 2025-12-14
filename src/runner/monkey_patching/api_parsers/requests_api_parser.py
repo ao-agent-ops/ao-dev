@@ -1,5 +1,8 @@
 import json
 from typing import Any, Dict
+import dill
+import base64
+import re
 
 
 def json_str_to_original_inp_dict_requests(json_str: str, input_dict: dict) -> dict:
@@ -15,9 +18,6 @@ def func_kwargs_to_json_str_requests(input_dict: Dict[str, Any]):
 
 
 def api_obj_to_json_str_requests(obj: Any) -> str:
-    import dill
-    import base64
-
     out_dict = {}
     encoding = obj.encoding if hasattr(obj, "encoding") else "utf-8"
     out_bytes = dill.dumps(obj)
@@ -28,9 +28,6 @@ def api_obj_to_json_str_requests(obj: Any) -> str:
 
 
 def json_str_to_api_obj_requests(new_output_text: str) -> None:
-    import dill
-    import base64
-
     out_dict = json.loads(new_output_text)
     encoding = out_dict["_encoding"] if "_encoding" in out_dict else "utf-8"
     obj = dill.loads(base64.b64decode(out_dict["_obj_str"].encode(encoding)))
@@ -53,8 +50,6 @@ def get_model_requests(input_dict: Dict[str, Any]) -> str:
         # Fallback: try to extract model name from URL path
         # Pattern: /v1/models/{model_name}:generateContent or similar
         try:
-            import re
-
             path = input_dict["request"].url.path
             # Match patterns like /v1/models/gemini-2.5-flash:generateContent
             match = re.search(r"/models/([^/]+?)(?::|$)", path)

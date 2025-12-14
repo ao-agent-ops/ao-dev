@@ -13,7 +13,7 @@ from pathlib import Path
 from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins
 
 # Add utils path for test helpers
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from utils import cleanup_taint_db, setup_test_session
 
 
@@ -23,7 +23,7 @@ def session1_write():
 
     # Set session ID for this test
     os.environ["AGENT_COPILOT_SESSION_ID"] = "session-001"
-    
+
     # Create experiment record for this session
     setup_test_session("session-001", name="Session 1 - Writer")
 
@@ -54,7 +54,7 @@ def session2_read():
 
     # Set a different session ID
     os.environ["AGENT_COPILOT_SESSION_ID"] = "session-002"
-    
+
     # Create experiment record for this session
     setup_test_session("session-002", name="Session 2 - Reader")
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     try:
         # Clean up any existing taint data before running
         cleanup_taint_db()
-        
+
         # Run Session 1
         session1_write()
 

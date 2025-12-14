@@ -10,7 +10,6 @@ def requests_patch():
     try:
         from requests import Session
     except ImportError:
-        logger.info("requests not installed, skipping requests patches")
         return
 
     def create_patched_init(original_init):

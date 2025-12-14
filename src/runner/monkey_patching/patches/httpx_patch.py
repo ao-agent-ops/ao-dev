@@ -39,7 +39,7 @@ def patch_httpx_send(bound_obj, bound_cls):
     # bound_obj has a send method, which we are patching
     original_function = bound_obj.send
 
-    @wraps(original_function)
+    # @wraps(original_function)
     def patched_function(self, *args, **kwargs):
 
         api_type = "httpx.Client.send"

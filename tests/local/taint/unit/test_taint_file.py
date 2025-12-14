@@ -4,7 +4,7 @@ import pytest
 import os
 import tempfile
 from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
-from ...utils import cleanup_taint_db
+from ....utils import cleanup_taint_db
 
 
 class TestTaintFile:

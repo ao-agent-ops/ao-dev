@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from aco.runner.taint_wrappers import TaintStr
 from aco.server.database_manager import DB
-from ...utils import cleanup_taint_db, setup_test_session
+from ....utils import cleanup_taint_db, setup_test_session
 
 # Add the project root to Python path for imports
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
