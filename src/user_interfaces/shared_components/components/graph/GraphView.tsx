@@ -300,12 +300,14 @@ export const GraphView: React.FC<GraphViewProps> = ({
         flexDirection: "row",
       }}
     >
-      {/* Left Section: Graph content (no scrolling) */}
+      {/* Left Section: Graph content */}
       <div
         style={{
           flex: 1,
           position: "relative",
           minWidth: 0,
+          overflowY: "auto",
+          height: "100%",
         }}
       >
         <div style={mainLayoutStyle}>
@@ -389,6 +391,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           backgroundColor: isDarkTheme ? "#1e1e1e" : "#f5f5f5",
           borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
           minWidth: "52px",
+          height: "100%",
         }}
       >
           {/* Metadata Panel Toggle Button */}
