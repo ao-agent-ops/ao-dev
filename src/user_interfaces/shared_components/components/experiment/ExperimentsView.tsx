@@ -35,7 +35,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   currentMode = 'Local',
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished', 'user']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
@@ -136,24 +136,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
     borderTop: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
     zIndex: 10,
-  };
-
-  const userSectionHeaderStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '4px 16px',
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
-    textTransform: 'uppercase',
-    color: isDarkTheme ? '#cccccc' : '#616161',
-    cursor: 'pointer',
-    userSelect: 'none',
-    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-  };
-
-  const userContentStyle: React.CSSProperties = {
     padding: '8px 16px',
   };
 
@@ -738,73 +720,59 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         </>
       )}
 
-      {/* User Section (always present) */}
+      {/* User Section (always present at bottom) */}
       <div style={userSectionContainerStyle}>
-        <div
-          style={userSectionHeaderStyle}
-          onClick={() => toggleSection('user')}
-        >
-          <i
-            className={`codicon ${expandedSections.has('user') ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
-            style={{ fontSize: '16px', transition: 'transform 0.1s ease', display: 'flex', alignItems: 'center' }}
-          />
-          <span>User</span>
-        </div>
-        {expandedSections.has('user') && (
-          <div style={userContentStyle}>
-            {user ? (
-              <div style={userRowStyle}>
-                <img
-                  src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
-                  alt={user.displayName || 'User avatar'}
-                  style={avatarStyle}
-                />
-                <div style={nameBlockStyle}>
-                  <div style={nameStyle}>{user.displayName || 'User'}</div>
-                  <div style={emailStyle}>{user.email || ''}</div>
-                </div>
-                <button
-                  onClick={handleLogoutClick}
-                  style={{
-                    marginLeft: 'auto',
-                    padding: '4px',
-                    backgroundColor: 'transparent',
-                    color: isDarkTheme ? '#cccccc' : '#333333',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 0.7,
-                    transition: 'opacity 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = '0.7';
-                  }}
-                  title="Logout"
-                >
-                  <IconSignOut size={20} />
-                </button>
-              </div>
-            ) : (
-              <button
-                style={loginButtonStyle}
-                onClick={handleLoginClick}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#2a2d2e' : '#e8e8e8';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
-                }}
-              >
-                Sign in with Google
-                <IconGoogle size={16} />
-              </button>
-            )}
+        {user ? (
+          <div style={userRowStyle}>
+            <img
+              src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
+              alt={user.displayName || 'User avatar'}
+              style={avatarStyle}
+            />
+            <div style={nameBlockStyle}>
+              <div style={nameStyle}>{user.displayName || 'User'}</div>
+              <div style={emailStyle}>{user.email || ''}</div>
+            </div>
+            <button
+              onClick={handleLogoutClick}
+              style={{
+                marginLeft: 'auto',
+                padding: '4px',
+                backgroundColor: 'transparent',
+                color: isDarkTheme ? '#cccccc' : '#333333',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: 0.7,
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+              }}
+              title="Logout"
+            >
+              <IconSignOut size={20} />
+            </button>
           </div>
+        ) : (
+          <button
+            style={loginButtonStyle}
+            onClick={handleLoginClick}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#2a2d2e' : '#e8e8e8';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
+            }}
+          >
+            Sign in with Google
+            <IconGoogle size={16} />
+          </button>
         )}
       </div>
     </div>
