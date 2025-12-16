@@ -8,7 +8,7 @@ defaults:
 main_agent:
   tools:
     - tool-reasoning
-  max_turns: 5  # Maximum number of turns for main agent execution
+  max_turns: 2  # Maximum number of turns for main agent execution
   max_tool_calls_per_turn: 2  # Maximum number of tool calls per turn
 # Trival reproduce of OWL:
 sub_agents:
@@ -19,7 +19,7 @@ sub_agents:
       - tool-audio
       - tool-reading
       - tool-code
-    max_turns: 5
+    max_turns: 2
     max_tool_calls_per_turn: 10  # Maximum number of tool calls per turn
 
 o3_hint: true

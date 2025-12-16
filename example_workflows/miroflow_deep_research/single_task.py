@@ -76,5 +76,5 @@ def main(
 
 if __name__ == "__main__":
     main(
-        task="Find recent news about 1618 Divina AG in Zürich."
+        task="Find recent news about OpenAI."
     )
