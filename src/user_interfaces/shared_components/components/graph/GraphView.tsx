@@ -12,10 +12,8 @@ import { CustomEdge } from './CustomEdge';
 import { GraphNode, GraphEdge, ProcessInfo } from '../../types';
 import { LayoutEngine } from '../../utils/layoutEngine';
 import { MessageSender } from '../../types/MessageSender';
-// import { useIsVsCodeDarkTheme } from '../utils/themeUtils';
 import styles from './GraphView.module.css';
 import { NODE_WIDTH } from '../../utils/layoutConstants';
-// Icons are now handled via codicons
 
 interface GraphViewProps {
   nodes: GraphNode[];
@@ -61,6 +59,11 @@ export const GraphView: React.FC<GraphViewProps> = ({
   // Create layout engine instance using useMemo to prevent recreation
   const layoutEngine = useMemo(() => new LayoutEngine(), []);
 
+  // Constants for metadata panel calculations
+  const METADATA_PANEL_WIDTH = 350;
+  const BUTTON_COLUMN_WIDTH = 52;
+  const PANEL_PADDING = 100;
+
   const handleNodeUpdate = useCallback(
     (nodeId: string, field: keyof GraphNode, value: string) => {
       onNodeUpdate(nodeId, field, value);
@@ -79,10 +82,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
   const updateLayout = useCallback(() => {
     // Use the new layout engine instead of separate functions
     const layout = layoutEngine.layoutGraph(initialNodes, initialEdges, containerWidth);
-    
+
     // Calculate if we have left bands that need negative positioning
-  const hasLeftBands = layout.edges.some(edge => edge.band?.includes('Left'));
-    
+    const hasLeftBands = layout.edges.some(edge => edge.band?.includes('Left'));
+
     // Find the minimum X position to adjust for left bands
     let minX = 0;
     if (hasLeftBands) {
@@ -94,14 +97,14 @@ export const GraphView: React.FC<GraphViewProps> = ({
         }
       });
     }
-    
+
     // Adjust positions if we have negative X coordinates
     const xOffset = minX < 0 ? Math.abs(minX) + 20 : 0;
 
-  const maxY = Math.max(0, ...Array.from(layout.positions.values()).map((pos) => pos.y)) + 300;
-  setContainerHeight(maxY);
+    const maxY = Math.max(0, ...Array.from(layout.positions.values()).map((pos) => pos.y)) + 300;
+    setContainerHeight(maxY);
 
-  const flowNodes: Node[] = initialNodes.map((node) => {
+    const flowNodes: Node[] = initialNodes.map((node) => {
       const position = layout.positions.get(node.id) || { x: 0, y: 0 };
       return {
         id: node.id,
@@ -117,13 +120,13 @@ export const GraphView: React.FC<GraphViewProps> = ({
       };
     });
 
-  const flowEdges: Edge[] = layout.edges.map((edge) => {
+    const flowEdges: Edge[] = layout.edges.map((edge) => {
       // Adjust edge points if needed
       const adjustedPoints = edge.points.map(point => ({
         x: point.x + xOffset,
         y: point.y
       }));
-      
+
       return {
         id: edge.id,
         source: edge.source,
@@ -131,7 +134,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
         type: "custom",
-    data: { points: adjustedPoints, color: edge.color },
+        data: { points: adjustedPoints, color: edge.color },
         animated: false,
       };
     });
@@ -139,22 +142,22 @@ export const GraphView: React.FC<GraphViewProps> = ({
     setNodes(flowNodes);
     setEdges(flowEdges);
 
-  // Horizontal-only viewport fit (no vertical adjustments)
-  const PADDING_X = 40;
-  const nodeMinX = flowNodes.length ? Math.min(...flowNodes.map(n => n.position.x)) : 0;
-  const nodeMaxX = flowNodes.length ? Math.max(...flowNodes.map(n => n.position.x + NODE_WIDTH)) : 0;
-  const edgeXs = flowEdges.flatMap(e => (e.data as any)?.points?.map((p: any) => p.x) ?? []);
-  const edgesMinX = edgeXs.length ? Math.min(...edgeXs) : nodeMinX;
-  const edgesMaxX = edgeXs.length ? Math.max(...edgeXs) : nodeMaxX;
-  const minXAll = Math.min(nodeMinX, edgesMinX);
-  const maxXAll = Math.max(nodeMaxX, edgesMaxX);
-  const widthSpan = Math.max(1, maxXAll - minXAll);
-  const bboxW = widthSpan + PADDING_X * 2;
-  const availableW = Math.max(1, containerWidth);
-  const zoom = Math.min(1, availableW / bboxW);
-  const x = -minXAll * zoom + (availableW - widthSpan * zoom) / 2;
-  setViewport({ x, y: 0, zoom });
-  setRfKey(k => k + 1);
+    // Horizontal-only viewport fit (no vertical adjustments)
+    const PADDING_X = 40;
+    const nodeMinX = flowNodes.length ? Math.min(...flowNodes.map(n => n.position.x)) : 0;
+    const nodeMaxX = flowNodes.length ? Math.max(...flowNodes.map(n => n.position.x + NODE_WIDTH)) : 0;
+    const edgeXs = flowEdges.flatMap(e => (e.data as any)?.points?.map((p: any) => p.x) ?? []);
+    const edgesMinX = edgeXs.length ? Math.min(...edgeXs) : nodeMinX;
+    const edgesMaxX = edgeXs.length ? Math.max(...edgeXs) : nodeMaxX;
+    const minXAll = Math.min(nodeMinX, edgesMinX);
+    const maxXAll = Math.max(nodeMaxX, edgesMaxX);
+    const widthSpan = Math.max(1, maxXAll - minXAll);
+    const bboxW = widthSpan + PADDING_X * 2;
+    const availableW = Math.max(1, containerWidth);
+    const zoom = Math.min(1, availableW / bboxW);
+    const x = -minXAll * zoom + (availableW - widthSpan * zoom) / 2;
+    setViewport({ x, y: 0, zoom });
+    setRfKey(k => k + 1);
   }, [
     initialNodes,
     initialEdges,
@@ -177,13 +180,12 @@ export const GraphView: React.FC<GraphViewProps> = ({
         const totalWidth = containerRef.current.offsetWidth;
         setAvailableWidth(totalWidth);
 
-        const grid = containerRef.current.firstChild;
+        // Since we're using flexbox, the graph container is the first child
+        // Get its actual width for layout calculations
+        const graphContainer = containerRef.current.firstChild;
         let mainColWidth = totalWidth;
-        if (grid && grid instanceof HTMLElement && grid.style.display === 'grid') {
-          const gridCols = window.getComputedStyle(grid).gridTemplateColumns.split(' ');
-          if (gridCols.length > 1) {
-            mainColWidth = parseInt(gridCols[0], 10);
-          }
+        if (graphContainer && graphContainer instanceof HTMLElement) {
+          mainColWidth = graphContainer.offsetWidth;
         }
         setContainerWidth(mainColWidth);
       }
@@ -233,44 +235,26 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
   // Auto-collapse when metadata panel would overlap with content (but only if user hasn't manually toggled)
   useEffect(() => {
-    const METADATA_PANEL_WIDTH = 350;
-    const BUTTON_COLUMN_WIDTH = 52;
-    const PADDING = 100; // Extra margin to close before hitting the edge
-
-    // Calculate if metadata panel would overlap with nodes/edges
-    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PADDING;
+    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PANEL_PADDING;
     const wouldOverlap = availableWidth > 0 && availableWidth < spaceNeededForPanel;
 
     if (!userToggledPanel && isMetadataPanelOpen && wouldOverlap) {
       setIsMetadataPanelOpen(false);
     }
-  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, maxContentX]);
+  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, maxContentX, METADATA_PANEL_WIDTH, BUTTON_COLUMN_WIDTH, PANEL_PADDING]);
 
   // Auto-expand when there's enough space for metadata panel without overlap (but only if user hasn't manually toggled)
   useEffect(() => {
-    const METADATA_PANEL_WIDTH = 350;
-    const BUTTON_COLUMN_WIDTH = 52;
-    const PADDING = 100; // Extra margin to close before hitting the edge
-
-    // Calculate if there's enough space for metadata panel without overlap
-    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PADDING;
+    const spaceNeededForPanel = maxContentX + METADATA_PANEL_WIDTH + BUTTON_COLUMN_WIDTH + PANEL_PADDING;
     const hasEnoughSpace = availableWidth >= spaceNeededForPanel;
 
     if (!userToggledPanel && !isMetadataPanelOpen && metadataPanel && hasEnoughSpace) {
       setIsMetadataPanelOpen(true);
     }
-  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, metadataPanel, maxContentX]);
+  }, [availableWidth, isMetadataPanelOpen, userToggledPanel, metadataPanel, maxContentX, METADATA_PANEL_WIDTH, BUTTON_COLUMN_WIDTH, PANEL_PADDING]);
 
   // Always show the metadata button if we have a metadata panel
   const showMetadataButton = !!metadataPanel;
-
-  const mainLayoutStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 30px",
-    alignItems: "start",
-    width: "100%",
-    height: "100%",
-  };
 
   const restartButtonStyle: React.CSSProperties = {
     width: '32px',
@@ -295,9 +279,11 @@ export const GraphView: React.FC<GraphViewProps> = ({
       style={{
         width: "100%",
         height: "100%",
+        minHeight: "100vh",
         fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
         display: "flex",
         flexDirection: "row",
+        overflow: "hidden",
       }}
     >
       {/* Left Section: Graph content */}
@@ -306,62 +292,53 @@ export const GraphView: React.FC<GraphViewProps> = ({
           flex: 1,
           position: "relative",
           minWidth: 0,
-          overflowY: "auto",
-          height: "100%",
+          overflow: "auto",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          paddingTop: "30px",
         }}
       >
-        <div style={mainLayoutStyle}>
+        <ReactFlowProvider>
           <div
+            className={styles.flowContainer}
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              width: "100%",
-              paddingTop: "30px",
+              height: `${containerHeight}px`,
+              marginTop: "0px",
+              paddingTop: "0px",
             }}
           >
-            <ReactFlowProvider>
-              <div
-                className={styles.flowContainer}
-                style={{
-                  height: `${containerHeight}px`,
-                  marginTop: "0px",
-                  paddingTop: "0px",
-                }}
-              >
-                <ReactFlow
-                  key={rfKey}
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  nodeTypes={nodeTypes}
-                  edgeTypes={edgeTypes}
-                  fitView={false}
-                  proOptions={{ hideAttribution: true }}
-                  minZoom={0.4}
-                  maxZoom={1}
-                  defaultViewport={viewport}
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                  elementsSelectable={true}
-                  panOnDrag={false}
-                  zoomOnScroll={false}
-                  zoomOnPinch={false}
-                  zoomOnDoubleClick={false}
-                  panOnScroll={false}
-                  preventScrolling={false}
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    padding: "0",
-                    margin: "0",
-                  }}
-                />
-              </div>
-            </ReactFlowProvider>
+            <ReactFlow
+              key={rfKey}
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              fitView={false}
+              proOptions={{ hideAttribution: true }}
+              minZoom={0.4}
+              maxZoom={1}
+              defaultViewport={viewport}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={true}
+              panOnDrag={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              panOnScroll={false}
+              preventScrolling={false}
+              style={{
+                width: "100%",
+                height: "auto",
+                padding: "0",
+                margin: "0",
+              }}
+            />
           </div>
-        </div>
+        </ReactFlowProvider>
       </div>
 
       {/* Metadata Panel - in normal flow */}
@@ -369,6 +346,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         <div
           style={{
             width: '350px',
+            height: '100%',
             backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
             borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
             display: 'flex',
@@ -391,7 +369,8 @@ export const GraphView: React.FC<GraphViewProps> = ({
           backgroundColor: isDarkTheme ? "#1e1e1e" : "#f5f5f5",
           borderLeft: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
           minWidth: "52px",
-          height: "100%",
+          flexShrink: 0,
+          alignSelf: "stretch",
         }}
       >
           {/* Metadata Panel Toggle Button */}
