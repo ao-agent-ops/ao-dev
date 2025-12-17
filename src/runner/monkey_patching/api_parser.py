@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Any, Dict, List, Tuple
-from flatten_dict import flatten, unflatten
+from flatten_json import flatten, unflatten_list
 from aco.runner.monkey_patching.api_parsers.mcp_api_parser import (
     func_kwargs_to_json_str_mcp,
     api_obj_to_json_str_mcp,
@@ -28,7 +28,59 @@ from aco.runner.monkey_patching.api_parsers.requests_api_parser import (
 # Regex patterns to exclude from the UI display
 # Start with excluding keys that begin with an underscore
 EXCLUDE_PATTERNS = [
-    r"^_.*",  # Exclude keys starting with underscore
+    r"^_.*",
+    # Top-level fields
+    r"^max_tokens$",
+    r"^stream$",
+    r"^temperature$",
+    # content.* fields (metadata, usage, system info)
+    r"^content\.id$",
+    r"^content\.type$",
+    r"^content\.object$",
+    r"^content\.created(_at)?$",
+    r"^content\.model$",
+    r"^content\.status$",
+    r"^content\.background$",
+    r"^content\.metadata",
+    r"^content\.usage",
+    r"^content\.service_tier$",
+    r"^content\.system_fingerprint$",
+    r"^content\.stop_reason$",
+    r"^content\.stop_sequence$",
+    r"^content\.billing",
+    r"^content\.error$",
+    r"^content\.incomplete_details$",
+    r"^content\.max_output_tokens$",
+    r"^content\.max_tool_calls$",
+    r"^content\.parallel_tool_calls$",
+    r"^content\.previous_response_id$",
+    r"^content\.prompt_cache",
+    r"^content\.reasoning\.(effort|summary)$",
+    r"^content\.safety_identifier$",
+    r"^content\.store$",
+    r"^content\.temperature$",
+    r"^content\.text\.(format\.type|verbosity)$",
+    r"^content\.tool_choice$",
+    r"^content\.top_(logprobs|p)$",
+    r"^content\.truncation$",
+    r"^content\.user$",
+    r"^content\.responseId$",
+    # content.content.* fields (array elements)
+    r"^content\.content\.\d+\.(type|id)$",
+    r"^content\.content\.\d+\.content\.\d+\.type$",
+    # content.choices.* fields
+    r"^content\.choices\.\d+\.index$",
+    r"^content\.choices\.\d+\.message\.(refusal|annotations|reasoning)$",
+    r"^content\.choices\.\d+\.(finish_reason|logprobs|seed)$",
+    # content.output.* fields
+    r"^content\.output\.\d+\.(id|type|status)$",
+    r"^content\.output\.\d+\.content\.\d+\.(type|annotations|logprobs|text)$",
+    # content.candidates.* fields (Google Gemini)
+    r"^content\.candidates\.\d+\.(finishReason|index)$",
+    r"^content\.usageMetadata",
+    # tools.* fields
+    r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
+    r"^tools\.\d+\.strict$",
 ]
 
 
@@ -42,9 +94,9 @@ def should_exclude_key(key: str) -> bool:
 
 def filter_dict(input_dict: dict) -> dict:
     """Filter a dictionary by excluding keys matching exclude patterns."""
-    flattened = flatten(input_dict, reducer="dot")
+    flattened = flatten(input_dict, ".")
     filtered = {k: v for k, v in flattened.items() if not should_exclude_key(k)}
-    return unflatten(filtered, splitter="dot")
+    return filtered
 
 
 def merge_filtered_into_raw(raw_dict: dict, to_show_dict: dict) -> dict:
@@ -52,15 +104,15 @@ def merge_filtered_into_raw(raw_dict: dict, to_show_dict: dict) -> dict:
     Merge values from to_show back into raw_dict.
     This updates the values in raw that exist in to_show while preserving structure.
     """
-    flattened_raw = flatten(raw_dict, reducer="dot")
-    flattened_to_show = flatten(to_show_dict, reducer="dot")
+    # flatten the raw dict. the to-show is already flattened
+    flattened_raw = flatten(raw_dict, ".")
 
     # Update raw values with to_show values
-    for key, value in flattened_to_show.items():
+    for key, value in to_show_dict.items():
         if key in flattened_raw:
             flattened_raw[key] = value
 
-    return unflatten(flattened_raw, splitter="dot")
+    return unflatten_list(flattened_raw, ".")
 
 
 def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[str, List[str]]:

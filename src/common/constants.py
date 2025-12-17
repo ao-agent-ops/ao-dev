@@ -158,6 +158,7 @@ WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/responses$",
     r"/v1/chat/completions$",
     r"/v1/models/[^/]+:generateContent$",
+    r"/v1beta/models/[^/]+:generateContent$",
 ]
 
 COMPILED_ENDPOINT_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_ENDPOINT_PATTERNS]
