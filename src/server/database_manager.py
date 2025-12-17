@@ -191,7 +191,9 @@ class DatabaseManager:
         # Overwrite input for node.
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
         input_overwrite = json.loads(row["input"])
+        logger.info(f"[EditIO] before {input_overwrite['input']}")
         input_overwrite["input"] = new_input
+        logger.info(f"[EditIO] after {input_overwrite['input']}")
         input_overwrite = json.dumps(input_overwrite)
         self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
 
@@ -506,6 +508,8 @@ class DatabaseManager:
                 api_type,
                 output_json_str,
             )
+        else:
+            logger.warning(f"Node {node_id} response not OK.")
         cache_result.node_id = node_id
         cache_result.output = output_obj
         set_seed(node_id)

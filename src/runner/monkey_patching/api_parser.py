@@ -2,6 +2,7 @@ import json
 import re
 from typing import Any, Dict, List, Tuple
 from flatten_json import flatten, unflatten_list
+from flatten_dict import unflatten, flatten as flatten_keep_list
 from aco.runner.monkey_patching.api_parsers.mcp_api_parser import (
     func_kwargs_to_json_str_mcp,
     api_obj_to_json_str_mcp,
@@ -23,70 +24,51 @@ from aco.runner.monkey_patching.api_parsers.requests_api_parser import (
     json_str_to_original_inp_dict_requests,
     get_model_requests,
 )
+from aco.common.constants import EDIT_IO_EXCLUDE_PATTERNS
+from aco.common.logger import logger
 
 
-# Regex patterns to exclude from the UI display
-# Start with excluding keys that begin with an underscore
-EXCLUDE_PATTERNS = [
-    r"^_.*",
-    # Top-level fields
-    r"^max_tokens$",
-    r"^stream$",
-    r"^temperature$",
-    # content.* fields (metadata, usage, system info)
-    r"^content\.id$",
-    r"^content\.type$",
-    r"^content\.object$",
-    r"^content\.created(_at)?$",
-    r"^content\.model$",
-    r"^content\.status$",
-    r"^content\.background$",
-    r"^content\.metadata",
-    r"^content\.usage",
-    r"^content\.service_tier$",
-    r"^content\.system_fingerprint$",
-    r"^content\.stop_reason$",
-    r"^content\.stop_sequence$",
-    r"^content\.billing",
-    r"^content\.error$",
-    r"^content\.incomplete_details$",
-    r"^content\.max_output_tokens$",
-    r"^content\.max_tool_calls$",
-    r"^content\.parallel_tool_calls$",
-    r"^content\.previous_response_id$",
-    r"^content\.prompt_cache",
-    r"^content\.reasoning\.(effort|summary)$",
-    r"^content\.safety_identifier$",
-    r"^content\.store$",
-    r"^content\.temperature$",
-    r"^content\.text\.(format\.type|verbosity)$",
-    r"^content\.tool_choice$",
-    r"^content\.top_(logprobs|p)$",
-    r"^content\.truncation$",
-    r"^content\.user$",
-    r"^content\.responseId$",
-    # content.content.* fields (array elements)
-    r"^content\.content\.\d+\.(type|id)$",
-    r"^content\.content\.\d+\.content\.\d+\.type$",
-    # content.choices.* fields
-    r"^content\.choices\.\d+\.index$",
-    r"^content\.choices\.\d+\.message\.(refusal|annotations|reasoning)$",
-    r"^content\.choices\.\d+\.(finish_reason|logprobs|seed)$",
-    # content.output.* fields
-    r"^content\.output\.\d+\.(id|type|status)$",
-    r"^content\.output\.\d+\.content\.\d+\.(type|annotations|logprobs|text)$",
-    # content.candidates.* fields (Google Gemini)
-    r"^content\.candidates\.\d+\.(finishReason|index)$",
-    r"^content\.usageMetadata",
-    # tools.* fields
-    r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
-    r"^tools\.\d+\.strict$",
-]
+def flatten_to_show(inp):
+    """
+    Does this transformation:
+    {"a": [{"b": {"c": 1}}], "d": 2} -> {"a": ["b.c": 1], "a.d": 2}
+    This is nice to visualize since lists can be expanded (default)/collapsed
+    but inside the lists, dicts are still flattened.
+    """
+    if isinstance(inp, dict):
+        flattened = flatten_keep_list(inp, reducer="dot")
+        flattened_lists = {}
+        for key, value in flattened.items():
+            if isinstance(value, list):
+                flattened_lists[key] = [flatten_to_show(el) for el in value]
+        for key, value in flattened_lists.items():
+            flattened[key] = value
+    else:
+        flattened = inp
+    return flattened
+
+
+def unflatten_to_show(inp):
+    """
+    Reverts flatten_to_show.
+    """
+    if isinstance(inp, dict):
+        unflattened_dict = unflatten(inp, splitter="dot")
+        unflattened_lists = {}
+        for key, value in unflattened_dict.items():
+            if isinstance(value, list):
+                unflattened_lists[key] = [unflatten_to_show(el) for el in value]
+
+        for key, value in unflattened_lists.items():
+            unflattened_dict[key] = value
+    else:
+        unflattened_dict = inp
+    return unflattened_dict
 
 
 def should_exclude_key(key: str) -> bool:
     """Check if a flattened key should be excluded based on regex patterns."""
-    for pattern in EXCLUDE_PATTERNS:
+    for pattern in EDIT_IO_EXCLUDE_PATTERNS:
         if re.match(pattern, key):
             return True
     return False
@@ -95,20 +77,28 @@ def should_exclude_key(key: str) -> bool:
 def filter_dict(input_dict: dict) -> dict:
     """Filter a dictionary by excluding keys matching exclude patterns."""
     flattened = flatten(input_dict, ".")
-    filtered = {k: v for k, v in flattened.items() if not should_exclude_key(k)}
-    return filtered
+    filtered = {
+        k: v for k, v in flattened.items() if not should_exclude_key(k) and not (v == [] or v == {})
+    }
+    unflattened = unflatten_list(filtered, ".")
+    flattened_list_preserved = flatten_to_show(unflattened)
+    return flattened_list_preserved
 
 
 def merge_filtered_into_raw(raw_dict: dict, to_show_dict: dict) -> dict:
     """
     Merge values from to_show back into raw_dict.
-    This updates the values in raw that exist in to_show while preserving structure.
+    This updates the values in raw that exist in to_show while preserving structure and types.
+
+    Important: Preserves numeric types (float vs int) from raw_dict to avoid API validation errors.
+    For example, if raw has temperature: 0.0, we keep it as float even if JSON parsing made it 0.
     """
     # flatten the raw dict. the to-show is already flattened
     flattened_raw = flatten(raw_dict, ".")
+    flattened_to_show = flatten(unflatten_to_show(to_show_dict), ".")
 
-    # Update raw values with to_show values
-    for key, value in to_show_dict.items():
+    # Update raw values with to_show values, preserving types from raw
+    for key, value in flattened_to_show.items():
         if key in flattened_raw:
             flattened_raw[key] = value
 

@@ -40,6 +40,7 @@ dependencies = [
     "psycopg2-binary",
     "python-dotenv",
     "fastapi",
+    "flatten_dict",
     "flatten_json"
 ]
 

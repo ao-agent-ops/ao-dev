@@ -153,6 +153,7 @@ WHITELISTED_THIRD_PARTY_MODULES = [
     "langgraph.pregel.main",
 ]
 
+# List of regexes that include patterns for API patching
 WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/messages$",
     r"/v1/responses$",
@@ -160,5 +161,61 @@ WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/models/[^/]+:generateContent$",
     r"/v1beta/models/[^/]+:generateContent$",
 ]
-
 COMPILED_ENDPOINT_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_ENDPOINT_PATTERNS]
+
+# List of regexes that exclude patterns from being displayed in edit IO
+EDIT_IO_EXCLUDE_PATTERNS = [
+    r"^_.*",
+    # Top-level fields
+    r"^max_tokens$",
+    r"^stream$",
+    r"^temperature$",
+    # content.* fields (metadata, usage, system info)
+    r"^content\.id$",
+    r"^content\.type$",
+    r"^content\.object$",
+    r"^content\.created(_at)?$",
+    r"^content\.model$",
+    r"^content\.status$",
+    r"^content\.background$",
+    r"^content\.metadata",
+    r"^content\.usage",
+    r"^content\.service_tier$",
+    r"^content\.system_fingerprint$",
+    r"^content\.stop_reason$",
+    r"^content\.stop_sequence$",
+    r"^content\.billing",
+    r"^content\.error$",
+    r"^content\.incomplete_details$",
+    r"^content\.max_output_tokens$",
+    r"^content\.max_tool_calls$",
+    r"^content\.parallel_tool_calls$",
+    r"^content\.previous_response_id$",
+    r"^content\.prompt_cache",
+    r"^content\.reasoning\.(effort|summary)$",
+    r"^content\.safety_identifier$",
+    r"^content\.store$",
+    r"^content\.temperature$",
+    r"^content\.text\.(format\.type|verbosity)$",
+    r"^content\.tool_choice$",
+    r"^content\.top_(logprobs|p)$",
+    r"^content\.truncation$",
+    r"^content\.user$",
+    r"^content\.responseId$",
+    # content.content.* fields (array elements)
+    r"^content\.content\.\d+\.(type|id)$",
+    r"^content\.content\.\d+\.content\.\d+\.type$",
+    # content.choices.* fields
+    r"^content\.choices\.\d+\.index$",
+    r"^content\.choices\.\d+\.message\.(refusal|annotations|reasoning)$",
+    r"^content\.choices\.\d+\.(finish_reason|logprobs|seed)$",
+    # content.output.* fields
+    r"^content\.output\.\d+\.(id|type|status)$",
+    r"^content\.output\.\d+\.content\.\d+\.(type|annotations|logprobs|text)$",
+    # content.candidates.* fields (Google Gemini)
+    r"^content\.candidates\.\d+\.(finishReason|index)$",
+    r"^content\.usageMetadata",
+    # tools.* fields
+    r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
+    r"^tools\.\d+\.strict$",
+]
