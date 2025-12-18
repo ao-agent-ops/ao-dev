@@ -673,3 +673,11 @@ def get_user_by_id_query(user_id):
         The user record or None if not found
     """
     return query_one("SELECT * FROM users WHERE id = %s", (user_id,))
+
+
+def get_next_run_index_query():
+    """Get the next run index based on how many runs already exist."""
+    row = query_one("SELECT COUNT(*) as count FROM experiments", ())
+    if row:
+        return row["count"] + 1
+    return 1

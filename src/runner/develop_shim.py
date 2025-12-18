@@ -2,6 +2,7 @@ import sys
 import os
 import socket
 import json
+import shlex
 import random
 import threading
 import subprocess
@@ -61,14 +62,13 @@ class DevelopShim:
         script_args: List[str],
         is_module_execution: bool,
         project_root: str,
-        sample_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        run_name: str | None,
     ):
         self.script_path = script_path
         self.script_args = script_args
         self.is_module_execution = is_module_execution
         self.project_root = project_root
-        self.sample_id = sample_id
+        self.run_name = run_name
 
         # State management
         self.restart_event = threading.Event()
@@ -80,8 +80,6 @@ class DevelopShim:
         # Server communication
         self.session_id: Optional[str] = None
         self.server_conn: Optional[socket.socket] = None
-        # Optional user id to attach to new experiments
-        self.user_id: Optional[str] = user_id
 
         # Threading
         self.listener_thread: Optional[threading.Thread] = None
@@ -231,7 +229,7 @@ class DevelopShim:
 
     def _generate_restart_command(self) -> str:
         """Generate the appropriate command for restarting the script."""
-        original_command = " ".join(sys.argv)
+        original_command = " ".join(shlex.quote(arg) for arg in sys.argv)
 
         # If we're in a debugpy session, recreate the debugpy command
         if self._is_debugpy_session():
@@ -239,33 +237,35 @@ class DevelopShim:
             parent_cmdline = self._get_parent_cmdline()
             if not parent_cmdline:
                 # Best guess
-                return f"/usr/bin/env {python_executable} {original_args}"
+                return f"/usr/bin/env {python_executable} {original_command}"
 
-            cmdline_str = " ".join(parent_cmdline)
+            cmdline_str = " ".join(shlex.quote(arg) for arg in parent_cmdline)
 
             # Pattern 1: VSCode launcher - debugpy/launcher PORT -- args
             if "launcher" in cmdline_str and "--" in parent_cmdline:
                 # Get original args after "--"
                 dash_index = parent_cmdline.index("--")
-                original_args = " ".join(parent_cmdline[dash_index + 1 :])
+                original_args = " ".join(
+                    shlex.quote(arg) for arg in parent_cmdline[dash_index + 1 :]
+                )
                 return f"/usr/bin/env {python_executable} {original_args}"
 
             # Pattern 2: Direct debugpy module - python -m debugpy [options] -m module/script
             elif "-m" in parent_cmdline and "debugpy" in parent_cmdline:
                 # Simple approach: reconstruct basic debugpy command with current script
                 if self.is_module_execution:
-                    target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
+                    target_args = f"-m {self.script_path} {' '.join(shlex.quote(arg) for arg in self.script_args)}"
                 else:
-                    target_args = f"{self.script_path} {' '.join(self.script_args)}"
+                    target_args = f"{shlex.quote(self.script_path)} {' '.join(shlex.quote(arg) for arg in self.script_args)}"
 
                 # Use basic debugpy command with auto-assigned port
                 return f"{python_executable} {target_args}"
 
             # Fallback: basic debugpy command
             if self.is_module_execution:
-                target_args = f"-m {self.script_path} {' '.join(self.script_args)}"
+                target_args = f"-m {self.script_path} {' '.join(shlex.quote(arg) for arg in self.script_args)}"
             else:
-                target_args = f"{self.script_path} {' '.join(self.script_args)}"
+                target_args = f"{shlex.quote(self.script_path)} {' '.join(shlex.quote(arg) for arg in self.script_args)}"
             return f"{python_executable} {target_args}"
 
         # For non-debugging sessions, return the original command
@@ -283,7 +283,7 @@ class DevelopShim:
         handshake = {
             "type": "hello",
             "role": "shim-control",
-            "name": "Workflow run",  # TODO: Set to --run-name. Default of arg: "Workflow run"
+            "name": self.run_name,
             "cwd": os.getcwd(),
             "command": self._generate_restart_command(),
             "environment": dict(os.environ),
@@ -294,12 +294,6 @@ class DevelopShim:
             "code_hash": compute_code_hash(),
         }
         # Include user_id on the handshake top-level if provided
-        if self.user_id is not None:
-            try:
-                # Ensure string type
-                handshake["user_id"] = str(self.user_id)
-            except Exception:
-                pass
         try:
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode("utf-8"))
             # Read session_id from aco.server

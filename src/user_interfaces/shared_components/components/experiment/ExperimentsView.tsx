@@ -330,9 +330,40 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           {isExpanded && (
             <div style={listItemsStyle}>
               {processes.length > 0 ? (
-                processes.map((process) => {
+                (() => {
+                  // Blue color cycle for code hash tags (5 shades)
+                  const blueColors = {
+                    dark: [
+                      { text: '#7cb7e8', bg: 'rgba(124, 183, 232, 0.15)' },  // Light blue
+                      { text: '#569cd6', bg: 'rgba(86, 156, 214, 0.15)' },   // Medium blue
+                      { text: '#4078c0', bg: 'rgba(64, 120, 192, 0.15)' },   // Darker blue
+                      { text: '#2d5d9b', bg: 'rgba(45, 93, 155, 0.15)' },    // Deep blue
+                      { text: '#1e4976', bg: 'rgba(30, 73, 118, 0.15)' },    // Navy blue
+                    ],
+                    light: [
+                      { text: '#0078d4', bg: 'rgba(0, 120, 212, 0.1)' },     // Light blue
+                      { text: '#0066cc', bg: 'rgba(0, 102, 204, 0.1)' },     // Medium blue
+                      { text: '#004d99', bg: 'rgba(0, 77, 153, 0.1)' },      // Darker blue
+                      { text: '#003d7a', bg: 'rgba(0, 61, 122, 0.1)' },      // Deep blue
+                      { text: '#002d5c', bg: 'rgba(0, 45, 92, 0.1)' },       // Navy blue
+                    ],
+                  };
+
+                  // Pre-compute color indices based on hash changes
+                  let currentColorIndex = 0;
+                  const colorIndices: number[] = [];
+                  processes.forEach((process, index) => {
+                    if (index > 0 && process.code_hash !== processes[index - 1].code_hash) {
+                      currentColorIndex = (currentColorIndex + 1) % 5;
+                    }
+                    colorIndices.push(currentColorIndex);
+                  });
+
+                  return processes.map((process, index) => {
                   const cardId = `${sectionPrefix}-${process.session_id}`;
                   const isHovered = hoveredCards.has(cardId);
+                  const hashColorIndex = colorIndices[index];
+                  const hashColors = isDarkTheme ? blueColors.dark[hashColorIndex] : blueColors.light[hashColorIndex];
 
                   // Determine status icon based on process state
                   const getStatusIcon = () => {
@@ -349,17 +380,16 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                     return <i className="codicon codicon-circle-outline" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.6 }} />;
                   };
 
-                  // Format timestamp to dd/mm/yyyy hh:mm
+                  // Format timestamp to "Mon dd yyyy" format
                   const formatDate = (timestamp?: string) => {
                     if (!timestamp) return 'No date';
                     try {
                       const date = new Date(timestamp);
-                      const day = String(date.getDate()).padStart(2, '0');
-                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const month = months[date.getMonth()];
+                      const day = date.getDate();
                       const year = date.getFullYear();
-                      const hours = String(date.getHours()).padStart(2, '0');
-                      const minutes = String(date.getMinutes()).padStart(2, '0');
-                      return `${day}/${month}/${year} ${hours}:${minutes}`;
+                      return `${month} ${day} ${year}`;
                     } catch {
                       return timestamp;
                     }
@@ -382,39 +412,44 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                       <span style={{
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'pre'
-                      }}>
-                        {formatDate(process.timestamp)}{'\t'}
-                      </span>
-                      <span style={{
-                        fontSize: '11px',
-                        color: isDarkTheme ? '#858585' : '#8e8e8e',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         maxWidth: '150px'
                       }}>
                         {process.run_name || 'Untitled'}
                       </span>
                       <span style={{ flex: 1 }} />
-                      {process.code_hash && (
-                        <span style={{
-                          fontSize: '10px',
-                          fontFamily: 'monospace',
-                          color: isDarkTheme ? '#569cd6' : '#0066cc',
-                          backgroundColor: isDarkTheme ? 'rgba(86, 156, 214, 0.15)' : 'rgba(0, 102, 204, 0.1)',
-                          padding: '1px 4px',
-                          borderRadius: '2px',
-                          marginLeft: '8px',
-                          whiteSpace: 'nowrap',
-                          lineHeight: '1',
-                        }}>
-                          {process.code_hash}
-                        </span>
-                      )}
+                      <span style={{
+                        fontSize: '11px',
+                        color: isDarkTheme ? '#858585' : '#8e8e8e',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {formatDate(process.timestamp)}
+                      </span>
+                      <span style={{
+                        width: '60px',
+                        marginLeft: '8px',
+                        display: 'inline-block',
+                        textAlign: 'right',
+                      }}>
+                        {process.code_hash && (
+                          <span style={{
+                            fontSize: '10px',
+                            fontFamily: 'monospace',
+                            color: hashColors.text,
+                            backgroundColor: hashColors.bg,
+                            padding: '1px 4px',
+                            borderRadius: '2px',
+                            whiteSpace: 'nowrap',
+                            lineHeight: '1',
+                          }}>
+                            {process.code_hash}
+                          </span>
+                        )}
+                      </span>
                     </div>
                   );
-                })
+                });
+                })()
               ) : (
                 <div style={emptyMessageStyle}>
                   No {sectionTitle.toLowerCase()}

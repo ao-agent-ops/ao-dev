@@ -360,10 +360,22 @@ def untaint_if_needed(val, _seen=None):
 
     # Handle nested data structures
     if isinstance(val, dict):
-        new_dict = {
-            untaint_if_needed(k, _seen): untaint_if_needed(v, _seen) for k, v in val.items()
-        }
-        return new_dict
+        # Collect keys that need untainting first (avoid modifying dict during iteration)
+        items_to_rekey = []
+        for k in list(val.keys()):
+            untainted_k = untaint_if_needed(k, _seen)
+            if untainted_k is not k:
+                items_to_rekey.append((k, untainted_k))
+
+        # Re-key in place
+        for old_key, new_key in items_to_rekey:
+            val[new_key] = val.pop(old_key)
+
+        # Untaint values in place
+        for k in val:
+            val[k] = untaint_if_needed(val[k], _seen)
+
+        return val
     elif isinstance(val, list):
         for i, item in enumerate(val):
             val[i] = untaint_if_needed(item, _seen)
@@ -2161,6 +2173,10 @@ def taint_wrap(
 
         if issubclass(obj.__class__, enum.Enum):
             return obj  # Don't wrap any enum members (including StrEnum)
+
+    # Don't wrap exceptions - they need to be raisable and can't be proxied
+    if isinstance(obj, BaseException):
+        return obj
 
     if isinstance(obj, dict):
         tainted_dict = TaintDict(

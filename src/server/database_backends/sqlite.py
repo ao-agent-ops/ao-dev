@@ -477,3 +477,11 @@ def get_user_by_id_query(user_id):
     raise Exception(
         "User management not supported in local SQLite database. Switch to remote mode for multi-user support."
     )
+
+
+def get_next_run_index_query():
+    """Get the next run index based on how many runs already exist."""
+    row = query_one("SELECT COUNT(*) as count FROM experiments", ())
+    if row:
+        return row["count"] + 1
+    return 1

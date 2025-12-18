@@ -505,6 +505,9 @@ class DevelopServer:
             environment = msg.get("environment")
             timestamp = datetime.now()
             name = msg.get("name")
+            if not name:
+                run_index = DB.get_next_run_index()
+                name = f"Run {run_index}"
             parent_session_id = msg.get("parent_session_id")
             # Determine user_id: prefer explicit msg value, else use current_user_id
             user_id = msg.get("user_id")
@@ -764,6 +767,9 @@ class DevelopServer:
                     environment = handshake.get("environment")
                     timestamp = datetime.now()
                     name = handshake.get("name")
+                    if not name:
+                        run_index = DB.get_next_run_index()
+                        name = f"Run {run_index}"
                     code_hash = handshake.get("code_hash")
                     DB.add_experiment(
                         session_id,

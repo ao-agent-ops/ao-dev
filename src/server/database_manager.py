@@ -586,6 +586,10 @@ class DatabaseManager:
         """Get one llm-call output by session id and node id"""
         return self.backend.get_llm_call_output_api_type_query(session_id, node_id)
 
+    def get_next_run_index(self):
+        """Get the next run index based on how many runs already exist."""
+        return self.backend.get_next_run_index_query()
+
 
 # Create singleton instance following the established pattern
 DB = DatabaseManager()
