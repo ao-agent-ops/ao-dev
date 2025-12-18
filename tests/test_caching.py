@@ -33,7 +33,7 @@ async def run_test(script_path: str, project_root: str):
         script_args=[],
         is_module_execution=False,
         project_root=project_root,
-        sample_id=None,
+        run_name=None,
     )
     aco_random_seed = random.randint(0, 2**31 - 1)
     os.environ["ACO_SEED"] = str(aco_random_seed)
