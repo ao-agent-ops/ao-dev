@@ -10,7 +10,7 @@ def json_str_to_original_inp_dict_httpx(json_str: str, input_dict: dict) -> dict
 
 def func_kwargs_to_json_str_httpx(input_dict: Dict[str, Any]):
     # For httpx, extract content from request object
-    json_str = json.dumps(json.loads(input_dict["request"].content.decode("utf-8")), sort_keys=True)
+    json_str = json.dumps(json.loads(input_dict["request"].content.decode("utf-8")))
     return json_str, []
 
 

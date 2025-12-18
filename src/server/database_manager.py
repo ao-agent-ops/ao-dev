@@ -188,12 +188,16 @@ class DatabaseManager:
         return self.backend.get_user_by_id_query(user_id)
 
     def set_input_overwrite(self, session_id, node_id, new_input):
-        # Overwrite input for node.
+        # Make sure string repr. is uniform
+        new_input = json.dumps(json.loads(new_input), sort_keys=True)
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
         input_overwrite = json.loads(row["input"])
-        input_overwrite["input"] = new_input
-        input_overwrite = json.dumps(input_overwrite)
-        self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
+        # Maybe what the UI gave us is the same (user didn't change anything).
+        # In this case, don't remove the output (this is what set_input_overwrite_query does)
+        if input_overwrite["input"] != new_input:
+            input_overwrite["input"] = new_input
+            input_overwrite = json.dumps(input_overwrite, sort_keys=True)
+            self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
 
     def set_output_overwrite(self, session_id, node_id, new_output: str):
         # Overwrite output for node.
@@ -208,6 +212,7 @@ class DatabaseManager:
         try:
             # try to parse the edit of the user
             json_str_to_api_obj(new_output, row["api_type"])
+            new_output = json.dumps(json.loads(new_output), sort_keys=True)
             self.backend.set_output_overwrite_query(new_output, session_id, node_id)
         except Exception as e:
             logger.error(f"Failed to parse output edit into API object: {e}")

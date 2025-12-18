@@ -5,6 +5,7 @@ from typing import Any, Dict
 def json_str_to_original_inp_dict_requests(json_str: str, input_dict: dict) -> dict:
     # For requests, modify the request body
     input_dict["request"].body = json_str.encode("utf-8")
+    input_dict["request"].prepare_content_length(json_str.encode("utf-8"))
     return input_dict
 
 
@@ -24,7 +25,7 @@ def api_obj_to_json_str_requests(obj: Any) -> str:
     out_dict["_obj_str"] = base64.b64encode(out_bytes).decode(encoding)
     out_dict["_encoding"] = encoding
     out_dict["content"] = json.loads(obj.content.decode(encoding))
-    return json.dumps(out_dict)
+    return json.dumps(out_dict, sort_keys=True)
 
 
 def json_str_to_api_obj_requests(new_output_text: str) -> None:
