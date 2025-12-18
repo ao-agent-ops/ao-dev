@@ -5,7 +5,7 @@ import threading
 import os
 from aco.common.logger import logger
 from aco.server.database_manager import DB
-from aco.common.utils import send_to_server, send_to_server_and_receive
+from aco.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
 
 
 # Process's session id stored as parent_session_id. Subruns have their own
@@ -75,6 +75,7 @@ def aco_launch(run_name="Workflow run"):
         "command": parent_env["command"],
         "environment": json.loads(parent_env["environment"]),
         "prev_session_id": prev_session_id,
+        "code_hash": compute_code_hash(),
     }
     response = send_to_server_and_receive(msg)
     session_id = response["session_id"]

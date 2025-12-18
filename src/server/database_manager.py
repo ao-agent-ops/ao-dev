@@ -230,6 +230,7 @@ class DatabaseManager:
         environment,
         parent_session_id=None,
         user_id=None,
+        code_hash=None,
     ):
         """Add experiment to database."""
         import json
@@ -254,6 +255,7 @@ class DatabaseManager:
             DEFAULT_NOTE,
             DEFAULT_LOG,
             user_id,
+            code_hash,
         )
 
     def update_graph_topology(self, session_id, graph_dict):

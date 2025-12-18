@@ -177,6 +177,7 @@ class DevelopServer:
                 success = row["success"]
                 notes = row["notes"]
                 log = row["log"]
+                code_hash = row["code_hash"]
 
                 # Parse color_preview from database
                 color_preview = []
@@ -192,6 +193,7 @@ class DevelopServer:
                         "status": status,
                         "timestamp": timestamp,
                         "color_preview": color_preview,
+                        "code_hash": code_hash,
                         "run_name": run_name,
                         "result": success,
                         "notes": notes,
@@ -760,6 +762,7 @@ class DevelopServer:
                     environment = handshake.get("environment")
                     timestamp = datetime.now()
                     name = handshake.get("name")
+                    code_hash = handshake.get("code_hash")
                     DB.add_experiment(
                         session_id,
                         name,
@@ -769,7 +772,9 @@ class DevelopServer:
                         environment,
                         None,
                         self.current_user_id,
+                        code_hash,
                     )
+                    logger.info(f"[CodeHash] code hash in handshake is {code_hash}")
                 # Insert session if not present.
                 with self.lock:
                     if session_id not in self.sessions:

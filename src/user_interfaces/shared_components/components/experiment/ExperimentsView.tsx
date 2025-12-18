@@ -396,6 +396,22 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                       }}>
                         {process.run_name || 'Untitled'}
                       </span>
+                      <span style={{ flex: 1 }} />
+                      {process.code_hash && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontFamily: 'monospace',
+                          color: isDarkTheme ? '#569cd6' : '#0066cc',
+                          backgroundColor: isDarkTheme ? 'rgba(86, 156, 214, 0.15)' : 'rgba(0, 102, 204, 0.1)',
+                          padding: '1px 4px',
+                          borderRadius: '2px',
+                          marginLeft: '8px',
+                          whiteSpace: 'nowrap',
+                          lineHeight: '1',
+                        }}>
+                          {process.code_hash}
+                        </span>
+                      )}
                     </div>
                   );
                 })

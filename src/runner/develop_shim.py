@@ -23,7 +23,7 @@ from aco.common.constants import (
     MESSAGE_POLL_INTERVAL,
     SERVER_START_WAIT,
 )
-from aco.common.utils import MODULE2FILE
+from aco.common.utils import MODULE2FILE, compute_code_hash
 from aco.runner.launch_scripts import SCRIPT_WRAPPER_TEMPLATE, MODULE_WRAPPER_TEMPLATE
 from aco.cli.aco_server import launch_daemon_server
 
@@ -291,6 +291,7 @@ class DevelopShim:
                 "AGENT_COPILOT_SESSION_ID"
             ),  # Is set if rerun, otherwise None
             "module_to_file": MODULE2FILE,  # For file watcher
+            "code_hash": compute_code_hash(),
         }
         # Include user_id on the handshake top-level if provided
         if self.user_id is not None:

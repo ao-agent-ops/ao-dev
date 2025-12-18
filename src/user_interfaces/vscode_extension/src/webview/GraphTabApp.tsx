@@ -107,7 +107,8 @@ export const GraphTabApp: React.FC = () => {
                 result: updatedExperiment.result,
                 notes: updatedExperiment.notes,
                 log: updatedExperiment.log,
-                color_preview: updatedExperiment.color_preview
+                color_preview: updatedExperiment.color_preview,
+                code_hash: updatedExperiment.code_hash
               };
               setExperiment(processInfo);
 

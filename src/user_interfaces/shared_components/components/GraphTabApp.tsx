@@ -145,6 +145,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   result={experiment.result || ''}
                   notes={experiment.notes || ''}
                   log={experiment.log || ''}
+                  codeHash={experiment.code_hash || ''}
                   sessionId={sessionId || ''}
                   isDarkTheme={isDarkTheme}
                   messageSender={messageSender}
