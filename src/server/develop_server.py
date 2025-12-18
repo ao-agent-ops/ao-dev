@@ -318,22 +318,33 @@ class DevelopServer:
         """Add a node to a specific session's graph"""
         # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
+
+        # Check for duplicate node
+        node_exists = False
         for n in graph["nodes"]:
             if n["id"] == node["id"]:
+                node_exists = True
                 break
-        else:
+        if not node_exists:
             graph["nodes"].append(node)
             logger.info(f"[DevelopServer] Added node {node['id']} to session {sid}")
 
-        # Add incoming edges (only if source nodes exist in the graph)
+        # Build set of existing edge IDs for duplicate checking
+        existing_edge_ids = {e["id"] for e in graph["edges"]}
         existing_node_ids = {n["id"] for n in graph["nodes"]}
+
+        # Add incoming edges (only if source nodes exist and edge doesn't already exist)
         for source in incoming_edges:
             if source in existing_node_ids:
                 target = node["id"]
                 edge_id = f"e{source}-{target}"
-                full_edge = {"id": edge_id, "source": source, "target": target}
-                graph["edges"].append(full_edge)
-                logger.info(f"[DevelopServer] Added edge {edge_id} in session {sid}")
+                if edge_id not in existing_edge_ids:
+                    full_edge = {"id": edge_id, "source": source, "target": target}
+                    graph["edges"].append(full_edge)
+                    existing_edge_ids.add(edge_id)  # Track newly added edge
+                    logger.info(f"[DevelopServer] Added edge {edge_id} in session {sid}")
+                else:
+                    logger.debug(f"[DevelopServer] Skipping duplicate edge {edge_id}")
             else:
                 logger.debug(
                     f"[DevelopServer] Skipping edge from non-existent node {source} to {node['id']}"
@@ -551,34 +562,38 @@ class DevelopServer:
         self.handle_restart_message({"session_id": session_id})
 
     def handle_restart_message(self, msg: dict) -> bool:
-        child_session_id = msg.get("session_id")
-        session_id = DB.get_parent_session_id(child_session_id)
-        if not session_id:
+        session_id = msg.get("session_id")
+        parent_session_id = DB.get_parent_session_id(session_id)
+        if not parent_session_id:
             logger.error("[DevelopServer] Restart message missing session_id. Ignoring.")
             return
-        session = self.sessions.get(session_id)
+        session = self.sessions.get(parent_session_id)
 
-        # Reset color previews.
-        DB.update_color_preview(child_session_id, [])
+        # Clear graph in both memory and database atomically to prevent stale data
+        empty_graph = {"nodes": [], "edges": []}
+        self.session_graphs[session_id] = empty_graph
+        DB.update_graph_topology(session_id, empty_graph)
+
+        # Reset color previews in both memory and database
+        DB.update_color_preview(session_id, [])
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": session_id, "color_preview": []}
         )
 
-        # Immediately broadcast an empty graph to all UIs for fast clearing
-        self.session_graphs[child_session_id] = {"nodes": [], "edges": []}
+        # Broadcast empty graph to all UIs
         self.broadcast_to_all_uis(
             {
                 "type": "graph_update",
-                "session_id": child_session_id,
-                "payload": {"nodes": [], "edges": []},
+                "session_id": session_id,
+                "payload": empty_graph,
             }
         )
 
         if session and session.status == "running":
             if session.shim_conn:
-                restart_msg = {"type": "restart", "session_id": session_id}
+                restart_msg = {"type": "restart", "session_id": parent_session_id}
                 logger.debug(
-                    f"[DevelopServer] Session running...Sending restart to shim-control for session_id: {session_id} with message: {restart_msg}"
+                    f"[DevelopServer] Session running...Sending restart to shim-control for session_id: {parent_session_id} with message: {restart_msg}"
                 )
                 try:
                     send_json(session.shim_conn, restart_msg)
@@ -586,39 +601,38 @@ class DevelopServer:
                     logger.error(f"[DevelopServer] Error sending restart: {e}")
                 return
             else:
-                logger.warning(f"[DevelopServer] No shim_conn for session_id: {session_id}")
+                logger.warning(f"[DevelopServer] No shim_conn for session_id: {parent_session_id}")
         elif session and session.status == "finished":
             # Rerun for finished session: launch new shim-control with same session_id
-            cwd, command, environment = DB.get_exec_command(session_id)
+            cwd, command, environment = DB.get_exec_command(parent_session_id)
 
             logger.debug(
-                f"[DevelopServer] Rerunning finished session {session_id} with cwd={cwd} and command={command}"
+                f"[DevelopServer] Rerunning finished session {parent_session_id} with cwd={cwd} and command={command}"
             )
             # Mark this session as being rerun to avoid clearing llm_calls
-            self.rerun_sessions.add(child_session_id)
+            self.rerun_sessions.add(session_id)
             try:
                 # Insert session_id into environment so shim-control uses the same session_id
                 env = os.environ.copy()
-                env["AGENT_COPILOT_SESSION_ID"] = session_id
+                env["AGENT_COPILOT_SESSION_ID"] = parent_session_id
 
                 # Restore the user's original environment variables
                 env.update(environment)
                 logger.debug(
-                    f"[DevelopServer] Restored {len(environment)} environment variables for session {session_id}"
+                    f"[DevelopServer] Restored {len(environment)} environment variables for session {parent_session_id}"
                 )
 
                 # Rerun the original command. This starts the shim-control, which starts the shim-runner.
                 args = shlex.split(command)
-                DB.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
                 subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
 
                 # Update the session status to running and update timestamp for rerun
-                session = self.sessions.get(child_session_id)
+                session = self.sessions.get(session_id)
                 if session:
                     session.status = "running"
                     # Update database timestamp so it sorts correctly
                     new_timestamp = datetime.now()
-                    DB.update_timestamp(child_session_id, new_timestamp)
+                    DB.update_timestamp(session_id, new_timestamp)
                     # Broadcast updated experiment list with rerun session at the front
                     self.broadcast_experiment_list_to_uis()
             except Exception as e:
