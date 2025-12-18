@@ -275,7 +275,7 @@ _context: vscode.WebviewViewResolveContext,
             };
         `;
         
-        console.log('🚀 Injecting telemetry config into webview');
+        console.log('🚀 Injecting config into webview');
         
         html = html.replace('const vscode = acquireVsCodeApi();', 
             `${configBridge}\n        const vscode = acquireVsCodeApi();`);

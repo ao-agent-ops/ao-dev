@@ -15,7 +15,6 @@ from aco.common.utils import MODULE2FILE
 from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
-from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
 from aco.server.file_watcher import run_file_watcher_process
 
 
@@ -709,9 +708,6 @@ class DevelopServer:
     # ============================================================
 
     def process_message(self, msg: dict, conn: socket.socket) -> None:
-        # Log the message to telemetry
-        log_server_message(msg, self.session_graphs)
-
         msg_type = msg.get("type")
         if msg_type == "auth":
             self.handle_auth(msg, conn)
@@ -823,8 +819,6 @@ class DevelopServer:
                 else:
                     logger.warning(f"[DevelopServer] No module mapping received from shim-control")
 
-                # Log shim-control registration to telemetry
-                log_shim_control_registration(handshake, session_id)
             elif role == "shim-runner":
                 # Send acknowledgment to shim-runner that experiment is ready
                 send_json(conn, {"type": "ready", "database_mode": DB.get_current_mode()})

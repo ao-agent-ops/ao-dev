@@ -380,7 +380,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                     return <i className="codicon codicon-circle-outline" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.6 }} />;
                   };
 
-                  // Format timestamp to "Mon dd yyyy" format
+                  // Format timestamp to "Mon dd yyyy hh:mm" format
                   const formatDate = (timestamp?: string) => {
                     if (!timestamp) return 'No date';
                     try {
@@ -389,7 +389,9 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                       const month = months[date.getMonth()];
                       const day = date.getDate();
                       const year = date.getFullYear();
-                      return `${month} ${day} ${year}`;
+                      const hours = date.getHours().toString().padStart(2, '0');
+                      const minutes = date.getMinutes().toString().padStart(2, '0');
+                      return `${month} ${day} ${year} ${hours}:${minutes}`;
                     } catch {
                       return timestamp;
                     }

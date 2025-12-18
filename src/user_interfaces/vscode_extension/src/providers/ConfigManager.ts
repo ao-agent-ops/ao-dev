@@ -2,9 +2,6 @@ import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 
 export interface Config {
-  collectTelemetry: boolean;
-  telemetryUrl: string | null;
-  telemetryKey: string | null;
   userId: string;
 }
 
@@ -79,9 +76,6 @@ export class ConfigManager {
     if (!this.configPath) {
       // Return sensible defaults if no path provided
       return {
-        collectTelemetry: false,
-        telemetryUrl: null,
-        telemetryKey: null,
         userId: 'default_user'
       };
     }
@@ -90,10 +84,7 @@ export class ConfigManager {
       if (fs.existsSync(this.configPath)) {
         const configData = yaml.load(fs.readFileSync(this.configPath, 'utf8')) as any;
         return {
-          collectTelemetry: configData?.collect_telemetry || false,
-          telemetryUrl: configData?.telemetry_url || null,
-          telemetryKey: configData?.telemetry_key || null,
-          userId: configData?.telemetry_username || 'default_user'
+          userId: configData?.user_id || 'default_user'
         };
       } else {
         console.warn(`Config file not found at: ${this.configPath} — using defaults`);
@@ -104,9 +95,6 @@ export class ConfigManager {
 
     // Return default config instead of throwing so extension remains stable
     return {
-      collectTelemetry: false,
-      telemetryUrl: null,
-      telemetryKey: null,
       userId: 'default_user'
     };
   }

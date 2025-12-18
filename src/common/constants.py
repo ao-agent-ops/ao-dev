@@ -1,6 +1,6 @@
 import re
 import os
-from aco.common.config import Config, derive_project_root, generate_random_username
+from aco.common.config import Config, derive_project_root
 
 
 # default home directory for configs and temporary/cached files
@@ -32,10 +32,6 @@ os.makedirs(os.path.dirname(ACO_CONFIG), exist_ok=True)
 if not os.path.exists(ACO_CONFIG):
     default_config = Config(
         project_root=derive_project_root(),
-        collect_telemetry=False,
-        telemetry_url=None,
-        telemetry_key=None,
-        telemetry_username=generate_random_username(),
         database_url=None,
     )
     default_config.to_yaml_file(ACO_CONFIG)
@@ -44,10 +40,6 @@ if not os.path.exists(ACO_CONFIG):
 config = Config.from_yaml_file(ACO_CONFIG)
 
 ACO_PROJECT_ROOT = config.project_root
-COLLECT_TELEMETRY = config.collect_telemetry
-TELEMETRY_URL = config.telemetry_url
-TELEMETRY_KEY = config.telemetry_key
-TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
 
 # Remote PostgreSQL database URL for "Remote" mode in UI dropdown
 REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
