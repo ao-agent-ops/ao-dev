@@ -24,6 +24,13 @@ from aco.runner.monkey_patching.api_parsers.requests_api_parser import (
     json_str_to_original_inp_dict_requests,
     get_model_requests,
 )
+from aco.runner.monkey_patching.api_parsers.genai_api_parser import (
+    func_kwargs_to_json_str_genai,
+    api_obj_to_json_str_genai,
+    json_str_to_api_obj_genai,
+    json_str_to_original_inp_dict_genai,
+    get_model_genai,
+)
 from aco.common.constants import EDIT_IO_EXCLUDE_PATTERNS
 from aco.common.logger import logger
 
@@ -123,6 +130,8 @@ def func_kwargs_to_json_str(input_dict: Dict[str, Any], api_type: str) -> Tuple[
         complete_json_str, metadata = func_kwargs_to_json_str_httpx(input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         complete_json_str, metadata = func_kwargs_to_json_str_mcp(input_dict)
+    elif api_type == "genai.BaseApiClient.async_request":
+        complete_json_str, metadata = func_kwargs_to_json_str_genai(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -171,6 +180,8 @@ def json_str_to_original_inp_dict(json_str: str, input_dict: dict, api_type: str
         return json_str_to_original_inp_dict_httpx(merged_json_str, input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         return json_str_to_original_inp_dict_mcp(merged_json_str, input_dict)
+    elif api_type == "genai.BaseApiClient.async_request":
+        return json_str_to_original_inp_dict_genai(merged_json_str, input_dict)
     else:
         return merged_dict
 
@@ -193,6 +204,8 @@ def api_obj_to_json_str(response_obj: Any, api_type: str) -> str:
         complete_json_str = api_obj_to_json_str_httpx(response_obj)
     elif api_type == "MCP.ClientSession.send_request":
         complete_json_str = api_obj_to_json_str_mcp(response_obj)
+    elif api_type == "genai.BaseApiClient.async_request":
+        complete_json_str = api_obj_to_json_str_genai(response_obj)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -234,6 +247,8 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
         return json_str_to_api_obj_httpx(merged_json_str)
     elif api_type == "MCP.ClientSession.send_request":
         return json_str_to_api_obj_mcp(merged_json_str)
+    elif api_type == "genai.BaseApiClient.async_request":
+        return json_str_to_api_obj_genai(merged_json_str)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 
@@ -245,6 +260,8 @@ def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
         return get_model_httpx(input_dict)
     elif api_type == "MCP.ClientSession.send_request":
         return get_model_mcp(input_dict)
+    elif api_type == "genai.BaseApiClient.async_request":
+        return get_model_genai(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 

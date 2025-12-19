@@ -26,15 +26,15 @@ class RunData:
 
 
 def get_key_value_new_value(script_path: str):
-    if "together_add_numbers.py" in script_path:
+    if "together_add_numbers" in script_path:
         key_to_edit = "to_show.messages.0.content"
         value_to_edit = "Add 2 to 42 and just output the result."
         new_value = "Add 2 to 43 and just output the result."
-    elif "anthropic_add_numbers.py" in script_path:
+    elif "anthropic_add_numbers" in script_path:
         key_to_edit = "to_show.messages.0.content"
         value_to_edit = "Add 2 to 42 and just output the result."
         new_value = "Add 2 to 43 and just output the result."
-    elif "vertexai_add_numbers.py" in script_path:
+    elif "vertexai_add_numbers" in script_path:
         key_to_edit = "to_show.contents.0.parts.0.text"
         value_to_edit = "Add 2 to 42 and just output the result."
         new_value = "Add 2 to 43 and just output the result."
@@ -44,13 +44,13 @@ def get_key_value_new_value(script_path: str):
 
 
 def get_target_output_key_and_value(script_path: str):
-    if "together_add_numbers.py" in script_path:
+    if "together_add_numbers" in script_path:
         target_key = "raw.content.choices.0.message.content"
         target_value_after_edit = "88"
-    elif "anthropic_add_numbers.py" in script_path:
+    elif "anthropic_add_numbers" in script_path:
         target_key = "raw.content.content.0.text"
         target_value_after_edit = "88"
-    elif "vertexai_add_numbers.py" in script_path:
+    elif "vertexai_add_numbers" in script_path:
         target_key = "raw.content.candidates.0.content.parts.0.text"
         target_value_after_edit = "88"
     else:
@@ -195,6 +195,7 @@ async def run_test(script_path: str, project_root: str):
         "./example_workflows/debug_examples/together_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_add_numbers.py",
         "./example_workflows/debug_examples/vertexai_add_numbers.py",
+        "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
     ],
 )
 def test_debug_examples(script_path: str):
@@ -202,4 +203,4 @@ def test_debug_examples(script_path: str):
 
 
 if __name__ == "__main__":
-    test_debug_examples("./example_workflows/debug_examples/vertexai_add_numbers.py")
+    test_debug_examples("./example_workflows/debug_examples/anthropic_add_numbers.py")

@@ -23,6 +23,8 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  // Track the original type to preserve it during editing
+  const [originalType] = useState<string>(typeof value);
 
   const colors = isDarkTheme
     ? {
@@ -73,6 +75,11 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
 
   const parseEditValue = (editVal: string): any => {
     const trimmed = editVal.trim();
+
+    // If the original value was a string, keep it as a string
+    if (originalType === 'string') {
+      return editVal;
+    }
 
     // Try to parse as JSON literal
     if (trimmed === 'null') {
