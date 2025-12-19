@@ -100,7 +100,6 @@ SCRIPT_WRAPPER_TEMPLATE = (
     _SETUP_TRACING_SETUP
     + """
 # Set up argv and run the module
-module_name = os.path.abspath({module_name})
 sys.argv = [{module_name}] + {script_args}
 runpy.run_module({module_name}, run_name='__main__')
 """

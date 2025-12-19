@@ -34,7 +34,7 @@ def test_deepresearch():
     run_data_obj = asyncio.run(
         run_test(
             script_path="./example_workflows/miroflow_deep_research/single_task.py",
-            project_root="./example_workflows/miroflow_deep_research",
+            project_root=".",
         )
     )
     caching_asserts(run_data_obj)

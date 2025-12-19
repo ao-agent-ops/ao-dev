@@ -21,15 +21,6 @@ def cleanup_taint_db():
         del os.environ["AGENT_COPILOT_SESSION_ID"]
 
 
-def restart_server():
-    """Restart the server to ensure clean state for tests."""
-    import subprocess
-    import time
-
-    subprocess.run(["aco-server", "restart"], check=False)
-    time.sleep(1)
-
-
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     """
     Helper to create necessary database records for testing.

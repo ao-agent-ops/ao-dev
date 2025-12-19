@@ -12,9 +12,9 @@ from aco.runner.develop_shim import DevelopShim
 from aco.runner.develop_shim import ensure_server_running
 
 try:
-    from tests.utils import restart_server
+    from tests.billable.caching_utils import restart_server
 except ImportError:
-    from utils import restart_server
+    from caching_utils import restart_server
 
 
 @dataclass
@@ -198,9 +198,7 @@ async def run_test(script_path: str, project_root: str):
     ],
 )
 def test_debug_examples(script_path: str):
-    asyncio.run(
-        run_test(script_path=script_path, project_root="./example_workflows/debug_examples")
-    )
+    asyncio.run(run_test(script_path=script_path, project_root="."))
 
 
 if __name__ == "__main__":

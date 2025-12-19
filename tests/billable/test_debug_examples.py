@@ -35,9 +35,7 @@ except ImportError:
     ],
 )
 def test_debug_examples(script_path: str):
-    run_data_obj = asyncio.run(
-        run_test(script_path=script_path, project_root="./example_workflows/debug_examples")
-    )
+    run_data_obj = asyncio.run(run_test(script_path=script_path, project_root="."))
     caching_asserts(run_data_obj)
 
 

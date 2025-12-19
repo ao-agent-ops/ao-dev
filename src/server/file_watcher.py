@@ -266,7 +266,7 @@ def run_file_watcher_process(module_to_file: Dict[str, str]):
         module_to_file: Dict mapping module names to their file paths
     """
     watcher = FileWatcher(module_to_file)
-    watcher.run()
+    # watcher.run()
 
 
 def get_pyc_path(py_file_path: str) -> str:

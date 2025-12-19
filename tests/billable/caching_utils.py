@@ -1,18 +1,13 @@
-import asyncio
 import threading
 import os
 import random
 import json
 import time
+import subprocess
 from dataclasses import dataclass
 from aco.server.database_manager import DB
 from aco.runner.develop_shim import DevelopShim
 from aco.runner.develop_shim import ensure_server_running
-
-try:
-    from tests.utils import restart_server
-except ImportError:
-    from utils import restart_server
 
 
 @dataclass
@@ -21,6 +16,12 @@ class RunData:
     new_rows: list
     graph: list
     new_graph: list
+
+
+def restart_server():
+    """Restart the server to ensure clean state for tests."""
+    subprocess.run(["aco-server", "restart"], check=False)
+    time.sleep(1)
 
 
 async def run_test(script_path: str, project_root: str):
