@@ -4,7 +4,6 @@ import os
 import random
 import json
 import time
-import pytest
 from dataclasses import dataclass
 from aco.server.database_manager import DB
 from aco.runner.develop_shim import DevelopShim
@@ -105,7 +104,7 @@ async def run_test(script_path: str, project_root: str):
     return run_data_obj
 
 
-def _caching_asserts(run_data_obj: RunData):
+def caching_asserts(run_data_obj: RunData):
     assert len(run_data_obj.rows) == len(
         run_data_obj.new_rows
     ), "Length of LLM calls does not match after re-run"
@@ -133,77 +132,3 @@ def _caching_asserts(run_data_obj: RunData):
     assert (
         original_edges == new_edges
     ), "Edge structure in graph topology doesn't match after re-run"
-
-
-def _deepresearch_asserts(run_data_obj: RunData):
-    # Check that every node has at least one parent node, except "gpt-4.1" and first "o3"
-    target_nodes = {edge["target"] for edge in run_data_obj.graph["edges"]}
-    first_o3_found = False
-
-    for node in run_data_obj.graph["nodes"]:
-        node_id = node["id"]
-        label = node.get("label", "")
-
-        # Skip check for "gpt-4.1" nodes
-        if label == "gpt-4.1":
-            continue
-
-        # Skip check for the first "o3" node only
-        if label == "o3" and not first_o3_found:
-            first_o3_found = True
-            continue
-
-        # All other nodes must have at least one parent
-        assert (
-            node_id in target_nodes
-        ), f"[DeepResearch] Node {node_id} with label '{label}' has no parent nodes"
-
-
-def test_deepresearch():
-    run_data_obj = asyncio.run(
-        run_test(
-            script_path="./example_workflows/miroflow_deep_research/single_task.py",
-            project_root="./example_workflows/miroflow_deep_research",
-        )
-    )
-    _caching_asserts(run_data_obj)
-    _deepresearch_asserts(run_data_obj)
-
-
-@pytest.mark.parametrize(
-    "script_path",
-    [
-        "./example_workflows/debug_examples/langchain_agent.py",
-        "./example_workflows/debug_examples/langchain_async_agent.py",
-        "./example_workflows/debug_examples/langchain_simple_chat.py",
-        "./example_workflows/debug_examples/together_add_numbers.py",
-        "./example_workflows/debug_examples/anthropic_image_tool_call.py",
-        "./example_workflows/debug_examples/anthropic_async_add_numbers.py",
-        "./example_workflows/debug_examples/anthropic_add_numbers.py",
-        "./example_workflows/debug_examples/mcp_simple_test.py",
-        "./example_workflows/debug_examples/multiple_runs_asyncio.py",
-        "./example_workflows/debug_examples/multiple_runs_sequential.py",
-        "./example_workflows/debug_examples/multiple_runs_threading.py",
-        "./example_workflows/debug_examples/openai_async_add_numbers.py",
-        "./example_workflows/debug_examples/openai_add_numbers.py",
-        "./example_workflows/debug_examples/openai_chat.py",
-        "./example_workflows/debug_examples/openai_chat_async.py",
-        "./example_workflows/debug_examples/openai_tool_call.py",
-        "./example_workflows/debug_examples/openai_async_agents.py",
-        "./example_workflows/debug_examples/vertexai_add_numbers.py",
-        "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
-        "./example_workflows/debug_examples/vertexai_gen_image.py",
-        "./example_workflows/debug_examples/vertexai_streaming.py",
-        "./example_workflows/debug_examples/vertexai_streaming_async.py",
-    ],
-)
-def test_debug_examples(script_path: str):
-    run_data_obj = asyncio.run(
-        run_test(script_path=script_path, project_root="./example_workflows/debug_examples")
-    )
-    _caching_asserts(run_data_obj)
-
-
-if __name__ == "__main__":
-    test_deepresearch()
-    # test_debug_examples("./example_workflows/debug_examples/anthropic_add_numbers.py")

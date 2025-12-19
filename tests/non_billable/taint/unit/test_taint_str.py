@@ -3,7 +3,7 @@
 import pytest
 
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, is_tainted
-from ...utils import with_ast_rewriting
+from tests.utils import with_ast_rewriting
 
 
 class TestTaintStr:

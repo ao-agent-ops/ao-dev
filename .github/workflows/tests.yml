@@ -3,8 +3,8 @@ name: Pytest
 on: [push]
 
 jobs:
-  test-general:
-    name: General Tests
+  test-non-billable:
+    name: Non-Billable Tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -20,20 +20,60 @@ jobs:
       uses: ./.github/actions/setup-test-environment
 
     - name: Setup isolated test database
-      run: mkdir -p ~/.cache/agent-copilot/tests/general
+      run: mkdir -p ~/.cache/agent-copilot/tests/non-billable
 
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/general"
+        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/non-billable"
         export PYTHON_PORT=5959
         source $HOME/miniconda/bin/activate aco
         aco-server start
 
-    - name: Test with pytest (excluding deep research)
+    - name: Test with pytest (non-billable tests)
       env:
-        ACO_DB_PATH: ~/.cache/agent-copilot/tests/general
+        ACO_DB_PATH: ~/.cache/agent-copilot/tests/non-billable
         PYTHON_PORT: 5959
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source $HOME/miniconda/bin/activate aco
+        pytest -v -s tests/non_billable/
+
+    - name: Clean up test database
+      if: always()
+      run: rm -rf ~/.cache/agent-copilot/tests/non-billable
+
+  test-debug-examples:
+    name: Debug Examples Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+        token: ${{ secrets.GH_TOKEN }}
+
+    - name: Setup test environment
+      uses: ./.github/actions/setup-test-environment
+
+    - name: Setup isolated test database
+      run: mkdir -p ~/.cache/agent-copilot/tests/debug-examples
+
+    - name: Launch shim server
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/debug-examples"
+        export PYTHON_PORT=5960
+        source $HOME/miniconda/bin/activate aco
+        aco-server start
+
+    - name: Test debug examples with pytest
+      env:
+        ACO_DB_PATH: ~/.cache/agent-copilot/tests/debug-examples
+        PYTHON_PORT: 5960
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -45,12 +85,11 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        # Run all tests except test_deepresearch
-        pytest -v -s tests/ -k "not test_deepresearch"
+        pytest -v -s tests/billable/test_debug_examples.py
 
     - name: Clean up test database
       if: always()
-      run: rm -rf ~/.cache/agent-copilot/tests/general
+      run: rm -rf ~/.cache/agent-copilot/tests/debug-examples
 
   test-deep-research:
     name: Deep Research Test
@@ -85,7 +124,7 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/deep-research"
-        export PYTHON_PORT=5960
+        export PYTHON_PORT=5961
         source $HOME/miniconda/bin/activate aco
         aco-server start
 
@@ -93,7 +132,7 @@ jobs:
       env:
         ACO_DB_PATH: ~/.cache/agent-copilot/tests/deep-research
         ACO_LOG_PATH: ~/.cache/agent-copilot/tests/deep-research
-        PYTHON_PORT: 5960
+        PYTHON_PORT: 5961
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -106,8 +145,7 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
-        # Run only test_deepresearch
-        pytest -v -s tests/test_caching.py::test_deepresearch
+        pytest -v -s tests/billable/test_deepresearch.py
 
     - name: Print server log
       if: always()
@@ -116,3 +154,51 @@ jobs:
     - name: Clean up test database
       if: always()
       run: rm -rf ~/.cache/agent-copilot/tests/deep-research
+
+  test-caching-edit:
+    name: Caching Edit Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+        token: ${{ secrets.GH_TOKEN }}
+
+    - name: Setup test environment
+      uses: ./.github/actions/setup-test-environment
+
+    - name: Setup isolated test database
+      run: mkdir -p ~/.cache/agent-copilot/tests/caching-edit
+
+    - name: Launch shim server
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/caching-edit"
+        export PYTHON_PORT=5962
+        source $HOME/miniconda/bin/activate aco
+        aco-server start
+
+    - name: Test caching edit with pytest
+      env:
+        ACO_DB_PATH: ~/.cache/agent-copilot/tests/caching-edit
+        PYTHON_PORT: 5962
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+        TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source $HOME/miniconda/bin/activate aco
+        pytest -v -s tests/billable/test_caching_edit.py
+
+    - name: Clean up test database
+      if: always()
+      run: rm -rf ~/.cache/agent-copilot/tests/caching-edit

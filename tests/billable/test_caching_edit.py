@@ -34,6 +34,10 @@ def get_key_value_new_value(script_path: str):
         key_to_edit = "to_show.messages.0.content"
         value_to_edit = "Add 2 to 42 and just output the result."
         new_value = "Add 2 to 43 and just output the result."
+    elif "vertexai_add_numbers.py" in script_path:
+        key_to_edit = "to_show.contents.0.parts.0.text"
+        value_to_edit = "Add 2 to 42 and just output the result."
+        new_value = "Add 2 to 43 and just output the result."
     else:
         raise NotImplementedError
     return key_to_edit, value_to_edit, new_value
@@ -45,6 +49,9 @@ def get_target_output_key_and_value(script_path: str):
         target_value_after_edit = "88"
     elif "anthropic_add_numbers.py" in script_path:
         target_key = "raw.content.content.0.text"
+        target_value_after_edit = "88"
+    elif "vertexai_add_numbers.py" in script_path:
+        target_key = "raw.content.candidates.0.content.parts.0.text"
         target_value_after_edit = "88"
     else:
         raise NotImplementedError
@@ -185,28 +192,9 @@ async def run_test(script_path: str, project_root: str):
 @pytest.mark.parametrize(
     "script_path",
     [
-        # "./example_workflows/debug_examples/langchain_agent.py",
-        # "./example_workflows/debug_examples/langchain_async_agent.py",
-        # "./example_workflows/debug_examples/langchain_simple_chat.py",
         "./example_workflows/debug_examples/together_add_numbers.py",
-        # "./example_workflows/debug_examples/anthropic_image_tool_call.py",
-        # "./example_workflows/debug_examples/anthropic_async_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_add_numbers.py",
-        # "./example_workflows/debug_examples/mcp_simple_test.py",
-        # "./example_workflows/debug_examples/multiple_runs_asyncio.py",
-        # "./example_workflows/debug_examples/multiple_runs_sequential.py",
-        # "./example_workflows/debug_examples/multiple_runs_threading.py",
-        # "./example_workflows/debug_examples/openai_async_add_numbers.py",
-        # "./example_workflows/debug_examples/openai_add_numbers.py",
-        # "./example_workflows/debug_examples/openai_chat.py",
-        # "./example_workflows/debug_examples/openai_chat_async.py",
-        # "./example_workflows/debug_examples/openai_tool_call.py",
-        # "./example_workflows/debug_examples/openai_async_agents.py",
-        # "./example_workflows/debug_examples/vertexai_add_numbers.py",
-        # "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
-        # "./example_workflows/debug_examples/vertexai_gen_image.py",
-        # "./example_workflows/debug_examples/vertexai_streaming.py",
-        # "./example_workflows/debug_examples/vertexai_streaming_async.py",
+        "./example_workflows/debug_examples/vertexai_add_numbers.py",
     ],
 )
 def test_debug_examples(script_path: str):
@@ -216,6 +204,4 @@ def test_debug_examples(script_path: str):
 
 
 if __name__ == "__main__":
-    # test_debug_examples("./example_workflows/debug_examples/together_add_numbers.py")
-    # test_debug_examples("./example_workflows/debug_examples/anthropic_add_numbers.py")
     test_debug_examples("./example_workflows/debug_examples/vertexai_add_numbers.py")
