@@ -63,7 +63,7 @@ dev = [
 
 examples = [
     "openai",
-    "anthropic", 
+    "anthropic",
     "openai-agents",
     "google-genai"
 ]
