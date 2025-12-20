@@ -22,28 +22,28 @@ jobs:
       uses: ./.github/actions/setup-test-environment
 
     - name: Setup isolated test database
-      run: mkdir -p ~/.cache/agent-copilot/tests/non-billable
+      run: mkdir -p ~/.cache/ao/tests/non-billable
 
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/non-billable"
+        export AO_DB_PATH="$HOME/.cache/ao/tests/non-billable"
         export PYTHON_PORT=5959
-        source $HOME/miniconda/bin/activate aco
-        aco-server start
+        source $HOME/miniconda/bin/activate ao
+        ao-server start
 
     - name: Test with pytest (non-billable tests)
       env:
-        ACO_DB_PATH: ~/.cache/agent-copilot/tests/non-billable
+        AO_DB_PATH: ~/.cache/ao/tests/non-billable
         PYTHON_PORT: 5959
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
+        source $HOME/miniconda/bin/activate ao
         pytest -v -s tests/non_billable/
 
     - name: Clean up test database
       if: always()
-      run: rm -rf ~/.cache/agent-copilot/tests/non-billable
+      run: rm -rf ~/.cache/ao/tests/non-billable
 
   test-debug-examples:
     name: Debug Examples Test
@@ -62,19 +62,19 @@ jobs:
       uses: ./.github/actions/setup-test-environment
 
     - name: Setup isolated test database
-      run: mkdir -p ~/.cache/agent-copilot/tests/debug-examples
+      run: mkdir -p ~/.cache/ao/tests/debug-examples
 
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/debug-examples"
+        export AO_DB_PATH="$HOME/.cache/ao/tests/debug-examples"
         export PYTHON_PORT=5960
-        source $HOME/miniconda/bin/activate aco
-        aco-server start
+        source $HOME/miniconda/bin/activate ao
+        ao-server start
 
     - name: Test debug examples with pytest
       env:
-        ACO_DB_PATH: ~/.cache/agent-copilot/tests/debug-examples
+        AO_DB_PATH: ~/.cache/ao/tests/debug-examples
         PYTHON_PORT: 5960
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -86,12 +86,12 @@ jobs:
         TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
+        source $HOME/miniconda/bin/activate ao
         pytest -v -s tests/billable/test_debug_examples.py
 
     - name: Clean up test database
       if: always()
-      run: rm -rf ~/.cache/agent-copilot/tests/debug-examples
+      run: rm -rf ~/.cache/ao/tests/debug-examples
 
   test-caching-edit:
     name: Caching Edit Test
@@ -110,19 +110,19 @@ jobs:
       uses: ./.github/actions/setup-test-environment
 
     - name: Setup isolated test database
-      run: mkdir -p ~/.cache/agent-copilot/tests/caching-edit
+      run: mkdir -p ~/.cache/ao/tests/caching-edit
 
     - name: Launch shim server
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        export ACO_DB_PATH="$HOME/.cache/agent-copilot/tests/caching-edit"
+        export AO_DB_PATH="$HOME/.cache/ao/tests/caching-edit"
         export PYTHON_PORT=5962
-        source $HOME/miniconda/bin/activate aco
-        aco-server start
+        source $HOME/miniconda/bin/activate ao
+        ao-server start
 
     - name: Test caching edit with pytest
       env:
-        ACO_DB_PATH: ~/.cache/agent-copilot/tests/caching-edit
+        AO_DB_PATH: ~/.cache/ao/tests/caching-edit
         PYTHON_PORT: 5962
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -134,9 +134,9 @@ jobs:
         TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate aco
+        source $HOME/miniconda/bin/activate ao
         pytest -v -s tests/billable/test_caching_edit.py
 
     - name: Clean up test database
       if: always()
-      run: rm -rf ~/.cache/agent-copilot/tests/caching-edit
+      run: rm -rf ~/.cache/ao/tests/caching-edit

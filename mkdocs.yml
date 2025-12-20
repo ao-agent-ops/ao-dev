@@ -1,20 +1,31 @@
-site_name: Agent Copilot
+site_name: AO
 site_description: A development tool for LLM call visualization and debugging
-site_url: https://yourusername.github.io/agent-copilot/
-repo_url: https://github.com/yourusername/agent-copilot
-repo_name: agent-copilot
+site_url: https://agent-ops-project.github.io/agops-platform/
+repo_url: https://github.com/agent-ops-project/agops-platform
+repo_name: ao
 
 theme:
   name: material
+  logo: assets/images/logo.svg
+  favicon: assets/images/logo.svg
   palette:
-    scheme: default
-    primary: white
-    accent: indigo
+    - scheme: default
+      primary: white
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
-    - navigation.tabs
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.indexes
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -22,10 +33,11 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+extra_css:
+  - assets/stylesheets/custom.css
+
 plugins:
   - search
-  - minify:
-      minify_html: true
   - mkdocstrings:
       handlers:
         python:
@@ -54,7 +66,7 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home: index.md
+  - Introduction: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quickstart: getting-started/quickstart.md
@@ -78,6 +90,6 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/yourusername/agent-copilot
+      link: https://github.com/agent-ops-project/agops-platform
     - icon: fontawesome/brands/discord
       link: https://discord.gg/fjsNSa6TAh

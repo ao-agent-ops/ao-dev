@@ -1,5 +1,5 @@
 import asyncio
-from aco.runner.taint_wrappers import TaintStr
+from ao.runner.taint_wrappers import TaintStr
 
 async def process_data(data: str) -> str:
     """User function that should propagate taint through string operations"""

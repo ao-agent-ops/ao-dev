@@ -2,7 +2,7 @@
 """Test the TaintBytes implementation."""
 
 import pytest
-from aco.runner.taint_wrappers import TaintBytes, TaintStr, get_taint_origins
+from ao.runner.taint_wrappers import TaintBytes, TaintStr, get_taint_origins
 
 
 def test_basic_creation():

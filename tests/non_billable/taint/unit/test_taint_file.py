@@ -3,7 +3,7 @@
 import pytest
 import os
 import tempfile
-from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
+from ao.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins, open_with_taint
 from tests.utils import cleanup_taint_db
 
 

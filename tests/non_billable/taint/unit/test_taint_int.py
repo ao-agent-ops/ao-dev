@@ -2,7 +2,7 @@
 
 import pytest
 
-from aco.runner.taint_wrappers import TaintInt, TaintFloat, get_taint_origins, is_tainted
+from ao.runner.taint_wrappers import TaintInt, TaintFloat, get_taint_origins, is_tainted
 
 
 class TestTaintInt:

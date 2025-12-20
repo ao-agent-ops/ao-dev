@@ -6,7 +6,7 @@ from typing import Any, Set
 from types import ModuleType
 from enum import Enum
 from functools import wraps
-from aco.server.database_manager import DB
+from ao.server.database_manager import DB
 
 
 def suppress_warnings(func):
@@ -1847,7 +1847,7 @@ class TaintFile:
         """Get the current session ID from environment or context"""
         import os
 
-        return os.environ.get("AGENT_COPILOT_SESSION_ID", None)
+        return os.environ.get("AO_SESSION_ID", None)
 
     @classmethod
     def open(cls, filename, mode="r", taint_origin=None, session_id=None, **kwargs):
@@ -1871,7 +1871,7 @@ class TaintFile:
 
     def read(self, size=-1):
         """Read from the file and return tainted data."""
-        from aco.common.logger import logger
+        from ao.common.logger import logger
 
         data = self._file.read(size)
         if isinstance(data, bytes):
@@ -1899,7 +1899,7 @@ class TaintFile:
 
     def readline(self, size=-1):
         """Read a line from the file and return tainted data."""
-        from aco.common.logger import logger
+        from ao.common.logger import logger
 
         # Read line with taint tracking
 

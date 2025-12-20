@@ -1,10 +1,10 @@
 # API Patching
 
-Agent Copilot uses monkey patching to intercept LLM API calls, record their inputs/outputs, and taint their responses.
+AO uses monkey patching to intercept LLM API calls, record their inputs/outputs, and taint their responses.
 
 ## Overview
 
-When you import an LLM SDK (like OpenAI or Anthropic), Agent Copilot patches the relevant methods to:
+When you import an LLM SDK (like OpenAI or Anthropic), AO patches the relevant methods to:
 
 1. Record the call inputs
 2. Execute the original API call
@@ -23,7 +23,7 @@ Currently supported LLM APIs:
 
 ## How Patches Are Applied
 
-Patches are applied when you run `aco-launch`. The process:
+Patches are applied when you run `ao-record`. The process:
 
 1. **Import hook** - Catches imports of LLM SDKs
 2. **Apply patches** - Wraps SDK methods with our instrumentation
@@ -33,7 +33,7 @@ Patches are applied when you run `aco-launch`. The process:
 
 A typical patch follows this pattern:
 
-```python
+```
 def create_patched_method(original_method):
     @wraps(original_method)
     def patched_method(self, *args, **kwargs):
@@ -62,7 +62,7 @@ def create_patched_method(original_method):
 
 Determine which method you need to patch. For example:
 
-```python
+```
 # We want to patch:
 client.chat.completions.create(...)
 ```
@@ -71,12 +71,12 @@ client.chat.completions.create(...)
 
 Add a new file in `src/runner/monkey_patching/patches/`:
 
-```python
+```
 # src/runner/monkey_patching/patches/my_api_patches.py
 
 from functools import wraps
-from aco.runner.taint_wrappers import get_taint_origins, untaint_if_needed, taint_wrap
-from aco.runner.monkey_patching.patching_utils import report_llm_call
+from ao.runner.taint_wrappers import get_taint_origins, untaint_if_needed, taint_wrap
+from ao.runner.monkey_patching.patching_utils import report_llm_call
 
 def patch_my_api_create(original_create):
     @wraps(original_create)
@@ -90,7 +90,7 @@ def patch_my_api_create(original_create):
 
 In `apply_monkey_patches.py`, add your patch:
 
-```python
+```
 def my_api_patch():
     try:
         from my_api import Client
@@ -115,7 +115,7 @@ def my_api_patch():
 
 In `apply_monkey_patches.py`:
 
-```python
+```
 def apply_all_monkey_patches():
     openai_patch()
     anthropic_patch()
@@ -126,7 +126,7 @@ def apply_all_monkey_patches():
 
 Here's a simplified view of how the OpenAI patch works:
 
-```python
+```
 def patch_openai_responses_create(original_create):
     @wraps(original_create)
     async def patched_create(self, *args, **kwargs):
@@ -158,7 +158,7 @@ def patch_openai_responses_create(original_create):
 
 Many LLM APIs are async. Patches must handle both sync and async methods:
 
-```python
+```
 def patch_method(original):
     if asyncio.iscoroutinefunction(original):
         @wraps(original)
@@ -188,7 +188,7 @@ src/runner/monkey_patching/api_parsers/
 
 Parsers normalize the data for the server:
 
-```python
+```
 def parse_openai_response(response):
     return {
         "model": response.model,

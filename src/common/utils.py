@@ -7,15 +7,15 @@ import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
-from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
-from aco.common.logger import logger
+from ao.common.constants import AO_INSTALL_DIR, AO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
+from ao.common.logger import logger
 
 
 def compute_code_hash() -> str:
     """Compute 8-digit hash on the files in the project root."""
     num_py_files = 0
     hash = hashlib.sha256()
-    for dirpath, _, dirfiles in os.walk(ACO_PROJECT_ROOT):
+    for dirpath, _, dirfiles in os.walk(AO_PROJECT_ROOT):
         for file in dirfiles:
             if not file.endswith(".py"):
                 continue
@@ -47,19 +47,19 @@ def set_seed(node_id: str) -> None:
     random.seed(seed)
 
 
-def get_aco_py_files():
+def get_ao_py_files():
     """
-    Get a list of all .py files in the ACO_INSTALL_DIR.
+    Get a list of all .py files in the AO_INSTALL_DIR.
 
     Returns:
-        list: List of absolute paths to all Python files in the agent-copilot directory
+        list: List of absolute paths to all Python files in the ao directory
     """
     py_files = []
 
     # Standard directories to exclude
     exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache"}
 
-    for dirpath, dirnames, filenames in os.walk(ACO_INSTALL_DIR, followlinks=True):
+    for dirpath, dirnames, filenames in os.walk(AO_INSTALL_DIR, followlinks=True):
         # Remove excluded directories from dirnames to prevent os.walk from entering them
         dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
 
@@ -147,7 +147,7 @@ def scan_user_py_files_and_modules(root_dir):
     Scan a directory for all .py files and return:
       - file_to_module: mapping from file path to module name (relative to root_dir)
 
-    Excludes agent-copilot directories except for example_workflows.
+    Excludes ao directories except for example_workflows.
     """
     module_to_file = dict()
 
@@ -155,10 +155,10 @@ def scan_user_py_files_and_modules(root_dir):
     exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules"}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
-        # Check if we're inside agent-copilot directory
-        if os.path.commonpath([dirpath, ACO_INSTALL_DIR]) == ACO_INSTALL_DIR:
-            # We're inside agent-copilot, only include example_workflows
-            rel_to_agent = os.path.relpath(dirpath, ACO_INSTALL_DIR)
+        # Check if we're inside ao directory
+        if os.path.commonpath([dirpath, AO_INSTALL_DIR]) == AO_INSTALL_DIR:
+            # We're inside ao, only include example_workflows
+            rel_to_agent = os.path.relpath(dirpath, AO_INSTALL_DIR)
             if not rel_to_agent.startswith("example_workflows"):
                 continue
 
@@ -194,7 +194,7 @@ _server_lock = threading.Lock()
 
 def send_to_server(msg):
     """Thread-safe send message to server (no response expected)."""
-    from aco.runner.context_manager import server_file
+    from ao.runner.context_manager import server_file
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"
@@ -212,7 +212,7 @@ def send_to_server_and_receive(msg, timeout=30):
     and routes non-control messages (like session_id responses) to a response queue.
     This function sends a message and then waits for the response from that queue.
     """
-    from aco.runner.context_manager import server_file, response_queue
+    from ao.runner.context_manager import server_file, response_queue
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"
@@ -541,13 +541,13 @@ def save_io_stream(stream, filename, dest_dir):
 
 
 # Mapping that maps module to file name
-MODULE2FILE = scan_user_py_files_and_modules(ACO_PROJECT_ROOT)
-packages_in_project_root = find_additional_packages_in_project_root(project_root=ACO_PROJECT_ROOT)
+MODULE2FILE = scan_user_py_files_and_modules(AO_PROJECT_ROOT)
+packages_in_project_root = find_additional_packages_in_project_root(project_root=AO_PROJECT_ROOT)
 for additional_package in packages_in_project_root:
     additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
     MODULE2FILE = {**MODULE2FILE, **additional_package_module_to_file}
 
 # Add whitelisted third-party modules to the mapping
-from aco.common.constants import WHITELISTED_THIRD_PARTY_MODULES
+from ao.common.constants import WHITELISTED_THIRD_PARTY_MODULES
 
 MODULE2FILE = add_whitelisted_modules_to_mapping(MODULE2FILE, WHITELISTED_THIRD_PARTY_MODULES)

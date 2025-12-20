@@ -11,7 +11,7 @@ from typing import Any, Callable, Optional, Union
 import yaml
 
 
-from aco.common.logger import logger
+from ao.common.logger import logger
 
 
 @dataclass
@@ -119,7 +119,7 @@ def derive_project_root() -> str:
     Walk upward from current working directory to infer a Python project root.
 
     Heuristics (in order of strength):
-      0) If "agent-copilot" or "bird-bench" is found in the path, that directory is the repo root.
+      0) If "ao" or "bird-bench" is found in the path, that directory is the repo root.
       1) If the directory contains project/repo markers (pyproject.toml, .git, etc.), STOP and return it.
       2) If a parent directory name cannot be part of a Python module path (not an identifier), STOP at that directory.
       3) If we encounter common non-project anchor dirs (~/Documents, ~/Downloads, /usr, C:\\Windows, /Applications, etc.),
@@ -138,8 +138,8 @@ def derive_project_root() -> str:
     last_good = cur
 
     for p in _walk_up(cur):
-        # Highest priority: if "agent-copilot" or "bird-bench" is in the path, that's the repo root
-        if p.name in ("agent-copilot", "bird-bench"):
+        # Highest priority: if "ao" or "bird-bench" is in the path, that's the repo root
+        if p.name in ("ao", "bird-bench"):
             return str(p)
 
         # Strong signal: repo/project markers at this directory

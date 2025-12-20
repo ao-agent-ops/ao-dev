@@ -1,5 +1,5 @@
 from forbiddenfruit import curse
-from aco.runner.taint_wrappers import TaintStr, get_taint_origins
+from ao.runner.taint_wrappers import TaintStr, get_taint_origins
 
 
 def str_patch():

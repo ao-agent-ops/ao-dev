@@ -1,6 +1,6 @@
 # VS Code Extension
 
-The Agent Copilot VS Code extension provides an interactive visual interface for exploring LLM call dataflow graphs.
+The AO VS Code extension provides an interactive visual interface for exploring LLM call dataflow graphs.
 
 ## Installation
 
@@ -19,7 +19,7 @@ The Agent Copilot VS Code extension provides an interactive visual interface for
 
 ### Running the Extension
 
-1. Open the Agent Copilot project in VS Code
+1. Open the AO project in VS Code
 2. From the debugger options (in `launch.json`), select "Run Extension"
 3. Press F5 or click the Run button
 4. A new VS Code window opens with the extension active
@@ -112,7 +112,7 @@ If using the web app in Chrome:
 
 ## Web App Alternative
 
-Agent Copilot also supports a standalone web application:
+AO also supports a standalone web application:
 
 ### Running the Web App
 

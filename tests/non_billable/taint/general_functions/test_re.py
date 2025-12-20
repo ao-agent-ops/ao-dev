@@ -1,6 +1,6 @@
 import re
 import sys
-from aco.runner.taint_wrappers import TaintStr, get_taint_origins
+from ao.runner.taint_wrappers import TaintStr, get_taint_origins
 from tests.utils import with_ast_rewriting
 
 

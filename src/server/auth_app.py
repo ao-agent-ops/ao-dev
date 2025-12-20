@@ -4,8 +4,8 @@ import os
 import urllib.parse
 import requests
 from fastapi.middleware.cors import CORSMiddleware
-from aco.common.logger import logger
-from aco.server.database_manager import DB
+from ao.common.logger import logger
+from ao.server.database_manager import DB
 
 app = FastAPI()
 

@@ -1,6 +1,6 @@
 {
-  "name": "agops-agent-copilot",
-  "displayName": "Agops Agent Copilot",
+  "name": "ao",
+  "displayName": "AO",
   "description": "Visualize agent workflows. Preview for test users.",
   "version": "0.0.1",
   "publisher": "agops",
@@ -34,19 +34,19 @@
       }
     ],
     "configuration": {
-      "title": "Agops Agent Copilot",
+      "title": "AO",
       "properties": {
-        "agopsAgentCopilot.authServerUrl": {
+        "ao.authServerUrl": {
           "type": "string",
           "default": "http://localhost:5958",
           "description": "URL of the authentication server"
         },
-        "agopsAgentCopilot.pythonServerHost": {
+        "ao.pythonServerHost": {
           "type": "string",
           "default": "127.0.0.1",
           "description": "Host of the Python develop server"
         },
-        "agopsAgentCopilot.pythonServerPort": {
+        "ao.pythonServerPort": {
           "type": "number",
           "default": 5959,
           "description": "Port of the Python develop server"

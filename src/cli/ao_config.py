@@ -8,7 +8,7 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import directly from file path to avoid triggering aco.__init__.py
+# Import directly from file path to avoid triggering ao.__init__.py
 import importlib.util
 
 ast_transformer_path = os.path.join(current_dir, "server", "ast_transformer.py")
@@ -26,19 +26,19 @@ if os.path.exists(ast_transformer_path):
 # Now safe to import other modules
 import argparse
 import os
-from aco.common.config import (
+from ao.common.config import (
     Config,
     _ask_field,
     _convert_to_valid_path,
 )
-from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
+from ao.common.constants import AO_CONFIG, AO_PROJECT_ROOT
 
 
 def get_user_input() -> Config:
     project_root = _ask_field(
-        f"What is the root directory of your project? [{ACO_PROJECT_ROOT}]\n> ",
+        f"What is the root directory of your project? [{AO_PROJECT_ROOT}]\n> ",
         _convert_to_valid_path,
-        default=ACO_PROJECT_ROOT,
+        default=AO_PROJECT_ROOT,
         error_message="Please enter a valid path to a directory.",
     )
 
@@ -58,18 +58,18 @@ def get_user_input() -> Config:
 
 def config_command():
     config = get_user_input()
-    config_file = ACO_CONFIG
+    config_file = AO_CONFIG
     config.to_yaml_file(config_file)
 
 
 def config_command_parser():
     description = (
-        "Run `aco config` before you debug your agents. This "
+        "Run `ao config` before you debug your agents. This "
         "will prompt some configurations that you can choose. "
         "These will get saved in a default path or in --config_path "
-        "which you can pass: `aco config --config_path some/path/config.yaml"
+        "which you can pass: `ao config --config_path some/path/config.yaml"
     )
-    parser = argparse.ArgumentParser("Config", usage="aco-config", description=description)
+    parser = argparse.ArgumentParser("Config", usage="ao-config", description=description)
     return parser
 
 

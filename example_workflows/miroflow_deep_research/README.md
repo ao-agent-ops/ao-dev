@@ -21,5 +21,5 @@ The folder [configs/](./config/) controls the settings of the agent. This includ
 ## Running a simple task
 Try to run
 ```bash
-aco-launch ./example_workflows/miroflow_deep_research/single_task.py
+ao-record ./example_workflows/miroflow_deep_research/single_task.py
 ```

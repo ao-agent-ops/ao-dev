@@ -3,7 +3,7 @@ set -e
 
 # Start backend Python server (in background)
 echo "Starting Python backend on port 5959..."
-python -m aco.cli.aco_server _serve &
+python -m ao.cli.ao_server _serve &
 PY_PID=$!
 
 # Give backend time to start

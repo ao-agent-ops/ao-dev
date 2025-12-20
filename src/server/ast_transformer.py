@@ -35,9 +35,9 @@ import warnings
 from dill import PicklingError, dumps
 from json import dumps as json_dumps
 from inspect import getsourcefile, iscoroutinefunction, isbuiltin
-from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
-from aco.common.utils import get_aco_py_files, hash_input
-from aco.common.logger import logger
+from ao.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
+from ao.common.utils import get_ao_py_files, hash_input
+from ao.common.logger import logger
 
 
 def is_pyc_rewritten(pyc_path: str) -> bool:
@@ -59,7 +59,7 @@ def is_pyc_rewritten(pyc_path: str) -> bool:
             code = marshal.load(f)
 
             # Check if our marker is in the code object's names or constants
-            return "__ACO_AST_REWRITTEN__" in code.co_names
+            return "__AO_AST_REWRITTEN__" in code.co_names
     except (IOError, OSError, Exception) as e:
         logger.error(f"Error is_pyc_rewritten: {e}")
         return False
@@ -92,7 +92,7 @@ def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = No
     # Add rewrite marker after any __future__ imports
     # This allows us to verify that a .pyc file was created by our AST transformer
     marker = ast.Assign(
-        targets=[ast.Name(id="__ACO_AST_REWRITTEN__", ctx=ast.Store())],
+        targets=[ast.Name(id="__AO_AST_REWRITTEN__", ctx=ast.Store())],
         value=ast.Constant(value=True),
     )
 
@@ -294,8 +294,8 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         """
         self.module_to_file = module_to_file or {}
         self.user_py_files = [*self.module_to_file.values()]
-        # also include all files in agent-copilot
-        self.user_py_files.extend(get_aco_py_files())
+        # also include all files in ao
+        self.user_py_files.extend(get_ao_py_files())
         self.current_file = current_file
         self.needs_taint_imports = False  # Track if we need to inject imports
         # Extract the root directory from current_file if available
@@ -671,11 +671,11 @@ def taint_percent_format(fmt, values):
 def set_lost_taint(values):
     return
 try:
-    # only if we are in aco-launch mode, try to import
-    if os.environ.get("AGENT_COPILOT_ENABLE_TRACING", False):
-        from aco.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format
+    # only if we are in ao-record mode, try to import
+    if os.environ.get("AO_ENABLE_TRACING", False):
+        from ao.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format
         try:
-            from aco.runner.monkey_patching.patching_utils import set_lost_taint
+            from ao.runner.monkey_patching.patching_utils import set_lost_taint
         except Exception:
             pass
 except Exception:
@@ -817,7 +817,7 @@ def exec_func(func, args, kwargs, user_py_files=None):
         # Rewritten from: result = json.dumps({"key": tainted_value})
         # To: result = exec_func(json.dumps, ({"key": tainted_value},), {}, ["/path/to/user/files"])
     """
-    from aco.runner.monkey_patching.patching_utils import set_lost_taint
+    from ao.runner.monkey_patching.patching_utils import set_lost_taint
 
     def _get_bound_self(f):
         """Extract the bound object from a method or partial."""

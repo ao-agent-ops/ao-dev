@@ -1,45 +1,45 @@
 import re
 import os
-from aco.common.config import Config, derive_project_root
+from ao.common.config import Config, derive_project_root
 
 
 # default home directory for configs and temporary/cached files
 default_home: str = os.path.join(os.path.expanduser("~"), ".cache")
-ACO_HOME: str = os.path.expandvars(
+AO_HOME: str = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_HOME",
-            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "agent-copilot"),
+            "AO_HOME",
+            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "ao"),
         )
     )
 )
-os.makedirs(ACO_HOME, exist_ok=True)
+os.makedirs(AO_HOME, exist_ok=True)
 
 
 # Path to config.yaml.
-default_config_path = os.path.join(ACO_HOME, "config.yaml")
-ACO_CONFIG = os.path.expandvars(
+default_config_path = os.path.join(AO_HOME, "config.yaml")
+AO_CONFIG = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_CONFIG",
+            "AO_CONFIG",
             default_config_path,
         )
     )
 )
 
 # Ensure config.yaml exists. Init with defaults if not present.
-os.makedirs(os.path.dirname(ACO_CONFIG), exist_ok=True)
-if not os.path.exists(ACO_CONFIG):
+os.makedirs(os.path.dirname(AO_CONFIG), exist_ok=True)
+if not os.path.exists(AO_CONFIG):
     default_config = Config(
         project_root=derive_project_root(),
         database_url=None,
     )
-    default_config.to_yaml_file(ACO_CONFIG)
+    default_config.to_yaml_file(AO_CONFIG)
 
 # Load values from config file.
-config = Config.from_yaml_file(ACO_CONFIG)
+config = Config.from_yaml_file(AO_CONFIG)
 
-ACO_PROJECT_ROOT = config.project_root
+AO_PROJECT_ROOT = config.project_root
 
 # Remote PostgreSQL database URL for "Remote" mode in UI dropdown
 REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
@@ -72,57 +72,57 @@ SUCCESS_COLORS = {
 }
 
 # Anything cache-related should be stored here
-default_cache_path = os.path.join(ACO_HOME, "cache")
-ACO_CACHE = os.path.expandvars(
+default_cache_path = os.path.join(AO_HOME, "cache")
+AO_CACHE = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_CACHE",
+            "AO_CACHE",
             default_cache_path,
         )
     )
 )
-os.makedirs(ACO_CACHE, exist_ok=True)
+os.makedirs(AO_CACHE, exist_ok=True)
 
 
 # the path to the folder where the experiments database is stored
-default_db_cache_path = os.path.join(ACO_HOME, "db")
-ACO_DB_PATH = os.path.expandvars(
+default_db_cache_path = os.path.join(AO_HOME, "db")
+AO_DB_PATH = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_DB_PATH",
+            "AO_DB_PATH",
             default_db_cache_path,
         )
     )
 )
-os.makedirs(ACO_DB_PATH, exist_ok=True)
+os.makedirs(AO_DB_PATH, exist_ok=True)
 
 # the path to the folder where the logs are stored
-default_log_path = os.path.join(ACO_HOME, "logs")
+default_log_path = os.path.join(AO_HOME, "logs")
 log_dir = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_LOG_PATH",
+            "AO_LOG_PATH",
             default_log_path,
         )
     )
 )
 os.makedirs(log_dir, exist_ok=True)
-ACO_LOG_PATH = os.path.join(log_dir, "server.log")
+AO_LOG_PATH = os.path.join(log_dir, "server.log")
 
-default_attachment_cache = os.path.join(ACO_CACHE, "attachments")
-ACO_ATTACHMENT_CACHE = os.path.expandvars(
+default_attachment_cache = os.path.join(AO_CACHE, "attachments")
+AO_ATTACHMENT_CACHE = os.path.expandvars(
     os.path.expanduser(
         os.getenv(
-            "ACO_ATTACHMENT_CACHE",
+            "AO_ATTACHMENT_CACHE",
             default_attachment_cache,
         )
     )
 )
-os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
+os.makedirs(AO_ATTACHMENT_CACHE, exist_ok=True)
 
-# Path to the agent-copilot installation directory
-# Computed from this file's location: aco/common/constants.py -> agent-copilot/
-ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Path to the ao installation directory
+# Computed from this file's location: ao/common/constants.py -> ao/
+AO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Whitelist of third-party modules to include in module_to_file mapping
 # Add modules here that you want to track for AST rewrites

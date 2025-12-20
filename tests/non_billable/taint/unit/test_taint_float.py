@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from aco.runner.taint_wrappers import TaintFloat, get_taint_origins, is_tainted
+from ao.runner.taint_wrappers import TaintFloat, get_taint_origins, is_tainted
 
 
 class TestTaintFloat:

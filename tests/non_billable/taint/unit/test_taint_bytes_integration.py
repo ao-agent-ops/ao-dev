@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Integration tests for TaintBytes with other taint types."""
 
-from aco.runner.taint_wrappers import (
+from ao.runner.taint_wrappers import (
     TaintBytes,
     TaintStr,
     TaintList,

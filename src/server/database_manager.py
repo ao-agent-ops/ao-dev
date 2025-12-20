@@ -12,9 +12,9 @@ import random
 from dataclasses import dataclass
 from typing import Optional, Any
 
-from aco.common.logger import logger
-from aco.server.database_backends import postgres, sqlite
-from aco.runner.monkey_patching.api_parser import (
+from ao.common.logger import logger
+from ao.server.database_backends import postgres, sqlite
+from ao.runner.monkey_patching.api_parser import (
     get_model_name,
     func_kwargs_to_json_str,
     json_str_to_api_obj,
@@ -67,10 +67,10 @@ class DatabaseManager:
         self._backend_module = None
 
         # Check if and where to cache attachments.
-        from aco.common.constants import ACO_ATTACHMENT_CACHE
+        from ao.common.constants import AO_ATTACHMENT_CACHE
 
         self.cache_attachments = True
-        self.attachment_cache_dir = ACO_ATTACHMENT_CACHE
+        self.attachment_cache_dir = AO_ATTACHMENT_CACHE
 
         logger.info(f"DatabaseManager initialized with backend: {self.get_current_mode()}")
 
@@ -239,7 +239,7 @@ class DatabaseManager:
     ):
         """Add experiment to database."""
         import json
-        from aco.common.constants import DEFAULT_LOG, DEFAULT_NOTE, DEFAULT_SUCCESS
+        from ao.common.constants import DEFAULT_LOG, DEFAULT_NOTE, DEFAULT_SUCCESS
 
         # Initial values.
         default_graph = json.dumps({"nodes": [], "edges": []})
@@ -300,7 +300,7 @@ class DatabaseManager:
     def add_log(self, session_id, success, new_entry):
         """Write success and new_entry to DB under certain conditions."""
         import json
-        from aco.common.constants import DEFAULT_LOG, SUCCESS_STRING, SUCCESS_COLORS
+        from ao.common.constants import DEFAULT_LOG, SUCCESS_STRING, SUCCESS_COLORS
 
         row = self.backend.get_experiment_log_success_graph_query(session_id)
 
@@ -381,7 +381,7 @@ class DatabaseManager:
         if self.backend.check_attachment_exists_query(file_id):
             return
         # Check if with same content already exists.
-        from aco.common.utils import stream_hash, save_io_stream
+        from ao.common.utils import stream_hash, save_io_stream
 
         content_hash = stream_hash(io_stream)
         row = self.backend.get_attachment_by_content_hash_query(content_hash)
@@ -411,9 +411,9 @@ class DatabaseManager:
 
     def get_in_out(self, input_dict: dict, api_type: str) -> CacheOutput:
         """Get input/output for LLM call, handling caching and overwrites."""
-        from aco.runner.context_manager import get_session_id
-        from aco.runner.taint_wrappers import untaint_if_needed
-        from aco.common.utils import hash_input, set_seed
+        from ao.runner.context_manager import get_session_id
+        from ao.runner.taint_wrappers import untaint_if_needed
+        from ao.common.utils import hash_input, set_seed
 
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
@@ -495,7 +495,7 @@ class DatabaseManager:
         Returns:
             The node_id assigned to this LLM call
         """
-        from aco.common.utils import set_seed
+        from ao.common.utils import set_seed
 
         # Insert new row with a new node_id. reset randomness to avoid
         # generating exact same UUID when re-running, but MCP generates randomness and we miss cache

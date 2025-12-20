@@ -5,7 +5,7 @@ needed for running evals).
 """
 
 from openai import OpenAI
-from aco.runner.context_manager import aco_launch
+from ao.runner.context_manager import ao_launch
 
 
 client = OpenAI()
@@ -38,5 +38,5 @@ def eval_sample(prompt):
 # Run all samples sequentially.
 for prompt in prompts:
     country = prompt.split(" ")[-1][:-1]
-    with aco_launch(run_name=country):
+    with ao_launch(run_name=country):
         eval_sample(prompt)

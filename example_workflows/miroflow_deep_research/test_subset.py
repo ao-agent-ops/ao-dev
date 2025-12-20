@@ -49,8 +49,8 @@ def run_gaia_subset(num_tasks=3, benchmark="gaia-validation", agent="claude03_cl
         env['MIROFLOW_USE_SANDBOX_MODE'] = 'false'
         print("⚠️  Using regular mode - MCP servers may launch multiple times")
     
-    # Use conda aco environment with manually installed packages
-    conda_python = "/Users/ferdi/miniconda3/envs/aco/bin/python"
+    # Use conda ao environment with manually installed packages
+    conda_python = "/Users/ferdi/miniconda3/envs/ao/bin/python"
     cmd = [
         conda_python, "main.py", "common-benchmark",
         f"benchmark={benchmark}",

@@ -10,7 +10,7 @@ This script demonstrates:
 import os
 import sys
 from pathlib import Path
-from aco.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins
+from ao.runner.taint_wrappers import TaintFile, TaintStr, get_taint_origins
 
 from tests.utils import cleanup_taint_db, setup_test_session
 
@@ -20,7 +20,7 @@ def session1_write():
     print("=== SESSION 1: Writing tainted data ===")
 
     # Set session ID for this test
-    os.environ["AGENT_COPILOT_SESSION_ID"] = "session-001"
+    os.environ["AO_SESSION_ID"] = "session-001"
 
     # Create experiment record for this session
     setup_test_session("session-001", name="Session 1 - Writer")
@@ -51,7 +51,7 @@ def session2_read():
     print("=== SESSION 2: Reading tainted data ===")
 
     # Set a different session ID
-    os.environ["AGENT_COPILOT_SESSION_ID"] = "session-002"
+    os.environ["AO_SESSION_ID"] = "session-002"
 
     # Create experiment record for this session
     setup_test_session("session-002", name="Session 2 - Reader")
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         session2_read()
 
         print("=== TEST COMPLETE ===")
-        print("Check the Agent Copilot UI to see the cross-session taint graph!")
+        print("Check the AO UI to see the cross-session taint graph!")
 
     finally:
         # Clean up

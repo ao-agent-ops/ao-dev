@@ -10,11 +10,11 @@ import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
 
-from aco.common.utils import MODULE2FILE
-from aco.server.database_manager import DB
-from aco.common.logger import logger
-from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
-from aco.server.file_watcher import run_file_watcher_process
+from ao.common.utils import MODULE2FILE
+from ao.server.database_manager import DB
+from ao.common.logger import logger
+from ao.common.constants import AO_CONFIG, AO_LOG_PATH, HOST, PORT
+from ao.server.file_watcher import run_file_watcher_process
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -262,7 +262,7 @@ class DevelopServer:
 
             # Set up environment
             env = os.environ.copy()
-            env["AGENT_COPILOT_SESSION_ID"] = session_id
+            env["AO_SESSION_ID"] = session_id
             env.update(environment)
             logger.debug(
                 f"[DevelopServer] Restored {len(environment)} environment variables for session {session_id}"
@@ -506,7 +506,7 @@ class DevelopServer:
             {
                 "type": "session_id",
                 "session_id": None,
-                "config_path": ACO_CONFIG,
+                "config_path": AO_CONFIG,
                 "database_mode": DB.get_current_mode(),
             },
         )
@@ -800,7 +800,7 @@ class DevelopServer:
                     {
                         "type": "session_id",
                         "session_id": None,
-                        "config_path": ACO_CONFIG,
+                        "config_path": AO_CONFIG,
                         "database_mode": DB.get_current_mode(),
                     },
                 )
@@ -849,7 +849,7 @@ class DevelopServer:
         """Main server loop: accept clients and spawn handler threads."""
         # Clear the log file on server startup
         try:
-            with open(ACO_LOG_PATH, "w"):
+            with open(AO_LOG_PATH, "w"):
                 pass  # Just truncate the file
         except Exception as e:
             logger.warning(f"Could not clear log file on startup: {e}")

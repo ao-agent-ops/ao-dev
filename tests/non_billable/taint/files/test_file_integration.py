@@ -3,7 +3,7 @@
 
 import os
 import tempfile
-from aco.runner.taint_wrappers import (
+from ao.runner.taint_wrappers import (
     TaintFile,
     taint_wrap,
     get_taint_origins,

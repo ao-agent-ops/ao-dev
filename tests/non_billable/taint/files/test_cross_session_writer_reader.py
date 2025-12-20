@@ -10,8 +10,8 @@ import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from aco.runner.taint_wrappers import TaintStr
-from aco.server.database_manager import DB
+from ao.runner.taint_wrappers import TaintStr
+from ao.server.database_manager import DB
 from tests.utils import cleanup_taint_db, setup_test_session
 
 # Add the project root to Python path for imports
@@ -48,7 +48,7 @@ def test_cross_session_writer_reader():
         setup_test_session(writer_session_id, name="Writer Session")
 
         # Set environment for writer session
-        os.environ["AGENT_COPILOT_SESSION_ID"] = writer_session_id
+        os.environ["AO_SESSION_ID"] = writer_session_id
 
         # Mock OpenAI call for writer
         with patch("openai.OpenAI") as mock_openai:
@@ -112,7 +112,7 @@ def test_cross_session_writer_reader():
         setup_test_session(reader_session_id, name="Reader Session")
 
         # Set environment for reader session
-        os.environ["AGENT_COPILOT_SESSION_ID"] = reader_session_id
+        os.environ["AO_SESSION_ID"] = reader_session_id
 
         # Mock OpenAI call for reader
         with patch("openai.OpenAI") as mock_openai:

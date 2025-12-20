@@ -1,10 +1,10 @@
 # Taint Wrappers Reference
 
-Taint wrappers are the core data types that enable Agent Copilot to track data provenance through your Python code.
+Taint wrappers are the core data types that enable AO to track data provenance through your Python code.
 
 ## Overview
 
-When an LLM produces output, Agent Copilot wraps that output in a taint-aware type. As the data flows through your program, the taint information propagates, allowing Agent Copilot to build the dataflow graph.
+When an LLM produces output, AO wraps that output in a taint-aware type. As the data flows through your program, the taint information propagates, allowing AO to build the dataflow graph.
 
 ## Taint-Aware Types
 
@@ -12,7 +12,7 @@ When an LLM produces output, Agent Copilot wraps that output in a taint-aware ty
 
 A string that tracks its origins:
 
-::: aco.runner.taint_wrappers.TaintStr
+::: ao.runner.taint_wrappers.TaintStr
     options:
       show_root_heading: true
       show_source: false
@@ -27,7 +27,7 @@ A string that tracks its origins:
 
 An integer that tracks its origins:
 
-::: aco.runner.taint_wrappers.TaintInt
+::: ao.runner.taint_wrappers.TaintInt
     options:
       show_root_heading: true
       show_source: false
@@ -39,7 +39,7 @@ An integer that tracks its origins:
 
 A float that tracks its origins:
 
-::: aco.runner.taint_wrappers.TaintFloat
+::: ao.runner.taint_wrappers.TaintFloat
     options:
       show_root_heading: true
       show_source: false
@@ -51,7 +51,7 @@ A float that tracks its origins:
 
 A list that tracks taint from its elements:
 
-::: aco.runner.taint_wrappers.TaintList
+::: ao.runner.taint_wrappers.TaintList
     options:
       show_root_heading: true
       show_source: false
@@ -65,7 +65,7 @@ A list that tracks taint from its elements:
 
 A dictionary that tracks taint from its values:
 
-::: aco.runner.taint_wrappers.TaintDict
+::: ao.runner.taint_wrappers.TaintDict
     options:
       show_root_heading: true
       show_source: false
@@ -78,7 +78,7 @@ A dictionary that tracks taint from its values:
 
 A generic wrapper for objects that don't fit the basic types:
 
-::: aco.runner.taint_wrappers.TaintObject
+::: ao.runner.taint_wrappers.TaintObject
     options:
       show_root_heading: true
       show_source: false
@@ -94,7 +94,7 @@ A generic wrapper for objects that don't fit the basic types:
 
 Extract taint origins from any value:
 
-::: aco.runner.taint_wrappers.get_taint_origins
+::: ao.runner.taint_wrappers.get_taint_origins
     options:
       show_root_heading: true
       show_source: true
@@ -103,7 +103,7 @@ Extract taint origins from any value:
 
 Remove taint wrapper and return the raw value:
 
-::: aco.runner.taint_wrappers.untaint_if_needed
+::: ao.runner.taint_wrappers.untaint_if_needed
     options:
       show_root_heading: true
       show_source: true
@@ -112,7 +112,7 @@ Remove taint wrapper and return the raw value:
 
 Check if a value has taint information:
 
-::: aco.runner.taint_wrappers.is_tainted
+::: ao.runner.taint_wrappers.is_tainted
     options:
       show_root_heading: true
       show_source: true
@@ -121,7 +121,7 @@ Check if a value has taint information:
 
 Wrap a value with taint information:
 
-::: aco.runner.taint_wrappers.taint_wrap
+::: ao.runner.taint_wrappers.taint_wrap
     options:
       show_root_heading: true
       show_source: true

@@ -1,14 +1,14 @@
 import inspect
-from aco.runner.context_manager import get_session_id
-from aco.common.constants import CERTAINTY_YELLOW
-from aco.common.utils import send_to_server
-from aco.common.logger import logger
-from aco.runner.monkey_patching.api_parser import (
+from ao.runner.context_manager import get_session_id
+from ao.common.constants import CERTAINTY_YELLOW
+from ao.common.utils import send_to_server
+from ao.common.logger import logger
+from ao.runner.monkey_patching.api_parser import (
     get_model_name,
     func_kwargs_to_json_str,
     api_obj_to_json_str,
 )
-from aco.runner.taint_wrappers import untaint_if_needed
+from ao.runner.taint_wrappers import untaint_if_needed
 
 # Global variable to track lost taint across function calls
 lost_taint = set()

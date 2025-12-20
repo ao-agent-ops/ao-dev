@@ -6,7 +6,7 @@ import time
 import subprocess
 import re
 from dataclasses import dataclass
-from aco.server.database_manager import DB
+from ao.server.database_manager import DB
 
 
 @dataclass
@@ -19,19 +19,19 @@ class RunData:
 
 def restart_server():
     """Restart the server to ensure clean state for tests."""
-    subprocess.run(["aco-server", "restart"], check=False)
+    subprocess.run(["ao-server", "restart"], check=False)
     time.sleep(1)
 
 
-def _run_script_with_aco_launch(script_path: str, project_root: str, env: dict) -> tuple[int, str]:
+def _run_script_with_ao_launch(script_path: str, project_root: str, env: dict) -> tuple[int, str]:
     """
-    Run a script using aco-launch and return (return_code, session_id).
+    Run a script using ao-record and return (return_code, session_id).
 
     Parses the session_id from the runner's output.
     """
-    env["ACO_NO_DEBUG_MODE"] = "True"
+    env["AO_NO_DEBUG_MODE"] = "True"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "aco.cli.aco_launch", "--project-root", project_root, script_path],
+        [sys.executable, "-m", "ao.cli.ao_record", "--project-root", project_root, script_path],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -57,11 +57,11 @@ def _run_script_with_aco_launch(script_path: str, project_root: str, env: dict) 
 
 async def run_test(script_path: str, project_root: str):
     """
-    Run a test script twice using aco-launch and return data for caching validation.
+    Run a test script twice using ao-record and return data for caching validation.
 
     This function:
     1. Restarts the server for clean state
-    2. Runs the script once via aco-launch
+    2. Runs the script once via ao-record
     3. Captures LLM calls and graph topology
     4. Runs the script again (should use cached results)
     5. Captures LLM calls and graph again
@@ -72,14 +72,14 @@ async def run_test(script_path: str, project_root: str):
 
     # Set up environment
     env = os.environ.copy()
-    aco_random_seed = random.randint(0, 2**31 - 1)
-    env["ACO_SEED"] = str(aco_random_seed)
+    ao_random_seed = random.randint(0, 2**31 - 1)
+    env["AO_SEED"] = str(ao_random_seed)
 
     # Ensure we use local SQLite database
     DB.switch_mode("local")
 
     # First run
-    return_code, session_id = _run_script_with_aco_launch(script_path, project_root, env)
+    return_code, session_id = _run_script_with_ao_launch(script_path, project_root, env)
     assert return_code == 0, f"First run failed with return_code {return_code}"
     assert session_id is not None, "Could not extract session_id from first run output"
 
@@ -102,8 +102,8 @@ async def run_test(script_path: str, project_root: str):
 
     # Second run (should use cached results)
     # Pass the same session_id so it reuses the cache
-    env["AGENT_COPILOT_SESSION_ID"] = session_id
-    returncode_rerun, _ = _run_script_with_aco_launch(script_path, project_root, env)
+    env["AO_SESSION_ID"] = session_id
+    returncode_rerun, _ = _run_script_with_ao_launch(script_path, project_root, env)
     assert returncode_rerun == 0, f"Re-run failed with return_code {returncode_rerun}"
 
     # Query results from second run

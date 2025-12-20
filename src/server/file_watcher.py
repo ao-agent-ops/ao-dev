@@ -18,9 +18,9 @@ import sys
 import time
 import signal
 from typing import Dict
-from aco.common.logger import logger
-from aco.common.constants import FILE_POLL_INTERVAL
-from aco.server.ast_transformer import rewrite_source_to_code
+from ao.common.logger import logger
+from ao.common.constants import FILE_POLL_INTERVAL
+from ao.server.ast_transformer import rewrite_source_to_code
 
 
 class FileWatcher:
@@ -94,7 +94,7 @@ class FileWatcher:
                 return True
 
             # Check if the .pyc file was created by our AST transformer
-            from aco.server.ast_transformer import is_pyc_rewritten
+            from ao.server.ast_transformer import is_pyc_rewritten
 
             if not is_pyc_rewritten(pyc_path):
                 logger.debug(

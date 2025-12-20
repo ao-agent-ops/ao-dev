@@ -1,14 +1,14 @@
 # API Reference
 
-This section provides auto-generated API documentation from the Agent Copilot source code.
+This section provides auto-generated API documentation from the AO source code.
 
 ## Overview
 
-Agent Copilot's Python API is organized into several modules:
+AO's Python API is organized into several modules:
 
 ### CLI Modules
 
-- [**CLI**](cli.md) - Command-line interface entry points (`aco-launch`, `aco-server`, `aco-config`)
+- [**CLI**](cli.md) - Command-line interface entry points (`ao-record`, `ao-server`, `ao-config`)
 
 ### Core Runtime
 
@@ -18,11 +18,11 @@ Agent Copilot's Python API is organized into several modules:
 ## Module Structure
 
 ```
-aco/
+ao/
 ├── cli/                    # Command-line tools
-│   ├── aco_launch.py       # Main launch command
-│   ├── aco_server.py       # Server management
-│   └── aco_config.py       # Configuration tool
+│   ├── ao_record.py       # Main launch command
+│   ├── ao_server.py       # Server management
+│   └── ao_config.py       # Configuration tool
 ├── runner/                 # Runtime execution
 │   ├── taint_wrappers.py   # Taint-aware types
 │   ├── context_manager.py  # Session management
@@ -35,24 +35,24 @@ aco/
 
 ## Using the API
 
-Most users interact with Agent Copilot through the CLI commands. However, you can also use the Python API directly:
+Most users interact with AO through the CLI commands. However, you can also use the Python API directly:
 
 ### Context Manager for Subruns
 
-```python
-from aco.runner.context_manager import aco_launch
+```
+from ao.runner.context_manager import ao_record
 
-with aco_launch("my-run"):
+with ao_record("my-run"):
     # Your LLM code here
     pass
 ```
 
 ### Taint Wrappers
 
-Taint wrappers are automatically applied when using `aco-launch`. You generally don't need to create them manually, but understanding them helps with debugging:
+Taint wrappers are automatically applied when using `ao-record`. You generally don't need to create them manually, but understanding them helps with debugging:
 
-```python
-from aco.runner.taint_wrappers import TaintStr, get_taint_origins
+```
+from ao.runner.taint_wrappers import TaintStr, get_taint_origins
 
 # Check if a value is tainted
 origins = get_taint_origins(some_value)

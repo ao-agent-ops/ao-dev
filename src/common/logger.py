@@ -3,7 +3,7 @@ import logging
 
 def setup_logging():
     # Clear out any old handlers (especially in REPL or interactive walks)
-    root = logging.getLogger("ACO")
+    root = logging.getLogger("AO")
     if root.handlers:
         root.handlers.clear()
 

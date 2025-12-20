@@ -2,8 +2,8 @@ import inspect
 import textwrap
 import os
 from datetime import datetime
-from aco.server.ast_transformer import rewrite_source_to_code
-from aco.server.database_manager import DB
+from ao.server.ast_transformer import rewrite_source_to_code
+from ao.server.database_manager import DB
 
 
 def cleanup_taint_db():
@@ -17,8 +17,8 @@ def cleanup_taint_db():
     DB.execute("DELETE FROM attachments")
 
     # Clean up environment variables that affect taint tracking
-    if "AGENT_COPILOT_SESSION_ID" in os.environ:
-        del os.environ["AGENT_COPILOT_SESSION_ID"]
+    if "AO_SESSION_ID" in os.environ:
+        del os.environ["AO_SESSION_ID"]
 
 
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
