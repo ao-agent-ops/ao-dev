@@ -1,6 +1,119 @@
-from aco.runner.taint_wrappers import TaintWrapper, get_taint_origins, untaint_if_needed, taint_wrap
+"""
+AST helper functions for taint tracking.
+
+This module provides the core functions used by AST-rewritten code to
+track data flow (taint) through program execution.
+
+Core concepts:
+- TAINT_DICT: WeakKeyDictionary storing all taint info as {obj: {"self": [origins], ...}}
+- TaintWrapper: Minimal wrapper to make built-ins weak-referenceable (stores NO taint)
+- ACTIVE_TAINT: ContextVar for passing taint through third-party code boundaries
+"""
+
 from inspect import getsourcefile, iscoroutinefunction
 from aco.common.utils import get_aco_py_files
+
+
+# =============================================================================
+# Core Taint Infrastructure (Phase 1)
+# =============================================================================
+
+
+def wrap_if_needed(obj):
+    """
+    Wrap object in TaintWrapper if it doesn't support weak references.
+
+    Does NOT handle taint - only makes objects weak-referenceable.
+    """
+    from aco.runner.taint_wrappers import TaintWrapper
+
+    # Don't double-wrap
+    if isinstance(obj, TaintWrapper):
+        return obj
+
+    # Don't wrap special types
+    if isinstance(obj, bool) or obj is None:
+        return obj
+    if isinstance(obj, type):
+        return obj
+
+    import inspect
+
+    if inspect.isfunction(obj) or inspect.ismodule(obj):
+        return obj
+
+    # Check weak ref support
+    try:
+        import weakref
+
+        weakref.ref(obj)
+        return obj  # Supports weak refs
+    except TypeError:
+        return TaintWrapper(obj)  # Needs wrapping
+
+
+def add_to_taint_dict_and_return(obj, taint):
+    """
+    Add obj to TAINT_DICT with given taint, wrapping if needed. Returns obj.
+
+    Args:
+        obj: Object to add to TAINT_DICT
+        taint: List of taint origin identifiers (REQUIRED)
+
+    Returns:
+        The object (wrapped if it was a built-in that doesn't support weak refs)
+    """
+    import builtins
+
+    result = wrap_if_needed(obj)
+    try:
+        builtins.TAINT_DICT[result] = {"self": list(taint)}
+    except TypeError:
+        pass  # Unhashable - can't track
+    return result
+
+
+def get_taint(obj):
+    """
+    Get taint for an object from TAINT_DICT.
+
+    Returns [] if not found or unhashable.
+    """
+    import builtins
+
+    try:
+        if obj in builtins.TAINT_DICT:
+            return list(builtins.TAINT_DICT[obj].get("self", []))
+    except TypeError:
+        pass
+    return []
+
+
+def untaint_if_needed(val, _seen=None):
+    """
+    Recursively unwrap TaintWrapper objects.
+
+    Re-exported from taint_wrappers for convenience.
+    """
+    from aco.runner.taint_wrappers import untaint_if_needed as _untaint
+
+    return _untaint(val, _seen)
+
+
+def get_taint_origins(val, _seen=None):
+    """
+    Extract all taint origins from a value and its nested structures.
+
+    Re-exported from taint_wrappers for convenience.
+    """
+    from aco.runner.taint_wrappers import get_taint_origins as _get_origins
+
+    return _get_origins(val, _seen)
+
+
+# =============================================================================
+# String Operations
+# =============================================================================
 
 
 def _unified_taint_string_operation(operation_func, *inputs):
@@ -18,24 +131,19 @@ def _unified_taint_string_operation(operation_func, *inputs):
     all_origins = set()
     for inp in inputs:
         if isinstance(inp, (tuple, list)):
-            # Handle tuple/list inputs (like values in % formatting)
             for item in inp:
                 all_origins.update(get_taint_origins(item))
         elif isinstance(inp, dict):
-            # Handle dict inputs (like kwargs in .format())
             for value in inp.values():
                 all_origins.update(get_taint_origins(value))
         else:
-            # Handle single values
             all_origins.update(get_taint_origins(inp))
 
     # Call the operation function with untainted inputs
     result = operation_func(*[untaint_if_needed(inp) for inp in inputs])
 
-    # Return tainted result if any origins exist
-    if all_origins:
-        return TaintWrapper(result, list(all_origins))
-    return result
+    # Return result with taint via TAINT_DICT
+    return add_to_taint_dict_and_return(result, taint=list(all_origins))
 
 
 def taint_fstring_join(*args):
@@ -79,8 +187,13 @@ def taint_open(*args, **kwargs):
     # Create default taint origin from filename
     default_taint = f"file:{filename}" if filename else "file:unknown"
 
-    # Return TaintWrapper with persistence enabled
-    return TaintWrapper(file_obj, taint_origin=[default_taint], enable_persistence=True)
+    # Add to TAINT_DICT with file taint
+    return add_to_taint_dict_and_return(file_obj, taint=[default_taint])
+
+
+# =============================================================================
+# User Code Detection
+# =============================================================================
 
 
 def _is_user_function(func):
@@ -89,29 +202,25 @@ def _is_user_function(func):
 
     Handles decorated functions by unwrapping via __wrapped__ attribute.
     """
-    # Get user files from the pre-computed singleton
     from aco.common.utils import MODULES_TO_FILES
 
     user_py_files = list(MODULES_TO_FILES.values()) + get_aco_py_files()
 
     if not user_py_files:
-        # No user files found, must be third-party
         return False
 
-    # Strategy 1: Direct source file check (handles undecorated functions)
+    # Strategy 1: Direct source file check
     try:
         source_file = getsourcefile(func)
     except TypeError:
-        # Built-in function or function without source file
         return False
 
     if source_file and source_file in user_py_files:
         return True
 
     # Strategy 2: Check __wrapped__ attribute (functools.wraps pattern)
-    # This handles most well-behaved decorators including @retry, @lru_cache, etc.
     current_func = func
-    max_unwrap_depth = 10  # Prevent infinite loops
+    max_unwrap_depth = 10
     depth = 0
 
     while hasattr(current_func, "__wrapped__") and depth < max_unwrap_depth:
@@ -131,333 +240,346 @@ def _is_user_function(func):
 def _is_type_annotation_access(obj, key):
     """
     Detect if this is a type annotation rather than runtime access.
-
-    Args:
-        obj: The object being subscripted
-        key: The key/index being accessed (unused)
-
-    Returns:
-        True if this looks like a type annotation (e.g., Dict[str, int])
     """
-    # Check 1: Is the object a type/class rather than an instance?
     if isinstance(obj, type):
         return True
-
-    # Check 2: Is it from typing module?
     if hasattr(obj, "__module__") and obj.__module__ == "typing":
         return True
-
-    # Check 3: Is it a generic alias (Python 3.9+)?
-    if hasattr(obj, "__origin__"):  # GenericAlias objects like list[int]
+    if hasattr(obj, "__origin__"):
         return True
-
-    # Check 4: Does it support generic subscripting (__class_getitem__)?
     if hasattr(obj, "__class_getitem__"):
-        # Make sure it's not a regular dict/list/set with custom __class_getitem__
         obj_type_name = type(obj).__name__
         if obj_type_name in {"dict", "list", "tuple", "set"}:
-            # This is a runtime collection instance, not a type
             return False
-        # Likely a generic type that supports subscripting
         return True
-
-    # Check 5: Common type constructs by name
     if hasattr(obj, "__name__"):
         type_names = {"Dict", "List", "Tuple", "Set", "Optional", "Union", "Any", "Callable"}
         if obj.__name__ in type_names:
             return True
-
     return False
 
 
-def exec_func(func, args, kwargs):
+# =============================================================================
+# Function Execution with Taint Tracking
+# =============================================================================
+
+
+def exec_func(func_or_obj, args, kwargs, method_name=None):
     """
     Execute function with taint tracking.
 
-    User code: called directly
-    Third-party code: arguments untainted, results tainted via TAINT_ESCROW
+    For method calls: pass (obj, args, kwargs, method_name="method")
+    For standalone functions: pass (func, args, kwargs)
+
+    User code: called directly with wrapped args
+    Third-party code: arguments untainted, ACTIVE_TAINT set, results tainted
     """
+    # Resolve the actual function and collect object taint
+    if method_name is not None:
+        # Method call: func_or_obj is the object
+        obj = func_or_obj
+        obj_taint = get_taint_origins(obj)
+        unwrapped_obj = untaint_if_needed(obj)
+        func = getattr(unwrapped_obj, method_name)
+    else:
+        # Standalone function or already-bound method
+        obj = None
+        obj_taint = []
+        func = func_or_obj
+        # Check if it's a bound method
+        if hasattr(func, "__self__"):
+            obj_taint = get_taint_origins(func.__self__)
+
     if iscoroutinefunction(func):
+        return _exec_async_wrapper(func, args, kwargs, obj_taint)
 
-        async def wrapper():
-            # User code: call directly
-            if _is_user_function(func):
-                try:
-                    return await func(*args, **kwargs)
-                except:
-                    # Fall back to third-party handling
-                    pass
-
-            # Third-party code: collect taint from arguments
-            all_origins = set()
-            all_origins.update(get_taint_origins(args))
-            all_origins.update(get_taint_origins(kwargs))
-
-            # Include taint from bound methods
-            bound_self = None
-            root_wrapper = None
-            if hasattr(func, "__self__"):
-                bound_self = func.__self__
-            elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-                bound_self = func.func.__self__
-
-            if bound_self is not None:
-                all_origins.update(get_taint_origins(bound_self))
-                # Check if bound_self has root wrapper reference
-                if hasattr(bound_self, "_root_wrapper"):
-                    root_wrapper = object.__getattribute__(bound_self, "_root_wrapper")
-
-            # Special handling for file operations with persistence
-            if bound_self and getattr(bound_self, "_enable_persistence", False):
-                return _handle_persistent_file_operation(bound_self, func, args, kwargs)
-
-            # Update root wrapper with collected taint if available
-            if root_wrapper is not None and all_origins:
-                try:
-                    current_taint = object.__getattribute__(root_wrapper, "_taint_origin")
-                    updated_taint = list(set(current_taint) | all_origins)
-                    object.__setattr__(root_wrapper, "_taint_origin", updated_taint)
-                except AttributeError:
-                    pass
-
-            # Set taint in TAINT_ESCROW
-            import builtins
-
-            builtins.TAINT_ESCROW.set(list(all_origins))
-
-            # Untaint arguments for the function call
-            untainted_args = untaint_if_needed(args)
-            untainted_kwargs = untaint_if_needed(kwargs)
-
-            # Handle type annotations specially
-            if (
-                hasattr(func, "__name__")
-                and func.__name__ == "getitem"
-                and len(untainted_args) >= 2
-            ):
-                obj, key = untainted_args[0], untainted_args[1]
-                if _is_type_annotation_access(obj, key):
-                    return func(*untainted_args, **untainted_kwargs)
-
-            # Call with untainted arguments
-            func_to_call = func
-            if bound_self is not None and hasattr(func, "__func__"):
-                untainted_bound_self = untaint_if_needed(bound_self)
-                func_to_call = func.__func__.__get__(
-                    untainted_bound_self, type(untainted_bound_self)
-                )
-
-            result = await func_to_call(*untainted_args, **untainted_kwargs)
-
-            # Wrap result with final taint from TAINT_ESCROW
-            final_taint = list(builtins.TAINT_ESCROW.get())
-            if final_taint:
-                return taint_wrap(result, taint_origin=final_taint, root_wrapper=root_wrapper)
-            return result
-
-        return wrapper()
-
-    # Sync version
     # User code: call directly
     if _is_user_function(func):
         try:
             return func(*args, **kwargs)
-        except:
-            print("~~ caused exception, retry")
-            pass
+        except Exception:
+            pass  # Fall through to third-party handling
 
-    # Third-party code: collect taint from arguments
-    all_origins = set()
+    return _exec_third_party_sync(func, args, kwargs, obj_taint)
+
+
+def _exec_async_wrapper(func, args, kwargs, obj_taint=None):
+    """Create async wrapper for coroutine functions."""
+    if obj_taint is None:
+        obj_taint = []
+
+    async def wrapper():
+        if _is_user_function(func):
+            try:
+                return await func(*args, **kwargs)
+            except Exception:
+                pass
+
+        return await _exec_third_party_async(func, args, kwargs, obj_taint)
+
+    return wrapper()
+
+
+def _exec_third_party_sync(func, args, kwargs, obj_taint=None):
+    """Execute third-party sync function with taint tracking."""
+    import builtins
+
+    if obj_taint is None:
+        obj_taint = []
+
+    # Collect taint from all inputs
+    all_origins = set(obj_taint)
     all_origins.update(get_taint_origins(args))
     all_origins.update(get_taint_origins(kwargs))
 
-    # Include taint from bound methods
-    bound_self = None
-    root_wrapper = None
-    if hasattr(func, "__self__"):
-        bound_self = func.__self__
-    elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-        bound_self = func.func.__self__
+    taint = list(all_origins)
 
-    if bound_self is not None:
-        all_origins.update(get_taint_origins(bound_self))
-        # Check if bound_self has root wrapper reference
-        if hasattr(bound_self, "_root_wrapper"):
-            root_wrapper = object.__getattribute__(bound_self, "_root_wrapper")
+    # Set ACTIVE_TAINT for monkey-patched code
+    builtins.ACTIVE_TAINT.set(taint)
 
-    # File operations with persistence
-    if bound_self and getattr(bound_self, "_enable_persistence", False):
-        return _handle_persistent_file_operation(bound_self, func, args, kwargs)
-
-    # Update root wrapper with collected taint if available
-    if root_wrapper is not None and all_origins:
-        try:
-            current_taint = object.__getattribute__(root_wrapper, "_taint_origin")
-            updated_taint = list(set(current_taint) | all_origins)
-            object.__setattr__(root_wrapper, "_taint_origin", updated_taint)
-        except AttributeError:
-            pass
-
-    # Set taint in TAINT_ESCROW
-    import builtins
-
-    builtins.TAINT_ESCROW.set(list(all_origins))
-
-    # Untaint arguments
-    untainted_args = untaint_if_needed(args)
-    untainted_kwargs = untaint_if_needed(kwargs)
-
-    # Handle type annotations specially
-    if hasattr(func, "__name__") and func.__name__ == "getitem" and len(untainted_args) >= 2:
-        obj, key = untainted_args[0], untainted_args[1]
-        if _is_type_annotation_access(obj, key):
-            return func(*untainted_args, **untainted_kwargs)
-
-    # Call with untainted arguments
-    func_to_call = func
-    if bound_self is not None and hasattr(func, "__func__"):
-        untainted_bound_self = untaint_if_needed(bound_self)
-        func_to_call = func.__func__.__get__(untainted_bound_self, type(untainted_bound_self))
-
-    result = func_to_call(*untainted_args, **untainted_kwargs)
-
-    # Wrap result with final taint from TAINT_ESCROW
-    final_taint = list(builtins.TAINT_ESCROW.get())
-    if final_taint:
-        return taint_wrap(result, taint_origin=final_taint, root_wrapper=root_wrapper)
-    return result
-
-
-def _handle_persistent_file_operation(bound_self, func, args, kwargs):
-    """Handle file operations with database persistence."""
-    # Extract method name from function or partial object
-    if hasattr(func, "func") and hasattr(func, "args") and hasattr(func, "keywords"):
-        method_name = func.args[0] if func.args else "unknown"
-    else:
-        method_name = getattr(func, "__name__", "unknown")
-
-    if method_name == "write":
-        return _handle_file_write(bound_self, func, args, kwargs)
-    elif method_name in ["read", "readline"]:
-        return _handle_file_read(bound_self, func, args, kwargs, method_name)
-    elif method_name == "writelines":
-        return _handle_file_writelines(bound_self, func, args, kwargs)
-    else:
-        # Other file methods: call normally and propagate taint
+    try:
+        # Untaint arguments
         untainted_args = untaint_if_needed(args)
         untainted_kwargs = untaint_if_needed(kwargs)
+
+        # Handle type annotations specially
+        if hasattr(func, "__name__") and func.__name__ == "getitem" and len(untainted_args) >= 2:
+            obj, key = untainted_args[0], untainted_args[1]
+            if _is_type_annotation_access(obj, key):
+                return func(*untainted_args, **untainted_kwargs)
+
+        # Call function
         result = func(*untainted_args, **untainted_kwargs)
 
-        import builtins
+        # Check if result is a coroutine (sync func returning coroutine)
+        import asyncio
 
-        final_taint = list(builtins.TAINT_ESCROW.get())
-        if final_taint:
-            return taint_wrap(result, taint_origin=final_taint)
-        return result
+        if asyncio.iscoroutine(result):
+            return _wrap_coroutine_with_taint(result, taint)
 
+        # Wrap result with collected taint
+        final_taint = list(builtins.ACTIVE_TAINT.get())
+        return add_to_taint_dict_and_return(result, taint=final_taint)
 
-def _handle_file_write(bound_self, func, args, kwargs):
-    """Handle file write operations with database storage."""
-    from aco.server.database_manager import DB
-
-    session_id = object.__getattribute__(bound_self, "_session_id")
-    line_no = object.__getattribute__(bound_self, "_line_no")
-    file_obj = object.__getattribute__(bound_self, "obj")
-
-    data = args[0] if args else None
-    if data is None:
-        return func(*args, **kwargs)
-
-    untainted_data = untaint_if_needed(data)
-    untainted_args = (untainted_data,) + args[1:] if len(args) > 1 else (untainted_data,)
-    untainted_kwargs = untaint_if_needed(kwargs)
-
-    # Store taint info in database
-    if session_id and hasattr(file_obj, "name"):
-        taint_nodes = get_taint_origins(data)
-        if taint_nodes:
-            try:
-                DB.store_taint_info(session_id, file_obj.name, line_no, taint_nodes)
-            except Exception as e:
-                import sys
-
-                print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
-
-        newline_count = untainted_data.count("\n") if isinstance(untainted_data, str) else 0
-        object.__setattr__(bound_self, "_line_no", line_no + max(1, newline_count))
-
-    return func(*untainted_args, **untainted_kwargs)
+    finally:
+        builtins.ACTIVE_TAINT.set([])
 
 
-def _handle_file_read(bound_self, func, args, kwargs, method_name=None):
-    """Handle file read operations with database retrieval."""
-    from aco.server.database_manager import DB
+async def _exec_third_party_async(func, args, kwargs, obj_taint=None):
+    """Execute third-party async function with taint tracking."""
+    import builtins
 
-    line_no = object.__getattribute__(bound_self, "_line_no")
-    file_obj = object.__getattribute__(bound_self, "obj")
-    taint_origin = object.__getattribute__(bound_self, "_taint_origin")
+    if obj_taint is None:
+        obj_taint = []
 
-    untainted_args = untaint_if_needed(args)
-    untainted_kwargs = untaint_if_needed(kwargs)
-    data = func(*untainted_args, **untainted_kwargs)
+    # Collect taint from all inputs
+    all_origins = set(obj_taint)
+    all_origins.update(get_taint_origins(args))
+    all_origins.update(get_taint_origins(kwargs))
 
-    if isinstance(data, bytes):
-        return data
+    taint = list(all_origins)
 
-    # Combine file's default taint with stored taint from previous sessions
-    combined_taint = list(taint_origin)
+    builtins.ACTIVE_TAINT.set(taint)
 
-    if hasattr(file_obj, "name") and data:
+    try:
+        untainted_args = untaint_if_needed(args)
+        untainted_kwargs = untaint_if_needed(kwargs)
+
+        result = await func(*untainted_args, **untainted_kwargs)
+
+        final_taint = list(builtins.ACTIVE_TAINT.get())
+        return add_to_taint_dict_and_return(result, taint=final_taint)
+
+    finally:
+        builtins.ACTIVE_TAINT.set([])
+
+
+async def _wrap_coroutine_with_taint(coro, taint):
+    """Wrap coroutine to set taint context when awaited."""
+    import builtins
+
+    builtins.ACTIVE_TAINT.set(taint)
+    try:
+        result = await coro
+        final_taint = list(builtins.ACTIVE_TAINT.get())
+        return add_to_taint_dict_and_return(result, taint=final_taint)
+    finally:
+        builtins.ACTIVE_TAINT.set([])
+
+
+# =============================================================================
+# Assignment and Access Interception
+# =============================================================================
+
+
+def intercept_assign(op_type, obj_or_name, attr_or_none, value):
+    """
+    Unified assignment interceptor for taint tracking.
+
+    Args:
+        op_type: 'name', 'attr', or 'subscript'
+        obj_or_name: Target object (for attr/subscript) or variable name (for name)
+        attr_or_none: Attribute name (for attr), key (for subscript), or None (for name)
+        value: Value being assigned
+
+    Returns:
+        The assigned value (potentially wrapped for primitives)
+    """
+    import builtins
+
+    # Get taint origins from the value being assigned
+    taint_origins = get_taint_origins(value)
+
+    if op_type == "name":
+        # Variable assignment: a = value
+        return add_to_taint_dict_and_return(value, taint=taint_origins)
+
+    elif op_type == "attr":
+        # Attribute assignment: obj.attr = value
         try:
-            prev_session_id, stored_taint_nodes = DB.get_taint_info(file_obj.name, line_no)
-            if prev_session_id and stored_taint_nodes:
-                combined_taint.extend(stored_taint_nodes)
-                combined_taint = list(set(combined_taint))
-        except Exception as e:
-            import sys
-
-            print(f"Warning: Could not retrieve taint info: {e}", file=sys.stderr)
-
-    if method_name == "readline":
-        object.__setattr__(bound_self, "_line_no", line_no + 1)
-
-    if combined_taint:
-        return taint_wrap(data, taint_origin=combined_taint)
-    return data
-
-
-def _handle_file_writelines(bound_self, func, args, kwargs):
-    """Handle file writelines operations with database storage."""
-    from aco.server.database_manager import DB
-
-    session_id = object.__getattribute__(bound_self, "_session_id")
-    line_no = object.__getattribute__(bound_self, "_line_no")
-    file_obj = object.__getattribute__(bound_self, "obj")
-
-    lines = args[0] if args else None
-    if lines is None:
-        return func(*args, **kwargs)
-
-    untainted_lines = []
-    current_line = line_no
-
-    for line in lines:
-        if session_id and hasattr(file_obj, "name"):
-            taint_nodes = get_taint_origins(line)
-            if taint_nodes:
+            if taint_origins and obj_or_name is not None:
                 try:
-                    DB.store_taint_info(session_id, file_obj.name, current_line, taint_nodes)
-                except Exception as e:
-                    import sys
+                    # Ensure parent is in TAINT_DICT
+                    if obj_or_name not in builtins.TAINT_DICT:
+                        add_to_taint_dict_and_return(obj_or_name, taint=[])
 
-                    print(f"Warning: Could not store taint info: {e}", file=sys.stderr)
+                    # Check if value supports weak refs
+                    import weakref
 
-        current_line += 1
-        untainted_lines.append(untaint_if_needed(line))
+                    unwrapped_value = untaint_if_needed(value)
+                    try:
+                        weakref.ref(unwrapped_value)
+                        # Value supports weak refs - give it its own entry
+                        add_to_taint_dict_and_return(unwrapped_value, taint=taint_origins)
+                        # Remove from parent's shadow if present
+                        if attr_or_none in builtins.TAINT_DICT[obj_or_name]:
+                            del builtins.TAINT_DICT[obj_or_name][attr_or_none]
+                    except TypeError:
+                        # Value is a built-in - store in parent's shadow
+                        builtins.TAINT_DICT[obj_or_name][attr_or_none] = list(taint_origins)
+                except TypeError:
+                    pass
 
-    object.__setattr__(bound_self, "_line_no", current_line)
+            # Perform actual assignment
+            unwrapped_value = untaint_if_needed(value)
+            setattr(obj_or_name, attr_or_none, unwrapped_value)
 
-    untainted_args = (untainted_lines,) + args[1:] if len(args) > 1 else (untainted_lines,)
-    untainted_kwargs = untaint_if_needed(kwargs)
+        except Exception:
+            # Fall back to normal assignment
+            unwrapped_value = untaint_if_needed(value)
+            setattr(obj_or_name, attr_or_none, unwrapped_value)
 
-    return func(*untainted_args, **untainted_kwargs)
+        return value
+
+    elif op_type == "subscript":
+        try:
+            if taint_origins and obj_or_name is not None:
+                try:
+                    if obj_or_name not in builtins.TAINT_DICT:
+                        add_to_taint_dict_and_return(obj_or_name, taint=[])
+                    # Store subscript taint in parent's shadow
+                    key_str = str(attr_or_none)
+                    builtins.TAINT_DICT[obj_or_name][key_str] = list(taint_origins)
+                except TypeError:
+                    pass
+
+            # Perform actual assignment
+            unwrapped_value = untaint_if_needed(value)
+            unwrapped_key = untaint_if_needed(attr_or_none)
+            obj_or_name[unwrapped_key] = unwrapped_value
+
+        except Exception:
+            unwrapped_value = untaint_if_needed(value)
+            unwrapped_key = untaint_if_needed(attr_or_none)
+            obj_or_name[unwrapped_key] = unwrapped_value
+
+        return value
+
+    return value
+
+
+def intercept_access(op_type, obj_or_name, attr_or_none):
+    """
+    Unified access interceptor for taint tracking.
+
+    Args:
+        op_type: 'name', 'attr', or 'subscript'
+        obj_or_name: Source object (for attr/subscript) or variable name (for name)
+        attr_or_none: Attribute name (for attr), key (for subscript), or None (for name)
+
+    Returns:
+        The accessed value with taint propagation
+    """
+    import builtins
+
+    if op_type == "name":
+        # Variable access: x
+        import inspect
+
+        frame = inspect.currentframe().f_back.f_back
+
+        if obj_or_name in frame.f_locals:
+            return frame.f_locals[obj_or_name]
+        elif obj_or_name in frame.f_globals:
+            return frame.f_globals[obj_or_name]
+        else:
+            raise NameError(f"name '{obj_or_name}' is not defined")
+
+    elif op_type == "attr":
+        # Attribute access: obj.attr
+        unwrapped_parent = untaint_if_needed(obj_or_name)
+        result = getattr(unwrapped_parent, attr_or_none)
+
+        # Resolve taint
+        try:
+            shadow = builtins.TAINT_DICT.get(obj_or_name, {})
+            if attr_or_none in shadow:
+                # Built-in attribute - taint stored in parent's shadow
+                taint = shadow[attr_or_none]
+            elif result in builtins.TAINT_DICT:
+                # Object attribute - has own TAINT_DICT entry
+                taint = builtins.TAINT_DICT[result].get("self", [])
+            else:
+                # Fallback to parent's taint
+                taint = shadow.get("self", [])
+        except TypeError:
+            taint = []
+
+        return add_to_taint_dict_and_return(result, taint=list(taint))
+
+    elif op_type == "subscript":
+        # Subscript access: obj[key]
+        unwrapped_parent = untaint_if_needed(obj_or_name)
+        unwrapped_key = untaint_if_needed(attr_or_none)
+        result = unwrapped_parent[unwrapped_key]
+
+        # Resolve taint
+        try:
+            shadow = builtins.TAINT_DICT.get(obj_or_name, {})
+            key_str = str(attr_or_none)
+            if key_str in shadow:
+                taint = shadow[key_str]
+            else:
+                taint = shadow.get("self", [])
+        except TypeError:
+            taint = []
+
+        return add_to_taint_dict_and_return(result, taint=list(taint))
+
+    return None
+
+
+# =============================================================================
+# Legacy Compatibility
+# =============================================================================
+
+
+def taint(obj, taint_origins):
+    """
+    Apply taint to an object via TAINT_DICT.
+
+    Legacy function - new code should use add_to_taint_dict_and_return.
+    """
+    if not taint_origins:
+        return obj
+    return add_to_taint_dict_and_return(obj, taint=list(taint_origins))

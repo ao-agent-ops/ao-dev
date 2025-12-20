@@ -48,8 +48,8 @@ def patch_mcp_send_request(session_instance):
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # 3. Get taint origins from TAINT_ESCROW (set by exec_func)
-        taint_origins = list(TAINT_ESCROW.get())
+        # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(ACTIVE_TAINT.get())
 
         method = input_dict["request"].root.method
         if not method in ["tools/call"]:
@@ -74,7 +74,7 @@ def patch_mcp_send_request(session_instance):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        TAINT_ESCROW.set([cache_output.node_id])
+        ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
     # Install patch.

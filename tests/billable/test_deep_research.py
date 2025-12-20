@@ -122,8 +122,6 @@ def main():
     assert return_code == 0, f"[DeepResearch] failed with return_code {return_code}"
     assert session_id, "No session_id found in database after first run"
 
-    print("~~~~ session_id", session_id)
-
     # Step 2: Query first run results
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
@@ -135,8 +133,6 @@ def main():
         (session_id,),
     )
     graph = json.loads(graph_topology["graph_topology"])
-
-    print("\n\n", "=" * 20, " triggering restart ", "=" * 20, "\n\n")
 
     # Step 3: Connect to server and send restart message
     from aco.common.constants import HOST, PORT

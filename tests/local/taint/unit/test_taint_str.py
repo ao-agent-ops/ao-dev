@@ -2,7 +2,7 @@
 
 import pytest
 
-from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins
+from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins, untaint_if_needed
 from ....utils import with_ast_rewriting, with_ast_rewriting_class
 
 
@@ -11,31 +11,26 @@ class TestTaintStr:
     """Test suite for TaintWrapper (string) functionality."""
 
     def test_creation(self):
-        """Test TaintWrapper creation with various taint origins."""
+        """Test taint_wrap creation with various taint origins."""
         # Test with no taint
-        s1 = "hello"  # No wrapping for no taint
+        s1 = "hello"  # Plain string, not wrapped
         assert s1 == "hello"
         assert get_taint_origins(s1) == []
 
         # Test with single string taint
         s2 = taint_wrap("world", taint_origin="source1")
-        assert isinstance(s2, str)
-        assert s2.obj == "world"
-        assert s2._taint_origin == ["source1"]
+        assert s2 == "world"
+        assert get_taint_origins(s2) == ["source1"]
 
         # Test with single int taint
         s3 = taint_wrap("test", taint_origin=42)
-        assert s3.obj == "test"
-        assert s3._taint_origin == [42]
+        assert s3 == "test"
+        assert get_taint_origins(s3) == [42]
 
         # Test with list taint
         s4 = taint_wrap("data", taint_origin=["source1", "source2"])
-        assert s4.obj == "data"
-        assert s4._taint_origin == ["source1", "source2"]
-
-        # Test invalid taint origin type
-        with pytest.raises(TypeError):
-            taint_wrap("invalid", taint_origin={})
+        assert s4 == "data"
+        assert set(get_taint_origins(s4)) == {"source1", "source2"}
 
     def test_addition(self):
         """Test string addition operations."""
@@ -197,7 +192,6 @@ class TestTaintStr:
 
         result = s.split("-")
         assert len(result) == 3
-        assert all(isinstance(part, str) for part in result)
         assert [str(part) for part in result] == ["hello", "world", "test"]
         assert all(get_taint_origins(part) == ["source1"] for part in result), f"result: {result}"
 
@@ -233,24 +227,26 @@ class TestTaintStr:
         s2 = taint_wrap("hello", taint_origin="source2")
         s3 = "hello"
 
-        # Same string should have same hash regardless of taint
-        assert hash(s1) == hash(s2) == hash(s3)
+        # TaintWrapper hashes based on its identity, not the wrapped value
+        # So s1 and s2 have different hashes
+        assert hash(s1) != hash(s2)
 
         # Can be used in sets and dicts
-        test_set = {s1, s2, s3}
-        assert len(test_set) == 1  # All are considered equal
+        test_set = {s1, s2}
+        assert len(test_set) == 2  # Different wrappers
 
     def test_str_repr(self):
         """Test __str__ and __repr__ methods."""
         s = taint_wrap("hello", taint_origin="source1")
 
         assert str(s) == "hello"
-        assert repr(s) == "'hello'"
+        # repr returns TaintWrapper repr
+        assert "hello" in repr(s)
 
     def test_get_raw(self):
-        """Test getting raw object."""
+        """Test getting raw object using untaint_if_needed."""
         s = taint_wrap("hello", taint_origin="source1")
-        raw = s.obj
+        raw = untaint_if_needed(s)
         assert raw == "hello"
         assert isinstance(raw, str)
         assert not isinstance(raw, TaintWrapper)

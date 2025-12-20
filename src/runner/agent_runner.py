@@ -28,11 +28,17 @@ from aco.cli.aco_server import launch_daemon_server
 from aco.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
 from aco.runner.context_manager import set_parent_session_id, set_server_connection
 from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
-from aco.server.ast_transformer import (
+from aco.server.ast_helpers import (
     taint_fstring_join,
     taint_format_string,
     taint_percent_format,
+    taint_open,
     exec_func,
+    intercept_assign,
+    intercept_access,
+    wrap_if_needed,
+    add_to_taint_dict_and_return,
+    get_taint,
 )
 from aco.server.database_manager import DB
 
@@ -290,9 +296,21 @@ class AgentRunner:
         builtins.taint_fstring_join = taint_fstring_join
         builtins.taint_format_string = taint_format_string
         builtins.taint_percent_format = taint_percent_format
+        builtins.taint_open = taint_open
         builtins.exec_func = exec_func
-        # Register TAINT_ESCROW for thread-safe and async-safe taint passing
-        builtins.TAINT_ESCROW = ContextVar("taint_escrow", default=set())
+        builtins.intercept_assign = intercept_assign
+        builtins.intercept_access = intercept_access
+        builtins.wrap_if_needed = wrap_if_needed
+        builtins.add_to_taint_dict_and_return = add_to_taint_dict_and_return
+        builtins.get_taint = get_taint
+
+        # Register ACTIVE_TAINT (ContextVar) for passing taint through third-party code
+        builtins.ACTIVE_TAINT = ContextVar("active_taint", default=[])
+
+        # Register TAINT_DICT (ThreadSafeWeakKeyDict) as single source of truth for taint
+        from aco.runner.taint_dict import ThreadSafeWeakKeyDict
+
+        builtins.TAINT_DICT = ThreadSafeWeakKeyDict()
 
     def _apply_runtime_setup(self) -> None:
         """Apply runtime setup for the agent runner execution environment."""

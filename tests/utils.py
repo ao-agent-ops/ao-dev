@@ -114,22 +114,42 @@ def with_ast_rewriting(test_func):
         # Set up the taint environment (normally done by agent_runner)
         import builtins
         from contextvars import ContextVar
+        from aco.runner.taint_dict import ThreadSafeWeakKeyDict
 
-        if not hasattr(builtins, "TAINT_ESCROW"):
-            builtins.TAINT_ESCROW = ContextVar("taint_escrow", default=set())
+        # Initialize ACTIVE_TAINT (ContextVar) for passing taint through third-party code
+        if not hasattr(builtins, "ACTIVE_TAINT"):
+            builtins.ACTIVE_TAINT = ContextVar("active_taint", default=[])
+        else:
+            builtins.ACTIVE_TAINT.set([])  # Clear for fresh test
+
+        # Initialize TAINT_DICT (ThreadSafeWeakKeyDict) as single source of truth
+        # Always create fresh TAINT_DICT for each test to avoid cross-test contamination
+        builtins.TAINT_DICT = ThreadSafeWeakKeyDict()
 
         # Add taint functions to builtins (normally done by agent_runner)
-        from aco.server.ast_transformer import (
+        from aco.server.ast_helpers import (
             taint_fstring_join,
             taint_format_string,
             taint_percent_format,
+            taint_open,
             exec_func,
+            intercept_assign,
+            intercept_access,
+            wrap_if_needed,
+            add_to_taint_dict_and_return,
+            get_taint,
         )
 
         builtins.taint_fstring_join = taint_fstring_join
         builtins.taint_format_string = taint_format_string
         builtins.taint_percent_format = taint_percent_format
+        builtins.taint_open = taint_open
         builtins.exec_func = exec_func
+        builtins.intercept_assign = intercept_assign
+        builtins.intercept_access = intercept_access
+        builtins.wrap_if_needed = wrap_if_needed
+        builtins.add_to_taint_dict_and_return = add_to_taint_dict_and_return
+        builtins.get_taint = get_taint
 
         # Execute the transformed code using test function's globals
         test_globals = test_func.__globals__.copy()

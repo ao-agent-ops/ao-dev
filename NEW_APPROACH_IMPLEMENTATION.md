@@ -753,7 +753,7 @@ builtins.wrap_if_needed = wrap_if_needed
 
 4. **Phase 4: Cleanup**
    - Remove old code: `intercept_access`, `intercept_assign`, `_taint_origin` handling
-   - Rename TAINT_STACK → ACTIVE_TAINT in any remaining code
+   - Rename ACTIVE_TAINT → ACTIVE_TAINT in any remaining code
    - Update tests
 
 ---

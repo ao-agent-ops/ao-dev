@@ -54,7 +54,7 @@ Our system maintains a strict boundary between user code and third-party code:
 
 - **TaintWrapper objects exist only in user code** (within project root) - they track data provenance through user program logic
 - **Third-party code receives only untainted data** - all communication with third-party libraries uses plain Python objects  
-- **TAINT_ESCROW handles all taint transfer** - a global context variable manages taint information when crossing the user/third-party boundary
+- **ACTIVE_TAINT handles all taint transfer** - a global context variable manages taint information when crossing the user/third-party boundary
 
 ### AST Transformation Process
 
@@ -63,9 +63,9 @@ We rewrite user code to propagate taint through third-party library calls. For e
 
 [exec_func](/src/server/ast_transformer.py) implements the boundary protocol:
 1. Collect taint origins from input TaintWrapper objects
-2. Store taint in TAINT_ESCROW and untaint all inputs  
+2. Store taint in ACTIVE_TAINT and untaint all inputs  
 3. Execute the third-party function with clean data
-4. Retrieve final taint from TAINT_ESCROW and wrap the result for user code
+4. Retrieve final taint from ACTIVE_TAINT and wrap the result for user code
 
 To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `aco-launch script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
 

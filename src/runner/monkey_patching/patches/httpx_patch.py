@@ -47,10 +47,10 @@ def patch_httpx_send(bound_obj, bound_cls):
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        logger.debug(f"[HTTPX] escrow val: {builtins.TAINT_ESCROW.get()}")
+        logger.debug(f"[HTTPX] escrow val: {builtins.ACTIVE_TAINT.get()}")
 
-        # 3. Get taint origins from TAINT_ESCROW (set by exec_func)
-        taint_origins = list(builtins.TAINT_ESCROW.get())
+        # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         if not is_whitelisted_endpoint(input_dict["request"].url.path):
             result = original_function(*args, **kwargs)
@@ -72,8 +72,8 @@ def patch_httpx_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        logger.debug(f"[HTTPX] Setting TAINT_ESCROW with node_id: {[cache_output.node_id]}")
-        builtins.TAINT_ESCROW.set([cache_output.node_id])
+        logger.debug(f"[HTTPX] Setting ACTIVE_TAINT with node_id: {[cache_output.node_id]}")
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)
@@ -91,8 +91,8 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # 3. Get taint origins from TAINT_ESCROW (set by exec_func)
-        taint_origins = list(builtins.TAINT_ESCROW.get())
+        # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         if not is_whitelisted_endpoint(input_dict["request"].url.path):
             result = await original_function(*args, **kwargs)
@@ -114,8 +114,8 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        logger.debug(f"[HTTPX] Setting TAINT_ESCROW with node_id: {[cache_output.node_id]}")
-        builtins.TAINT_ESCROW.set([cache_output.node_id])
+        logger.debug(f"[HTTPX] Setting ACTIVE_TAINT with node_id: {[cache_output.node_id]}")
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)

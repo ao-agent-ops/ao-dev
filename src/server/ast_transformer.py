@@ -164,23 +164,14 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
     def visit_Call(self, node):
         """Transform function calls to exec_func, taint_format_string, or taint_open."""
-        node = self.generic_visit(node)
+        # CRITICAL: Check for method calls BEFORE generic_visit() to prevent
+        # visit_Attribute from transforming obj.method into intercept_access()
 
-        # Transform .format() calls
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
-            self.needs_taint_imports = True
-            new_node = ast.Call(
-                func=ast.Name(id="taint_format_string", ctx=ast.Load()),
-                args=[node.func.value] + node.args,
-                keywords=node.keywords,
-            )
-            return ast.copy_location(new_node, node)
-
-        # Transform method calls
-        elif isinstance(node.func, ast.Attribute):
+        # Handle method calls: obj.method(args)
+        if isinstance(node.func, ast.Attribute):
             func_name = node.func.attr
 
-            # Skip dunder methods
+            # Skip dunder methods - let them go through normally
             dunder_methods = {
                 "__init__",
                 "__new__",
@@ -211,37 +202,59 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 "__setattr__",
             }
             if func_name in dunder_methods:
-                return node
+                return self.generic_visit(node)
 
+            # Transform .format() calls specially
+            if func_name == "format":
+                self.needs_taint_imports = True
+                # Visit args/kwargs but NOT the object.format attribute
+                visited_args = [self.visit(arg) for arg in node.args]
+                visited_keywords = [
+                    ast.keyword(arg=kw.arg, value=self.visit(kw.value)) for kw in node.keywords
+                ]
+                visited_obj = self.visit(node.func.value)
+                new_node = ast.Call(
+                    func=ast.Name(id="taint_format_string", ctx=ast.Load()),
+                    args=[visited_obj] + visited_args,
+                    keywords=visited_keywords,
+                )
+                return ast.copy_location(new_node, node)
+
+            # Regular method call: obj.method(args) -> exec_func(obj, args, kwargs, method_name="method")
             self.needs_taint_imports = True
 
-            func_node = ast.Name(id="exec_func", ctx=ast.Load())
-            ast.copy_location(func_node, node)
+            # Visit children manually: visit args/kwargs and the parent object, but NOT the method attribute
+            visited_args = [self.visit(arg) for arg in node.args]
+            visited_keywords = [
+                ast.keyword(arg=kw.arg, value=self.visit(kw.value)) for kw in node.keywords
+            ]
+            visited_obj = self.visit(node.func.value)  # Visit the object, not obj.method
 
-            args_tuple = ast.Tuple(elts=node.args, ctx=ast.Load())
+            args_tuple = ast.Tuple(elts=visited_args, ctx=ast.Load())
             ast.copy_location(args_tuple, node)
 
             kwargs_dict = ast.Dict(
-                keys=[ast.Constant(value=kw.arg) if kw.arg else None for kw in node.keywords],
-                values=[kw.value for kw in node.keywords],
+                keys=[ast.Constant(value=kw.arg) if kw.arg else None for kw in visited_keywords],
+                values=[kw.value for kw in visited_keywords],
             )
             ast.copy_location(kwargs_dict, node)
 
-            for key in kwargs_dict.keys:
-                if key is not None:
-                    ast.copy_location(key, node)
-
+            # Create exec_func call with method_name keyword argument
+            # exec_func(obj, args, kwargs, method_name="method")
             new_node = ast.Call(
-                func=func_node,
-                args=[node.func, args_tuple, kwargs_dict],
-                keywords=[],
+                func=ast.Name(id="exec_func", ctx=ast.Load()),
+                args=[visited_obj, args_tuple, kwargs_dict],
+                keywords=[ast.keyword(arg="method_name", value=ast.Constant(value=func_name))],
             )
             ast.copy_location(new_node, node)
             ast.fix_missing_locations(new_node)
             return new_node
 
+        # For non-method calls, use generic_visit
+        node = self.generic_visit(node)
+
         # Transform open() calls
-        elif isinstance(node.func, ast.Name) and node.func.id == "open":
+        if isinstance(node.func, ast.Name) and node.func.id == "open":
             self.needs_taint_imports = True
             new_node = ast.Call(
                 func=ast.Name(id="taint_open", ctx=ast.Load()),
@@ -450,12 +463,15 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         return node
 
     def visit_Subscript(self, node):
-        """Transform subscript operations (obj[key]) into exec_func calls."""
+        """Transform subscript operations (obj[key]) into intercept_access calls."""
         node = self.generic_visit(node)
 
         # Only transform Load context (obj[key])
         if isinstance(node.ctx, ast.Load):
+            self.needs_taint_imports = True
+
             if isinstance(node.slice, ast.Slice):
+                # For slices, create a slice object as the key
                 slice_args = []
                 if node.slice.lower is not None:
                     slice_args.append(node.slice.lower)
@@ -473,19 +489,38 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 slice_call = ast.Call(
                     func=ast.Name(id="slice", ctx=ast.Load()), args=slice_args, keywords=[]
                 )
-                return self._create_exec_func_call("getitem", [node.value, slice_call], node)
+                # obj[start:end] -> intercept_access('subscript', obj, slice(start, end))
+                new_node = ast.Call(
+                    func=ast.Name(id="intercept_access", ctx=ast.Load()),
+                    args=[ast.Constant(value="subscript"), node.value, slice_call],
+                    keywords=[],
+                )
             else:
-                return self._create_exec_func_call("getitem", [node.value, node.slice], node)
+                # obj[key] -> intercept_access('subscript', obj, key)
+                new_node = ast.Call(
+                    func=ast.Name(id="intercept_access", ctx=ast.Load()),
+                    args=[ast.Constant(value="subscript"), node.value, node.slice],
+                    keywords=[],
+                )
+
+            return ast.copy_location(new_node, node)
 
         return node
 
     def visit_Assign(self, node):
-        """Transform subscript assignments (obj[key] = value)."""
+        """Transform all assignments to intercept taint propagation."""
         node = self.generic_visit(node)
 
         for target in node.targets:
             if isinstance(target, ast.Subscript):
+                # obj[key] = value
                 return self._create_subscript_exec_func_expr("setitem", target, node.value, node)
+            elif isinstance(target, ast.Attribute):
+                # obj.attr = value
+                return self._create_attribute_assign_expr(target, node.value, node)
+            elif isinstance(target, ast.Name):
+                # a = value (simple variable assignment)
+                return self._create_name_assign_expr(target, node.value, node)
 
         return node
 
@@ -498,6 +533,65 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 return self._create_subscript_exec_func_expr("delitem", target, None, node)
 
         return node
+
+    def _create_attribute_assign_expr(self, target, value, node):
+        """Create intercept_assign call for attribute assignments (obj.attr = value)."""
+        self.needs_taint_imports = True
+
+        # Create intercept_assign('attr', obj, 'attr', value)
+        assign_call = ast.Call(
+            func=ast.Name(id="intercept_assign", ctx=ast.Load()),
+            args=[ast.Constant(value="attr"), target.value, ast.Constant(value=target.attr), value],
+            keywords=[],
+        )
+
+        # Wrap in Expr since this is a statement
+        new_node = ast.Expr(value=assign_call)
+        return ast.copy_location(new_node, node)
+
+    def _create_name_assign_expr(self, target, value, node):
+        """Create assignment with intercept_assign call for name assignments (a = value)."""
+        self.needs_taint_imports = True
+
+        # Create: var_name = intercept_assign('name', 'var_name', None, value)
+        assign_call = ast.Call(
+            func=ast.Name(id="intercept_assign", ctx=ast.Load()),
+            args=[
+                ast.Constant(value="name"),
+                ast.Constant(value=target.id),
+                ast.Constant(value=None),
+                value,
+            ],
+            keywords=[],
+        )
+
+        # Create proper assignment node: target = intercept_assign(...)
+        new_node = ast.Assign(
+            targets=[target], value=assign_call  # Use the original target (which has Store context)
+        )
+        return ast.copy_location(new_node, node)
+
+    def visit_Attribute(self, node):
+        """Transform attribute access to intercept taint propagation."""
+        node = self.generic_visit(node)
+
+        # Only intercept Load context (reading attributes, not setting)
+        if isinstance(node.ctx, ast.Load):
+            self.needs_taint_imports = True
+            # obj.attr -> intercept_access('attr', obj, 'attr')
+            new_node = ast.Call(
+                func=ast.Name(id="intercept_access", ctx=ast.Load()),
+                args=[ast.Constant(value="attr"), node.value, ast.Constant(value=node.attr)],
+                keywords=[],
+            )
+            return ast.copy_location(new_node, node)
+
+        return node
+
+    # NOTE: visit_Name is intentionally NOT implemented for Load context.
+    # Variable reads don't need transformation - variables already hold wrappers from assignment.
+    # When we do `x = 4`, visit_Assign rewrites it to `x = intercept_assign('name', 'x', None, 4)`
+    # which wraps the value. Later reading `x` just returns that wrapper directly.
 
     def _extract_project_root(self, current_file):
         """Extract project root by finding common prefix of module paths."""
@@ -542,7 +636,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from aco.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format, taint_open
+from aco.server.ast_helpers import exec_func, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, intercept_assign, intercept_access
 """
 
         safe_import_tree = ast.parse(safe_import_code)
