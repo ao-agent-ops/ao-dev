@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mkdocs-material mkdocs-minify-plugin "mkdocstrings[python]>=0.24"
+          pip install -e ".[docs]"
 
       - name: Build documentation
         run: mkdocs build --strict
@@ -44,9 +44,6 @@ jobs:
           path: site
 
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
