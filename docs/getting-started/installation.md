@@ -33,6 +33,14 @@ For development with documentation building:
 pip install -e ".[dev,docs]"
 ```
 
+### Fetching Large Files
+
+The repository uses Git LFS for large files (videos, etc.). After cloning, fetch them with:
+
+```bash
+git lfs pull
+```
+
 ### IDE Linter Configuration
 
 Some Python linters may incorrectly report that modules inside the codebase can't be found. Run the following in the project root to resolve this:
