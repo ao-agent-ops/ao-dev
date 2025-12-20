@@ -108,38 +108,61 @@ class TaintWrapper:
         return object.__getattribute__(self, "obj").__class__
 
 
-def untaint_if_needed(val, _seen=None):
+def unwrap_flat(val):
     """
-    Recursively unwrap TaintWrapper objects.
+    Unwrap just the immediate TaintWrapper, don't recurse into collections.
 
     Args:
-        val: The value to untaint
-        _seen: Set to track visited objects (prevents circular references)
+        val: The value to unwrap
 
     Returns:
-        The unwrapped value
+        The unwrapped value (or original if not a TaintWrapper)
+    """
+    if isinstance(val, TaintWrapper):
+        return object.__getattribute__(val, "obj")
+    return val
+
+
+def unwrap_deep(val, _seen=None):
+    """
+    Recursively unwrap TaintWrapper objects in nested structures.
+
+    Args:
+        val: The value to unwrap
+        _seen: Set to track visited containers (prevents circular references)
+
+    Returns:
+        Fully unwrapped value with all nested TaintWrappers removed
     """
     if _seen is None:
         _seen = set()
 
+    # Always unwrap TaintWrappers first (before circular check)
+    if isinstance(val, TaintWrapper):
+        return unwrap_deep(object.__getattribute__(val, "obj"), _seen)
+
+    # For containers, check circular references
     obj_id = id(val)
     if obj_id in _seen:
         return val
     _seen.add(obj_id)
 
-    if isinstance(val, TaintWrapper):
-        return untaint_if_needed(object.__getattribute__(val, "obj"), _seen)
-
     if isinstance(val, dict):
-        return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
+        return {k: unwrap_deep(v, _seen) for k, v in val.items()}
     if isinstance(val, list):
-        return [untaint_if_needed(item, _seen) for item in val]
+        return [unwrap_deep(item, _seen) for item in val]
     if isinstance(val, tuple):
-        return tuple(untaint_if_needed(item, _seen) for item in val)
+        return tuple(unwrap_deep(item, _seen) for item in val)
     if isinstance(val, set):
-        return {untaint_if_needed(item, _seen) for item in val}
+        return {unwrap_deep(item, _seen) for item in val}
 
     return val
+
+
+# Alias for backwards compatibility
+def untaint_if_needed(val, _seen=None):
+    """Alias for unwrap_deep. Kept for backwards compatibility."""
+    return unwrap_deep(val, _seen)
 
 
 def get_taint_origins(val, _seen=None):

@@ -333,6 +333,138 @@ def exec_mutation(obj, args, kwargs, method_name):
     return func(*args, **kwargs)
 
 
+def exec_query(obj, args, kwargs, method_name):
+    """
+    Execute query method on fully unwrapped object.
+
+    For collection query methods (count, index), we:
+    1. Deeply unwrap the object (so items are raw values for comparison)
+    2. Deeply unwrap the search args
+    3. Return result with object's taint
+    """
+    from aco.runner.taint_wrappers import unwrap_deep
+
+    obj_taint = get_taint_origins(obj)
+
+    # Deep unwrap: object AND its contents for proper comparison
+    unwrapped_obj = unwrap_deep(obj)
+    unwrapped_args = unwrap_deep(args)
+    unwrapped_kwargs = unwrap_deep(kwargs)
+
+    func = getattr(unwrapped_obj, method_name)
+    result = func(*unwrapped_args, **unwrapped_kwargs)
+
+    if obj_taint:
+        return add_to_taint_dict_and_return(result, taint=obj_taint)
+    return result
+
+
+def exec_inplace(obj, args, kwargs, method_name):
+    """
+    Execute in-place modification on raw object with unwrapped args.
+
+    For collection in-place methods (remove, sort, reverse, pop, clear), we:
+    1. Access the raw object (flat unwrap to preserve the original container)
+    2. Deeply unwrap args (so remove("x") finds items correctly)
+    3. For remove: unwrap items in-place before the operation
+    4. Execute the method (modifies collection in place)
+    5. Return result with object's taint if applicable
+    """
+    from aco.runner.taint_wrappers import TaintWrapper, unwrap_flat, unwrap_deep
+
+    obj_taint = get_taint_origins(obj)
+
+    # Flat unwrap to get the actual container (not a copy)
+    raw_obj = unwrap_flat(obj)
+
+    # For methods that compare items (remove), unwrap items in-place first
+    if method_name == "remove" and isinstance(raw_obj, list):
+        for i, item in enumerate(raw_obj):
+            if isinstance(item, TaintWrapper):
+                raw_obj[i] = object.__getattribute__(item, "obj")
+
+    unwrapped_args = unwrap_deep(args)
+    unwrapped_kwargs = unwrap_deep(kwargs)
+
+    func = getattr(raw_obj, method_name)
+    result = func(*unwrapped_args, **unwrapped_kwargs)
+
+    # For methods that return values (pop), preserve item's taint or inherit from parent
+    if result is not None:
+        result_taint = get_taint_origins(result)
+        if result_taint:
+            return result  # Item has its own taint, keep it
+        elif obj_taint:
+            return add_to_taint_dict_and_return(result, taint=obj_taint)
+    return result
+
+
+def exec_setitem(obj, key, value):
+    """
+    Execute setitem directly on raw object, preserving tainted values.
+
+    For l[key] = value, we:
+    1. Get raw container (flat unwrap, don't recursively unwrap contents)
+    2. Unwrap key for proper indexing
+    3. DON'T unwrap value - store as-is to preserve TaintWrapper items
+    """
+    from aco.runner.taint_wrappers import unwrap_flat, unwrap_deep
+
+    raw_obj = unwrap_flat(obj)
+    unwrapped_key = unwrap_deep(key)
+    # Store value as-is to preserve TaintWrapper items in the collection
+    raw_obj[unwrapped_key] = value
+    return None
+
+
+def exec_delitem(obj, key):
+    """
+    Execute delitem directly on raw object.
+
+    For del l[key], we:
+    1. Get raw container (flat unwrap)
+    2. Unwrap key for proper indexing
+    3. Delete the item
+    """
+    from aco.runner.taint_wrappers import unwrap_flat, unwrap_deep
+
+    raw_obj = unwrap_flat(obj)
+    unwrapped_key = unwrap_deep(key)
+    del raw_obj[unwrapped_key]
+    return None
+
+
+def exec_inplace_binop(obj, value, op_name):
+    """
+    Execute in-place binary operation on object.
+
+    For l += x or l *= n, we:
+    1. Get raw container (flat unwrap to preserve TAINT_DICT entry)
+    2. Execute in-place operation on raw object
+    3. Return original wrapper (not raw result) to preserve TAINT_DICT reference
+    """
+    import operator
+    from aco.runner.taint_wrappers import TaintWrapper, unwrap_flat, unwrap_deep
+
+    raw_obj = unwrap_flat(obj)
+    op_func = getattr(operator, op_name)
+
+    # For list iadd, don't unwrap value items so tainted items are preserved
+    if op_name == "iadd" and isinstance(raw_obj, list):
+        op_func(raw_obj, value)
+    elif op_name == "imul" and isinstance(raw_obj, list):
+        unwrapped_value = unwrap_deep(value)
+        op_func(raw_obj, unwrapped_value)
+    else:
+        unwrapped_value = unwrap_deep(value)
+        op_func(raw_obj, unwrapped_value)
+
+    # Return the original wrapper to preserve TAINT_DICT entry
+    if isinstance(obj, TaintWrapper):
+        return obj
+    return raw_obj
+
+
 def exec_func(func_or_obj, args, kwargs, method_name=None):
     """
     Execute function with taint tracking.

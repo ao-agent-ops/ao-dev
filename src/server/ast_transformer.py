@@ -88,7 +88,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         return ast.copy_location(new_node, node)
 
     def _create_augassign_exec_func_call(self, op_func_name, target, value, node):
-        """Create assignment with exec_func call for augmented assignment operations."""
+        """Create assignment with exec_inplace_binop call for augmented assignment operations."""
         self.needs_taint_imports = True
 
         # Create a copy of target with Load context for use in args
@@ -102,16 +102,21 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             if hasattr(child, "ctx") and not isinstance(child.ctx, ast.Load):
                 child.ctx = ast.Load()
 
-        # Create exec_func call
-        exec_func_call = self._create_exec_func_call(op_func_name, [target_load, value], node)
+        # Use exec_inplace_binop(obj, value, op_name) for in-place operations
+        # This preserves TAINT_DICT entries for TaintWrapper objects
+        exec_call = ast.Call(
+            func=ast.Name(id="exec_inplace_binop", ctx=ast.Load()),
+            args=[target_load, value, ast.Constant(value=op_func_name)],
+            keywords=[],
+        )
 
-        # Transform into assignment: target = exec_func(...)
-        new_node = ast.Assign(targets=[target], value=exec_func_call)
+        # Transform into assignment: target = exec_inplace_binop(...)
+        new_node = ast.Assign(targets=[target], value=exec_call)
 
         return ast.copy_location(new_node, node)
 
     def _create_subscript_exec_func_expr(self, op_func_name, target, value, node):
-        """Create Expr with exec_func call for subscript assignment/deletion operations."""
+        """Create Expr with exec_setitem/exec_delitem call for subscript operations."""
         self.needs_taint_imports = True
 
         # Create copies with Load context
@@ -128,16 +133,29 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             if hasattr(child, "ctx"):
                 child.ctx = ast.Load()
 
-        # Create args list
-        if value is not None:
-            args_list = [target_value_load, target_slice_load, value]
+        # Use specialized exec_setitem/exec_delitem instead of exec_func(operator.xxx)
+        if op_func_name == "setitem":
+            # exec_setitem(obj, key, value)
+            call_node = ast.Call(
+                func=ast.Name(id="exec_setitem", ctx=ast.Load()),
+                args=[target_value_load, target_slice_load, value],
+                keywords=[],
+            )
+        elif op_func_name == "delitem":
+            # exec_delitem(obj, key)
+            call_node = ast.Call(
+                func=ast.Name(id="exec_delitem", ctx=ast.Load()),
+                args=[target_value_load, target_slice_load],
+                keywords=[],
+            )
         else:
+            # Fallback to exec_func for other operations
             args_list = [target_value_load, target_slice_load]
+            if value is not None:
+                args_list.append(value)
+            call_node = self._create_exec_func_call(op_func_name, args_list, node)
 
-        # Create exec_func call and wrap in Expr
-        exec_func_call = self._create_exec_func_call(op_func_name, args_list, node)
-        new_node = ast.Expr(value=exec_func_call)
-
+        new_node = ast.Expr(value=call_node)
         return ast.copy_location(new_node, node)
 
     def visit_JoinedStr(self, node):
@@ -221,10 +239,15 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 return ast.copy_location(new_node, node)
 
             # Method call: obj.method(args)
-            # Use exec_mutation for mutating methods, exec_func for others
+            # Use specialized handlers for different method categories
             self.needs_taint_imports = True
-            mutating_methods = {"append", "extend", "insert", "add", "update"}
-            use_mutation = func_name in mutating_methods
+
+            # Category 1: Adding mutations - keep args wrapped to preserve taint
+            adding_methods = {"append", "extend", "insert", "add", "update"}
+            # Category 2: Query methods - untaint args for comparison, return with taint
+            query_methods = {"count", "index"}
+            # Category 3: In-place modifications - untaint args, modify collection
+            inplace_methods = {"remove", "sort", "reverse", "pop", "clear"}
 
             # Visit children manually: visit args/kwargs and the parent object, but NOT the method attribute
             visited_args = [self.visit(arg) for arg in node.args]
@@ -239,10 +262,24 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 values=[kw.value for kw in visited_keywords],
             )
 
-            if use_mutation:
+            if func_name in adding_methods:
                 # exec_mutation(obj, args, kwargs, method_name)
                 new_node = ast.Call(
                     func=ast.Name(id="exec_mutation", ctx=ast.Load()),
+                    args=[visited_obj, args_tuple, kwargs_dict, ast.Constant(value=func_name)],
+                    keywords=[],
+                )
+            elif func_name in query_methods:
+                # exec_query(obj, args, kwargs, method_name)
+                new_node = ast.Call(
+                    func=ast.Name(id="exec_query", ctx=ast.Load()),
+                    args=[visited_obj, args_tuple, kwargs_dict, ast.Constant(value=func_name)],
+                    keywords=[],
+                )
+            elif func_name in inplace_methods:
+                # exec_inplace(obj, args, kwargs, method_name)
+                new_node = ast.Call(
+                    func=ast.Name(id="exec_inplace", ctx=ast.Load()),
                     args=[visited_obj, args_tuple, kwargs_dict, ast.Constant(value=func_name)],
                     keywords=[],
                 )
@@ -393,14 +430,17 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 ast.LtE: "le",
                 ast.Gt: "gt",
                 ast.GtE: "ge",
-                ast.Is: "is_",
-                ast.IsNot: "is_not",
             }
 
             if op_type in standard_ops:
                 return self._create_exec_func_call(
                     standard_ops[op_type], [node.left, node.comparators[0]], node
                 )
+
+            # Identity comparisons: Don't transform - compare actual objects
+            # (including TaintWrappers) without unwrapping
+            elif op_type in (ast.Is, ast.IsNot):
+                return node
 
             # Special case: 'in' - swap operands since contains(container, item)
             elif op_type == ast.In:
@@ -644,7 +684,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from aco.server.ast_helpers import exec_func, exec_mutation, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, intercept_assign, intercept_access
+from aco.server.ast_helpers import exec_func, exec_mutation, exec_query, exec_inplace, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, intercept_assign, intercept_access
 """
 
         safe_import_tree = ast.parse(safe_import_code)
