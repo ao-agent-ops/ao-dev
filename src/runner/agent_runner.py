@@ -34,6 +34,7 @@ from aco.server.ast_helpers import (
     taint_percent_format,
     taint_open,
     exec_func,
+    exec_mutation,
     intercept_assign,
     intercept_access,
     wrap_if_needed,
@@ -298,6 +299,7 @@ class AgentRunner:
         builtins.taint_percent_format = taint_percent_format
         builtins.taint_open = taint_open
         builtins.exec_func = exec_func
+        builtins.exec_mutation = exec_mutation
         builtins.intercept_assign = intercept_assign
         builtins.intercept_access = intercept_access
         builtins.wrap_if_needed = wrap_if_needed

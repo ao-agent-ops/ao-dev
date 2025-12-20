@@ -220,32 +220,40 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 )
                 return ast.copy_location(new_node, node)
 
-            # Regular method call: obj.method(args) -> exec_func(obj, args, kwargs, method_name="method")
+            # Method call: obj.method(args)
+            # Use exec_mutation for mutating methods, exec_func for others
             self.needs_taint_imports = True
+            mutating_methods = {"append", "extend", "insert", "add", "update"}
+            use_mutation = func_name in mutating_methods
 
             # Visit children manually: visit args/kwargs and the parent object, but NOT the method attribute
             visited_args = [self.visit(arg) for arg in node.args]
             visited_keywords = [
                 ast.keyword(arg=kw.arg, value=self.visit(kw.value)) for kw in node.keywords
             ]
-            visited_obj = self.visit(node.func.value)  # Visit the object, not obj.method
+            visited_obj = self.visit(node.func.value)
 
             args_tuple = ast.Tuple(elts=visited_args, ctx=ast.Load())
-            ast.copy_location(args_tuple, node)
-
             kwargs_dict = ast.Dict(
                 keys=[ast.Constant(value=kw.arg) if kw.arg else None for kw in visited_keywords],
                 values=[kw.value for kw in visited_keywords],
             )
-            ast.copy_location(kwargs_dict, node)
 
-            # Create exec_func call with method_name keyword argument
-            # exec_func(obj, args, kwargs, method_name="method")
-            new_node = ast.Call(
-                func=ast.Name(id="exec_func", ctx=ast.Load()),
-                args=[visited_obj, args_tuple, kwargs_dict],
-                keywords=[ast.keyword(arg="method_name", value=ast.Constant(value=func_name))],
-            )
+            if use_mutation:
+                # exec_mutation(obj, args, kwargs, method_name)
+                new_node = ast.Call(
+                    func=ast.Name(id="exec_mutation", ctx=ast.Load()),
+                    args=[visited_obj, args_tuple, kwargs_dict, ast.Constant(value=func_name)],
+                    keywords=[],
+                )
+            else:
+                # exec_func(obj, args, kwargs, method_name="method")
+                new_node = ast.Call(
+                    func=ast.Name(id="exec_func", ctx=ast.Load()),
+                    args=[visited_obj, args_tuple, kwargs_dict],
+                    keywords=[ast.keyword(arg="method_name", value=ast.Constant(value=func_name))],
+                )
+
             ast.copy_location(new_node, node)
             ast.fix_missing_locations(new_node)
             return new_node
@@ -636,7 +644,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from aco.server.ast_helpers import exec_func, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, intercept_assign, intercept_access
+from aco.server.ast_helpers import exec_func, exec_mutation, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, intercept_assign, intercept_access
 """
 
         safe_import_tree = ast.parse(safe_import_code)

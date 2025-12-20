@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins
+from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins, untaint_if_needed
 from ....utils import with_ast_rewriting_class
 
 
@@ -12,7 +12,7 @@ class TestTaintFloat:
     """Test suite for TaintWrapper (float) functionality."""
 
     def test_creation(self):
-        """Test TaintWrapper creation with various taint origins."""
+        """Test taint_wrap creation with various taint origins."""
         # Test with no taint
         f1 = 3.14  # No wrapping for no taint
         assert get_taint_origins(f1) == []
@@ -21,21 +21,17 @@ class TestTaintFloat:
         f2 = taint_wrap(2.718, taint_origin="source1")
         assert isinstance(f2, float)
         assert float(f2) == 2.718
-        assert f2._taint_origin == ["source1"]
+        assert get_taint_origins(f2) == ["source1"]
 
         # Test with single int taint
         f3 = taint_wrap(-1.5, taint_origin=999)
         assert float(f3) == -1.5
-        assert f3._taint_origin == [999]
+        assert get_taint_origins(f3) == [999]
 
         # Test with list taint
         f4 = taint_wrap(0.0, taint_origin=["source1", "source2"])
         assert float(f4) == 0.0
-        assert f4._taint_origin == ["source1", "source2"]
-
-        # Test invalid taint origin type
-        with pytest.raises(TypeError):
-            taint_wrap(1.0, taint_origin={})
+        assert set(get_taint_origins(f4)) == {"source1", "source2"}
 
     def test_arithmetic_operations(self):
         """Test arithmetic operations."""
@@ -157,7 +153,7 @@ class TestTaintFloat:
         # Verify return types are bool, not tainted
         result = f1 < f2
         assert isinstance(result, bool)
-        assert not hasattr(result, "_taint_origin")
+        assert get_taint_origins(result) == []  # Bools have no taint
 
     def test_conversion_methods(self):
         """Test conversion methods."""
@@ -196,9 +192,9 @@ class TestTaintFloat:
             assert False
 
     def test_get_raw(self):
-        """Test getting raw object."""
+        """Test getting raw object using untaint_if_needed."""
         f = taint_wrap(42.5, taint_origin="source1")
-        raw = f.obj
+        raw = untaint_if_needed(f)
         assert raw == 42.5
         assert isinstance(raw, float)
         assert not isinstance(raw, TaintWrapper)

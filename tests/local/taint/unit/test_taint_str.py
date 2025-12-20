@@ -222,18 +222,19 @@ class TestTaintStr:
         assert taint_wrap("ABC", "src").isupper() is True
 
     def test_hash(self):
-        """Test that TaintWrapper is hashable."""
+        """Test that tainted values are hashable."""
         s1 = taint_wrap("hello", taint_origin="source1")
-        s2 = taint_wrap("hello", taint_origin="source2")
+        s2 = taint_wrap("world", taint_origin="source2")
         s3 = "hello"
 
-        # TaintWrapper hashes based on its identity, not the wrapped value
-        # So s1 and s2 have different hashes
-        assert hash(s1) != hash(s2)
+        # Tainted values hash like their underlying values
+        # (hash() calls are AST-rewritten and unwrap the value)
+        assert hash(s1) == hash(s3)  # Both hash to hash("hello")
+        assert hash(s1) != hash(s2)  # Different underlying values
 
-        # Can be used in sets and dicts
+        # Can be used in sets and dicts (based on underlying value)
         test_set = {s1, s2}
-        assert len(test_set) == 2  # Different wrappers
+        assert len(test_set) == 2  # Different underlying values
 
     def test_str_repr(self):
         """Test __str__ and __repr__ methods."""

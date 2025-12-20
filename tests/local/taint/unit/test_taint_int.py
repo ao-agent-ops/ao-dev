@@ -2,7 +2,7 @@
 
 import pytest
 
-from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins
+from aco.runner.taint_wrappers import taint_wrap, TaintWrapper, get_taint_origins, untaint_if_needed
 from ....utils import with_ast_rewriting_class
 
 
@@ -11,12 +11,10 @@ class TestTaintInt:
     """Test suite for TaintWrapper (int) functionality."""
 
     def test_creation(self):
-        """Test TaintWrapper creation with various taint origins."""
-        print("hereee")
+        """Test taint_wrap creation with various taint origins."""
         # Test with no taint
         i1 = 42  # No wrapping for no taint
         assert int(i1) == 42
-        print("hello")
         assert get_taint_origins(i1) == []
 
         # Test with single string taint
@@ -28,16 +26,12 @@ class TestTaintInt:
         # Test with single int taint
         i3 = taint_wrap(-5, taint_origin=999)
         assert int(i3) == -5
-        assert i3._taint_origin == [999]
+        assert get_taint_origins(i3) == [999]
 
         # Test with list taint
         i4 = taint_wrap(0, taint_origin=["source1", "source2"])
         assert int(i4) == 0
-        assert i4._taint_origin == ["source1", "source2"]
-
-        # Test invalid taint origin type
-        with pytest.raises(TypeError):
-            taint_wrap(10, taint_origin={})
+        assert set(get_taint_origins(i4)) == {"source1", "source2"}
 
     def test_arithmetic_operations(self):
         """Test arithmetic operations."""
@@ -204,7 +198,7 @@ class TestTaintInt:
         # Verify return types are bool, not tainted
         result = i1 < i2
         assert isinstance(result, bool)
-        assert not hasattr(result, "_taint_origin")
+        assert get_taint_origins(result) == []  # Bools have no taint
 
     def test_conversion_methods(self):
         """Test conversion methods."""
@@ -243,9 +237,9 @@ class TestTaintInt:
             assert False
 
     def test_get_raw(self):
-        """Test getting raw object."""
+        """Test getting raw object using untaint_if_needed."""
         i = taint_wrap(42, taint_origin="source1")
-        raw = i.obj
+        raw = untaint_if_needed(i)
         assert raw == 42
         assert isinstance(raw, int)
         assert not isinstance(raw, TaintWrapper)

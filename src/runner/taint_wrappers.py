@@ -146,24 +146,18 @@ def get_taint_origins(val, _seen=None):
     """
     Extract taint origins from TAINT_DICT.
 
+    Returns only the object's own taint, not taint from nested items.
+    To get item taint, access the item directly (e.g., get_taint_origins(l[0])).
+
     Args:
         val: The value to extract taint from
-        _seen: Set to track visited objects (prevents circular references)
+        _seen: Unused, kept for API compatibility
 
     Returns:
-        List of taint origins found
+        List of taint origins for this object
     """
-    if _seen is None:
-        _seen = set()
-
-    obj_id = id(val)
-    if obj_id in _seen:
-        return []
-    _seen.add(obj_id)
-
     import builtins
 
-    # Check TAINT_DICT for this object
     if hasattr(builtins, "TAINT_DICT"):
         try:
             if val in builtins.TAINT_DICT:
@@ -172,16 +166,7 @@ def get_taint_origins(val, _seen=None):
         except TypeError:
             pass
 
-    # Check collections recursively
-    origins = set()
-    if isinstance(val, (list, tuple, set)):
-        for item in val:
-            origins.update(get_taint_origins(item, _seen))
-    elif isinstance(val, dict):
-        for v in val.values():
-            origins.update(get_taint_origins(v, _seen))
-
-    return list(origins)
+    return []
 
 
 # Legacy function for backwards compatibility during transition
