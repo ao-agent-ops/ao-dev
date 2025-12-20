@@ -54,6 +54,24 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
     };
   }, []);
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (showNodeEditModal) {
+      // Prevent scroll on body - keep it hidden
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Restore scroll when modal is closed
+      // The CSS has body { overflow: hidden }, so we need to explicitly override it
+      // Setting to empty string would just reveal the CSS rule
+      document.body.style.overflow = 'auto';
+    }
+
+    return () => {
+      // Always cleanup on unmount - restore to auto
+      document.body.style.overflow = 'auto';
+    };
+  }, [showNodeEditModal]);
+
   if (!experiment || !sessionId) {
     return (
       <div
@@ -84,7 +102,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
     >
       {/* Graph View */}
       {graphData && (
-        <div style={{ flex: 1, overflow: "auto", position: "relative", minWidth: 0 }}>
+        <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
           {/* Loading overlay */}
           {!isGraphReady && (
             <div
@@ -127,6 +145,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   result={experiment.result || ''}
                   notes={experiment.notes || ''}
                   log={experiment.log || ''}
+                  codeHash={experiment.code_hash || ''}
                   sessionId={sessionId || ''}
                   isDarkTheme={isDarkTheme}
                   messageSender={messageSender}
@@ -157,14 +176,24 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
               setShowNodeEditModal(false);
             }
           }}
+          onWheel={(e) => {
+            // Prevent scroll events from propagating to background
+            e.stopPropagation();
+          }}
         >
           <div
             style={{
               backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
               border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
               borderRadius: '6px',
-              width: 'auto',
-              height: 'auto',
+              width: '600px',
+              height: '500px',
+              minWidth: '400px',
+              minHeight: '300px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              resize: 'both',
+              overflow: 'auto',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             }}
             onClick={(e) => e.stopPropagation()}

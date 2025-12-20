@@ -121,7 +121,6 @@ def patch_builtin_open():
         # Only wrap text mode files that are user files
         # Don't wrap: binary files, system files, or library files
         if "b" not in mode and _should_wrap_file(file):
-
             # Get session ID from environment (set by the runner)
             import os
 

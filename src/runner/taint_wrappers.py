@@ -1,11 +1,27 @@
 import io
 import inspect
 import threading
+import warnings
 from typing import Any, Set
 from types import ModuleType
 from enum import Enum
+from functools import wraps
 from aco.server.database_manager import DB
-from aco.common.logger import logger
+
+
+def suppress_warnings(func):
+    """
+    Suppress warning that arise when we get taints and access,
+    for example, deprecated modules.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 class TaintObject:
@@ -76,6 +92,12 @@ class TaintObject:
         method = getattr(obj, method_name)
         return method(*args, **kwargs)
 
+    async def async_bound_method(self, method_name, *args, **kwargs):
+        """Same as bound_method, just async."""
+        obj = object.__getattribute__(self, "obj")
+        method = getattr(obj, method_name)
+        return await method(*args, **kwargs)
+
     def __getattr__(self, name):
         """Delegate attribute access to wrapped object."""
         if name in ("obj", "_taint_origin"):
@@ -87,6 +109,10 @@ class TaintObject:
         # This allows exec_func to extract taint from the TaintObject
         if callable(result):
             from functools import partial
+            from inspect import iscoroutinefunction
+
+            if iscoroutinefunction(result):
+                return partial(self.async_bound_method, name)
 
             return partial(self.bound_method, name)
 
@@ -161,6 +187,16 @@ class TaintObject:
     def __iter__(self):
         obj = object.__getattribute__(self, "obj")
         return iter(obj)
+
+    def __aiter__(self):
+        """Support async iteration by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return obj.__aiter__()
+
+    async def __anext__(self):
+        """Support async iteration by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__anext__()
 
     def __hash__(self):
         obj = object.__getattribute__(self, "obj")
@@ -238,6 +274,16 @@ class TaintObject:
         obj = object.__getattribute__(self, "obj")
         return obj.__exit__(exc_type, exc_val, exc_tb)
 
+    async def __aenter__(self):
+        """Support async context manager protocol by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__aenter__()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Support async context manager protocol by delegating to wrapped object."""
+        obj = object.__getattribute__(self, "obj")
+        return await obj.__aexit__(exc_type, exc_val, exc_tb)
+
     # Make this object more transparent to type checkers
     @property
     def __class__(self):
@@ -314,12 +360,42 @@ def untaint_if_needed(val, _seen=None):
 
     # Handle nested data structures
     if isinstance(val, dict):
-        return {k: untaint_if_needed(v, _seen) for k, v in val.items()}
-    elif isinstance(val, (list, tuple)):
-        result = [untaint_if_needed(item, _seen) for item in val]
-        return tuple(result) if isinstance(val, tuple) else result
+        # Collect keys that need untainting first (avoid modifying dict during iteration)
+        items_to_rekey = []
+        for k in list(val.keys()):
+            untainted_k = untaint_if_needed(k, _seen)
+            if untainted_k is not k:
+                items_to_rekey.append((k, untainted_k))
+
+        # Re-key in place
+        for old_key, new_key in items_to_rekey:
+            val[new_key] = val.pop(old_key)
+
+        # Untaint values in place
+        for k in val:
+            val[k] = untaint_if_needed(val[k], _seen)
+
+        return val
+    elif isinstance(val, list):
+        for i, item in enumerate(val):
+            val[i] = untaint_if_needed(item, _seen)
+        return val
+    elif isinstance(val, tuple):
+        # Untaint all items in the tuple
+        untainted_items = tuple(untaint_if_needed(item, _seen) for item in val)
+
+        # Check if this is a namedtuple - they have _fields attribute
+        if hasattr(val, "_fields"):
+            # Preserve the namedtuple type by reconstructing it
+            return type(val)(*untainted_items)
+
+        # Regular tuple
+        return untainted_items
     elif isinstance(val, set):
-        return {untaint_if_needed(item, _seen) for item in val}
+        items = [untaint_if_needed(item, _seen) for item in val]
+        val.clear()
+        val.update(items)
+        return val
     elif isinstance(val, Enum):
         return val
     elif isinstance(val, ModuleType):
@@ -340,25 +416,6 @@ def untaint_if_needed(val, _seen=None):
         ),
     ):
         return val  # Never modify threading primitives
-    elif hasattr(val, "__dict__") and not isinstance(val, type):
-        untainted = {}  # avoid mods while iterating over same thing
-        for attr, value in val.__dict__.items():
-            untainted[attr] = untaint_if_needed(value, _seen)
-        for attr, value in untainted.items():
-            val.__dict__[attr] = value
-        return val
-    elif hasattr(val, "__slots__"):
-        # Handle objects with __slots__ (some objects have __slots__ but no __dict__).
-        untainted = {}  # avoid mods while iterating over same thing
-        for slot in val.__slots__:
-            if hasattr(val, slot):
-                untainted[slot] = untaint_if_needed(getattr(val, slot), _seen)
-        for slot, value in untainted.items():
-            try:
-                setattr(val, slot, value)
-            except Exception:
-                logger.error(f"[TaintWrapper] error untainting {val}")
-        return val
 
     # Return primitive types and other objects as-is
     return val
@@ -382,6 +439,7 @@ def is_tainted(obj):
         return False
 
 
+@suppress_warnings
 def get_taint_origins(val, _seen=None, _depth=0, _max_depth=100):
     """
     Return a flat list of all taint origins for the input, including nested objects.
@@ -477,6 +535,308 @@ def is_openai_response(obj):
     return False
 
 
+class TaintBytes(bytes):
+    """
+    A taint-aware bytes class that tracks taint origins.
+
+    TaintBytes extends the built-in bytes class to provide taint tracking capabilities,
+    allowing security analysis tools to track the flow of potentially sensitive
+    or untrusted data through bytes operations.
+
+    Attributes:
+        _taint_origin (list): List of taint origin identifiers
+    """
+
+    __class__ = bytes
+
+    def __new__(cls, value, taint_origin=None):
+        obj = bytes.__new__(cls, value)
+        if taint_origin is None:
+            obj._taint_origin = []
+        elif isinstance(taint_origin, (int, str)):
+            obj._taint_origin = [taint_origin]
+        elif isinstance(taint_origin, (list, set)):
+            obj._taint_origin = list(taint_origin)
+        else:
+            raise TypeError(f"Unsupported taint_origin type: {type(taint_origin)}")
+        return obj
+
+    def _propagate_taint(self, other):
+        """Helper to propagate taint from self and other."""
+        nodes = set(get_taint_origins(self)) | set(get_taint_origins(other))
+        return list(nodes)
+
+    # Arithmetic operations
+    def __add__(self, other):
+        result = bytes.__add__(self, other)
+        return TaintBytes(result, taint_origin=self._propagate_taint(other))
+
+    def __radd__(self, other):
+        result = bytes.__add__(other, self)
+        return TaintBytes(result, taint_origin=self._propagate_taint(other))
+
+    def __mul__(self, other):
+        result = bytes.__mul__(self, other)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def __rmul__(self, other):
+        result = bytes.__rmul__(self, other)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def __mod__(self, other):
+        result = bytes.__mod__(self, other)
+        if result is NotImplemented:
+            return NotImplemented
+        nodes = set(get_taint_origins(self))
+        if isinstance(other, (tuple, list)):
+            for o in other:
+                nodes.update(get_taint_origins(o))
+        else:
+            nodes.update(get_taint_origins(other))
+        return TaintBytes(result, list(nodes))
+
+    def __rmod__(self, other):
+        result = bytes.__mod__(other, self)
+        if result is NotImplemented:
+            return NotImplemented
+        return TaintBytes(result, taint_origin=self._propagate_taint(other))
+
+    # Indexing and slicing
+    def __getitem__(self, key):
+        result = bytes.__getitem__(self, key)
+        if isinstance(key, slice):
+            # For slices, return TaintBytes
+            return TaintBytes(result, taint_origin=self._taint_origin)
+        else:
+            # For single items, return int (no need to taint)
+            return result
+
+    # Comparison methods (return bool, no taint needed)
+    def __contains__(self, item):
+        return bytes.__contains__(self, item)
+
+    def __eq__(self, other):
+        return bytes.__eq__(self, other)
+
+    def __ne__(self, other):
+        return bytes.__ne__(self, other)
+
+    def __lt__(self, other):
+        return bytes.__lt__(self, other)
+
+    def __le__(self, other):
+        return bytes.__le__(self, other)
+
+    def __gt__(self, other):
+        return bytes.__gt__(self, other)
+
+    def __ge__(self, other):
+        return bytes.__ge__(self, other)
+
+    # String/bytes transformation methods
+    def capitalize(self):
+        result = bytes.capitalize(self)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def center(self, width, fillchar=b" "):
+        result = bytes.center(self, width, fillchar)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def count(self, sub, start=None, end=None):
+        # Returns int, no taint needed
+        return bytes.count(self, sub, start, end)
+
+    def decode(self, encoding="utf-8", errors="strict"):
+        result = bytes.decode(self, encoding, errors)
+        # Decode returns str, so wrap in TaintStr
+        return TaintStr(result, taint_origin=self._taint_origin)
+
+    def endswith(self, suffix, start=None, end=None):
+        # Returns bool, no taint needed
+        return bytes.endswith(self, suffix, start, end)
+
+    def expandtabs(self, tabsize=8):
+        result = bytes.expandtabs(self, tabsize)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def find(self, sub, start=None, end=None):
+        # Returns int, no taint needed
+        return bytes.find(self, sub, start, end)
+
+    @classmethod
+    def fromhex(cls, string):
+        # Class method, just call parent implementation
+        return bytes.fromhex(string)
+
+    def hex(self, sep=None, bytes_per_sep=1):
+        result = bytes.hex(self, sep, bytes_per_sep) if sep is not None else bytes.hex(self)
+        # hex returns str, wrap in TaintStr
+        return TaintStr(result, taint_origin=self._taint_origin)
+
+    def index(self, sub, start=None, end=None):
+        # Returns int, no taint needed
+        return bytes.index(self, sub, start, end)
+
+    def isalnum(self):
+        return bytes.isalnum(self)
+
+    def isalpha(self):
+        return bytes.isalpha(self)
+
+    def isascii(self):
+        return bytes.isascii(self)
+
+    def isdigit(self):
+        return bytes.isdigit(self)
+
+    def islower(self):
+        return bytes.islower(self)
+
+    def isspace(self):
+        return bytes.isspace(self)
+
+    def istitle(self):
+        return bytes.istitle(self)
+
+    def isupper(self):
+        return bytes.isupper(self)
+
+    def join(self, iterable):
+        # Collect taint from all items
+        nodes = set(get_taint_origins(self))
+        for item in iterable:
+            nodes.update(get_taint_origins(item))
+        result = bytes.join(self, iterable)
+        return TaintBytes(result, taint_origin=list(nodes))
+
+    def ljust(self, width, fillchar=b" "):
+        result = bytes.ljust(self, width, fillchar)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def lower(self):
+        result = bytes.lower(self)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def lstrip(self, chars=None):
+        result = bytes.lstrip(self, chars)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    @staticmethod
+    def maketrans(from_, to):
+        # Static method, just call parent
+        return bytes.maketrans(from_, to)
+
+    def partition(self, sep):
+        before, separator, after = bytes.partition(self, sep)
+        return (
+            TaintBytes(before, self._taint_origin),
+            TaintBytes(separator, self._taint_origin),
+            TaintBytes(after, self._taint_origin),
+        )
+
+    def removeprefix(self, prefix):
+        result = bytes.removeprefix(self, prefix)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def removesuffix(self, suffix):
+        result = bytes.removesuffix(self, suffix)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def replace(self, old, new, count=-1):
+        result = bytes.replace(self, old, new, count)
+        # Propagate taint from new as well
+        nodes = set(get_taint_origins(self)) | set(get_taint_origins(new))
+        return TaintBytes(result, taint_origin=list(nodes))
+
+    def rfind(self, sub, start=None, end=None):
+        # Returns int, no taint needed
+        return bytes.rfind(self, sub, start, end)
+
+    def rindex(self, sub, start=None, end=None):
+        # Returns int, no taint needed
+        return bytes.rindex(self, sub, start, end)
+
+    def rjust(self, width, fillchar=b" "):
+        result = bytes.rjust(self, width, fillchar)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def rpartition(self, sep):
+        before, separator, after = bytes.rpartition(self, sep)
+        return (
+            TaintBytes(before, self._taint_origin),
+            TaintBytes(separator, self._taint_origin),
+            TaintBytes(after, self._taint_origin),
+        )
+
+    def rsplit(self, sep=None, maxsplit=-1):
+        result = bytes.rsplit(self, sep, maxsplit)
+        return [TaintBytes(item, self._taint_origin) for item in result]
+
+    def rstrip(self, chars=None):
+        result = bytes.rstrip(self, chars)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def split(self, sep=None, maxsplit=-1):
+        result = bytes.split(self, sep, maxsplit)
+        return [TaintBytes(item, self._taint_origin) for item in result]
+
+    def splitlines(self, keepends=False):
+        result = bytes.splitlines(self, keepends)
+        return [TaintBytes(item, self._taint_origin) for item in result]
+
+    def startswith(self, prefix, start=None, end=None):
+        # Returns bool, no taint needed
+        return bytes.startswith(self, prefix, start, end)
+
+    def strip(self, chars=None):
+        result = bytes.strip(self, chars)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def swapcase(self):
+        result = bytes.swapcase(self)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def title(self):
+        result = bytes.title(self)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def translate(self, table, delete=b""):
+        result = bytes.translate(self, table, delete)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def upper(self):
+        result = bytes.upper(self)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    def zfill(self, width):
+        result = bytes.zfill(self, width)
+        return TaintBytes(result, taint_origin=self._taint_origin)
+
+    # Utility methods
+    def get_raw(self):
+        """Return the raw bytes object without taint."""
+        return bytes(self)
+
+    def __repr__(self):
+        return bytes.__repr__(self)
+
+    def __str__(self):
+        return bytes.__str__(self)
+
+    def __hash__(self):
+        return bytes.__hash__(self)
+
+    def __bool__(self):
+        return len(self) > 0
+
+    def __len__(self):
+        return bytes.__len__(self)
+
+    def __iter__(self):
+        # Iterate returns integers, no need to taint
+        return bytes.__iter__(self)
+
+
 # Taint-aware str
 class TaintStr(str):
     """
@@ -553,9 +913,6 @@ class TaintStr(str):
 
     def encode(self, *args, **kwargs):
         return self.get_raw().encode(*args, **kwargs)
-
-    def decode(self, *args, **kwargs):
-        return self.get_raw().decode(*args, **kwargs)
 
     def __str__(self):
         return self
@@ -1515,9 +1872,6 @@ class TaintFile:
     def read(self, size=-1):
         """Read from the file and return tainted data."""
         from aco.common.logger import logger
-        import os
-
-        # Read from file with taint tracking
 
         data = self._file.read(size)
         if isinstance(data, bytes):
@@ -1541,7 +1895,6 @@ class TaintFile:
                 print(f"Warning: Could not retrieve taint info in read(): {e}", file=sys.stderr)
                 logger.error(f"Exception in taint info retrieval: {e}")
 
-        # Return with default file taint
         return TaintStr(data, self._taint_origin)
 
     def readline(self, size=-1):
@@ -1587,10 +1940,6 @@ class TaintFile:
         If the data is tainted, the taint information is preserved
         and stored in the database for cross-session tracking.
         """
-        from aco.common.logger import logger
-
-        # Write data with taint tracking
-
         # Extract raw data if tainted
         raw_data = untaint_if_needed(data)
 
@@ -1781,7 +2130,9 @@ def taint_wrap(
     # because by the time we encounter the second "a", we will have "seen" it
     # and just return it.
     # Note that this is not true for lists, dicts or any other complex objects
-    if isinstance(obj, str):
+    if isinstance(obj, bytes):
+        return TaintBytes(obj, taint_origin=taint_origin)
+    if isinstance(obj, str) and obj.__class__ == str:
         return TaintStr(obj, taint_origin=taint_origin)
     if isinstance(obj, bool):
         # Don't wrap booleans, return as-is
@@ -1806,18 +2157,24 @@ def taint_wrap(
         if issubclass(obj.__class__, enum.Enum):
             return obj  # Don't wrap any enum members (including StrEnum)
 
+    # Don't wrap exceptions - they need to be raisable and can't be proxied
+    if isinstance(obj, BaseException):
+        return obj
+
     if isinstance(obj, dict):
         tainted_dict = TaintDict(
             {
                 taint_wrap(
                     k,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
                 ): taint_wrap(
                     v,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
@@ -1837,6 +2194,7 @@ def taint_wrap(
                 taint_wrap(
                     x,
                     taint_origin=taint_origin,
+                    inplace=inplace,
                     _seen=_seen,
                     _depth=_depth + 1,
                     _max_depth=_max_depth,
@@ -1850,18 +2208,26 @@ def taint_wrap(
             return obj
         return tainted_list
     if isinstance(obj, tuple):
-        return tuple(
-            [
-                taint_wrap(
-                    x,
-                    taint_origin=taint_origin,
-                    _seen=_seen,
-                    _depth=_depth + 1,
-                    _max_depth=_max_depth,
-                )
-                for x in obj
-            ]
-        )
+        # Wrap the items in the tuple
+        wrapped_items = [
+            taint_wrap(
+                x,
+                taint_origin=taint_origin,
+                inplace=inplace,
+                _seen=_seen,
+                _depth=_depth + 1,
+                _max_depth=_max_depth,
+            )
+            for x in obj
+        ]
+
+        # Check if this is a namedtuple - they have _fields attribute
+        if hasattr(obj, "_fields"):
+            # Preserve the namedtuple type by reconstructing it
+            return type(obj)(*wrapped_items)
+
+        # Regular tuple
+        return tuple(wrapped_items)
     if isinstance(obj, io.IOBase):
         return TaintFile(obj, taint_origin=taint_origin)
 

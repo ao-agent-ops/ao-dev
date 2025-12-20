@@ -2,11 +2,35 @@ import hashlib
 import random
 import json
 import os
+import sys
 import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
-from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT
+from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
+from aco.common.logger import logger
+
+
+def compute_code_hash() -> str:
+    """Compute 8-digit hash on the files in the project root."""
+    num_py_files = 0
+    hash = hashlib.sha256()
+    for dirpath, _, dirfiles in os.walk(ACO_PROJECT_ROOT):
+        for file in dirfiles:
+            if not file.endswith(".py"):
+                continue
+            num_py_files += 1
+            with open(os.path.join(dirpath, file), "r") as f:
+                content = f.read()
+            hash.update(content.encode("utf-8"))
+    if num_py_files > 0:
+        return hash.hexdigest()[:8]
+    return "0" * 8
+
+
+def is_whitelisted_endpoint(path: str) -> bool:
+    """Check if a path matches any of the whitelist regex patterns."""
+    return any(pattern.search(path) for pattern in COMPILED_ENDPOINT_PATTERNS)
 
 
 def hash_input(input_bytes):
@@ -54,10 +78,73 @@ def is_valid_mod(mod_name: str):
         return False
 
 
+def get_module_file_path(module_name: str) -> str | None:
+    """
+    Get the file path for an installed module without importing it.
+
+    This function searches sys.path manually to avoid the side effects of
+    importlib.util.find_spec(), which can trigger partial imports and cause
+    module initialization issues.
+
+    Args:
+        module_name: The module name (e.g., 'google.genai.models')
+
+    Returns:
+        The absolute path to the module file, or None if not found
+    """
+    # Convert module name to file path components
+    # e.g., 'google.genai.models' -> ['google', 'genai', 'models']
+    parts = module_name.split(".")
+
+    # Search each directory in sys.path
+    for base_path in sys.path:
+        if not base_path or not os.path.isdir(base_path):
+            continue
+
+        # Build the full path by traversing the package hierarchy
+        current_path = base_path
+        for part in parts:
+            current_path = os.path.join(current_path, part)
+
+        # Check if it's a package (has __init__.py)
+        init_path = os.path.join(current_path, "__init__.py")
+        if os.path.exists(init_path):
+            return os.path.abspath(init_path)
+
+        # Check if it's a module (.py file)
+        module_path = current_path + ".py"
+        if os.path.exists(module_path):
+            return os.path.abspath(module_path)
+
+    return None
+
+
+def add_whitelisted_modules_to_mapping(module_to_file: dict, whitelist: list[str]) -> dict:
+    """
+    Add whitelisted third-party modules to the module_to_file mapping.
+
+    Args:
+        module_to_file: Existing mapping of module names to file paths
+        whitelist: List of module names to add (e.g., ['google.genai.models'])
+
+    Returns:
+        Updated module_to_file mapping
+    """
+    for module_name in whitelist:
+        if module_name in module_to_file:
+            # Already in mapping, skip
+            continue
+
+        file_path = get_module_file_path(module_name)
+        if file_path:
+            module_to_file[module_name] = file_path
+
+    return module_to_file
+
+
 def scan_user_py_files_and_modules(root_dir):
     """
     Scan a directory for all .py files and return:
-      - user_py_files: set of absolute file paths
       - file_to_module: mapping from file path to module name (relative to root_dir)
 
     Excludes agent-copilot directories except for example_workflows.
@@ -118,19 +205,33 @@ def send_to_server(msg):
         server_file.flush()
 
 
-def send_to_server_and_receive(msg):
-    """Thread-safe send message to server and receive response."""
-    from aco.runner.context_manager import server_file
+def send_to_server_and_receive(msg, timeout=30):
+    """Thread-safe send message to server and receive response.
+
+    The listener thread in AgentRunner reads all incoming messages from the socket
+    and routes non-control messages (like session_id responses) to a response queue.
+    This function sends a message and then waits for the response from that queue.
+    """
+    from aco.runner.context_manager import server_file, response_queue
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"
     elif isinstance(msg, str) and msg[-1] != "\n":
         msg += "\n"
+
     with _server_lock:
+        logger.debug(f"[send_to_server_and_receive] Sending: {msg[:200]}")
         server_file.write(msg)
         server_file.flush()
-        response = json.loads(server_file.readline().strip())
+
+    # Wait for response from the queue (populated by listener thread)
+    try:
+        response = response_queue.get(timeout=timeout)
+        logger.debug(f"[send_to_server_and_receive] Received from queue: {response}")
         return response
+    except Exception as e:
+        logger.error(f"[send_to_server_and_receive] Timeout or error waiting for response: {e}")
+        raise
 
 
 def find_additional_packages_in_project_root(project_root: str):
@@ -445,3 +546,8 @@ packages_in_project_root = find_additional_packages_in_project_root(project_root
 for additional_package in packages_in_project_root:
     additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
     MODULE2FILE = {**MODULE2FILE, **additional_package_module_to_file}
+
+# Add whitelisted third-party modules to the mapping
+from aco.common.constants import WHITELISTED_THIRD_PARTY_MODULES
+
+MODULE2FILE = add_whitelisted_modules_to_mapping(MODULE2FILE, WHITELISTED_THIRD_PARTY_MODULES)

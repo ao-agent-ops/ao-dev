@@ -1,39 +1,8 @@
-import sys
 import os
 import yaml
 from argparse import ArgumentParser, REMAINDER
-from typing import Optional
 from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
 from aco.runner.agent_runner import AgentRunner
-
-
-def parse_sample_id() -> Optional[int]:
-    """Parse the --sample_id flag from command line arguments anywhere in sys.argv."""
-    try:
-        # Look for --sample_id in sys.argv (handles both --sample_id X and --sample_id=X formats)
-        for i, arg in enumerate(sys.argv):
-            if arg == "--sample_id" and i + 1 < len(sys.argv):
-                # Format: --sample_id X
-                return int(sys.argv[i + 1])
-            elif arg.startswith("--sample_id="):
-                # Format: --sample_id=X
-                return int(arg.split("=", 1)[1])
-    except (ValueError, IndexError):
-        pass
-    return None
-
-
-def parse_user_id() -> Optional[int]:
-    """Parse the --user_id flag from command line arguments anywhere in sys.argv."""
-    try:
-        for i, arg in enumerate(sys.argv):
-            if arg == "--user_id" and i + 1 < len(sys.argv):
-                return int(sys.argv[i + 1])
-            elif arg.startswith("--user_id="):
-                return int(arg.split("=", 1)[1])
-    except (ValueError, IndexError):
-        pass
-    return None
 
 
 def launch_command_parser():
@@ -47,6 +16,12 @@ def launch_command_parser():
         "--config-file",
         default=None,
         help="The config file to use for the default values in the launching script.",
+    )
+
+    parser.add_argument(
+        "--run-name",
+        default=None,
+        help="Name that will be used in the experiment list. If not set, Run X where X is the index of the current run will be used.",
     )
 
     parser.add_argument(
@@ -107,7 +82,7 @@ def _validate_launch_command(args):
     return args
 
 
-def launch_command(args, *, sample_id: Optional[int] = None, user_id: Optional[int] = None):
+def launch_command(args):
     args = _validate_launch_command(args)
 
     # Note: UI event logging moved to AgentRunner where session_id is available
@@ -116,45 +91,16 @@ def launch_command(args, *, sample_id: Optional[int] = None, user_id: Optional[i
         script_args=args.script_args,
         is_module_execution=args.module,
         project_root=args.project_root,
-        sample_id=sample_id,
-        user_id=user_id,
+        run_name=args.run_name,
     )
     agent_runner.run()
 
 
 def main():
     # Parse sample_id and user_id from the original argv before we filter them
-    sample_id = parse_sample_id()
-    user_id = parse_user_id()
-
-    # Filter out --user_id and --sample_id before argparse sees them
-    # (they are parsed manually by parse_user_id/parse_sample_id functions)
-    filtered_argv = []
-    i = 0
-    while i < len(sys.argv):
-        arg = sys.argv[i]
-        if arg in ("--user_id", "--sample_id"):
-            # Skip this arg and its value
-            i += 2
-            continue
-        elif arg.startswith("--user_id=") or arg.startswith("--sample_id="):
-            # Skip this arg (value is embedded)
-            i += 1
-            continue
-        filtered_argv.append(arg)
-        i += 1
-
-    # Temporarily replace sys.argv for argparse
-    original_argv = sys.argv
-    sys.argv = filtered_argv
-
-    try:
-        parser = launch_command_parser()
-        args = parser.parse_args()
-        launch_command(args, sample_id=sample_id, user_id=user_id)
-    finally:
-        # Restore original sys.argv
-        sys.argv = original_argv
+    parser = launch_command_parser()
+    args = parser.parse_args()
+    launch_command(args)
 
 
 if __name__ == "__main__":

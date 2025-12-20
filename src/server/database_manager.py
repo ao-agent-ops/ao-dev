@@ -8,15 +8,20 @@ runtime switching between local SQLite and remote PostgreSQL databases.
 import time
 import uuid
 import json
-import dill
+import random
 from dataclasses import dataclass
 from typing import Optional, Any
 
 from aco.common.logger import logger
-from aco.runner.monkey_patching.api_parser import get_input, get_model_name, set_input, set_output
-from aco.server.database_backends import sqlite, postgres
-from aco.common.utils import hash_input, set_seed, stream_hash, save_io_stream
-from aco.common.constants import DEFAULT_LOG, SUCCESS_STRING, SUCCESS_COLORS, ACO_ATTACHMENT_CACHE
+from aco.server.database_backends import postgres, sqlite
+from aco.runner.monkey_patching.api_parser import (
+    get_model_name,
+    func_kwargs_to_json_str,
+    json_str_to_api_obj,
+    api_obj_to_json_str,
+    json_str_to_original_inp_dict,
+    api_obj_to_response_ok,
+)
 
 
 @dataclass
@@ -62,8 +67,12 @@ class DatabaseManager:
         self._backend_module = None
 
         # Check if and where to cache attachments.
+        from aco.common.constants import ACO_ATTACHMENT_CACHE
+
         self.cache_attachments = True
         self.attachment_cache_dir = ACO_ATTACHMENT_CACHE
+
+        logger.info(f"DatabaseManager initialized with backend: {self.get_current_mode()}")
 
     @property
     def backend(self):
@@ -76,8 +85,10 @@ class DatabaseManager:
         if self._backend_module is None:
             if self._backend_type == "sqlite":
                 self._backend_module = sqlite
+                logger.debug("Loaded SQLite backend module")
             elif self._backend_type == "postgres":
                 self._backend_module = postgres
+                logger.debug("Loaded PostgreSQL backend module")
             else:
                 raise ValueError(f"Unknown backend type: {self._backend_type}")
         return self._backend_module
@@ -94,8 +105,10 @@ class DatabaseManager:
         """
         if mode == "local":
             self._backend_type = "sqlite"
+            logger.info("Switched to local SQLite database")
         elif mode == "remote":
             self._backend_type = "postgres"
+            logger.info("Switched to remote PostgreSQL database")
         else:
             raise ValueError(f"Invalid mode: {mode}. Use 'local' or 'remote'")
 
@@ -133,13 +146,6 @@ class DatabaseManager:
         """Execute query without returning results."""
         return self.backend.execute(query, params or ())
 
-    def deserialize(self, data):
-        """Deserialize data."""
-        # TODO: Is this the right place for this?
-        if data is None:
-            return None
-        return dill.loads(data)
-
     def store_taint_info(self, session_id, file_path, line_number, taint_nodes):
         """Store taint tracking information."""
         return self.backend.store_taint_info(session_id, file_path, line_number, taint_nodes)
@@ -148,21 +154,6 @@ class DatabaseManager:
         """Retrieve taint tracking information."""
         return self.backend.get_taint_info(file_path, line_number)
 
-    # Low-level experiment operations - these will be replaced by business logic methods
-
-    # These delegation methods will be replaced by business logic methods from EditManager/CacheManager
-
-    # Attachment-related queries will be moved to business logic methods
-
-    # Subrun queries will be moved to business logic methods
-
-    # LLM calls queries will be moved to business logic methods
-
-    # Experiment list and graph queries will be moved to business logic methods
-
-    # Database cleanup and utility queries will be moved to business logic methods
-
-    # User Management (backend-agnostic)
     def upsert_user(self, google_id, email, name, picture):
         """
         Upsert user in the database.
@@ -179,7 +170,7 @@ class DatabaseManager:
         Raises:
             Exception: If current backend doesn't support user management (e.g., SQLite)
         """
-        return self.backend.upsert_user(google_id, email, name, picture)
+        return postgres.upsert_user(google_id, email, name, picture)
 
     def get_user_by_id(self, user_id):
         """
@@ -196,30 +187,20 @@ class DatabaseManager:
         """
         return self.backend.get_user_by_id_query(user_id)
 
-    # Edit Management Operations (from EditManager)
     def set_input_overwrite(self, session_id, node_id, new_input):
-        """Overwrite input for node."""
+        # Make sure string repr. is uniform
+        new_input = json.dumps(json.loads(new_input), sort_keys=True)
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
+        input_overwrite = json.loads(row["input"])
+        # Maybe what the UI gave us is the same (user didn't change anything).
+        # In this case, don't remove the output (this is what set_input_overwrite_query does)
+        if input_overwrite["input"] != new_input:
+            input_overwrite["input"] = new_input
+            input_overwrite = json.dumps(input_overwrite, sort_keys=True)
+            self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
 
-        if row is None:
-            return
-
-        # Handle both dictionary and tuple/list access
-        # TODO: I think we can delete the fallback after upgrading to psycopg3
-        try:
-            input_pickle = row["input"]
-        except (KeyError, TypeError):
-            # Fallback to index access for tuple/list results
-            input_pickle = row[0]
-
-        input_overwrite = dill.loads(input_pickle)
-        input_overwrite["input"] = new_input
-        input_overwrite = dill.dumps(input_overwrite)
-
-        self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
-
-    def set_output_overwrite(self, session_id, node_id, new_output):
-        """Overwrite output for node."""
+    def set_output_overwrite(self, session_id, node_id, new_output: str):
+        # Overwrite output for node.
         row = self.backend.get_llm_call_output_api_type_query(session_id, node_id)
 
         if not row:
@@ -229,16 +210,17 @@ class DatabaseManager:
             return
 
         try:
-            output_obj = dill.loads(row["output"])
+            # try to parse the edit of the user
+            json_str_to_api_obj(new_output, row["api_type"])
+            new_output = json.dumps(json.loads(new_output), sort_keys=True)
+            self.backend.set_output_overwrite_query(new_output, session_id, node_id)
         except Exception as e:
-            raise ValueError(f"Failed to unpickle output for node {node_id}: {e}")
-
-        set_output(output_obj, new_output, row["api_type"])
-        output_overwrite = dill.dumps(output_obj)
-        self.backend.set_output_overwrite_query(output_overwrite, session_id, node_id)
+            logger.error(f"Failed to parse output edit into API object: {e}")
 
     def erase(self, session_id):
         """Erase experiment data."""
+        import json
+
         default_graph = json.dumps({"nodes": [], "edges": []})
         self.backend.delete_llm_calls_query(session_id)
         self.backend.update_experiment_graph_topology_query(default_graph, session_id)
@@ -253,8 +235,10 @@ class DatabaseManager:
         environment,
         parent_session_id=None,
         user_id=None,
+        code_hash=None,
     ):
         """Add experiment to database."""
+        import json
         from aco.common.constants import DEFAULT_LOG, DEFAULT_NOTE, DEFAULT_SUCCESS
 
         # Initial values.
@@ -276,10 +260,13 @@ class DatabaseManager:
             DEFAULT_NOTE,
             DEFAULT_LOG,
             user_id,
+            code_hash,
         )
 
     def update_graph_topology(self, session_id, graph_dict):
         """Update graph topology."""
+        import json
+
         graph_json = json.dumps(graph_dict)
         self.backend.update_experiment_graph_topology_query(graph_json, session_id)
 
@@ -312,6 +299,9 @@ class DatabaseManager:
 
     def add_log(self, session_id, success, new_entry):
         """Write success and new_entry to DB under certain conditions."""
+        import json
+        from aco.common.constants import DEFAULT_LOG, SUCCESS_STRING, SUCCESS_COLORS
+
         row = self.backend.get_experiment_log_success_graph_query(session_id)
 
         existing_log = row["log"]
@@ -365,7 +355,7 @@ class DatabaseManager:
         condition where the restart handler tries to read parent_session_id before the
         insert transaction is committed. This method retries a few times with short delays.
         """
-        max_retries = 4
+        max_retries = 3
         retry_delay = 0.05  # 50ms between retries
 
         for attempt in range(max_retries):
@@ -374,12 +364,14 @@ class DatabaseManager:
                 return result["parent_session_id"]
 
             if attempt < max_retries - 1:  # Don't sleep on last attempt
+                logger.debug(
+                    f"Parent session not found for {session_id}, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})"
+                )
                 time.sleep(retry_delay)
 
         # If we get here, all retries failed
-        raise ValueError(
-            f"Parent session not found for session_id: {session_id}. All retries failed."
-        )
+        logger.error(f"Failed to find parent session for {session_id} after {max_retries} attempts")
+        raise ValueError(f"Parent session not found for session_id: {session_id}")
 
     def cache_file(self, file_id, file_name, io_stream):
         """Cache file attachment."""
@@ -389,6 +381,8 @@ class DatabaseManager:
         if self.backend.check_attachment_exists_query(file_id):
             return
         # Check if with same content already exists.
+        from aco.common.utils import stream_hash, save_io_stream
+
         content_hash = stream_hash(io_stream)
         row = self.backend.get_attachment_by_content_hash_query(content_hash)
         # Get appropriate file_path.
@@ -412,32 +406,35 @@ class DatabaseManager:
         """Convert attachment IDs to file paths."""
         # file_path can be None if user doesn't want to cache?
         file_paths = [self.get_file_path(attachment_id) for attachment_id in attachment_ids]
+        # assert all(f is not None for f in file_paths), "All file paths should be non-None"
         return [f for f in file_paths if f is not None]
 
     def get_in_out(self, input_dict: dict, api_type: str) -> CacheOutput:
         """Get input/output for LLM call, handling caching and overwrites."""
         from aco.runner.context_manager import get_session_id
         from aco.runner.taint_wrappers import untaint_if_needed
+        from aco.common.utils import hash_input, set_seed
 
         # Pickle input object.
         input_dict = untaint_if_needed(input_dict)
-        prompt, attachments, tools = get_input(input_dict, api_type)
+        api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
         model = get_model_name(input_dict, api_type)
 
         cacheable_input = {
-            "input": prompt,
+            "input": api_json_str,
             "attachments": attachments,
             "model": model,
-            "tools": tools,
         }
-        input_pickle = dill.dumps(cacheable_input)
+        input_pickle = json.dumps(cacheable_input, sort_keys=True)
         input_hash = hash_input(input_pickle)
 
         # Check if API call with same session_id & input has been made before.
         session_id = get_session_id()
+
         row = self.backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
 
         if row is None:
+            logger.debug(f"Cache MISS, (session_id, input_hash): {(session_id, input_hash)}")
             return CacheOutput(
                 input_dict=input_dict,
                 output=None,
@@ -453,22 +450,26 @@ class DatabaseManager:
 
         if row["input_overwrite"] is not None:
             logger.debug(
-                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}; input overwritten"
+                f"Cache HIT - Input overwrite, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
             )
-            overwrite_pickle = row["input_overwrite"]
-            overwrite_text = dill.loads(overwrite_pickle)["input"]
-            set_input(input_dict, overwrite_text, api_type)
+            overwrite_json_str = row["input_overwrite"]
+            overwrite_text = json.loads(overwrite_json_str)["input"]
+            # the format of the input is not always a JSON dict.
+            # sometimes, you need to parse the JSON dict into a
+            # specific input format. To do that, API libraries often
+            # provide helper functions
+            input_dict = json_str_to_original_inp_dict(overwrite_text, input_dict, api_type)
 
+        # Here, no matter if we made an edit to the input or not, the input dict should
+        # be a valid input to the underlying function
+
+        # TODO We can't distinguish between output and output_overwrite
         if row["output"] is not None:
+            output = json_str_to_api_obj(row["output"], api_type)
             logger.debug(
-                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}; output cached"
+                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
             )
-            output = dill.loads(row["output"])
-        else:
-            logger.debug(
-                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}; output NOT cached"
-            )
-            output = None
+
         set_seed(node_id)
         return CacheOutput(
             input_dict=input_dict,
@@ -496,28 +497,28 @@ class DatabaseManager:
         """
         from aco.common.utils import set_seed
 
-        # Check if we're updating an existing node (cache HIT with output=None) or creating new (cache MISS)
-        if cache_result.node_id is not None:
-            # Update existing node that was found in cache but had no output
+        # Insert new row with a new node_id. reset randomness to avoid
+        # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
+        random.seed()
+        if cache_result.node_id:
             node_id = cache_result.node_id
-            logger.debug(f"Cache HIT with output=None, updating existing node: {node_id}")
         else:
-            # Insert new row with a new node_id. reset randomness to avoid
             node_id = str(uuid.uuid4())
-            logger.debug(
-                f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"
-            )
+        # Avoid caching bad http responses
+        response_ok = api_obj_to_response_ok(output_obj, api_type)
 
-        output_pickle = dill.dumps(output_obj)
-        if cache:
+        if response_ok and cache:
+            output_json_str = api_obj_to_json_str(output_obj, api_type)
             self.backend.insert_llm_call_with_output_query(
                 cache_result.session_id,
                 cache_result.input_pickle,
                 cache_result.input_hash,
                 node_id,
                 api_type,
-                output_pickle,
+                output_json_str,
             )
+        else:
+            logger.warning(f"Node {node_id} response not OK.")
         cache_result.node_id = node_id
         cache_result.output = output_obj
         set_seed(node_id)
@@ -545,6 +546,13 @@ class DatabaseManager:
         """Get parent environment info."""
         return self.backend.get_experiment_environment_query(parent_session_id)
 
+    def delete_llm_calls_query(self, session_id):
+        return self.backend.delete_llm_calls_query(session_id)
+
+    def delete_all_llm_calls_query(self):
+        """Delete all records from llm_calls table."""
+        return self.backend.delete_all_llm_calls_query()
+
     def update_color_preview(self, session_id, colors):
         """Update color preview."""
         color_preview_json = json.dumps(colors)
@@ -569,6 +577,18 @@ class DatabaseManager:
         if not row:
             return []  # Return empty list if no subruns found
         return [row["name"]]
+
+    def query_one_llm_call_input(self, session_id, node_id):
+        """Get one llm-call input by session id and node id"""
+        return self.backend.get_llm_call_input_api_type_query(session_id, node_id)
+
+    def query_one_llm_call_output(self, session_id, node_id):
+        """Get one llm-call output by session id and node id"""
+        return self.backend.get_llm_call_output_api_type_query(session_id, node_id)
+
+    def get_next_run_index(self):
+        """Get the next run index based on how many runs already exist."""
+        return self.backend.get_next_run_index_query()
 
 
 # Create singleton instance following the established pattern

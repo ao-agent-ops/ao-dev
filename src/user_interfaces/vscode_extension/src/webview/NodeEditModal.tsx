@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
+import { JSONViewer } from '../../../shared_components/components/JSONViewer';
 
 interface NodeEditModalProps {
   nodeId: string;
@@ -10,35 +11,67 @@ interface NodeEditModalProps {
   onSave: (nodeId: string, field: string, value: string) => void;
 }
 
-export const NodeEditModal: React.FC<NodeEditModalProps> = ({ 
-  nodeId, 
-  field, 
-  label, 
-  value: initialValue, 
-  onClose, 
-  onSave 
+export const NodeEditModal: React.FC<NodeEditModalProps> = ({
+  nodeId,
+  field,
+  label,
+  value: initialValue,
+  onClose,
+  onSave
 }) => {
-  const [currentValue, setCurrentValue] = useState(initialValue);
+  // Parse the initial value to extract to_show field
+  const getDisplayValue = (jsonStr: string): string => {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (parsed && typeof parsed === 'object' && 'to_show' in parsed) {
+        return JSON.stringify(parsed.to_show, null, 2);
+      }
+    } catch (e) {
+      // If parsing fails, return original string
+    }
+    return jsonStr;
+  };
+
+  const [currentValue, setCurrentValue] = useState(getDisplayValue(initialValue));
+  const [savedValue, setSavedValue] = useState(getDisplayValue(initialValue));
   const [hasChanges, setHasChanges] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isDarkTheme = useIsVsCodeDarkTheme();
+  const [parsedData, setParsedData] = useState<any>(null);
 
   useEffect(() => {
-    setCurrentValue(initialValue);
+    const displayValue = getDisplayValue(initialValue);
+    setCurrentValue(displayValue);
+    setSavedValue(displayValue);
     setHasChanges(false);
+
+    // Try to parse the data for the JSON viewer
+    try {
+      const parsed = JSON.parse(displayValue);
+      setParsedData(parsed);
+    } catch (e) {
+      setParsedData(null);
+    }
   }, [initialValue]);
 
   useEffect(() => {
-    setHasChanges(currentValue !== initialValue);
-  }, [currentValue, initialValue]);
+    // Normalize JSON strings for comparison (remove whitespace differences)
+    const normalizeJSON = (str: string) => {
+      try {
+        return JSON.stringify(JSON.parse(str));
+      } catch {
+        return str;
+      }
+    };
 
-  useEffect(() => {
-    // Focus and select all text when modal opens
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
-    }
-  }, []);
+    const hasChanged = normalizeJSON(currentValue) !== normalizeJSON(savedValue);
+    setHasChanges(hasChanged);
+  }, [currentValue, savedValue]);
+
+  const handleJSONChange = (newData: any) => {
+    // Update both the parsed data and the string value
+    setParsedData(newData);
+    setCurrentValue(JSON.stringify(newData, null, 2));
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,9 +80,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
         onClose();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (hasChanges) {
-          handleSave();
-        }
+        handleSave();
       }
     };
 
@@ -58,32 +89,65 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   }, [hasChanges, currentValue]);
 
   const handleSave = () => {
-    onSave(nodeId, field, currentValue);
-    // Reset the hasChanges flag by updating the initial value reference
-    setHasChanges(false);
+    // Reconstruct the full JSON structure with both raw and to_show fields
+    let valueToSave = currentValue;
+    try {
+      const originalParsed = JSON.parse(initialValue);
+      if (originalParsed && typeof originalParsed === 'object' && 'to_show' in originalParsed) {
+        // Parse the edited to_show value
+        const editedToShow = JSON.parse(currentValue);
+        // Reconstruct with updated to_show
+        const reconstructed = {
+          raw: editedToShow,  // Update raw to match to_show
+          to_show: editedToShow
+        };
+        valueToSave = JSON.stringify(reconstructed);
+      }
+    } catch (e) {
+      // If parsing fails, save as-is
+      valueToSave = currentValue;
+    }
+
+    onSave(nodeId, field, valueToSave);
+    // Update savedValue to match currentValue so hasChanges becomes false
+    setSavedValue(currentValue);
   };
 
   const handleReset = () => {
-    setCurrentValue(initialValue);
+    setCurrentValue(getDisplayValue(initialValue));
   };
 
   return (
     <div
       style={{
         margin: 0,
-        padding: '20px',
+        padding: 0,
         fontFamily: 'var(--vscode-font-family)',
         fontSize: 'var(--vscode-font-size)',
         color: 'var(--vscode-foreground)',
         background: 'var(--vscode-editor-background)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      <div style={{ width: '500px', maxWidth: '100%' }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          backgroundColor: 'var(--vscode-editor-background)',
+          borderBottom: `1px solid ${isDarkTheme ? '#3c3c3c' : '#d0d0d0'}`,
+          padding: '12px 16px',
+          flexShrink: 0,
+        }}
+      >
         <h2
           style={{
-            margin: '0 0 16px 0',
-            fontSize: '16px',
-            fontWeight: '600',
+            margin: 0,
+            fontSize: 'var(--vscode-font-size)',
+            fontWeight: 'normal',
             color: 'var(--vscode-editor-foreground)',
             display: 'flex',
             alignItems: 'center',
@@ -94,148 +158,36 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
           {hasChanges && (
             <div
               style={{
-                width: '6px',
-                height: '6px',
+                width: '8px',
+                height: '8px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--vscode-foreground)',
+                backgroundColor: isDarkTheme ? '#ffffff' : '#000000',
+                flexShrink: 0,
               }}
             />
           )}
         </h2>
+      </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <textarea
-            ref={textareaRef}
-            value={currentValue}
-            onChange={(e) => setCurrentValue(e.target.value)}
-            rows={12}
-            style={{
-              width: '100%',
-              maxWidth: '100%',
-              minWidth: '0',
-              boxSizing: 'border-box',
-              padding: '12px',
-              border: '1px solid var(--vscode-input-border)',
-              borderRadius: '3px',
-              background: 'var(--vscode-input-background)',
-              color: 'var(--vscode-input-foreground)',
-              fontFamily: 'var(--vscode-editor-font-family, monospace)',
-              fontSize: 'var(--vscode-editor-font-size, 14px)',
-              resize: 'vertical',
-              outline: 'none',
-              minHeight: '200px',
-              maxHeight: '400px',
-            }}
-            onFocus={(e) => {
-              e.target.style.outline = '1px solid var(--vscode-focusBorder)';
-              e.target.style.borderColor = 'var(--vscode-focusBorder)';
-            }}
-            onBlur={(e) => {
-              e.target.style.outline = 'none';
-              e.target.style.borderColor = 'var(--vscode-input-border)';
-            }}
-            placeholder={`Enter ${field} text...`}
-          />
-        </div>
-
-        {/* Button Group */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            justifyContent: 'flex-end',
-            paddingTop: '20px',
-            borderTop: '1px solid var(--vscode-editorWidget-border)',
-          }}
-        >
-          <button
-            onClick={handleReset}
-            disabled={!hasChanges}
-            style={{
-              padding: '8px 16px',
-              border: `1px solid ${hasChanges ? 'var(--vscode-button-border)' : 'var(--vscode-disabledForeground)'}`,
-              borderRadius: '3px',
-              cursor: hasChanges ? 'pointer' : 'not-allowed',
-              fontSize: '12px',
-              fontFamily: 'var(--vscode-font-family)',
-              background: hasChanges ? 'var(--vscode-button-secondaryBackground)' : 'var(--vscode-input-background)',
-              color: hasChanges ? 'var(--vscode-button-secondaryForeground)' : 'var(--vscode-disabledForeground)',
-              opacity: hasChanges ? 1 : 0.6,
-            }}
-            onMouseEnter={(e) => {
-              if (hasChanges) {
-                e.currentTarget.style.background = 'var(--vscode-button-secondaryHoverBackground)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (hasChanges) {
-                e.currentTarget.style.background = 'var(--vscode-button-secondaryBackground)';
-              }
-            }}
-          >
-            Reset
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              border: '1px solid var(--vscode-button-border)',
-              borderRadius: '3px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontFamily: 'var(--vscode-font-family)',
-              background: 'var(--vscode-button-secondaryBackground)',
-              color: 'var(--vscode-button-secondaryForeground)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--vscode-button-secondaryHoverBackground)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--vscode-button-secondaryBackground)';
-            }}
-          >
-            Close
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges}
-            style={{
-              padding: '8px 16px',
-              border: `1px solid ${hasChanges ? 'var(--vscode-button-border)' : 'var(--vscode-disabledForeground)'}`,
-              borderRadius: '3px',
-              cursor: hasChanges ? 'pointer' : 'not-allowed',
-              fontSize: '12px',
-              fontFamily: 'var(--vscode-font-family)',
-              background: hasChanges ? 'var(--vscode-button-background)' : 'var(--vscode-input-background)',
-              color: hasChanges ? 'var(--vscode-button-foreground)' : 'var(--vscode-disabledForeground)',
-              opacity: hasChanges ? 1 : 0.6,
-            }}
-            onMouseEnter={(e) => {
-              if (hasChanges) {
-                e.currentTarget.style.background = 'var(--vscode-button-hoverBackground)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (hasChanges) {
-                e.currentTarget.style.background = 'var(--vscode-button-background)';
-              }
-            }}
-          >
-            Save {navigator.platform.toLowerCase().includes('mac') ? '(⌘S)' : '(Ctrl+S)'}
-          </button>
-        </div>
-
-        {/* Keyboard Hints */}
-        <div
-          style={{
-            fontSize: '11px',
-            color: 'var(--vscode-descriptionForeground)',
-            marginTop: '16px',
-            textAlign: 'center',
-          }}
-        >
-          Press ESC to close • {navigator.platform.toLowerCase().includes('mac') ? '⌘S' : 'Ctrl+S'} to save
-        </div>
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        overflow: 'auto',
+      }}>
+        {parsedData !== null ? (
+          <JSONViewer data={parsedData} isDarkTheme={isDarkTheme} onChange={handleJSONChange} />
+        ) : (
+          <div style={{
+            padding: '12px',
+            color: 'var(--vscode-foreground)',
+            fontFamily: 'var(--vscode-editor-font-family, monospace)',
+            fontSize: 'var(--vscode-editor-font-size, 13px)',
+          }}>
+            Unable to parse JSON data
+          </div>
+        )}
       </div>
     </div>
   );

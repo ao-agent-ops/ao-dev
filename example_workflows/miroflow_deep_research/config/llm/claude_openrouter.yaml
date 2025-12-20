@@ -4,7 +4,8 @@ defaults:
   - _self_
 
 provider: "claude_openrouter"
-model_name: "anthropic/claude-3.7-sonnet"
+# model_name: "anthropic/claude-3.7-sonnet"
+model_name: "anthropic/claude-haiku-4.5"
 
 anthropic_base_url: https://api.anthropic.com
 openrouter_base_url: https://openrouter.ai/api/v1

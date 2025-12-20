@@ -3,12 +3,10 @@ PostgreSQL database backend for workflow experiments.
 """
 
 import json
-import dill
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
 import threading
-import inspect
 from urllib.parse import urlparse
 
 from aco.common.logger import logger
@@ -155,10 +153,10 @@ def _init_db(conn):
         CREATE TABLE IF NOT EXISTS llm_calls (
             session_id TEXT,
             node_id TEXT,
-            input BYTEA,
+            input TEXT,
             input_hash TEXT,
-            input_overwrite BYTEA,
-            output BYTEA,
+            input_overwrite TEXT,
+            output TEXT,
             color TEXT,
             label TEXT,
             api_type TEXT,
@@ -210,8 +208,20 @@ def query_one(sql, params=()):
         c.execute(sql, params)
         result = c.fetchone()
         return result
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        # Connection died - don't try to rollback, just close it
+        logger.warning(f"Connection died during query_one: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        raise
     except Exception as e:
-        conn.rollback()
+        # Other errors - try to rollback
+        try:
+            conn.rollback()
+        except:
+            pass
         raise
     finally:
         return_conn(conn)
@@ -225,8 +235,20 @@ def query_all(sql, params=()):
         c.execute(sql, params)
         result = c.fetchall()
         return result
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        # Connection died - don't try to rollback, just close it
+        logger.warning(f"Connection died during query_all: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        raise
     except Exception as e:
-        conn.rollback()
+        # Other errors - try to rollback
+        try:
+            conn.rollback()
+        except:
+            pass
         raise
     finally:
         return_conn(conn)
@@ -240,8 +262,20 @@ def execute(sql, params=()):
         c.execute(sql, params)
         conn.commit()
         return c.lastrowid if hasattr(c, "lastrowid") else None
+    except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+        # Connection died - don't try to rollback, just close it
+        logger.warning(f"Connection died during execute: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        raise
     except Exception as e:
-        conn.rollback()
+        # Other errors - try to rollback
+        try:
+            conn.rollback()
+        except:
+            pass
         raise
     finally:
         return_conn(conn)
@@ -298,11 +332,12 @@ def add_experiment_query(
     default_note,
     default_log,
     user_id,
+    code_hash,
 ):
     """Execute PostgreSQL-specific INSERT for experiments table"""
     execute(
-        """INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log, user_id) 
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, code_hash, success, notes, log, user_id) 
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (session_id) DO UPDATE SET
                parent_session_id = EXCLUDED.parent_session_id,
                name = EXCLUDED.name,
@@ -311,6 +346,7 @@ def add_experiment_query(
                cwd = EXCLUDED.cwd,
                command = EXCLUDED.command,
                environment = EXCLUDED.environment,
+               code_hash = EXCLUDED.code_hash,
                success = EXCLUDED.success,
                notes = EXCLUDED.notes,
                log = EXCLUDED.log,
@@ -324,6 +360,7 @@ def add_experiment_query(
             cwd,
             command,
             env_json,
+            code_hash,
             default_success,
             default_note,
             default_log,
@@ -447,10 +484,10 @@ def insert_llm_call_with_output_query(
     """Insert new LLM call record with output in a single operation (upsert)."""
     execute(
         """
-        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output)
+        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output) 
         VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (session_id, node_id)
-        DO UPDATE SET output = excluded.output
+        ON CONFLICT (session_id, node_id) 
+        DO UPDATE SET output = EXCLUDED.output
         """,
         (session_id, input_pickle, input_hash, node_id, api_type, output_pickle),
     )
@@ -462,20 +499,15 @@ def get_finished_runs_query():
     return query_all("SELECT session_id, timestamp FROM experiments ORDER BY timestamp DESC", ())
 
 
-# def get_all_experiments_sorted_query():
-#     """Get all experiments sorted by timestamp desc."""
-#     return query_all(
-#         "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
-#         (),
-#     )
-
-
 def get_all_experiments_sorted_by_user_query(user_id=None):
-    assert user_id is not None, "user id None"
+    # If user_id is None, because user not logged in and UI requested experiment list, send nothing
+    if user_id is None:
+        return []
+
     """Get all experiments sorted by timestamp desc, optionally filtered by user_id."""
     # Filter by user_id
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
         (user_id,),
     )
 
@@ -524,6 +556,11 @@ def delete_all_llm_calls_query():
     execute("DELETE FROM llm_calls")
 
 
+def delete_llm_calls_query(session_id):
+    """Delete all llm calls belonging to a session id."""
+    execute("DELETE FROM llm_calls WHERE session_id=?", (session_id,))
+
+
 def get_session_name_query(session_id):
     """Get session name by session_id."""
     return query_one("SELECT name FROM experiments WHERE session_id=%s", (session_id,))
@@ -557,6 +594,8 @@ def upsert_user(google_id, email, name, picture):
     """
     Upsert user - insert if not exists, update if exists.
 
+    Includes retry logic to handle connection closures (e.g., from database mode switching).
+
     Args:
         google_id: Google OAuth ID
         email: User email
@@ -566,25 +605,60 @@ def upsert_user(google_id, email, name, picture):
     Returns:
         The user record after upsert
     """
-    # Check if user exists
-    existing = query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
+    max_retries = 3
+    for attempt in range(max_retries):
+        conn = None
+        try:
+            conn = get_conn()
+            c = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    if existing:
-        # Update existing user
-        execute(
-            "UPDATE users SET name = %s, picture = %s, updated_at = CURRENT_TIMESTAMP WHERE google_id = %s",
-            (name, picture, google_id),
-        )
-    else:
-        # Insert new user
-        execute(
-            "INSERT INTO users (google_id, email, name, picture, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-            (google_id, email, name, picture),
-        )
+            # Check if user exists
+            c.execute("SELECT * FROM users WHERE google_id = %s", (google_id,))
+            existing = c.fetchone()
 
-    # Return the user record
-    return query_one("SELECT * FROM users WHERE google_id = %s", (google_id,))
+            if existing:
+                # Update existing user
+                c.execute(
+                    "UPDATE users SET name = %s, picture = %s, updated_at = CURRENT_TIMESTAMP WHERE google_id = %s",
+                    (name, picture, google_id),
+                )
+            else:
+                # Insert new user
+                c.execute(
+                    "INSERT INTO users (google_id, email, name, picture, created_at, updated_at) "
+                    "VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    (google_id, email, name, picture),
+                )
+
+            # Commit the transaction
+            conn.commit()
+
+            # Return the user record
+            c.execute("SELECT * FROM users WHERE google_id = %s", (google_id,))
+            result = c.fetchone()
+            return result
+
+        except (psycopg2.InterfaceError, psycopg2.OperationalError) as e:
+            # Connection was closed - retry
+            if attempt < max_retries - 1:
+                logger.warning(
+                    f"Connection closed during upsert, retrying ({attempt + 1}/{max_retries}): {e}"
+                )
+                if conn:
+                    try:
+                        conn.close()
+                    except:
+                        pass
+                continue
+            else:
+                raise
+        except Exception:
+            if conn:
+                conn.rollback()
+            raise
+        finally:
+            if conn:
+                return_conn(conn)
 
 
 def get_user_by_id_query(user_id):
@@ -598,3 +672,11 @@ def get_user_by_id_query(user_id):
         The user record or None if not found
     """
     return query_one("SELECT * FROM users WHERE id = %s", (user_id,))
+
+
+def get_next_run_index_query():
+    """Get the next run index based on how many runs already exist."""
+    row = query_one("SELECT COUNT(*) as count FROM experiments", ())
+    if row:
+        return row["count"] + 1
+    return 1

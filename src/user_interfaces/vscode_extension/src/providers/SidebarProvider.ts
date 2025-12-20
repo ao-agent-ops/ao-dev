@@ -173,13 +173,25 @@ _context: vscode.WebviewViewResolveContext,
                         this._pythonClient.onMessage(this._messageHandler);
                         this._pythonClient.startServerIfNeeded();
                     }
-                    
+
                     // Send current auth state to webview
                     const authState = this._authManager.getCurrentState();
                     this._view?.webview.postMessage({
                         type: 'authStateChanged',
                         payload: authState
                     });
+
+                    // If user is already authenticated, send auth message to server
+                    // This ensures the server knows the user_id for filtering experiments
+                    if (authState.authenticated && authState.userId && this._pythonClient) {
+                        this._pythonClient.setUserId(authState.userId);
+                        this._pythonClient.sendMessage({ type: 'auth', user_id: authState.userId });
+                    }
+
+                    // Request experiments after Python client is set up and auth state is sent
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_all_experiments' });
+                    }
                     break;
                 case 'signIn':
                     this._authManager.signIn().then((state) => {
@@ -263,7 +275,7 @@ _context: vscode.WebviewViewResolveContext,
             };
         `;
         
-        console.log('🚀 Injecting telemetry config into webview');
+        console.log('🚀 Injecting config into webview');
         
         html = html.replace('const vscode = acquireVsCodeApi();', 
             `${configBridge}\n        const vscode = acquireVsCodeApi();`);

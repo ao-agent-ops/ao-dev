@@ -21,15 +21,6 @@ def cleanup_taint_db():
         del os.environ["AGENT_COPILOT_SESSION_ID"]
 
 
-def restart_server():
-    """Restart the server to ensure clean state for tests."""
-    import subprocess
-    import time
-
-    subprocess.run(["aco-server", "restart"], check=False)
-    time.sleep(1)  # Give server time to fully restart
-
-
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     """
     Helper to create necessary database records for testing.
@@ -38,7 +29,7 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     in the database. A more thorough approach would be to:
 
     1. Start a test server instance or mock the server connection
-    2. Simulate the full handshake flow from launch_scripts.py:
+    2. Simulate the full handshake flow from agent_runner.py:
        - Send "hello" message with role="agent-runner"
        - Server creates experiment record
        - Server responds with acknowledgment

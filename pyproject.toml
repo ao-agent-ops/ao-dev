@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 # Map aco package to src directory with subpackages
 package-dir = {"aco" = "src"}
-packages = ["aco", "aco.cli", "aco.common", "aco.runner", "aco.runner.monkey_patching", "aco.runner.monkey_patching.patches", "aco.server", "aco.server.telemetry"]
+packages = ["aco", "aco.cli", "aco.common", "aco.runner", "aco.runner.monkey_patching", "aco.runner.monkey_patching.patches", "aco.server"]
 
 [project.scripts]
 # Console commands for the agent-copilot package
@@ -30,7 +30,18 @@ description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"
 requires-python = ">=3.10"
 
-dependencies = ["pyyaml", "dill", "forbiddenfruit", "supabase", "debugpy", "psutil", "psycopg2-binary", "python-dotenv"]
+dependencies = [
+    "pyyaml",
+    "dill",
+    "forbiddenfruit",
+    "debugpy",
+    "psutil",
+    "psycopg2-binary",
+    "python-dotenv",
+    "fastapi",
+    "flatten_dict",
+    "flatten_json"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -42,12 +53,23 @@ dev = [
     "anthropic",
     "openai-agents",
     "google-genai",
-    "hydra-core"
+    "hydra-core",
+    "e2b_code_interpreter",
+    "together",
+    "langchain",
+    "langchain-anthropic",
+    "langchain-openai"
 ]
 
 examples = [
     "openai",
-    "anthropic", 
+    "anthropic",
     "openai-agents",
     "google-genai"
+]
+
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocs-minify-plugin",
+    "mkdocstrings[python]>=0.24",
 ]

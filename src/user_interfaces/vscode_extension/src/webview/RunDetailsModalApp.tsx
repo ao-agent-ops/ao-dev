@@ -18,9 +18,9 @@ interface OriginalData {
 }
 
 interface RunDetailsModalProps {
-  experiment: ProcessInfo;
-  onClose: () => void;
-  onSave: (data: OriginalData) => void;
+  experiment?: ProcessInfo;
+  onClose?: () => void;
+  onSave?: (data: OriginalData) => void;
 }
 
 export const RunDetailsModalApp: React.FC<RunDetailsModalProps> = ({ experiment: initialExperiment, onClose, onSave }) => {
@@ -41,7 +41,7 @@ export const RunDetailsModalApp: React.FC<RunDetailsModalProps> = ({ experiment:
 
   useEffect(() => {
     // Only initialize once when component mounts
-    if (!hasInitialized.current) {
+    if (!hasInitialized.current && initialExperiment) {
       const original = {
         runName: initialExperiment.run_name || '',
         result: initialExperiment.result || '',
@@ -74,7 +74,7 @@ export const RunDetailsModalApp: React.FC<RunDetailsModalProps> = ({ experiment:
       console.log("[RunDetailsModalApp] originalData:", originalData);
       console.log("[RunDetailsModalApp] latestCurrentData:", latestCurrentData);
       
-      if (hasCurrentChanges) {
+      if (hasCurrentChanges && onSave) {
         onSave(latestCurrentData);
         console.log("[RunDetailsModalApp] Sent to onSave:", latestCurrentData);
         setOriginalData(latestCurrentData);
@@ -88,13 +88,15 @@ export const RunDetailsModalApp: React.FC<RunDetailsModalProps> = ({ experiment:
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        if (onClose) {
+          onClose();
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
       }
     };
-  
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave, onClose]);

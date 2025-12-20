@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { ExperimentsView } from '../../../shared_components/components/experiment/ExperimentsView';
 import { GraphView } from '../../../shared_components/components/graph/GraphView';
 import { WorkflowRunDetailsPanel } from '../../../shared_components/components/experiment/WorkflowRunDetailsPanel';
-import { LoginScreen } from './LoginScreen';
 import { GraphNode, GraphEdge, GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
@@ -19,7 +18,7 @@ declare global {
 
 export const App: React.FC = () => {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
-  const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote'>('Local');
+  const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote' | null>(null);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');
   const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);
@@ -37,7 +36,6 @@ export const App: React.FC = () => {
           if (message.database_mode) {
             const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
             setDatabaseMode(mode);
-            console.log(`Synchronized database mode to: ${mode}`);
           }
           break;
         case "database_mode_changed":
@@ -45,25 +43,21 @@ export const App: React.FC = () => {
           if (message.database_mode) {
             const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
             setDatabaseMode(mode);
-            console.log(`Database mode changed by another UI to: ${mode}`);
           }
           break;
         case "authStateChanged":
           // Update user state from auth provider
-          console.log('[App] Received authStateChanged:', message.payload);
           if (message.payload?.session) {
             const account = message.payload.session.account;
-            const userAvatar = message.payload.userAvatar || 
-                              account.picture || 
+            const userAvatar = message.payload.userAvatar ||
+                              account.picture ||
                               'https://www.gravatar.com/avatar/?d=mp&s=200';
-            console.log('[App] Setting user from session:', account, 'avatar:', userAvatar);
             setUser({
               displayName: account.label,
               email: account.label,
               avatarUrl: userAvatar
             });
           } else {
-            console.log('[App] Clearing user (no session)');
             setUser(null);
           }
           break;
@@ -94,6 +88,7 @@ export const App: React.FC = () => {
           // Node updates are now handled by individual graph tabs
           break;
         case "experiment_list":
+          console.log('[App] Received experiment_list:', message.experiments);
           setProcesses(message.experiments || []);
           break;
       }
@@ -124,7 +119,7 @@ export const App: React.FC = () => {
   const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
     // Update local state immediately for responsive UI
     setDatabaseMode(mode);
-    
+
     // Send message to VS Code extension to relay to server
     if (window.vscode) {
       window.vscode.postMessage({
@@ -169,26 +164,11 @@ export const App: React.FC = () => {
   // Use experiments in the order sent by server (already sorted by name ascending)
   // Server already filters by user_id, so no client-side filtering needed
   const sortedProcesses = processes;
-  
+
   // const similarExperiments = sortedProcesses.filter(p => p.status === 'similar');
   const similarExperiments = sortedProcesses[0];
   const runningExperiments = sortedProcesses.filter(p => p.status === 'running');
   const finishedExperiments = sortedProcesses.filter(p => p.status === 'finished');
-
-
-  // Show login screen if user is not authenticated
-  if (!user) {
-    return (
-      <LoginScreen
-        onLogin={() => {
-          if (window.vscode) {
-            window.vscode.postMessage({ type: 'signIn' });
-          }
-        }}
-        isDarkTheme={isDarkTheme}
-      />
-    );
-  }
 
   return (
     <div
@@ -200,45 +180,6 @@ export const App: React.FC = () => {
         background: isDarkTheme ? "#252525" : "#F0F0F0",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--vscode-editorWidget-border)",
-        }}
-      >
-        <button
-          onClick={() => setActiveTab("experiments")}
-          style={{
-            padding: "10px 20px",
-            border: "none",
-            backgroundColor:
-              activeTab === "experiments"
-                ? "var(--vscode-button-background)"
-                : "transparent",
-            color:
-              activeTab === "experiments"
-                ? "var(--vscode-button-foreground)"
-                : "var(--vscode-editor-foreground)",
-            cursor: "pointer",
-          }}
-        >
-          Experiments
-        </button>
-        {activeTab === "experiment-graph" && selectedExperiment && (
-          <button
-            onClick={() => setActiveTab("experiment-graph")}
-            style={{
-              padding: "10px 20px",
-              border: "none",
-              backgroundColor: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
-              cursor: "pointer",
-            }}
-          >
-            Experiment {selectedExperiment.session_id.substring(0, 8)}...
-          </button>
-        )}
-      </div>
       <div
         style={
           showDetailsPanel

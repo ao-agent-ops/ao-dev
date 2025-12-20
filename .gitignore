@@ -240,3 +240,6 @@ aco
 
 # Claude local
 CLAUDE.local.md
+
+# Misc
+run_debug_examples.sh

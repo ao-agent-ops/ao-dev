@@ -89,10 +89,10 @@ def _init_db(conn):
         CREATE TABLE IF NOT EXISTS llm_calls (
             session_id TEXT,
             node_id TEXT,
-            input BLOB,
+            input TEXT,
             input_hash TEXT,
-            input_overwrite BLOB,
-            output BLOB,
+            input_overwrite TEXT,
+            output TEXT,
             color TEXT,
             label TEXT,
             api_type TEXT,
@@ -219,10 +219,11 @@ def add_experiment_query(
     default_note,
     default_log,
     user_id,  # Ignored in SQLite - kept for API compatibility
+    code_hash,
 ):
     """Execute SQLite-specific INSERT for experiments table"""
     execute(
-        "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, code_hash, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             session_id,
             parent_session_id,
@@ -232,6 +233,7 @@ def add_experiment_query(
             cwd,
             command,
             env_json,
+            code_hash,
             default_success,
             default_note,
             default_log,
@@ -384,7 +386,7 @@ def get_all_experiments_sorted_by_user_query(user_id=None):
     """Get all experiments sorted by timestamp desc. SQLite ignores user_id filtering (single-user)."""
     # SQLite is single-user, so we always return all experiments regardless of user_id
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments ORDER BY timestamp DESC",
         (),
     )
 
@@ -474,3 +476,11 @@ def get_user_by_id_query(user_id):
     raise Exception(
         "User management not supported in local SQLite database. Switch to remote mode for multi-user support."
     )
+
+
+def get_next_run_index_query():
+    """Get the next run index based on how many runs already exist."""
+    row = query_one("SELECT COUNT(*) as count FROM experiments", ())
+    if row:
+        return row["count"] + 1
+    return 1

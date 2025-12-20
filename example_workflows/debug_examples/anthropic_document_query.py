@@ -3,7 +3,7 @@ import anthropic
 import base64
 
 client = anthropic.Anthropic()
-model = "claude-3-5-haiku-20241022"  # Fastest and most cost-effective model
+model = "claude-sonnet-4-5"
 
 # Example files.
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -13,7 +13,7 @@ DOCX_PATH = os.path.join(current_dir, "user_files", "example.docx")
 
 # First, get a response to use as instructions
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model=model,
     max_tokens=10,
     messages=[
         {"role": "user", "content": "Just output: 'summarize the document` and nothing else."}

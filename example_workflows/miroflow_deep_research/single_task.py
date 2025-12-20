@@ -20,8 +20,8 @@ from omegaconf import DictConfig
 async def single_task(
     cfg: DictConfig,
     logger: logging.Logger,
+    task_description: str,
     task_id: str = "task_1",
-    task_description: str = "Write a python code to say 'Hello, World!', use python to execute the code.",
     task_file_name: str = "",
 ) -> None:
     """Asynchrono us main function."""
@@ -70,14 +70,16 @@ def main(
         config_dir=config_dir, version_base=None
     ):
         cfg = hydra.compose(config_name="config")
-        logger = bootstrap_logger(level="DEBUG")
+        logger = bootstrap_logger(level="WARNING")
         # disable tracing and give a fake key
         set_tracing_disabled(True)
         set_tracing_export_api_key("fake-key")
         # suppress warning from trace_provider
         bootstrap_silent_trace_provider()
-        asyncio.run(single_task(cfg, logger, task_id, task, task_file_name))
+        asyncio.run(single_task(cfg, logger, task, task_id, task_file_name))
 
 
 if __name__ == "__main__":
-    main()
+    main(
+        task="Find recent news about OpenAI."
+    )

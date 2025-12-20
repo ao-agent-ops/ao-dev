@@ -3,8 +3,20 @@ from aco.runner.context_manager import get_session_id
 from aco.common.constants import CERTAINTY_YELLOW
 from aco.common.utils import send_to_server
 from aco.common.logger import logger
-from aco.runner.monkey_patching.api_parser import get_input, get_model_name, get_output
+from aco.runner.monkey_patching.api_parser import (
+    get_model_name,
+    func_kwargs_to_json_str,
+    api_obj_to_json_str,
+)
 from aco.runner.taint_wrappers import untaint_if_needed
+
+# Global variable to track lost taint across function calls
+lost_taint = set()
+
+
+def set_lost_taint(taint: set):
+    global lost_taint
+    lost_taint = taint
 
 
 # ===========================================================
@@ -51,14 +63,24 @@ def get_input_dict(func, *args, **kwargs):
         # Many APIs only accept kwargs
         bound = sig.bind(**kwargs)
     bound.apply_defaults()
-    input_dict = dict(bound.arguments)
-    if "self" in input_dict:
-        del input_dict["self"]
+
+    input_dict = {}
+    for name, value in bound.arguments.items():
+        if name == "self":
+            continue
+        param = sig.parameters[name]
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            input_dict.update(value)  # Flatten the captured extras
+        else:
+            input_dict[name] = value
+
     return input_dict
 
 
 def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
     """Send graph node and edge updates to the server."""
+    global lost_taint
+
     frame = inspect.currentframe()
     user_program_frame = inspect.getouterframes(frame)[2]
     line_no = user_program_frame.lineno
@@ -66,12 +88,17 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
     codeLocation = f"{file_name}:{line_no}"
 
     # Get strings to display in UI.
-    input_string, attachments, tools = get_input(input_dict, api_type)
+    input_string, attachments = func_kwargs_to_json_str(input_dict, api_type)
 
     # Untaint the output object before processing to avoid Pydantic validation issues
     untainted_output_obj = untaint_if_needed(output_obj)
-    output_string = get_output(untainted_output_obj, api_type)
+    output_string = api_obj_to_json_str(untainted_output_obj, api_type)
     model = get_model_name(input_dict, api_type)
+
+    if lost_taint:
+        extended_source_node_ids = list(set(source_node_ids) | lost_taint)
+    else:
+        extended_source_node_ids = source_node_ids
 
     # Send node
     node_msg = {
@@ -87,7 +114,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
             "model": model,
             "attachments": attachments,
         },
-        "incoming_edges": source_node_ids,
+        "incoming_edges": extended_source_node_ids,
     }
 
     try:

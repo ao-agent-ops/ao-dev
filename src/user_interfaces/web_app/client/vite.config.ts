@@ -17,6 +17,7 @@ export default defineConfig({
     }
   },
   server: {
+    port: 3000,
     fs: {
       // Allow serving files from the shared_components directory
       allow: ['..']

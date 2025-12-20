@@ -31,10 +31,13 @@ function operations, ensuring sensitive data remains tainted throughout executio
 """
 
 import ast
+import warnings
 from dill import PicklingError, dumps
-from inspect import getsourcefile, iscoroutinefunction
+from json import dumps as json_dumps
+from inspect import getsourcefile, iscoroutinefunction, isbuiltin
 from aco.runner.taint_wrappers import TaintStr, get_taint_origins, untaint_if_needed, taint_wrap
 from aco.common.utils import get_aco_py_files, hash_input
+from aco.common.logger import logger
 
 
 def is_pyc_rewritten(pyc_path: str) -> bool:
@@ -57,7 +60,8 @@ def is_pyc_rewritten(pyc_path: str) -> bool:
 
             # Check if our marker is in the code object's names or constants
             return "__ACO_AST_REWRITTEN__" in code.co_names
-    except (IOError, OSError, Exception):
+    except (IOError, OSError, Exception) as e:
+        logger.error(f"Error is_pyc_rewritten: {e}")
         return False
 
 
@@ -98,9 +102,14 @@ def rewrite_source_to_code(source: str, filename: str, module_to_file: dict = No
         if isinstance(node, ast.ImportFrom) and node.module == "__future__":
             insertion_point = i + 1
 
-    # Set location info for the marker
-    marker.lineno = 1
+    # Set location info for the marker to line 0 to hide from debugger
+    marker.lineno = 0
     marker.col_offset = 0
+    for node in ast.walk(marker):
+        if hasattr(node, "lineno"):
+            node.lineno = 0
+        if hasattr(node, "col_offset"):
+            node.col_offset = 0
     tree.body.insert(insertion_point, marker)
 
     # Apply AST transformations for taint propagation
@@ -340,9 +349,11 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         """
         Transform .format() calls and function calls with exec_func wrapping.
 
-        Handles three types of transformations:
+        Handles four types of transformations:
         1. .format() method calls -> taint_format_string calls
-        2. Third-party library calls (module.function()) -> exec_func wrapped calls
+        2. Third-party library calls (simple or chained) -> exec_func wrapped calls
+           - Simple: module.function()
+           - Chained: google.genai.models.generate_content()
         3. Direct function calls (function_name()) -> exec_func wrapped calls
 
         Args:
@@ -367,12 +378,12 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             )
             return ast.copy_location(new_node, node)
 
-        # Check if this is a third-party library call (module.function())
-        elif isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-            module_name = node.func.value.id
+        # Check if this is an attribute access call (could be simple or chained)
+        elif isinstance(node.func, ast.Attribute):
             func_name = node.func.attr
 
-            # Skip dunder methods - never wrap these
+            # Skip dunder methods - never wrap these, regardless of what they're called on
+            # This is important for patterns like super().__init__() or obj.method().__getitem__()
             dunder_methods = {
                 "__init__",
                 "__new__",
@@ -405,10 +416,24 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             if func_name in dunder_methods:
                 return node
 
-            # Only wrap calls to third-party modules, not user-defined modules
-            if self._is_user_module(module_name):
-                return node
+            # For chained expressions (e.g., obj.method().__init__()), we need to check
+            # if the base of the chain is a Call node. If it is, and the final method is a dunder,
+            # we should skip wrapping the entire chain to avoid wrapping super().__init__() etc.
+            # Note: The above check already handles this, but we keep this comment for clarity
 
+            # Extract the full dotted path (e.g., "google.genai.models" from google.genai.models.generate_content)
+            if isinstance(node.func.value, (ast.Attribute, ast.Name)):
+                full_path, base_name = self._extract_dotted_name(node.func.value)
+
+                if full_path is None:
+                    # Couldn't extract a dotted path, skip wrapping
+                    return node
+
+                # Check if this is user code - check both the base name and full path
+                if self._is_user_module(base_name) or self._is_user_module(full_path):
+                    return node
+
+            # This is a third-party call, wrap it with exec_func
             # Mark that we need taint imports
             self.needs_taint_imports = True
 
@@ -449,8 +474,21 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         elif isinstance(node.func, ast.Name):
             func_name = node.func.id
 
-            # Only wrap specific built-in functions that can propagate taint
-            if not func_name in {"str", "repr", "int", "float", "bool", "min", "max", "sum"}:
+            # Skip certain builtin functions that should never be wrapped
+            # - super: Used in super().__init__() patterns, wrapping it breaks inheritance
+            # - type, isinstance, issubclass: Type introspection functions
+            # - hasattr, getattr, setattr, delattr: Attribute access functions
+            builtins_to_skip = {
+                "super",
+                "isinstance",
+                "issubclass",
+                "type",
+                "hasattr",
+                "getattr",
+                "setattr",
+                "delattr",
+            }
+            if func_name in builtins_to_skip:
                 return node
 
             # Mark that we need taint imports
@@ -561,6 +599,41 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         # Direct lookup: is this module name in our user modules?
         return module_name in self.module_to_file
 
+    def _extract_dotted_name(self, node):
+        """
+        Extract the full dotted name from a chained attribute access.
+
+        Examples:
+            google.genai.models.generate_content -> returns "google.genai.models"
+            module.Class.method -> returns "module.Class"
+            simple_name -> returns "simple_name"
+
+        Args:
+            node: An AST node (could be ast.Name or ast.Attribute)
+
+        Returns:
+            A tuple of (full_dotted_path, base_name) or (None, None) if not extractable
+            For example: ("google.genai.models", "google")
+        """
+        parts = []
+        current = node
+
+        # Walk up the chain of attributes
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+
+        # Base case: we should end with an ast.Name
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            # Reverse to get the correct order
+            parts.reverse()
+            full_path = ".".join(parts)
+            base_name = parts[0] if parts else None
+            return full_path, base_name
+
+        return None, None
+
     def _inject_taint_imports(self, tree):
         """Inject import statements for taint functions if needed."""
         if not self.needs_taint_imports:
@@ -585,22 +658,44 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         # Create safe import with fallbacks for plain Python execution
         safe_import_code = """
+import os
+# Fallback implementations for plain Python execution
+def exec_func(func, args, kwargs, user_py_files=None):
+    return func(*args, **kwargs)
+def taint_fstring_join(*args):
+    return "".join(str(a) for a in args)
+def taint_format_string(fmt, *args, **kwargs):
+    return fmt.format(*args, **kwargs)
+def taint_percent_format(fmt, values):
+    return fmt % values
+def set_lost_taint(values):
+    return
 try:
-    from aco.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format
-except ImportError:
-    # Fallback implementations for plain Python execution
-    def exec_func(func, args, kwargs, user_py_files=None):
-        return func(*args, **kwargs)
-    def taint_fstring_join(*args):
-        return "".join(str(a) for a in args)
-    def taint_format_string(fmt, *args, **kwargs):
-        return fmt.format(*args, **kwargs)
-    def taint_percent_format(fmt, values):
-        return fmt % values
+    # only if we are in aco-launch mode, try to import
+    if os.environ.get("AGENT_COPILOT_ENABLE_TRACING", False):
+        from aco.server.ast_transformer import exec_func, taint_fstring_join, taint_format_string, taint_percent_format
+        try:
+            from aco.runner.monkey_patching.patching_utils import set_lost_taint
+        except Exception:
+            pass
+except Exception:
+    pass
 """
 
         # Parse the safe import code and inject it
         safe_import_tree = ast.parse(safe_import_code)
+
+        # Set line numbers to 0 for injected code to hide it from debugger
+        # This prevents the debugger from trying to map these lines to the original source
+        for node in ast.walk(safe_import_tree):
+            if hasattr(node, "lineno"):
+                node.lineno = 0
+            if hasattr(node, "end_lineno"):
+                node.end_lineno = 0
+            if hasattr(node, "col_offset"):
+                node.col_offset = 0
+            if hasattr(node, "end_col_offset"):
+                node.end_col_offset = 0
 
         # Insert all nodes from the safe import at the proper insertion point
         for i, node in enumerate(safe_import_tree.body):
@@ -629,11 +724,20 @@ def _is_user_function(func, user_py_files=None):
     Returns:
         bool: True if this is user code, False if third-party
     """
-    if not user_py_files:
-        # there are no user files and not builtin, must be 3rd party
+    if func in [reversed, enumerate, iter, map, filter, zip, range]:
+        # Special case: Function that should not be wrapped, because it returns
+        # an object that cannot be tainted, e.g. an iterator
+        return True
+
+    # All builtins that are not on the whitelist are not taint-wrapped
+    if isbuiltin(func) and not func in [str, repr, int, float, bool, min, max, sum]:
         return False
 
-    # Strategy 1: Direct source file check (handles undecorated functions)
+    # there are no user files, everything is 3rd party
+    if not user_py_files:
+        return False
+
+    # direct source file check (handles undecorated functions)
     try:
         source_file = getsourcefile(func)
     except TypeError:
@@ -643,8 +747,9 @@ def _is_user_function(func, user_py_files=None):
     if source_file and source_file in user_py_files:
         return True
 
-    # Strategy 2: Check __wrapped__ attribute (functools.wraps pattern)
-    # This handles most well-behaved decorators including @retry, @lru_cache, etc.
+    # source file not found, or source_file not in user_py_files
+    # check __wrapped__ attribute (functools.wraps pattern)
+    # this handles most well-behaved decorators including @retry, @lru_cache, etc.
     current_func = func
     max_unwrap_depth = 10  # Prevent infinite loops
     depth = 0
@@ -673,16 +778,21 @@ def _get_bound_obj_hash(bound_self: object | None):
         The hash of the object if hashable, None otherwise.
     """
     bound_hash = None
-    if bound_self:
-        try:
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", module="dill")
             bytes_string = dumps(bound_self)
-        except (PicklingError, TypeError):
+    except (PicklingError, TypeError):
+        try:
+            bound_hash = hash_input(bound_self)
+        except Exception:
             try:
-                bound_hash = hash_input(bound_self)
+                json_str = json_dumps(bound_self)
+                bound_hash = hash_input(json_str)
             except Exception:
                 pass
-        else:
-            bound_hash = hash_input(bytes_string)
+    else:
+        bound_hash = hash_input(bytes_string)
     return bound_hash
 
 
@@ -707,155 +817,173 @@ def exec_func(func, args, kwargs, user_py_files=None):
         # Rewritten from: result = json.dumps({"key": tainted_value})
         # To: result = exec_func(json.dumps, ({"key": tainted_value},), {}, ["/path/to/user/files"])
     """
+    from aco.runner.monkey_patching.patching_utils import set_lost_taint
+
+    def _get_bound_self(f):
+        """Extract the bound object from a method or partial."""
+        if hasattr(f, "__self__"):
+            return f.__self__
+        if hasattr(f, "func") and hasattr(f.func, "__self__"):
+            return f.func.__self__
+        return None
+
+    def _compute_hashes(items):
+        return [_get_bound_obj_hash(el) for el in items]
+
+    def _was_mutated(hash_before, hash_after):
+        """Return True if the object was mutated (hashes differ or couldn't be computed)."""
+        if hash_before is None or hash_after is None:
+            return True
+        return hash_before != hash_after
+
+    def _collect_all_origins(a, kw, bound):
+        """Collect taint origins from args, kwargs, and bound self."""
+        origins = set()
+        origins.update(get_taint_origins(a))
+        origins.update(get_taint_origins(kw))
+        if bound is not None:
+            origins.update(get_taint_origins(bound))
+        return origins
+
+    def _collect_per_arg_origins(a, kw):
+        """Collect taint origins for each individual arg and kwarg value."""
+        args_origins = [get_taint_origins(arg) for arg in a]
+        kwargs_origins = [get_taint_origins(val) for val in kw.values()]
+        return args_origins, kwargs_origins
+
+    def _retaint_args(
+        untainted_a, untainted_kw, hashes_before, hashes_after, per_arg_origins, all_origins
+    ):
+        """Re-taint arguments: original taint if unchanged, all_origins if mutated."""
+        args_before, kwargs_before = hashes_before
+        args_after, kwargs_after = hashes_after
+        args_origins, kwargs_origins = per_arg_origins
+
+        for arg, before, after, original_taint in zip(
+            untainted_a, args_before, args_after, args_origins
+        ):
+            if _was_mutated(before, after):
+                taint_wrap(arg, all_origins, inplace=True)
+            elif original_taint:
+                taint_wrap(arg, original_taint, inplace=True)
+
+        for val, before, after, original_taint in zip(
+            untainted_kw.values(), kwargs_before, kwargs_after, kwargs_origins
+        ):
+            if _was_mutated(before, after):
+                taint_wrap(val, all_origins, inplace=True)
+            elif original_taint:
+                taint_wrap(val, original_taint, inplace=True)
+
+    def _update_bound_self_taint(bound, a, kw):
+        """Update a TaintObject's taint with new taint from inputs."""
+        if bound is None or not hasattr(bound, "_taint_origin"):
+            return
+
+        input_taint = set(get_taint_origins(a)) | set(get_taint_origins(kw))
+        if not input_taint:
+            return
+
+        try:
+            current = object.__getattribute__(bound, "_taint_origin")
+            object.__setattr__(bound, "_taint_origin", list(set(current) | input_taint))
+        except (AttributeError, TypeError):
+            pass
+
+    def _taint_bound_self_if_mutated(bound, hash_before, hash_after, origins):
+        """Taint the bound object in-place if it was mutated."""
+        if bound is not None and _was_mutated(hash_before, hash_after):
+            taint_wrap(bound, taint_origin=origins, inplace=True)
+
     if iscoroutinefunction(func):
 
         async def wrapper():
-            # Check if this function is actually user code (including decorated user functions)
             if _is_user_function(func, user_py_files):
-                # This is a builtin function like l.append which we want to call normally
-                # or this is user code (potentially decorated) - call normally without taint wrapping
                 return await func(*args, **kwargs)
 
-            # Collect taint from all arguments before unwrapping
-            all_origins = set()
-            all_origins.update(get_taint_origins(args))
-            all_origins.update(get_taint_origins(kwargs))
+            bound_self = _get_bound_self(func)
+            all_origins = _collect_all_origins(args, kwargs, bound_self)
 
-            # If func is a bound method (or partial with a bound method), extract taint from self (__self__)
-            # This handles cases like: match.expand(template) where match has taint
-            # For partial objects, we need to check func.func.__self__
-            bound_self = None
-            if hasattr(func, "__self__"):
-                bound_self = func.__self__
-            elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-                # Handle functools.partial objects
-                bound_self = func.func.__self__
+            if not all_origins:
+                return await func(*args, **kwargs)
 
-            if bound_self is not None:
-                all_origins.update(get_taint_origins(bound_self))
+            set_lost_taint(all_origins)
 
-            # Untaint arguments for the function call
-            untainted_args = untaint_if_needed(args) if all_origins else args
-            untainted_kwargs = untaint_if_needed(kwargs) if all_origins else kwargs
+            per_arg_origins = _collect_per_arg_origins(args, kwargs)
+            untainted_args = untaint_if_needed(args)
+            untainted_kwargs = untaint_if_needed(kwargs)
 
-            # Call the original function with untainted arguments
-            bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
+            hashes_before = (
+                _compute_hashes(untainted_args),
+                _compute_hashes(untainted_kwargs.values()),
+            )
+            bound_hash_before = _get_bound_obj_hash(bound_self)
+
             result = await func(*untainted_args, **untainted_kwargs)
-            bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
+            result_produced_taints = get_taint_origins(result)
 
-            no_side_effect = (
-                bound_hash_before_func is not None
-                and bound_hash_after_func is not None
-                and bound_hash_before_func == bound_hash_after_func
+            if result_produced_taints:
+                all_origins = set(result_produced_taints)
+
+            hashes_after = (
+                _compute_hashes(untainted_args),
+                _compute_hashes(untainted_kwargs.values()),
+            )
+            bound_hash_after = _get_bound_obj_hash(bound_self)
+
+            _retaint_args(
+                untainted_args,
+                untainted_kwargs,
+                hashes_before,
+                hashes_after,
+                per_arg_origins,
+                all_origins,
+            )
+            set_lost_taint(set())
+
+            _update_bound_self_taint(bound_self, args, kwargs)
+            _taint_bound_self_if_mutated(
+                bound_self, bound_hash_before, bound_hash_after, all_origins
             )
 
-            # If func is a bound method on a TaintObject, update its taint with any new taint from inputs
-            # This ensures the object accumulates taint as it's used with tainted data
-            if bound_self is not None and hasattr(bound_self, "_taint_origin"):
-                # Get the current taint from inputs (excluding self's original taint)
-                input_taint = set()
-                input_taint.update(get_taint_origins(args))
-                input_taint.update(get_taint_origins(kwargs))
-                if input_taint:
-                    # Update the bound object's taint with new taint from inputs
-                    try:
-                        current_origins = object.__getattribute__(bound_self, "_taint_origin")
-                        new_origins = set(current_origins) | input_taint
-                        object.__setattr__(bound_self, "_taint_origin", list(new_origins))
-                    except (AttributeError, TypeError):
-                        # If we can't update, just continue - the taint will still be in all_origins for the result
-                        pass
-
-            # Wrap result with taint if there is any taint
-            if all_origins:
-                if no_side_effect:
-                    return taint_wrap(result, taint_origin=all_origins)
-
-                # need to taint bound object (if any) as well
-                # we need to use inplace because you cannot assign __self__ of
-                # builtin functions ([1].append.__self__ = [1,2] does not work)
-                if hasattr(func, "__self__"):
-                    taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-                elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-                    taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-                return taint_wrap(result, taint_origin=all_origins)
-
-            # If no taint, return result unwrapped
-            return result
+            return taint_wrap(result, taint_origin=all_origins)
 
         return wrapper()
 
-    # Check if this function is actually user code (including decorated user functions)
+    # Sync path
     if _is_user_function(func, user_py_files):
-        # This is a builtin function like l.append which we want to call normally
-        # or this is user code (potentially decorated) - call normally without taint wrapping
         return func(*args, **kwargs)
 
-    # Collect taint from all arguments before unwrapping
-    all_origins = set()
-    all_origins.update(get_taint_origins(args))
-    all_origins.update(get_taint_origins(kwargs))
+    bound_self = _get_bound_self(func)
+    all_origins = _collect_all_origins(args, kwargs, bound_self)
 
-    # If func is a bound method (or partial with a bound method), extract taint from self (__self__)
-    # This handles cases like: match.expand(template) where match has taint
-    # For partial objects, we need to check func.func.__self__
-    bound_self = None
-    if hasattr(func, "__self__"):
-        bound_self = func.__self__
-    elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-        # Handle functools.partial objects
-        bound_self = func.func.__self__
+    if not all_origins:
+        return func(*args, **kwargs)
 
-    if bound_self is not None:
-        bound_taint = get_taint_origins(bound_self)
-        all_origins.update(bound_taint)
+    set_lost_taint(all_origins)
 
-    # Untaint arguments for the function call
+    per_arg_origins = _collect_per_arg_origins(args, kwargs)
     untainted_args = untaint_if_needed(args)
     untainted_kwargs = untaint_if_needed(kwargs)
 
-    # Call the original function with untainted arguments
-    bound_hash_before_func = _get_bound_obj_hash(bound_self) if all_origins else None
+    hashes_before = (_compute_hashes(untainted_args), _compute_hashes(untainted_kwargs.values()))
+    bound_hash_before = _get_bound_obj_hash(bound_self)
+
     result = func(*untainted_args, **untainted_kwargs)
-    bound_hash_after_func = _get_bound_obj_hash(bound_self) if all_origins else None
+    result_produced_taints = get_taint_origins(result)
 
-    no_side_effect = (
-        bound_hash_before_func is not None
-        and bound_hash_after_func is not None
-        and bound_hash_before_func == bound_hash_after_func
+    if result_produced_taints:
+        all_origins = set(result_produced_taints)
+
+    hashes_after = (_compute_hashes(untainted_args), _compute_hashes(untainted_kwargs.values()))
+    bound_hash_after = _get_bound_obj_hash(bound_self)
+
+    _retaint_args(
+        untainted_args, untainted_kwargs, hashes_before, hashes_after, per_arg_origins, all_origins
     )
+    set_lost_taint(set())
 
-    # If func is a bound method on a TaintObject, update its taint with any new taint from inputs
-    # This ensures the object accumulates taint as it's used with tainted data
-    if bound_self is not None and hasattr(bound_self, "_taint_origin"):
-        # Get the current taint from inputs (excluding self's original taint)
-        input_taint = set()
-        input_taint.update(get_taint_origins(args))
-        input_taint.update(get_taint_origins(kwargs))
-        if input_taint:
-            # Update the bound object's taint with new taint from inputs
-            try:
-                current_origins = object.__getattribute__(bound_self, "_taint_origin")
-                new_origins = set(current_origins) | input_taint
-                object.__setattr__(bound_self, "_taint_origin", list(new_origins))
-            except (AttributeError, TypeError):
-                # If we can't update, just continue - the taint will still be in all_origins for the result
-                pass
+    _update_bound_self_taint(bound_self, args, kwargs)
+    _taint_bound_self_if_mutated(bound_self, bound_hash_before, bound_hash_after, all_origins)
 
-    # Wrap result with taint if there is any taint
-    if all_origins:
-        if no_side_effect:
-            return taint_wrap(result, taint_origin=all_origins)
-
-        # need to taint bound object (if any) as well
-        # we need to use inplace because you cannot assign __self__ of
-        # builtin functions ([1].append.__self__ = [1,2] does not work)
-        if hasattr(func, "__self__"):
-            taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-        elif hasattr(func, "func") and hasattr(func.func, "__self__"):
-            taint_wrap(bound_self, taint_origin=all_origins, inplace=True)
-
-        return taint_wrap(result, taint_origin=all_origins)
-
-    # If no taint, return result unwrapped
-    return result
+    return taint_wrap(result, taint_origin=all_origins, inplace=True)

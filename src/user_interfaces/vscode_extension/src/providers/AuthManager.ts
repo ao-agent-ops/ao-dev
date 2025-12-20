@@ -66,10 +66,10 @@ export class AuthManager {
 
             if (session) {
                 // Try to extract picture from session scopes/account
-                const userAvatar = (session as any).account?.picture || 
-                                  (session as any).picture || 
+                const userAvatar = (session as any).account?.picture ||
+                                  (session as any).picture ||
                                   `https://www.gravatar.com/avatar/${session.account.id}?d=mp&s=200`;
-                
+
                 this.currentState = {
                     authenticated: true,
                     userId: session.account.id,
@@ -78,7 +78,9 @@ export class AuthManager {
                     userAvatar: userAvatar,
                     session: session
                 };
-                vscode.window.showInformationMessage(`Signed in as ${session.account.label}`);
+
+                // Show message with timeout - use setStatusBarMessage instead for auto-dismiss
+                vscode.window.setStatusBarMessage(`Signed in as ${session.account.label}`, 5000);
             } else {
                 this.currentState = { authenticated: false };
             }
@@ -86,7 +88,11 @@ export class AuthManager {
             this._onAuthStateChanged.fire(this.currentState);
             return this.currentState;
         } catch (error) {
-            vscode.window.showErrorMessage(`Sign in failed: ${error}`);
+            // Don't show error if user cancelled the login
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (!errorMessage.includes('User did not consent') && !errorMessage.includes('Authentication was cancelled')) {
+                vscode.window.showErrorMessage(`Sign in failed: ${error}`);
+            }
             this.currentState = { authenticated: false };
             this._onAuthStateChanged.fire(this.currentState);
             return this.currentState;
@@ -100,14 +106,14 @@ export class AuthManager {
                 // Remove the session using the auth provider
                 if (this.authProvider) {
                     await this.authProvider.removeSession(session.id);
-                    vscode.window.showInformationMessage('Signed out successfully');
+                    vscode.window.setStatusBarMessage('Signed out successfully', 5000);
                 } else {
                     // Fallback: delete the sessions from secrets storage directly
                     await this.context.secrets.delete('google.auth.sessions');
-                    vscode.window.showInformationMessage('Signed out successfully');
+                    vscode.window.setStatusBarMessage('Signed out successfully', 5000);
                 }
             }
-            
+
             this.currentState = { authenticated: false };
             this._onAuthStateChanged.fire(this.currentState);
         } catch (error) {

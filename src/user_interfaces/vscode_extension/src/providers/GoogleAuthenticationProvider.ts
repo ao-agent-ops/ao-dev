@@ -21,9 +21,10 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
     private readonly AUTH_BASE_URL: string;
 
     constructor(private readonly context: vscode.ExtensionContext) {
-        // Point to EC2 auth server (using HTTPS)
-        this.AUTH_BASE_URL = 'https://agops-project.com/api';
-        
+        // Read auth server URL from configuration, fallback to localhost
+        const config = vscode.workspace.getConfiguration('agopsAgentCopilot');
+        this.AUTH_BASE_URL = config.get<string>('authServerUrl') || 'http://localhost:5958';
+
         this._disposable = vscode.authentication.registerAuthenticationProvider(
             GoogleAuthenticationProvider.AUTH_TYPE,
             GoogleAuthenticationProvider.AUTH_NAME,
@@ -108,7 +109,11 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
 
             return session;
         } catch (error) {
-            vscode.window.showErrorMessage(`Google authentication failed: ${error}`);
+            // Don't show error message if user cancelled
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (!errorMessage.includes('Authentication was cancelled')) {
+                vscode.window.showErrorMessage(`Google authentication failed: ${error}`);
+            }
             console.error('Create session error:', error);
             throw error;
         }
@@ -144,9 +149,15 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
                 res.end();
             });
 
-            server.listen(GoogleAuthenticationProvider.LOCAL_REDIRECT_PORT, () => {
+            server.listen(GoogleAuthenticationProvider.LOCAL_REDIRECT_PORT, async () => {
                 // Open browser for user to authenticate
-                vscode.env.openExternal(vscode.Uri.parse(authUrl));
+                const opened = await vscode.env.openExternal(vscode.Uri.parse(authUrl));
+
+                // If user cancelled the "open external website" dialog, close server and reject
+                if (!opened) {
+                    server.close();
+                    resolve(undefined);
+                }
             });
 
             server.on('error', (err) => {
