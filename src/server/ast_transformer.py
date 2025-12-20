@@ -243,7 +243,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             self.needs_taint_imports = True
 
             # Category 1: Adding mutations - keep args wrapped to preserve taint
-            adding_methods = {"append", "extend", "insert", "add", "update"}
+            adding_methods = {"append", "extend", "insert", "add", "update", "setdefault"}
             # Category 2: Query methods - untaint args for comparison, return with taint
             query_methods = {"count", "index"}
             # Category 3: In-place modifications - untaint args, modify collection

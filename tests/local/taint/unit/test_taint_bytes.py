@@ -2,7 +2,7 @@
 """Test the TaintWrapper (bytes) functionality."""
 
 import pytest
-from aco.runner.taint_wrappers import taint_wrap, get_taint_origins
+from aco.runner.taint_wrappers import taint_wrap, get_taint_origins, untaint_if_needed
 from ....utils import with_ast_rewriting_class
 
 
@@ -387,7 +387,7 @@ class TestTaintBytes:
         tb = taint_wrap(b"hello", taint_origin="source1")
 
         # get_raw
-        raw = tb.obj
+        raw = untaint_if_needed(tb)
         assert raw == b"hello"
         assert type(raw) == bytes
 

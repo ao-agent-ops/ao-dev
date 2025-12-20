@@ -478,9 +478,11 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
     # Resolve the actual function and collect object taint
     if method_name is not None:
         # Method call: func_or_obj is the object
+        from aco.runner.taint_wrappers import unwrap_flat
+
         obj = func_or_obj
         obj_taint = get_taint_origins(obj)
-        unwrapped_obj = untaint_if_needed(obj)
+        unwrapped_obj = unwrap_flat(obj)
         func = getattr(unwrapped_obj, method_name)
     else:
         # Standalone function or already-bound method
@@ -726,7 +728,9 @@ def intercept_access(op_type, obj_or_name, attr_or_none):
 
     elif op_type == "attr":
         # Attribute access: obj.attr
-        unwrapped_parent = untaint_if_needed(obj_or_name)
+        from aco.runner.taint_wrappers import unwrap_flat
+
+        unwrapped_parent = unwrap_flat(obj_or_name)
         result = getattr(unwrapped_parent, attr_or_none)
 
         # Resolve taint
@@ -759,12 +763,10 @@ def intercept_access(op_type, obj_or_name, attr_or_none):
         # Get item from parent
         result = raw_parent[unwrapped_key]
 
-        # Check if item already has its own taint
-        try:
-            if result in builtins.TAINT_DICT:
-                return result
-        except TypeError:
-            pass
+        # Check if item already has its own taint (TaintWrapper or TAINT_DICT)
+        item_taint = get_taint_origins(result)
+        if item_taint:
+            return result
 
         # Item doesn't have its own taint - inherit parent's taint
         parent_taint = get_taint_origins(obj_or_name)
