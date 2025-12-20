@@ -2,191 +2,181 @@
 
 **Note:** Runtime performance is not a consideration for this system. The focus is on correctness and completeness of taint tracking.
 
-The high-level concept is to maintain a global dictionary `TAINT_DICT`, where each object's reference points to the taint it carries. This is very simple in principle but involves some complications as Python built-ins (int, str, list, etc.) do not have references. In the following, we therefore describe an approach that mitigates this issue.
+The high-level concept is to maintain a global WeakKeyDictionary `TAINT_DICT`, where each object references point to the taint associated with the object. This involves two challenges:
 
-## Core Architecture
-
-### TAINT_DICT and Shadow Trees
-
-Every object in the user's code has an entry in TAINT_DICT (WeakKeyDictionary). Since WeakKeyDictionary requires objects to support weak references, built-ins (int, str, list, dict, etc.) must be wrapped in TaintWrapper when used as standalone variables. This wrapper serves solely to enable TAINT_DICT tracking for standalone variables. The actual built-in remains untouched inside the wrapper:
+1. **Determining the taint of attributes:** Consider the following example, which shows how different attributes inside the same object can carry different taint:
 
 ```python
-# Objects instantiated in user code are added directly to TAINT_DICT
-o = MyObject()  # TAINT_DICT[o] = {shadow structure}
-
-# Built-ins: Wrapped when standalone, unwrapped when nested inside an object
-status = 0       # status = TaintWrapper(0), TAINT_DICT[status] = {"taint_origins": []}
-obj.status = 0   # Stored unwrapped, shadow in TAINT_DICT[obj]["status"] = {"taint_origins": []}
-```
-
-### Shadow Structure Creation
-
-The shadow structure of an object `obj` is created and inserted into `TAINT_DICT` via `add_to_taint_dict_and_return(obj)`. An object's shadow structure **only mirrors built-in attributes** (int, str, list, dict). Objects that support weak references get their own separate `TAINT_DICT` entries instead of being mirrored:
-
-```python
-# Example object structure:
-r = Response()  # has r.nested_obj (object) and r.status (int)
-# TAINT_DICT entry created:
-# TAINT_DICT[r] = {
-#     "taint_origins": [],
-#     "status": {"taint_origins": []}  # Built-in: mirrored in shadow
-#     # nested_obj NOT mirrored - has its own entry
-# }
-```
-
-`r.nested_obj` will get its own `TAINT_DICT` entry when accessed via `taint_propagating_get`, which calls `add_to_taint_dict_and_return` lazily. Non-built-in nested objects aren't mirrored in parent's shadow structure since `taint_propagating_get` retrieves their object reference directly for TAINT_DICT lookup.
-
-## Attribute and Subscript Access
-
-### Attribute access chains
-
-The AST transformer rewrites access chains to propagate taint through `TAINT_STACK`. `taint_propagating_get` retrieves attributes with their taint, while `exec_func` executes methods:
-
-```python
-# Original: tainted_response.contents[0].text
-# Transforms to:
-add_to_taint_dict_and_return(
-    taint_propagating_get('attr',
-        taint_propagating_get('subscript', 
-            taint_propagating_get('attr', tainted_response, 'contents'),
-            0),
-        'text')
-)
-```
-
-`taint_propagating_get` updates the global `TAINT_STACK` variable by checking the taint of the input object in `TAINT_DICT`. This recursive "traversal" allows attributes to inherit taint from their parents while also considering that different taint may have been set at deeper levels. Specifically, it allows for the following, fine-grained distinguishment: 
-
-```python
-parent_obj = func_that_produces_taint()  # parent_obj is tainted from function call
-parent_obj.child_obj_1 = tainted_value_a # Only child_obj_1 will carry tainted_value_a taint
-parent_obj.child_obj_2 = tainted_value_b # Only child_obj_2 will carry tainted_value_b taint
+parent_obj = func_that_produces_taint()
+parent_obj.child_obj_1 = tainted_value_a
+parent_obj.child_obj_2 = tainted_value_b
 
 child_var_1 = parent_obj.child_obj_1 # Only carries taint from tainted_value_a
 child_var_2 = parent_obj.child_obj_2 # Only carries taint from tainted_value_b
 child_var_3 = parent_obj.child_obj_3 # Only carries taint from parent (from function call)
 ```
 
-Also refer to the pseudo code of `taint_propagating_get`.
+Solution: Each attribute gets its own entry in `TAINT_DICT` (i.e., stores taint independently). Attributes are populated lazily when accessed - the AST rewrites attribute chains from the inside out, so each intermediate object is added to TAINT_DICT before the next level needs its taint. Note: In Python, objects can only be modified by *overwriting attributes* or *modifying built-ins* (e.g., `+=` on `int`, `.sort()` on `list`, etc). As a whole, all object manipulations (including different ways to modify built-ins) fall into a small set of cases. We define how taint is propagated for each of these cases.
+
+1. **built-ins (int, str, list, etc.) don't have weak refs:** WeakKeyDictionary `TAINT_DICT` cannot be indexed by built-ins.
+
+Solution: Wrap built-ins in minimal, transparent wrappers such that we can produce a weak ref to the wrapper. The wrappers only exist for built-ins that are "standalone variables" in the user code (opposed to attributes of an object). I.e.:
+
+```python
+int_var = 4 # int_var will be wrapped
+obj.int_var = 4 # int_var won't be wrapped, it's not a "standalone variable"
+```
+
+The wrapper serves solely to reference standalone built-in variables. The actual built-in remains untouched inside the wrapper and its taint is stored inside `TAINT_DICT`.
+
+## Core Architecture
+
+### TAINT_DICT Entries
+
+Every object in the user's code has an entry in `TAINT_DICT` (WeakKeyDictionary). Since WeakKeyDictionary requires objects to support weak references, built-ins (int, str, list, dict, etc.) must be wrapped in TaintWrapper when used as standalone variables. The dict entry of an object looks as follows:
+
+Consider this object:
+
+```python
+class MyObj:
+    def __init__(self):
+        self.int_var = 0
+        self.str_var = "hello"
+        self.nested_obj = OtherObj()
+
+my_obj = MyObject
+```
+
+Then `TAINT_DICT[my_obj]` will look like this:
+
+```python
+TAINT_DICT[my_obj] = {"self": [], "int_var": [] "str_var": []}
+```
+
+The entry stores the taint origins of itself and its *built-in* attributes inside lists. Note that it does not store the taint for `nested_obj`, as `nested_obj` gets its own entry in `TAINT_DICT`.
+
+### Shadow Structure Creation
+
+The shadow structure of an object `obj` is created and inserted into `TAINT_DICT` via `add_to_taint_dict_and_return(obj, taint)`. This function wraps built-ins if needed, and stores the object with the explicitly provided `taint` inside `TAINT_DICT`. It returns the wrapped object if `obj` was a built-in or the unaltered `obj` if it wasn't.
+
+Attributes are NOT added eagerly. Instead, they are populated lazily when accessed via `taint_propagating_get`. This works because the AST rewrites attribute chains from the inside out (see `add_to_taint_dict_and_return` below).
+
+## Attribute and Subscript Access
+
+### Attribute access
+
+If the attribute is a object (i.e., supports weak references), its taint can simply be looked up in `TAINT_DICT`. If it's a built-in (i.e., doesn't support weak references), it's taint will be stored in its parent. For example: For `obj.some_int`, `some_int`'s text is stored in `TAINT_DICT[obj]['some_int']`. We implement a `get_taint` helper method to handle this distinction and get an attribute's taint. Attribute accesses are wrapped inside `get_taint(...)` in the AST rewrite.
 
 ### Method calls
 
-We wrap method calls inside an exec_func() function during the AST rewrite. For more details, refer to the pseudo code of exec_func() below. 
-
-At a high-level method calls is as follows:
- - We distinguish between functions and methods that are defined in user code versus in third-party libraries (determined by `is_user_code()`).
- - Inside the project root, code is AST-rewritten. For any AST rewritten code, passing TaintWrapper objects into functions is harmless. So, when we call a method that's defined inside user code (i.e., has been rewritten), we just pass TaintWrapper objects as they are.
- - However, there is a boundary to third-party libraries where passing TaintWrappers is not safe. We therefore unwrap any TaintWrappers before passing them into a third-party library and record the variable's taint inside `TAINT_STACK`. After the third-party method returns, we call `add_to_taint_dict_and_return` on its output (i.e., wrap if the output is a built-in and store the output in `TAINT_DICT` with `TAINT_STACK` taint).
- - The reason that we assoiate `TAINT_STACK` taint with the output is because some third-party libraries are instrumentalized to overwrite `TAINT_STACK`. If not, the taint propagation follows a `taint in = taint out` pattern.
-
-**Special case:** Although TaintWrappers are generally defined outside project root (i.e., they are "third-party code"), we don't unwrap inputs that are passed to them (e.g., for `TaintWrapper.append(tainted_int)`, tainted_int is not unwrapped). We effectively treat them as user code.
-
-The way taint is propagated is by appending to or overwriting an object's entry in the `TAINT_DIR`. For example:
+Generally, we wrap method calls inside an exec_func() function during the AST rewrite. I.e.:
 
 ```python
-TaintWrapper(5) += TaintWrapper(2) # The taint of the second (2) TaintWrapper is appended to `TAINT_DICT`[first TaintWrapper (5)
-user_code_obj.third_party_obj.nested_obj.some_method(tainted_input) # append taint of tainted_input to TAINT_DICT[user_code_obj.third_party_obj]
-user_obj.nested_obj = TaintWrapper(5) # Nothing needs to be done, pointer update takes care of it
+out = obj.other_obj.my_method(input_arg) # Becomes: out = exec_func(obj.other_obj, obj.other_obj.my_method, (input_arg,), {})
+out = my_function(input_arg) # Becomes: out = exec_func(None, my_function, (input_arg,), {})
 ```
 
-**Special case:** Although TaintWrappers are generally defined outside project root (i.e., they are "third-party code"), we don't unwrap inputs that are passed to them (e.g., for `TaintWrapper.append(tainted_int)`, tainted_int is not unwrapped). We effectively treat them as user code.
+The signature is `exec_func(parent, func, args, kwargs)` where:
+- `parent`: The parent object for method calls (None for standalone functions)
+- `func`: The callable itself (bound method, function, etc.)
+- `args`: Tuple of positional arguments
+- `kwargs`: Dict of keyword arguments
+
+`exec_func()` uses the `_is_user_code(func)` helper function to distinguish between methods defined in user code (whose AST is rewritten) and the ones of third-party libraries.
+
+For user code: Just call the function as is. No unwrapping of inputs or anything else.
+
+For third-party libraries:
+1. Get the taint of `parent`. Get the taint of the input args and kwargs.
+2. Set the global `ACTIVE_TAINT` list to the combined taints (for monkey-patched code that reads it).
+3. Unwrap any inputs if they are wrapped. Note: Object attributes will never contain wrapped attributes.
+4. Call the function normally.
+5. Call `add_to_taint_dict_and_return(output_obj, taint=collected_taint)` with the explicitly collected taint.
+6. Reset `ACTIVE_TAINT` to `[]` in a finally block to prevent stale taint leaking to unrelated code.
+
+**Special cases:** Some operations like UnaryOps (`+=`, etc) and collection mutations (`append()`, `sort()`, etc) don't produce new objects but alter existing ones. In the AST rewrites, we don't wrap them with `exec_func()` but use custom wrappers.
 
 ### Subscript access
 
-Subscript access follows the patterns described above. Collections (e.g., list, set, dict, tuple) are built-ins and we therefore wrap them when we add them to `TAINT_DICT`. TaintWrapper makes sure that the wrapper around collections works transparently (i.e., slicing, subscripts, etc. all work).
+Subscript accesses do not present a special case. For example:
 
-So for example:
-
+```python
+l = [] # l is wrapped so its wrapper can be added to TAINT_DICT (just like other built-ins)
+l.append(tainted_int) # append() is a method call and is wrapped inside a function similar to exec_func (but customized for append)
+tainted_int_2 = l[0] # TaintWrapper is transparent to subscripts and returns tainted_int (a TaintWrapper object)
 ```
-i = 5 # i is wrapped: i = add_to_taint_dict_and_return(5)
-l = [] # l is wrapped: l = add_to_taint_dict_and_return([])
-l.append(i) # i is passed into append without unwrapping, since l is a TaintWrapper (considered user code)
-# Result: When l[0] is accessed, we return i's TaintWrapper with the correct taint
-```
-
-However, to correctly map the taint in `TAINT_DICT` to the representation in the collection, **we treat collection methods like append, sort, reverse as special cases:** The AST transformer gives them custom implementations (not generic exec_func wrapping) that preserve TaintWrapper inputs while synchronizing shadow structures. This works for both wrapped standalone collections and unwrapped nested collections.
 
 ### Assignment Operations
-Assignments are rewritten by the AST into `wrapper_aware_assign` functions. If we're assigning to an object defined in user code, we just go ahead. Otherwise, we unwrap if needed, and then do the assignment.
 
-## Concurrency Considerations
+Assignments are wrapped inside `taint_propagating_set` functions during the AST transform. E.g.:
 
-- **TAINT_STACK**: Uses ContextVar for async-safe taint propagation
-- **TAINT_DICT**: Requires synchronization for thread-safe shadow tree mutations. We achieve this by using a wrapper around WeakKeyDictionary with a lock.
+```python
+obj.other_obj.some_int = tainted_int # Becomes: taint_propagating_set(obj.other_obj, "some_int", tainted_int)
+```
+
+`taint_propagating_set` updates the attribute's entry in `TAINT_DICT` and unwraps the incoming object if necessary.
+
 ## Pseudo code of core functions
 
-### add_to_taint_dict_and_return(obj)
+### add_to_taint_dict_and_return(obj, taint)
 
 **Pseudo code:**
 
 1. If obj is a built-in that doesn't have a weak ref: `obj = TaintWrapper(obj)`
-2. `TAINT_DICT[ref(obj)] = TAINT_STACK`
+2. `TAINT_DICT[obj] = {"self": taint}`
 3. `return obj` (this is either the unmodified input object or the wrapped input built-in)
 
-### taint_propagating_get(access_type, obj, key)
+**No recursive attribute scanning:** Attributes are added lazily via `taint_propagating_get` when accessed. This works because the AST rewrites attribute chains (e.g., `obj.a.b`) from the inside out, so each intermediate object is in TAINT_DICT before the next level needs its taint.
 
-**Inputs:**
+**Important:** The `taint` argument is REQUIRED. We never read from ACTIVE_TAINT here to avoid accidentally using stale values.
 
- - access_type can be "attr" or "subscript"
- - `obj` is the object the access is performed on
- - `key` is the attribute or dict key name, or the slice (e.g., `"my_attr"` or `"my_dict_key`" or `slice(1,3)`)
+### get_taint(obj, attr_name=None)
+
+Get taint from an object or attribute:
+
+- `get_taint(x)` → taint of x itself (looks up `TAINT_DICT[x]["self"]`)
+- `get_taint(obj, "attr")` → taint of obj.attr
+
+For attribute access: If `obj.attr` is a built-in, get its taint from `TAINT_DICT[obj][attr_name]`. Else, get it from `TAINT_DICT[obj.attr]["self"]`.
+
+### taint_propagating_set(parent_obj, attr_name, val)
+
+Overwrite the shadow entry of `parent_obj.attr_name` with the one of `val`. The shadow entry may be `TAINT_DICT[parent_obj.attr_name]` (`parent_obj.attr_name` is an object) or `TAINT_DICT[parent_obj][attr_name]` (`parent_obj.attr_name` is a built-in). Unwrap `val` if necessary, before actually setting `parent_obj.attr_name` to it.
+
+### exec_func(parent, func, args, kwargs)
 
 **Pseudo code:**
 
-We don't track taint through "third-party code" (determined by helper `is_user_code(obj)`). If `obj` is third-party code, just return the plain object, i.e.: if access_type == attr: `return obj.key`, else `obj[key]`
-
-If `obj` is defined inside project_root, we propagate taint. Do the following:
-
-1. If `obj` is an object with a weak ref:
-   - If `ref(obj)` is in `TAINT_DICT`: `TAINT_STACK = TAINT_DICT[ref(obj) or TAINT_STACK`. 
-   - If it's not in `TAINT_DICT`: `_ = add_to_taint_dict_and_return(obj)`
-2. If access_type == "attr": `accessed_obj = obj.key`; Else: `accessed_obj = obj[key]`
-3. If `accessed_obj` is a built-in with no weak ref: 
-   - `TAINT_STACK = TAINT_DICT[ref(obj)][key][taint_origins] or TAINT_STACK`
-   - `accessed_obj = add_to_taint_dict_and_return(accessed_obj)`
-4. Return `accessed_obj`
-
-### exec_func(obj, method_name, *args, **kwargs)
-
-**Example:**
-
-`out = tainted_obj.nested_obj.other_obj.my_method(tainted_input)`
-
-**AST rewrite of example:**
-
-```
-out = exec_func(
-        taint_propagating_get('attr',
-                taint_propagating_get('attr', tainted_obj, 'nested_obj'),
-            'other_obj'),
-      "my_method",
-      tainted_input)
-```
-
-**Pseudo code for example:**
-
-1. We run `taint_propagating_get` for `tainted_obj.nested_obj.other_obj` (i.e., AST transformer does the nested rewrites with `taint_propagating_get`). After that, we have `TAINT_STACK` correctly set.
-2. We get the taint of `tainted_input`: `input_taint = TAINT_DICT[ref(tainted_input)]`
-3. We append the input_taint to TAINT_STACK: `TAINT_STACK += input_taint`
-4. If `tainted_input` is wrapped, we unwrap it: `tainted_input = unwrap_if_needed(tainted_input)`
-5. We get the method (`method = getattr(obj, method_name)`) and normally execute it:  `out = tainted_obj.nested_obj.other_obj.method(tainted_input)`
-6. We add the output to `TAINT_DICT` (wrap it if needed) and return: `return add_to_taint_dict_and_return(out)` 
+1. If the function is inside the user code (i.e., `_is_user_code(func)` is True), just call `func(*args, **kwargs)` without any additional steps.
+2. If `_is_user_code(func)` is False (third-party code):
+   a. Get the taint of `parent` (if not None) using `get_taint(parent)`.
+   b. Get the taint from all args and kwargs using `get_taint`.
+   c. Combine all taints into `collected_taint`.
+   d. Set `ACTIVE_TAINT` to `collected_taint` (for monkey-patched code that reads it).
+3. Unwrap all inputs if they are wrapped. Note that only inputs to the method might be wrapped, object attributes will never be wrapped.
+4. Call the function normally: `result = func(*args, **kwargs)`.
+5. Call `add_to_taint_dict_and_return(result, taint=collected_taint)` with the explicitly collected taint.
+6. In a `finally` block, reset `ACTIVE_TAINT` to `[]` to prevent stale taint leaking to unrelated code.
+7. Return the result.
 
 
 ### Collection methods
 
-As discussed above, we implement methods for collections (e.g., `.append()`) "manually". We can list all such methods using, e.g., `dir(list)` for lists. Our high-level approach is below:
+As discussed above, we don't use the generic `exec_func` to call methods for collections (e.g., `.append()`) but implement them "manually". Inputs to these methods are not unwrapped, e.g., a list may contain wrapped elements. The goal of the special implementations is to preserve the taint of all collection elements (i.e., the taint of `some_list[0]` or `some_dict["key"]` can still be retrieved). We can list all collection methods using, e.g., `dir(list)` for lists. At a high-level, we can implement these three cases which will cover all methods. We then just need to rewrite the AST to use the appropriate one:
 
 **Three categories of mutations:**
 1. **Positional** (append, extend, insert, pop): Mirror operation at same indices
 2. **Key-Based** (\_\_setitem\_\_, update, pop): Mirror key assignments/deletions  
 3. **Permutation** (sort, reverse): Use "Tag-and-Follow" to reorder shadow elements: Before sorting, zip collection items with their shadow taint entries. After sorting the zipped pairs, extract the reordered shadow list to update TAINT_DICT. E.g.: `sorted_pairs = sorted(zip(collection, shadow_taints), key=lambda x: x[0]); collection[:] = [item for item, _ in sorted_pairs]; shadow_taints[:] = [taint for _, taint in sorted_pairs]`
 
-```python
-# AST transformation concept:
-collection.append(item)            # Original operation
-add_to_taint_dict_and_return(item) # Shadow operation (injected by AST)
-```
+## Invariants
 
-### Resetting TAINT_STACK
+ - Wrapper objects are never passed to third-party code.
+ - Wrapper objects only exist for standalone built-in variables.
+ - All AST-rewritten code is robust to wrappers being passed around.
+ - `TAINT_DICT` is the single source of truth for tracking taint.
 
-`TAINT_STACK` needs to be reset before every line. In the AST rewrite, every line is wrapped with `exec_line()`. `exec_line` just does `TAINT_STACK = []`.
+## Concurrency Considerations
+
+- **ACTIVE_TAINT**: Uses ContextVar for async-safe taint propagation. **Important:** ACTIVE_TAINT is ONLY for communicating taint through third-party code boundaries (exec_func → monkey patches). It should NOT be read by regular taint propagation code (add_to_taint_dict_and_return, variable assignments, etc.). Using stale ACTIVE_TAINT values would incorrectly propagate taint.
+- **TAINT_DICT**: Requires synchronization for thread-safe shadow tree mutations. We achieve this by using a wrapper around WeakKeyDictionary with a lock.
