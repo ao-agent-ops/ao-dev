@@ -1,14 +1,19 @@
-import asyncio
-import threading
-import os
-import random
+"""
+Tests for caching and restart functionality.
+
+These tests verify that:
+1. LLM calls are properly cached and replayed on re-runs
+2. Graph topology is preserved across runs
+3. Node IDs remain consistent for cache hits
+"""
+
 import json
-import time
+import os
+import subprocess
+import sys
 import pytest
 from dataclasses import dataclass
 from aco.server.database_manager import DB
-from aco.runner.develop_shim import DevelopShim
-from aco.runner.develop_shim import ensure_server_running
 
 try:
     from tests.utils import restart_server
@@ -24,85 +29,119 @@ class RunData:
     new_graph: list
 
 
-async def run_test(script_path: str, project_root: str):
-    # Restart server to ensure clean state for this test
+def run_script_via_aco_launch(script_path: str, project_root: str) -> str:
+    """
+    Run a script using aco-launch and return the session_id.
+
+    Args:
+        script_path: Path to the script to run
+        project_root: Project root directory
+
+    Returns:
+        The session_id from the experiment record
+    """
+    env = os.environ.copy()
+    env["ACO_DATABASE_MODE"] = "local"
+
+    # Run the script via aco-launch
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "aco.cli.aco_launch",
+            "--project-root",
+            project_root,
+            script_path,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if result.returncode != 0:
+        print(f"STDOUT: {result.stdout}")
+        print(f"STDERR: {result.stderr}")
+        raise RuntimeError(f"Script failed with return code {result.returncode}")
+
+    # Query for the most recent experiment to get session_id
+    # The experiment was just created, so it should be the most recent one
+    experiment = DB.query_one("SELECT session_id FROM experiments ORDER BY timestamp DESC LIMIT 1")
+    if not experiment:
+        raise RuntimeError("No experiment found in database after running script")
+
+    return experiment["session_id"]
+
+
+def run_test(script_path: str, project_root: str) -> RunData:
+    """
+    Run a script twice and collect data for comparison.
+
+    First run: Execute script normally
+    Second run: Execute again (should use cache)
+
+    Returns:
+        RunData with rows and graph data from both runs
+    """
+    # Restart server to ensure clean state
     restart_server()
 
-    shim = DevelopShim(
-        script_path=script_path,
-        script_args=[],
-        is_module_execution=False,
-        project_root=project_root,
-        sample_id=None,
-    )
-    aco_random_seed = random.randint(0, 2**31 - 1)
-    os.environ["ACO_SEED"] = str(aco_random_seed)
-
-    ensure_server_running()
-    shim._connect_to_server()
-
-    # Explicitly set both server and client to use local SQLite database
-    # Send message to server to switch to local mode
+    # Ensure we're using local SQLite
     DB.switch_mode("local")
-    set_db_mode_msg = {"type": "set_database_mode", "mode": "local"}
-    shim.server_conn.sendall((json.dumps(set_db_mode_msg) + "\n").encode("utf-8"))
 
-    # Give the server a moment to complete database mode switch and transaction
-    time.sleep(0.2)
-
-    # Start background thread to listen for server messages
-    shim.listener_thread = threading.Thread(
-        target=shim._listen_for_server_messages, args=(shim.server_conn,)
-    )
-    shim.listener_thread.start()
-
-    return_code = shim._run_user_script_subprocess()
-    assert return_code == 0, f"failed with return_code {return_code}"
-
-    print("~~~~ session_id", shim.session_id)
+    # First run
+    session_id = run_script_via_aco_launch(script_path, project_root)
+    print(f"~~~~ session_id: {session_id}")
 
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
 
     graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
     graph = json.loads(graph_topology["graph_topology"])
 
-    # send a restart message
-    message = {"type": "restart", "role": "shim-control", "session_id": shim.session_id}
-    shim.server_conn.sendall((json.dumps(message) + "\n").encode("utf-8"))
+    # Second run (should use cache)
+    # We need to set the session ID so the new run uses the same cache
+    env = os.environ.copy()
+    env["ACO_DATABASE_MODE"] = "local"
+    env["AGENT_COPILOT_SESSION_ID"] = session_id
 
-    time.sleep(2)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "aco.cli.aco_launch",
+            "--project-root",
+            project_root,
+            script_path,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
-    assert shim.restart_event.is_set(), "Restart even not set"
-    shim.restart_event.clear()
-    returncode_rerun = shim._run_user_script_subprocess()
-    assert returncode_rerun == 0, f"re-run failed with return_code {return_code}"
+    if result.returncode != 0:
+        print(f"STDOUT: {result.stdout}")
+        print(f"STDERR: {result.stderr}")
+        raise RuntimeError(f"Re-run failed with return code {result.returncode}")
 
     new_rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
 
     new_graph_topology = DB.query_one(
         "SELECT log, success, graph_topology FROM experiments WHERE session_id=?",
-        (shim.session_id,),
+        (session_id,),
     )
     new_graph = json.loads(new_graph_topology["graph_topology"])
 
-    # Cleanup: Close server connection and stop listener thread
-    shim._kill_current_process()
-    shim.send_deregister()
-    shim.server_conn.close()
-    shim.listener_thread.join(timeout=2)
-
-    run_data_obj = RunData(rows=rows, new_rows=new_rows, graph=graph, new_graph=new_graph)
-
-    return run_data_obj
+    return RunData(rows=rows, new_rows=new_rows, graph=graph, new_graph=new_graph)
 
 
 def _caching_asserts(run_data_obj: RunData):
@@ -160,11 +199,9 @@ def _deepresearch_asserts(run_data_obj: RunData):
 
 
 def test_deepresearch():
-    run_data_obj = asyncio.run(
-        run_test(
-            script_path="./example_workflows/miroflow_deep_research/single_task.py",
-            project_root="./example_workflows/miroflow_deep_research",
-        )
+    run_data_obj = run_test(
+        script_path="./example_workflows/miroflow_deep_research/single_task.py",
+        project_root="./example_workflows/miroflow_deep_research",
     )
     _caching_asserts(run_data_obj)
     _deepresearch_asserts(run_data_obj)
@@ -198,12 +235,11 @@ def test_deepresearch():
     ],
 )
 def test_debug_examples(script_path: str):
-    run_data_obj = asyncio.run(
-        run_test(script_path=script_path, project_root="./example_workflows/debug_examples")
+    run_data_obj = run_test(
+        script_path=script_path, project_root="./example_workflows/debug_examples"
     )
     _caching_asserts(run_data_obj)
 
 
 if __name__ == "__main__":
     test_deepresearch()
-    # test_debug_examples("./example_workflows/debug_examples/anthropic_add_numbers.py")

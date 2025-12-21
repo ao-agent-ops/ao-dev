@@ -70,7 +70,6 @@ def patch_httpx_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        logger.debug(f"[HTTPX] Setting ACTIVE_TAINT with node_id: {[cache_output.node_id]}")
         builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
@@ -112,7 +111,6 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        logger.debug(f"[HTTPX] Setting ACTIVE_TAINT with node_id: {[cache_output.node_id]}")
         builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
