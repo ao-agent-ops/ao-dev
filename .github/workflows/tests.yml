@@ -87,18 +87,7 @@ jobs:
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate aco
         echo "=== Testing import of aco package ==="
-        python -c "
-import sys
-print('Python version:', sys.version)
-print('Attempting import...')
-try:
-    import aco
-    print('SUCCESS: aco imported')
-except Exception as e:
-    print(f'FAILED: {e}')
-    import traceback
-    traceback.print_exc()
-"
+        python -c "import sys; print('Python version', sys.version); import aco; print('SUCCESS')" || python -c "import traceback; traceback.print_exc()"
         echo ""
         echo "=== Testing import with verbose ==="
         python -v -c "import aco" 2>&1 | grep -E "(aco|ast_helpers|__init__)" | head -50 || true
