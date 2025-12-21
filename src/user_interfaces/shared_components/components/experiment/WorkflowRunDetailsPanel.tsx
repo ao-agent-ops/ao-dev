@@ -8,13 +8,18 @@ interface Props extends WorkflowRunDetailsPanelProps {
   isDarkTheme?: boolean;
 }
 
-const resultOptions = ["Select a result", "Satisfactory", "Failed"];
+const resultOptions = [
+  { value: "", label: "Select a result" },
+  { value: "Satisfactory", label: "Satisfactory" },
+  { value: "Failed", label: "Failed" }
+];
 
 export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   runName = "",
   result = "",
   notes = "",
   log = "",
+  codeHash = "",
   onOpenInTab,
   onBack,
   sessionId = "",
@@ -39,6 +44,9 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
   useEffect(() => {
     setLocalNotes(notes);
   }, [notes]);
+
+  useEffect(() => {
+  }, [codeHash]);
 
   const handleRunNameChange = (value: string) => {
     setLocalRunName(value);
@@ -190,28 +198,42 @@ export const WorkflowRunDetailsPanel: React.FC<Props> = ({
           style={selectStyle}
         >
           {resultOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>
-        <span
+        <i
+          className="codicon codicon-chevron-down"
           style={{
             position: "absolute",
             right: "12px",
-            top: -6,
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
+            top: "7px",
             pointerEvents: "none",
+            fontSize: "16px",
+            color: isDarkTheme ? "#888888" : "#666666",
           }}
-        >
-          {/* Codicon triangle-down icon */}
-          <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill={isDarkTheme ? "#888888" : "#666666"}>
-            <path d="M4.95693 5C4.14924 5 3.67479 5.90803 4.13603 6.57107L6.76866 10.3555C7.36545 11.2134 8.6346 11.2133 9.23138 10.3555L11.864 6.57106C12.3253 5.90803 11.8508 5 11.0431 5H4.95693Z"/>
-          </svg>
-        </span>
+        />
       </div>
+
+      {/* Code Hash */}
+      <label style={{
+        fontSize: "13px",
+        fontWeight: "600",
+        marginBottom: "4px",
+        display: "block",
+        color: isDarkTheme ? "#cccccc" : "#333333",
+      }}>Code Hash</label>
+      <input
+        type="text"
+        value={codeHash}
+        readOnly
+        style={{
+          ...fieldStyle,
+          fontFamily: "monospace",
+          cursor: "default",
+        }}
+      />
 
       {/* Notes */}
       <label style={{

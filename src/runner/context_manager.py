@@ -2,10 +2,11 @@ import contextvars
 from contextlib import contextmanager
 import json
 import threading
+import queue
 import os
 from aco.common.logger import logger
 from aco.server.database_manager import DB
-from aco.common.utils import send_to_server, send_to_server_and_receive
+from aco.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
 
 
 # Process's session id stored as parent_session_id. Subruns have their own
@@ -16,6 +17,10 @@ parent_session_id = None
 # Connection to server, which is shared throughout the process.
 server_conn = None
 server_file = None
+
+# Response queue for synchronous request-response patterns.
+# The listener thread in AgentRunner routes responses here.
+response_queue: queue.Queue = None
 
 # Names of all subruns in the process. Used to ensure they are unique.
 run_names = None
@@ -71,6 +76,7 @@ def aco_launch(run_name="Workflow run"):
         "command": parent_env["command"],
         "environment": json.loads(parent_env["environment"]),
         "prev_session_id": prev_session_id,
+        "code_hash": compute_code_hash(),
     }
     response = send_to_server_and_receive(msg)
     session_id = response["session_id"]
@@ -116,7 +122,8 @@ def set_parent_session_id(session_id):
     run_names = set(DB.get_session_name(parent_session_id))
 
 
-def set_server_connection(server_connection):
-    global server_conn, server_file
+def set_server_connection(server_connection, rsp_queue=None):
+    global server_conn, server_file, response_queue
     server_conn = server_connection
     server_file = server_connection.makefile("rw")
+    response_queue = rsp_queue

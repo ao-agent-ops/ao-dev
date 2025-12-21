@@ -539,12 +539,12 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         return ast.copy_location(new_node, node)
 
     def _create_name_assign_expr(self, target, value, node):
-        """Create assignment with wrap_assign for name assignments (a = value)."""
+        """Create assignment with taint_assign for name assignments (a = value)."""
         self.needs_taint_imports = True
 
-        # x = value -> x = wrap_assign(value)
+        # x = value -> x = taint_assign(value)
         assign_call = ast.Call(
-            func=ast.Name(id="wrap_assign", ctx=ast.Load()),
+            func=ast.Name(id="taint_assign", ctx=ast.Load()),
             args=[value],
             keywords=[],
         )
@@ -571,7 +571,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
     # NOTE: visit_Name is intentionally NOT implemented for Load context.
     # Variable reads don't need transformation - variables already hold wrappers from assignment.
-    # When we do `x = value`, visit_Assign rewrites it to `x = wrap_assign(value)`
+    # When we do `x = value`, visit_Assign rewrites it to `x = taint_assign(value)`
     # which wraps the value. Later reading `x` just returns that wrapper directly.
 
     def _extract_project_root(self, current_file):
@@ -617,7 +617,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from aco.server.ast_helpers import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, wrap_assign, get_attr, get_item, set_attr
+from aco.server.ast_helpers import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, taint_assign, get_attr, get_item, set_attr
 """
 
         safe_import_tree = ast.parse(safe_import_code)

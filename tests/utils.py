@@ -38,7 +38,7 @@ def setup_test_session(session_id, name="Test Session", parent_session_id=None):
     in the database. A more thorough approach would be to:
 
     1. Start a test server instance or mock the server connection
-    2. Simulate the full handshake flow from launch_scripts.py:
+    2. Simulate the full handshake flow from agent_runner.py:
        - Send "hello" message with role="agent-runner"
        - Server creates experiment record
        - Server responds with acknowledgment
@@ -136,7 +136,7 @@ def with_ast_rewriting(test_func):
             exec_setitem,
             exec_delitem,
             exec_inplace_binop,
-            wrap_assign,
+            taint_assign,
             get_attr,
             get_item,
             set_attr,
@@ -152,7 +152,7 @@ def with_ast_rewriting(test_func):
         builtins.exec_setitem = exec_setitem
         builtins.exec_delitem = exec_delitem
         builtins.exec_inplace_binop = exec_inplace_binop
-        builtins.wrap_assign = wrap_assign
+        builtins.taint_assign = taint_assign
         builtins.get_attr = get_attr
         builtins.get_item = get_item
         builtins.set_attr = set_attr

@@ -4,6 +4,7 @@ from aco.runner.monkey_patching.patches.uuid_patches import uuid_patch
 # from aco.runner.monkey_patching.patches.file_patches import apply_file_patches
 from aco.runner.monkey_patching.patches.httpx_patch import httpx_patch
 from aco.runner.monkey_patching.patches.requests_patch import requests_patch
+from aco.runner.monkey_patching.patches.genai_patch import genai_patch
 
 
 def apply_all_monkey_patches():
@@ -22,4 +23,5 @@ CUSTOM_PATCH_FUNCTIONS = [
     mcp_patch,
     httpx_patch,
     requests_patch,
+    genai_patch,
 ]

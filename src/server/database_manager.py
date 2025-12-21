@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Optional, Any
 
 from aco.common.logger import logger
+from aco.server.database_backends import postgres, sqlite
 from aco.runner.monkey_patching.api_parser import (
     get_model_name,
     func_kwargs_to_json_str,
@@ -173,7 +174,7 @@ class DatabaseManager:
         Raises:
             Exception: If current backend doesn't support user management (e.g., SQLite)
         """
-        return self.backend.upsert_user(google_id, email, name, picture)
+        return postgres.upsert_user(google_id, email, name, picture)
 
     def get_user_by_id(self, user_id):
         """
@@ -191,12 +192,16 @@ class DatabaseManager:
         return self.backend.get_user_by_id_query(user_id)
 
     def set_input_overwrite(self, session_id, node_id, new_input):
-        # Overwrite input for node.
+        # Make sure string repr. is uniform
+        new_input = json.dumps(json.loads(new_input), sort_keys=True)
         row = self.backend.get_llm_call_input_api_type_query(session_id, node_id)
         input_overwrite = json.loads(row["input"])
-        input_overwrite["input"] = new_input
-        input_overwrite = json.dumps(input_overwrite)
-        self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
+        # Maybe what the UI gave us is the same (user didn't change anything).
+        # In this case, don't remove the output (this is what set_input_overwrite_query does)
+        if input_overwrite["input"] != new_input:
+            input_overwrite["input"] = new_input
+            input_overwrite = json.dumps(input_overwrite, sort_keys=True)
+            self.backend.set_input_overwrite_query(input_overwrite, session_id, node_id)
 
     def set_output_overwrite(self, session_id, node_id, new_output: str):
         # Overwrite output for node.
@@ -211,6 +216,7 @@ class DatabaseManager:
         try:
             # try to parse the edit of the user
             json_str_to_api_obj(new_output, row["api_type"])
+            new_output = json.dumps(json.loads(new_output), sort_keys=True)
             self.backend.set_output_overwrite_query(new_output, session_id, node_id)
         except Exception as e:
             logger.error(f"Failed to parse output edit into API object: {e}")
@@ -233,6 +239,7 @@ class DatabaseManager:
         environment,
         parent_session_id=None,
         user_id=None,
+        code_hash=None,
     ):
         """Add experiment to database."""
         import json
@@ -257,6 +264,7 @@ class DatabaseManager:
             DEFAULT_NOTE,
             DEFAULT_LOG,
             user_id,
+            code_hash,
         )
 
     def update_graph_topology(self, session_id, graph_dict):
@@ -408,11 +416,9 @@ class DatabaseManager:
     def get_in_out(self, input_dict: dict, api_type: str) -> CacheOutput:
         """Get input/output for LLM call, handling caching and overwrites."""
         from aco.runner.context_manager import get_session_id
-        from aco.server.ast_helpers import untaint_if_needed
         from aco.common.utils import hash_input, set_seed
 
         # Pickle input object.
-        input_dict = untaint_if_needed(input_dict)
         api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
         model = get_model_name(input_dict, api_type)
 
@@ -430,6 +436,7 @@ class DatabaseManager:
         row = self.backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
 
         if row is None:
+            logger.debug(f"Cache MISS, (session_id, input_hash): {(session_id, input_hash)}")
             return CacheOutput(
                 input_dict=input_dict,
                 output=None,
@@ -448,6 +455,9 @@ class DatabaseManager:
         )
 
         if row["input_overwrite"] is not None:
+            logger.debug(
+                f"Cache HIT - Input overwrite, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+            )
             overwrite_json_str = row["input_overwrite"]
             overwrite_text = json.loads(overwrite_json_str)["input"]
             # the format of the input is not always a JSON dict.
@@ -459,8 +469,12 @@ class DatabaseManager:
         # Here, no matter if we made an edit to the input or not, the input dict should
         # be a valid input to the underlying function
 
+        # TODO We can't distinguish between output and output_overwrite
         if row["output"] is not None:
             output = json_str_to_api_obj(row["output"], api_type)
+            logger.debug(
+                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+            )
 
         set_seed(node_id)
         return CacheOutput(
@@ -491,11 +505,11 @@ class DatabaseManager:
 
         # Insert new row with a new node_id. reset randomness to avoid
         # generating exact same UUID when re-running, but MCP generates randomness and we miss cache
-        # random.seed() # TODO: I think we shouldn't reset seed here?
-        node_id = str(uuid.uuid4())
-        logger.debug(
-            f"Cache MISS, (session_id, node_id, input_hash): {(cache_result.session_id, node_id, cache_result.input_hash)}"
-        )
+        random.seed()
+        if cache_result.node_id:
+            node_id = cache_result.node_id
+        else:
+            node_id = str(uuid.uuid4())
         # Avoid caching bad http responses
         response_ok = api_obj_to_response_ok(output_obj, api_type)
 
@@ -509,6 +523,8 @@ class DatabaseManager:
                 api_type,
                 output_json_str,
             )
+        else:
+            logger.warning(f"Node {node_id} response not OK.")
         cache_result.node_id = node_id
         cache_result.output = output_obj
         set_seed(node_id)
@@ -575,6 +591,10 @@ class DatabaseManager:
     def query_one_llm_call_output(self, session_id, node_id):
         """Get one llm-call output by session id and node id"""
         return self.backend.get_llm_call_output_api_type_query(session_id, node_id)
+
+    def get_next_run_index(self):
+        """Get the next run index based on how many runs already exist."""
+        return self.backend.get_next_run_index_query()
 
 
 # Create singleton instance following the established pattern

@@ -18,7 +18,7 @@ declare global {
 
 export const App: React.FC = () => {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
-  const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote'>('Local');
+  const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote' | null>(null);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');
   const [selectedExperiment, setSelectedExperiment] = useState<ProcessInfo | null>(null);

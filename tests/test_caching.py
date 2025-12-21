@@ -91,7 +91,6 @@ def run_test(script_path: str, project_root: str) -> RunData:
 
     # First run
     session_id = run_script_via_aco_launch(script_path, project_root)
-    print(f"~~~~ session_id: {session_id}")
 
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
@@ -156,7 +155,9 @@ def _caching_asserts(run_data_obj: RunData):
     # Compare graph topology between runs
     assert len(run_data_obj.graph["nodes"]) == len(
         run_data_obj.new_graph["nodes"]
-    ), "Number of nodes in graph topology doesn't match after re-run"
+    ), f"Number of nodes in graph topology doesn't match after re-run: first: {len(run_data_obj.graph["nodes"])} vs. second: {len(
+        run_data_obj.new_graph["nodes"]
+    )}"
     assert len(run_data_obj.graph["edges"]) == len(
         run_data_obj.new_graph["edges"]
     ), "Number of edges in graph topology doesn't match after re-run"

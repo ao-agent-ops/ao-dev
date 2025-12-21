@@ -7,7 +7,6 @@
 # import builtins
 # import io
 # from functools import wraps
-# from aco.runner.taint_wrappers import TaintFile
 
 
 # def _should_wrap_file(file_path):

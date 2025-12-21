@@ -3,14 +3,24 @@ from typing import Any, Dict
 
 
 def json_str_to_original_inp_dict_httpx(json_str: str, input_dict: dict) -> dict:
-    # For httpx, modify the body parameter
-    input_dict["request"]._content = json_str.encode("utf-8")
+    import httpx
+
+    # For httpx, modify both _content and stream
+    # The stream is what actually gets sent over the wire
+    new_content = json_str.encode("utf-8")
+    input_dict["request"]._content = new_content
+    input_dict["request"].stream = httpx.ByteStream(new_content)
+
+    # Also update content-length header if present
+    if "content-length" in input_dict["request"].headers:
+        input_dict["request"].headers["content-length"] = str(len(new_content))
+
     return input_dict
 
 
 def func_kwargs_to_json_str_httpx(input_dict: Dict[str, Any]):
     # For httpx, extract content from request object
-    json_str = json.dumps(json.loads(input_dict["request"].content.decode("utf-8")), sort_keys=True)
+    json_str = json.dumps(json.loads(input_dict["request"].content.decode("utf-8")))
     return json_str, []
 
 

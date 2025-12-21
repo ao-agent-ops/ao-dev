@@ -57,13 +57,19 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (showNodeEditModal) {
-      // Prevent scroll on body
+      // Prevent scroll on body - keep it hidden
       document.body.style.overflow = 'hidden';
-
-      return () => {
-        document.body.style.overflow = '';
-      };
+    } else {
+      // Restore scroll when modal is closed
+      // The CSS has body { overflow: hidden }, so we need to explicitly override it
+      // Setting to empty string would just reveal the CSS rule
+      document.body.style.overflow = 'auto';
     }
+
+    return () => {
+      // Always cleanup on unmount - restore to auto
+      document.body.style.overflow = 'auto';
+    };
   }, [showNodeEditModal]);
 
   if (!experiment || !sessionId) {
@@ -139,6 +145,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   result={experiment.result || ''}
                   notes={experiment.notes || ''}
                   log={experiment.log || ''}
+                  codeHash={experiment.code_hash || ''}
                   sessionId={sessionId || ''}
                   isDarkTheme={isDarkTheme}
                   messageSender={messageSender}

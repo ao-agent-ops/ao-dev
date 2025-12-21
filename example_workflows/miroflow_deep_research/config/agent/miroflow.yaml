@@ -19,7 +19,7 @@ sub_agents:
       - tool-audio
       - tool-reading
       - tool-code
-    max_turns: 1
+    max_turns: 2
     max_tool_calls_per_turn: 10  # Maximum number of tool calls per turn
 
 o3_hint: true

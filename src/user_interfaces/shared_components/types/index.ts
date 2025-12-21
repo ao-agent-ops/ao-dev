@@ -70,6 +70,7 @@ export interface ProcessInfo {
     result?: string;
     notes?: string;
     log?: string;
+    code_hash?: string;
 }
 
 export interface WorkflowRunDetailsPanelProps {
@@ -77,6 +78,7 @@ export interface WorkflowRunDetailsPanelProps {
   result?: string;
   notes?: string;
   log?: string;
+  codeHash?: string;
   onOpenInTab?: () => void;
   messageSender?: import('./MessageSender').MessageSender;
 }

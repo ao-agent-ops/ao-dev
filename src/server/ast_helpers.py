@@ -419,7 +419,7 @@ async def _wrap_coroutine_with_taint(coro, taint):
 # =============================================================================
 
 
-def wrap_assign(value):
+def taint_assign(value):
     """Wrap value for variable assignment (x = value).
 
     This function preserves any existing taint on the value.

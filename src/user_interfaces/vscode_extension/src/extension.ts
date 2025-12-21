@@ -1,31 +1,33 @@
 import * as vscode from 'vscode';
 import { SidebarProvider } from './providers/SidebarProvider';
 import { GraphTabProvider } from './providers/GraphTabProvider';
-import { GoogleAuthenticationProvider } from './providers/GoogleAuthenticationProvider';
+// Google auth disabled - feature not yet visible in UI
+// import { GoogleAuthenticationProvider } from './providers/GoogleAuthenticationProvider';
 import { PythonServerClient } from './providers/PythonServerClient';
-import { AuthManager } from './providers/AuthManager';
+// import { AuthManager } from './providers/AuthManager';
 
 export async function activate(context: vscode.ExtensionContext) {
-    // Register Google Authentication Provider
-    const googleAuthProvider = new GoogleAuthenticationProvider(context);
-    context.subscriptions.push(googleAuthProvider);
+    // Google Authentication Provider disabled - feature not yet visible in UI
+    // const googleAuthProvider = new GoogleAuthenticationProvider(context);
+    // context.subscriptions.push(googleAuthProvider);
 
-    // Initialize AuthManager and set the auth provider
-    const authManager = AuthManager.getInstance(context);
-    authManager.setAuthProvider(googleAuthProvider);
+    // AuthManager disabled - feature not yet visible in UI
+    // const authManager = AuthManager.getInstance(context);
+    // authManager.setAuthProvider(googleAuthProvider);
 
     // Create and connect the Python client
     // ensureConnected() will check for authentication before connecting
     const pythonClient = PythonServerClient.getInstance();
     await pythonClient.ensureConnected();
 
-    // Monitor authentication changes and update Python client
+    // Google auth session monitoring disabled - feature not yet visible in UI
+    /*
     context.subscriptions.push(
         vscode.authentication.onDidChangeSessions(async e => {
             if (e.provider.id === 'google') {
                 const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
                 const pythonClient = PythonServerClient.getInstance();
-                
+
                 if (session) {
                     pythonClient.setUserId(session.account.id);
                     // Send auth message to update user_id on existing connection
@@ -36,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+    */
 
     // Register the sidebar provider
     const sidebarProvider = new SidebarProvider(context.extensionUri, context);
@@ -61,7 +64,8 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register command to sign in
+    // Sign in/out commands disabled - feature not yet visible in UI
+    /*
     context.subscriptions.push(
         vscode.commands.registerCommand('graphExtension.signIn', async () => {
             try {
@@ -79,7 +83,6 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register command to sign out
     context.subscriptions.push(
         vscode.commands.registerCommand('graphExtension.signOut', async () => {
             const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
@@ -92,4 +95,5 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+    */
 }

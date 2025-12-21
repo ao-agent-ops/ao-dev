@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parse, stringify } from 'lossless-json';
 
 interface JSONViewerProps {
   data: any;
@@ -18,9 +19,12 @@ interface JSONNodeProps {
 }
 
 const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth, isLast, path, onChange }) => {
-  const [isExpanded, setIsExpanded] = useState(depth === 0); // Only expand first level by default
+  // Expand everything by default
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  // Track the original type to preserve it during editing
+  const [originalType] = useState<string>(typeof value);
 
   const colors = isDarkTheme
     ? {
@@ -50,7 +54,24 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
 
   const indent = depth * 20;
 
+  // Check if a value is a LosslessNumber from lossless-json library
+  const isLosslessNumber = (val: any): boolean => {
+    return val !== null && typeof val === 'object' && val.isLosslessNumber === true;
+  };
+
+  // Get the actual value, unwrapping LosslessNumber if needed
+  const unwrapValue = (val: any): any => {
+    if (isLosslessNumber(val)) {
+      return Number(val.value);
+    }
+    return val;
+  };
+
   const isExpandable = (val: any) => {
+    // LosslessNumber objects should not be expandable - they're just numbers
+    if (isLosslessNumber(val)) {
+      return false;
+    }
     return (
       val !== null &&
       typeof val === 'object' &&
@@ -69,25 +90,33 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
     return '';
   };
 
-  const saveEdit = () => {
-    if (!onChange) return;
+  const parseEditValue = (editVal: string): any => {
+    const trimmed = editVal.trim();
 
-    let newValue: any;
-    const trimmed = editValue.trim();
+    // If the original value was a string, keep it as a string
+    if (originalType === 'string') {
+      return editVal;
+    }
 
     // Try to parse as JSON literal
     if (trimmed === 'null') {
-      newValue = null;
+      return null;
     } else if (trimmed === 'true') {
-      newValue = true;
+      return true;
     } else if (trimmed === 'false') {
-      newValue = false;
+      return false;
     } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
-      newValue = Number(trimmed);
+      // Number - lossless-json will preserve float vs int distinction
+      return Number(trimmed);
     } else {
-      newValue = editValue; // String value
+      // String - return as-is, lossless-json handles type preservation
+      return editVal;
     }
+  };
 
+  const saveEdit = () => {
+    if (!onChange) return;
+    const newValue = parseEditValue(editValue);
     onChange(path, newValue);
     setIsEditing(false);
   };
@@ -98,22 +127,7 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
 
     // Immediately propagate changes to parent for change detection
     if (onChange) {
-      let newValue: any;
-      const trimmed = newEditValue.trim();
-
-      // Try to parse as JSON literal
-      if (trimmed === 'null') {
-        newValue = null;
-      } else if (trimmed === 'true') {
-        newValue = true;
-      } else if (trimmed === 'false') {
-        newValue = false;
-      } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
-        newValue = Number(trimmed);
-      } else {
-        newValue = newEditValue; // String value
-      }
-
+      const newValue = parseEditValue(newEditValue);
       onChange(path, newValue);
     }
   };
@@ -151,6 +165,34 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
       return 30;
     };
 
+    // Handle LosslessNumber objects - render them as regular numbers
+    if (isLosslessNumber(val)) {
+      const numValue = unwrapValue(val);
+      return (
+        <textarea
+          rows={getRows(numValue.toString())}
+          value={isEditing ? editValue : numValue.toString()}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => {
+            if (!isEditing) {
+              setEditValue(numValue.toString());
+              setIsEditing(true);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelEdit();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault();
+              saveEdit();
+            }
+          }}
+          readOnly={!editable}
+          style={getTextareaStyle(colors.number)}
+        />
+      );
+    }
     // Always display values in a textarea for editability
     if (val === null) {
       return (
@@ -179,10 +221,12 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
       );
     }
     if (typeof val === 'string') {
+      // Display strings directly - lossless-json preserves types
+      const displayValue = isEditing ? editValue : val;
       return (
         <textarea
-          rows={getRows(val)}
-          value={isEditing ? editValue : val}
+          rows={getRows(displayValue)}
+          value={displayValue}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => {
             if (!isEditing) {
@@ -313,9 +357,10 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
           e.currentTarget.style.backgroundColor = 'transparent';
         }}
       >
-        <span style={{ color: colors.bracket, marginRight: '4px' }}>
-          {isExpanded ? '▼' : '▶'}
-        </span>
+        <i
+          className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
+          style={{ marginRight: '4px', fontSize: '16px' }}
+        />
         {keyName !== null && (
           <>
             <span style={{ color: colors.key }}>"{keyName}"</span>
@@ -369,9 +414,9 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
   const handleChange = (path: string[], newValue: any) => {
     if (!onChange) return;
 
-    // Clone the data and update the value at the specified path
-    const newData = JSON.parse(JSON.stringify(data));
-    let current = newData;
+    // Clone the data and update the value at the specified path using lossless-json
+    const newData = parse(stringify(data) || '{}') as any;
+    let current: any = newData;
 
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];

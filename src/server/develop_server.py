@@ -14,7 +14,6 @@ from aco.common.utils import MODULES_TO_FILES
 from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.constants import ACO_CONFIG, ACO_LOG_PATH, HOST, PORT
-from aco.server.telemetry.server_logger import log_server_message, log_shim_control_registration
 from aco.server.file_watcher import run_file_watcher_process
 
 
@@ -50,6 +49,7 @@ class DevelopServer:
         self.module_to_file = module_to_file or MODULES_TO_FILES  # Module mapping for file watcher
         self.file_watcher_process = None  # Child process for file watching
         self.current_user_id = None  # Store the current authenticated user_id
+        self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
 
     # ============================================================
     # File Watcher Management
@@ -139,16 +139,18 @@ class DevelopServer:
 
                 # Get data from DB entries.
                 timestamp = row["timestamp"]
-                # Format timestamp for display (MM/DD HH:MM)
-                if hasattr(timestamp, "strftime"):
-                    timestamp = timestamp.strftime("%m/%d %H:%M")
+                # Format timestamp as ISO string for frontend parsing
+                if hasattr(timestamp, "isoformat"):
+                    timestamp = timestamp.isoformat()
+                elif hasattr(timestamp, "strftime"):
+                    timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
                 else:
-                    # If it's already a string, try to parse and reformat
+                    # If it's already a string, ensure it's in a parseable format
                     try:
                         from datetime import datetime
 
-                        dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                        timestamp = dt.strftime("%m/%d %H:%M")
+                        dt = datetime.strptime(str(timestamp), "%Y-%m-%d %H:%M:%S")
+                        timestamp = dt.isoformat()
                     except:
                         # If parsing fails, use as-is
                         pass
@@ -157,6 +159,7 @@ class DevelopServer:
                 success = row["success"]
                 notes = row["notes"]
                 log = row["log"]
+                code_hash = row["code_hash"]
 
                 # Parse color_preview from database
                 color_preview = []
@@ -172,6 +175,7 @@ class DevelopServer:
                         "status": status,
                         "timestamp": timestamp,
                         "color_preview": color_preview,
+                        "code_hash": code_hash,
                         "run_name": run_name,
                         "result": success,
                         "notes": notes,
@@ -225,19 +229,23 @@ class DevelopServer:
 
     def _clear_session_ui(self, session_id: str) -> None:
         """Clear UI state for a session (graphs and color previews)."""
-        # Reset color previews
+        # Clear graph in both memory and database atomically to prevent stale data
+        empty_graph = {"nodes": [], "edges": []}
+        self.session_graphs[session_id] = empty_graph
+        DB.update_graph_topology(session_id, empty_graph)
+
+        # Reset color previews in both memory and database
         DB.update_color_preview(session_id, [])
         self.broadcast_to_all_uis(
             {"type": "color_preview_update", "session_id": session_id, "color_preview": []}
         )
 
-        # Clear session graph
-        self.session_graphs[session_id] = {"nodes": [], "edges": []}
+        # Broadcast empty graph to all UIs
         self.broadcast_to_all_uis(
             {
                 "type": "graph_update",
                 "session_id": session_id,
-                "payload": {"nodes": [], "edges": []},
+                "payload": empty_graph,
             }
         )
 
@@ -245,15 +253,23 @@ class DevelopServer:
         """Spawn a new session process with the original command and environment."""
         try:
             cwd, command, environment = DB.get_exec_command(session_id)
+            logger.debug(
+                f"[DevelopServer] Rerunning finished session {session_id} with cwd={cwd} and command={command}"
+            )
+
+            # Mark this session as being rerun to avoid clearing llm_calls
+            self.rerun_sessions.add(child_session_id)
 
             # Set up environment
             env = os.environ.copy()
             env["AGENT_COPILOT_SESSION_ID"] = session_id
             env.update(environment)
+            logger.debug(
+                f"[DevelopServer] Restored {len(environment)} environment variables for session {session_id}"
+            )
 
             # Spawn the process
             args = shlex.split(command)
-            DB.update_graph_topology(child_session_id, self.session_graphs[child_session_id])
             subprocess.Popen(args, cwd=cwd, env=env, close_fds=True, start_new_session=True)
 
             # Update session status and timestamp
@@ -286,7 +302,13 @@ class DevelopServer:
             logger.warning(f"Failed to load finished runs from database: {e}")
 
     def handle_graph_request(self, conn, session_id):
-        # Query graph_topology for the session and reconstruct the in-memory graph
+        # Check if we have in-memory graph first (most up-to-date)
+        if session_id in self.session_graphs:
+            graph = self.session_graphs[session_id]
+            send_json(conn, {"type": "graph_update", "session_id": session_id, "payload": graph})
+            return
+
+        # Fall back to database if no in-memory graph
         row = DB.get_graph(session_id)
         if row and row["graph_topology"]:
             graph = json.loads(row["graph_topology"])
@@ -330,20 +352,36 @@ class DevelopServer:
         """Add a node to a specific session's graph"""
         # Add or update the node
         graph = self.session_graphs.setdefault(sid, {"nodes": [], "edges": []})
+
+        # Check for duplicate node
+        node_exists = False
         for n in graph["nodes"]:
             if n["id"] == node["id"]:
+                node_exists = True
                 break
-        else:
+        if not node_exists:
             graph["nodes"].append(node)
 
-        # Add incoming edges (only if source nodes exist in the graph)
+        # Build set of existing edge IDs for duplicate checking
+        existing_edge_ids = {e["id"] for e in graph["edges"]}
         existing_node_ids = {n["id"] for n in graph["nodes"]}
+
+        # Add incoming edges (only if source nodes exist and edge doesn't already exist)
         for source in incoming_edges:
             if source in existing_node_ids:
                 target = node["id"]
                 edge_id = f"e{source}-{target}"
-                full_edge = {"id": edge_id, "source": source, "target": target}
-                graph["edges"].append(full_edge)
+                if edge_id not in existing_edge_ids:
+                    full_edge = {"id": edge_id, "source": source, "target": target}
+                    graph["edges"].append(full_edge)
+                    existing_edge_ids.add(edge_id)  # Track newly added edge
+                    logger.info(f"[DevelopServer] Added edge {edge_id} in session {sid}")
+                else:
+                    logger.debug(f"[DevelopServer] Skipping duplicate edge {edge_id}")
+            else:
+                logger.debug(
+                    f"[DevelopServer] Skipping edge from non-existent node {source} to {node['id']}"
+                )
 
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
@@ -361,6 +399,9 @@ class DevelopServer:
         node_id = msg["node_id"]
         new_input = msg["value"]
 
+        logger.info(f"[EditIO] edit input msg keys {[*msg.keys()]}")
+        logger.info(f"[EditIO] edit input msg: {msg}")
+
         DB.set_input_overwrite(session_id, node_id, new_input)
         if session_id in self.session_graphs:
             for node in self.session_graphs[session_id]["nodes"]:
@@ -374,6 +415,8 @@ class DevelopServer:
         session_id = msg["session_id"]
         node_id = msg["node_id"]
         new_output = msg["value"]
+
+        logger.info(f"[EditIO] edit output msg: {msg}")
 
         DB.set_output_overwrite(session_id, node_id, new_output)
         if session_id in self.session_graphs:
@@ -456,6 +499,18 @@ class DevelopServer:
 
     def handle_get_all_experiments(self, conn: socket.socket) -> None:
         """Handle request to refresh the experiment list (e.g., when VS Code window regains focus)."""
+        # First, send current session_id and database_mode to ensure UI state is synced
+        # This handles the case where the webview was recreated (e.g., tab switch) and needs state restoration
+        send_json(
+            conn,
+            {
+                "type": "session_id",
+                "session_id": None,
+                "config_path": ACO_CONFIG,
+                "database_mode": DB.get_current_mode(),
+            },
+        )
+        # Then send the experiment list
         self.broadcast_experiment_list_to_uis(conn)
 
     def handle_auth(self, msg: dict, conn: socket.socket) -> None:
@@ -487,6 +542,9 @@ class DevelopServer:
             environment = msg.get("environment")
             timestamp = datetime.now()
             name = msg.get("name")
+            if not name:
+                run_index = DB.get_next_run_index()
+                name = f"Run {run_index}"
             parent_session_id = msg.get("parent_session_id")
             # Determine user_id: prefer explicit msg value, else use current_user_id
             user_id = msg.get("user_id")
@@ -530,25 +588,33 @@ class DevelopServer:
         self.handle_restart_message({"session_id": session_id})
 
     def handle_restart_message(self, msg: dict) -> bool:
-        child_session_id = msg.get("session_id")
-        session_id = DB.get_parent_session_id(child_session_id)
-        if not session_id:
+        session_id = msg.get("session_id")
+        parent_session_id = DB.get_parent_session_id(session_id)
+        if not parent_session_id:
             logger.error("[DevelopServer] Restart message missing session_id. Ignoring.")
             return
+        # Clear UI state (updates both memory and database atomically)
+        self._clear_session_ui(session_id)
 
-        # Clear UI state
-        self._clear_session_ui(child_session_id)
+        session = self.sessions.get(parent_session_id)
 
-        # Send graceful restart signal to existing session if still connected
-        session = self.sessions.get(session_id)
-        if session and session.status == "running" and session.shim_conn:
-            try:
-                send_json(session.shim_conn, {"type": "restart", "session_id": session_id})
-            except Exception as e:
-                logger.error(f"[DevelopServer] Error sending restart: {e}")
-
-        # Spawn new session process
-        self._spawn_session_process(session_id, child_session_id)
+        if session and session.status == "running":
+            # Send graceful restart signal to existing session if still connected
+            if session.shim_conn:
+                restart_msg = {"type": "restart", "session_id": parent_session_id}
+                logger.debug(
+                    f"[DevelopServer] Session running...Sending restart for session_id: {parent_session_id}"
+                )
+                try:
+                    send_json(session.shim_conn, restart_msg)
+                except Exception as e:
+                    logger.error(f"[DevelopServer] Error sending restart: {e}")
+                return
+            else:
+                logger.warning(f"[DevelopServer] No shim_conn for session_id: {parent_session_id}")
+        elif session and session.status == "finished":
+            # Rerun for finished session: spawn new process with same session_id
+            self._spawn_session_process(parent_session_id, session_id)
 
     def handle_deregister_message(self, msg: dict) -> bool:
         session_id = msg["session_id"]
@@ -605,9 +671,6 @@ class DevelopServer:
     # ============================================================
 
     def process_message(self, msg: dict, conn: socket.socket) -> None:
-        # Log the message to telemetry
-        log_server_message(msg, self.session_graphs)
-
         msg_type = msg.get("type")
         if msg_type == "auth":
             self.handle_auth(msg, conn)
@@ -675,6 +738,10 @@ class DevelopServer:
                     environment = handshake.get("environment")
                     timestamp = datetime.now()
                     name = handshake.get("name")
+                    if not name:
+                        run_index = DB.get_next_run_index()
+                        name = f"Run {run_index}"
+                    code_hash = handshake.get("code_hash")
                     DB.add_experiment(
                         session_id,
                         name,
@@ -684,7 +751,9 @@ class DevelopServer:
                         environment,
                         None,
                         self.current_user_id,
+                        code_hash,
                     )
+                    logger.info(f"[CodeHash] code hash in handshake is {code_hash}")
                 # Insert session if not present.
                 with self.lock:
                     if session_id not in self.sessions:
@@ -715,8 +784,6 @@ class DevelopServer:
                 else:
                     logger.warning(f"[DevelopServer] No module mapping received from agent-runner")
 
-                # Log agent-runner registration to telemetry
-                log_shim_control_registration(handshake, session_id)
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()

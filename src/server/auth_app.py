@@ -26,7 +26,9 @@ app.add_middleware(
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-CALLBACK_URL = os.environ.get("GOOGLE_CALLBACK_URL", "https://agops-project.com/api/auth/google/callback")
+CALLBACK_URL = os.environ.get(
+    "GOOGLE_CALLBACK_URL", "https://agops-project.com/api/auth/google/callback"
+)
 
 AUTH_SCOPE = "openid email profile"
 
@@ -36,7 +38,7 @@ def google_url(redirect_uri: str = None):
     """Get Google OAuth URL. Optionally accepts custom redirect_uri for VSCode extension."""
     # Use provided redirect_uri (for VSCode) or default CALLBACK_URL (for web)
     actual_redirect_uri = redirect_uri if redirect_uri else CALLBACK_URL
-    
+
     params = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": actual_redirect_uri,
@@ -55,10 +57,10 @@ def google_callback(payload: dict, response: Response):
     code = payload.get("code")
     if not code:
         raise HTTPException(status_code=400, detail="Missing code")
-    
+
     # Allow custom redirect_uri for VSCode flow
     redirect_uri = payload.get("redirect_uri", CALLBACK_URL)
-    
+
     user, access_token = _process_code_and_upsert(code, response, redirect_uri)
     return {"user": dict(user), "accessToken": access_token}
 
@@ -66,7 +68,7 @@ def google_callback(payload: dict, response: Response):
 def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = None):
     """Exchange code for token and upsert user. Accepts custom redirect_uri."""
     actual_redirect_uri = redirect_uri if redirect_uri else CALLBACK_URL
-    
+
     # Exchange code for token
     token_resp = requests.post(
         "https://oauth2.googleapis.com/token",
@@ -106,12 +108,13 @@ def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = 
         user = DB.upsert_user(google_id, email, name, picture)
     except Exception as e:
         logger.error(f"DB error during user upsert: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create or update user")
 
     # Set a simple cookie with the user id for session retrieval
     try:
-        uid = user['id'] if 'id' in user else user[0]
+        uid = user["id"] if "id" in user else user[0]
         secure_flag = os.environ.get("USE_SECURE_COOKIES", "false").lower() == "true"
-        
+
         # For localhost development, set domain to allow cookie sharing across ports
         # For production, don't set domain (defaults to current domain which works with proxy)
         domain = None
@@ -119,9 +122,11 @@ def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = 
         check_url = redirect_uri if redirect_uri else CALLBACK_URL
         if "localhost" in check_url:
             domain = "localhost"  # This makes cookie available to all localhost ports
-        
-        print(f"Setting cookie: uid={uid}, domain={domain}, secure={secure_flag}, redirect_uri={check_url}")
-        
+
+        print(
+            f"Setting cookie: uid={uid}, domain={domain}, secure={secure_flag}, redirect_uri={check_url}"
+        )
+
         response.set_cookie(
             "user_id",
             str(uid),
@@ -135,6 +140,7 @@ def _process_code_and_upsert(code: str, response: Response, redirect_uri: str = 
     except Exception as e:
         print(f"Failed to set cookie: {e}")
         import traceback
+
         traceback.print_exc()
 
     return user, access_token

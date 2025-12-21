@@ -14,6 +14,7 @@ def mcp_patch():
         import mcp  # avoid circular import, hacky must be resolved
         from mcp.client.session import ClientSession
     except ImportError:
+        logger.info("MCP not installed, skipping MCP patches")
         return
 
     def create_patched_init(original_init):
@@ -55,6 +56,11 @@ def patch_mcp_send_request(session_instance):
         if not method in ["tools/call"]:
             result = await original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing escrow
+
+        method = input_dict["request"].root.method
+        if not method in ["tools/call"]:
+            result = await original_function(*args, **kwargs)
+            return taint_wrap(result, taint_origins)
 
         # 4. Get result from cache or call tool.
         cache_output = DB.get_in_out(input_dict, api_type)

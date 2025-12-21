@@ -225,7 +225,6 @@ class FileWatcher:
             self.module_to_file[module_name] = new_file
             # Also update the global MODULES_TO_FILES singleton
             MODULES_TO_FILES[module_name] = new_file
-            logger.info(f"[FileWatcher] Discovered new Python file: {module_name} -> {new_file}")
 
             # Initialize mtime for the new file
             try:
@@ -247,7 +246,6 @@ class FileWatcher:
                 # Also remove from the global MODULES_TO_FILES singleton
                 if module_name in MODULES_TO_FILES:
                     del MODULES_TO_FILES[module_name]
-                logger.info(f"[FileWatcher] Removed deleted file: {module_name} -> {deleted_file}")
 
             # Remove from mtime tracking
             if deleted_file in self.file_mtimes:
@@ -288,9 +286,6 @@ class FileWatcher:
 
             # Check if the .pyc file was created by our AST transformer
             if not is_pyc_rewritten(pyc_path):
-                logger.debug(
-                    f"[FileWatcher] .pyc file {pyc_path} not rewritten, forcing recompilation"
-                )
                 return True
 
             current_mtime = os.path.getmtime(file_path)
@@ -420,27 +415,18 @@ class FileWatcher:
         failed_count = 0
         for module_name, file_path in self.module_to_file.items():
             if self._shutdown:
-                logger.info("[FileWatcher] Shutdown requested during initial compilation")
                 return
             if self._compile_file(file_path, module_name):
                 compiled_count += 1
             else:
                 failed_count += 1
 
-        logger.info(
-            f"[FileWatcher] Initial compilation complete: {compiled_count} successful, {failed_count} failed"
-        )
-
         # Start polling loop
         try:
-            logger.info("[FileWatcher] Starting polling loop...")
             while not self._shutdown:
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
-        except KeyboardInterrupt:
-            logger.info("[FileWatcher] File watcher stopped by user")
         except Exception as e:
-            logger.error(f"[FileWatcher] File watcher error: {e}")
             import traceback
 
             logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")

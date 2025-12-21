@@ -8,6 +8,24 @@ from pathlib import Path
 import threading
 from typing import Optional, Union
 from aco.common.constants import ACO_INSTALL_DIR, ACO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
+from aco.common.logger import logger
+
+
+def compute_code_hash() -> str:
+    """Compute 8-digit hash on the files in the project root."""
+    num_py_files = 0
+    hash = hashlib.sha256()
+    for dirpath, _, dirfiles in os.walk(ACO_PROJECT_ROOT):
+        for file in dirfiles:
+            if not file.endswith(".py"):
+                continue
+            num_py_files += 1
+            with open(os.path.join(dirpath, file), "r") as f:
+                content = f.read()
+            hash.update(content.encode("utf-8"))
+    if num_py_files > 0:
+        return hash.hexdigest()[:8]
+    return "0" * 8
 
 
 def is_whitelisted_endpoint(path: str) -> bool:
@@ -164,19 +182,33 @@ def send_to_server(msg):
         server_file.flush()
 
 
-def send_to_server_and_receive(msg):
-    """Thread-safe send message to server and receive response."""
-    from aco.runner.context_manager import server_file
+def send_to_server_and_receive(msg, timeout=30):
+    """Thread-safe send message to server and receive response.
+
+    The listener thread in AgentRunner reads all incoming messages from the socket
+    and routes non-control messages (like session_id responses) to a response queue.
+    This function sends a message and then waits for the response from that queue.
+    """
+    from aco.runner.context_manager import server_file, response_queue
 
     if isinstance(msg, dict):
         msg = json.dumps(msg) + "\n"
     elif isinstance(msg, str) and msg[-1] != "\n":
         msg += "\n"
+
     with _server_lock:
+        logger.debug(f"[send_to_server_and_receive] Sending: {msg[:200]}")
         server_file.write(msg)
         server_file.flush()
-        response = json.loads(server_file.readline().strip())
+
+    # Wait for response from the queue (populated by listener thread)
+    try:
+        response = response_queue.get(timeout=timeout)
+        logger.debug(f"[send_to_server_and_receive] Received from queue: {response}")
         return response
+    except Exception as e:
+        logger.error(f"[send_to_server_and_receive] Timeout or error waiting for response: {e}")
+        raise
 
 
 def find_additional_packages_in_project_root(project_root: str):

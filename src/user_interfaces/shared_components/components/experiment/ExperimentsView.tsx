@@ -1,5 +1,4 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { ProcessCard } from './ProcessCard';
 import { ProcessInfo } from '../../types';
 
 interface UserInfo {
@@ -19,7 +18,7 @@ interface ExperimentsViewProps {
   onLogin?: () => void;
   showHeader?: boolean;
   onModeChange?: (mode: 'Local' | 'Remote') => void;
-  currentMode?: 'Local' | 'Remote';
+  currentMode?: 'Local' | 'Remote' | null;
 }
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
@@ -33,12 +32,19 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   onLogin,
   showHeader = false,
   onModeChange,
-  currentMode = 'Local',
+  currentMode = null,
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'similar', 'finished']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Section sizes (percentages of available height)
+  const [runningSizePercent, setRunningSizePercent] = useState(20);
+  // finishedSizePercent is calculated as: 100 - runningSizePercent
+
+  const [resizing, setResizing] = useState<'running' | null>(null);
+  const [startY, setStartY] = useState(0);
+  const [startSize, setStartSize] = useState(0);
 
   // Sign out icon from VSCode codicons
   const IconSignOut = ({ size = 16 }: { size?: number }) => (
@@ -60,10 +66,47 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   // Request experiment list when component mounts and is ready to display data
   useLayoutEffect(() => {
     // Check if we're in a VS Code environment
-    if (typeof window !== 'undefined' && window.vscode) {
-      window.vscode.postMessage({ type: 'requestExperimentRefresh' });
+    if (typeof window !== 'undefined' && (window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'requestExperimentRefresh' });
     }
   }, []); // Empty dependency array - only runs once on mount
+
+  // Handle resize dragging
+  const handleMouseDown = (section: 'running', e: React.MouseEvent) => {
+    e.preventDefault();
+    setResizing(section);
+    setStartY(e.clientY);
+    setStartSize(runningSizePercent);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!resizing) return;
+
+    const containerHeight = window.innerHeight - footerHeight - 100; // Approximate available height
+    const deltaY = e.clientY - startY;
+    const deltaPercent = (deltaY / containerHeight) * 100;
+
+    if (resizing === 'running') {
+      const newSize = Math.max(10, Math.min(80, startSize + deltaPercent));
+      setRunningSizePercent(newSize);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setResizing(null);
+  };
+
+  // Add/remove mouse event listeners for dragging
+  useLayoutEffect(() => {
+    if (resizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizing, startY, startSize]);
 
   // Footer layout constants
   const footerHeight = 60; // px
@@ -73,40 +116,23 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   console.log('ExperimentsView render - finishedProcesses:', finishedProcesses);
   console.log('ExperimentsView render - user:', user);
   const containerStyle: React.CSSProperties = {
-    position: 'relative',
-    padding: '20px 20px',
-    paddingBottom: `${footerHeight + 20}px`, // reserve space for footer
+    display: 'flex',
+    flexDirection: 'column',
     height: '100%',
-    maxHeight: '100%',
-    overflowY: 'auto',
-    boxSizing: 'border-box',
-    backgroundColor: isDarkTheme ? '#252525' : '#F0F2F0',
+    backgroundColor: isDarkTheme ? '#1e1e1e' : '#F0F2F0',
     color: 'var(--vscode-foreground)',
     fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
 
-  const titleStyle: React.CSSProperties = {
-    fontSize: '13px',
-    fontWeight: 'normal',
-    marginBottom: '8px',
-    color: isDarkTheme ? '#FFFFFF' : '#000000',
-    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-  };
-
-  const footerStyle: React.CSSProperties = {
+  const userSectionContainerStyle: React.CSSProperties = {
     position: 'fixed',
     left: 0,
     right: 0,
     bottom: 0,
-    height: `${footerHeight}px`,
-    padding: '8px 12px',
-    boxSizing: 'border-box',
-    borderTop: `1px solid ${isDarkTheme ? '#3a3a3a' : '#e0e0e0'}`,
     backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderTop: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
     zIndex: 10,
+    padding: '8px 16px',
   };
 
   const userRowStyle: React.CSSProperties = {
@@ -119,19 +145,19 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
 
   const loginButtonStyle: React.CSSProperties = {
     width: '100%',
-    padding: '12px 16px',
-    fontSize: 14,
+    padding: '6px 16px',
+    fontSize: '13px',
     fontWeight: 'normal',
-    color: isDarkTheme ? '#cccccc' : '#303030',
-    backgroundColor: isDarkTheme ? '#3C3C3C' : '#fff',
-    border: isDarkTheme ? '1px solid #6B6B6B' : '1px solid #CCCCCC',
-    borderRadius: 6,
+    color: isDarkTheme ? '#cccccc' : '#333333',
+    backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+    border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#cccccc'}`,
+    borderRadius: 0,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    transition: 'background-color 0.2s, border-color 0.2s',
+    transition: 'background-color 0.1s',
   };
 
   const avatarStyle: React.CSSProperties = {
@@ -211,99 +237,241 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     }
   };
 
-  // Filter processes based on search query
-  const filterProcesses = (processes: ProcessInfo[]) => {
-    if (!searchQuery.trim()) return processes;
-
-    const query = searchQuery.toLowerCase();
-    return processes.filter(process => {
-      const runName = (process.run_name || '').toLowerCase();
-      const sessionId = (process.session_id || '').toLowerCase();
-      const notes = (process.notes || '').toLowerCase();
-
-      return runName.includes(query) ||
-             sessionId.includes(query) ||
-             notes.includes(query);
-    });
-  };
-
-  // Apply filtering to all process lists
-  const filteredRunning = filterProcesses(runningProcesses);
-  const filteredSimilar = filterProcesses(similarProcesses);
-  const filteredFinished = filterProcesses(finishedProcesses);
 
   const renderExperimentSection = (
     processes: ProcessInfo[],
     sectionTitle: string,
     sectionPrefix: string,
-    marginTop?: number
+    sizePercent: number,
+    showResizeHandle: boolean
   ) => {
     const isExpanded = expandedSections.has(sectionPrefix);
 
+    const sectionHeaderStyle: React.CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '4px 16px',
+      fontSize: '11px',
+      fontWeight: 700,
+      letterSpacing: '0.5px',
+      textTransform: 'uppercase',
+      color: isDarkTheme ? '#cccccc' : '#616161',
+      cursor: 'pointer',
+      userSelect: 'none',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    };
+
+    const chevronStyle: React.CSSProperties = {
+      fontSize: '16px',
+      transition: 'transform 0.1s ease',
+      display: 'flex',
+      alignItems: 'center',
+    };
+
+    const listContainerStyle: React.CSSProperties = {
+      display: 'flex',
+      flexDirection: 'column',
+      height: isExpanded ? `${sizePercent}%` : 'auto',
+      minHeight: isExpanded ? '0' : undefined,
+      overflow: 'hidden',
+    };
+
+    const listItemsStyle: React.CSSProperties = {
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      flex: 1,
+      paddingBottom: '12px',
+    };
+
+    const listItemStyle: React.CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '2px 16px 2px 24px',
+      fontSize: '13px',
+      color: isDarkTheme ? '#cccccc' : '#333333',
+      cursor: 'pointer',
+      userSelect: 'none',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+      height: '22px',
+      lineHeight: '22px',
+    };
+
+    const emptyMessageStyle: React.CSSProperties = {
+      padding: '8px 16px 8px 24px',
+      fontSize: '12px',
+      color: isDarkTheme ? '#858585' : '#8e8e8e',
+      fontStyle: 'italic',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    };
+
+    const resizeHandleStyle: React.CSSProperties = {
+      height: '4px',
+      cursor: 'ns-resize',
+      backgroundColor: 'transparent',
+      borderTop: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
+      borderBottom: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
+      transition: 'background-color 0.1s',
+    };
+
     return (
       <>
-        <div 
-          style={{ 
-            ...titleStyle, 
-            ...(marginTop && { marginTop }),
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            userSelect: 'none'
-          }}
-          onClick={() => toggleSection(sectionPrefix)}
-        >
-          <i 
-            className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
-            style={{ 
-              fontSize: '12px',
-              transition: 'transform 0.2s ease',
-              transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)'
-            }}
-          />
-          {sectionTitle} ({processes.length})
-        </div>
-        <div
-          style={{
-            maxHeight: isExpanded ? (processes.length > 0 ? `${processes.length * 100}px` : '28px') : '0px',
-            overflow: 'hidden',
-            transition: 'max-height 0.3s ease-in-out, opacity 0.2s ease',
-            opacity: isExpanded ? 1 : 0
-          }}
-        >
-          {processes.length > 0 ? (
-            processes.map((process) => {
-              const cardId = `${sectionPrefix}-${process.session_id}`;
-              const isHovered = hoveredCards.has(cardId);
-              const nodeColors = process.color_preview || [];
-              return (
-                <ProcessCard
-                  key={process.session_id}
-                  process={process}
-                  isHovered={isHovered}
-                  isDarkTheme={isDarkTheme}
-                  nodeColors={nodeColors}
-                  onClick={() => onCardClick && onCardClick(process)}
-                  onMouseEnter={() => handleCardHover(cardId, true)}
-                  onMouseLeave={() => handleCardHover(cardId, false)}
-                />
-              );
-            })
-          ) : (
-            <div
-              style={{
-                padding: '4px 16px 16px 16px',
-                color: isDarkTheme ? '#CCCCCC' : '#666666',
-                fontSize: '12px',
-                fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-                fontStyle: 'italic'
-              }}
-            >
-              No {sectionTitle.toLowerCase()} processes
+        <div style={listContainerStyle}>
+          <div
+            style={sectionHeaderStyle}
+            onClick={() => toggleSection(sectionPrefix)}
+          >
+            <i
+              className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
+              style={chevronStyle}
+            />
+            <span>{sectionTitle}</span>
+          </div>
+          {isExpanded && (
+            <div style={listItemsStyle}>
+              {processes.length > 0 ? (
+                (() => {
+                  // Blue color cycle for code hash tags (5 shades)
+                  const blueColors = {
+                    dark: [
+                      { text: '#7cb7e8', bg: 'rgba(124, 183, 232, 0.15)' },  // Light blue
+                      { text: '#569cd6', bg: 'rgba(86, 156, 214, 0.15)' },   // Medium blue
+                      { text: '#4078c0', bg: 'rgba(64, 120, 192, 0.15)' },   // Darker blue
+                      { text: '#2d5d9b', bg: 'rgba(45, 93, 155, 0.15)' },    // Deep blue
+                      { text: '#1e4976', bg: 'rgba(30, 73, 118, 0.15)' },    // Navy blue
+                    ],
+                    light: [
+                      { text: '#0078d4', bg: 'rgba(0, 120, 212, 0.1)' },     // Light blue
+                      { text: '#0066cc', bg: 'rgba(0, 102, 204, 0.1)' },     // Medium blue
+                      { text: '#004d99', bg: 'rgba(0, 77, 153, 0.1)' },      // Darker blue
+                      { text: '#003d7a', bg: 'rgba(0, 61, 122, 0.1)' },      // Deep blue
+                      { text: '#002d5c', bg: 'rgba(0, 45, 92, 0.1)' },       // Navy blue
+                    ],
+                  };
+
+                  // Pre-compute color indices based on hash changes
+                  let currentColorIndex = 0;
+                  const colorIndices: number[] = [];
+                  processes.forEach((process, index) => {
+                    if (index > 0 && process.code_hash !== processes[index - 1].code_hash) {
+                      currentColorIndex = (currentColorIndex + 1) % 5;
+                    }
+                    colorIndices.push(currentColorIndex);
+                  });
+
+                  return processes.map((process, index) => {
+                  const cardId = `${sectionPrefix}-${process.session_id}`;
+                  const isHovered = hoveredCards.has(cardId);
+                  const hashColorIndex = colorIndices[index];
+                  const hashColors = isDarkTheme ? blueColors.dark[hashColorIndex] : blueColors.light[hashColorIndex];
+
+                  // Determine status icon based on process state
+                  const getStatusIcon = () => {
+                    if (process.status === 'running') {
+                      return <i className="codicon codicon-loading codicon-modifier-spin" style={{ marginRight: '8px', fontSize: '16px' }} />;
+                    }
+                    const result = process.result?.toLowerCase();
+                    if (result === 'failed') {
+                      return <i className="codicon codicon-error" style={{ marginRight: '8px', fontSize: '16px', color: '#e05252' }} />;
+                    }
+                    if (result === 'satisfactory') {
+                      return <i className="codicon codicon-pass" style={{ marginRight: '8px', fontSize: '16px', color: '#7fc17b' }} />;
+                    }
+                    return <i className="codicon codicon-circle-outline" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.6 }} />;
+                  };
+
+                  // Format timestamp to "Mon dd yyyy hh:mm" format
+                  const formatDate = (timestamp?: string) => {
+                    if (!timestamp) return 'No date';
+                    try {
+                      const date = new Date(timestamp);
+                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const month = months[date.getMonth()];
+                      const day = date.getDate();
+                      const year = date.getFullYear();
+                      const hours = date.getHours().toString().padStart(2, '0');
+                      const minutes = date.getMinutes().toString().padStart(2, '0');
+                      return `${month} ${day} ${year} ${hours}:${minutes}`;
+                    } catch {
+                      return timestamp;
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={process.session_id}
+                      style={{
+                        ...listItemStyle,
+                        backgroundColor: isHovered
+                          ? (isDarkTheme ? '#2a2d2e' : '#e8e8e8')
+                          : 'transparent',
+                      }}
+                      onClick={() => onCardClick && onCardClick(process)}
+                      onMouseEnter={() => handleCardHover(cardId, true)}
+                      onMouseLeave={() => handleCardHover(cardId, false)}
+                    >
+                      {getStatusIcon()}
+                      <span style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '150px'
+                      }}>
+                        {process.run_name || 'Untitled'}
+                      </span>
+                      <span style={{ flex: 1 }} />
+                      <span style={{
+                        fontSize: '11px',
+                        color: isDarkTheme ? '#858585' : '#8e8e8e',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {formatDate(process.timestamp)}
+                      </span>
+                      <span style={{
+                        width: '60px',
+                        marginLeft: '8px',
+                        display: 'inline-block',
+                        textAlign: 'right',
+                      }}>
+                        {process.code_hash && (
+                          <span style={{
+                            fontSize: '10px',
+                            fontFamily: 'monospace',
+                            color: hashColors.text,
+                            backgroundColor: hashColors.bg,
+                            padding: '1px 4px',
+                            borderRadius: '2px',
+                            whiteSpace: 'nowrap',
+                            lineHeight: '1',
+                          }}>
+                            {process.code_hash}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                });
+                })()
+              ) : (
+                <div style={emptyMessageStyle}>
+                  No {sectionTitle.toLowerCase()}
+                </div>
+              )}
             </div>
           )}
         </div>
+        {showResizeHandle && isExpanded && (
+          <div
+            style={resizeHandleStyle}
+            onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running', e)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = isDarkTheme ? '#007acc' : '#0078d4';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          />
+        )}
       </>
     );
   };
@@ -312,9 +480,9 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid var(--vscode-editorWidget-border)',
-    padding: '10px 20px',
-    margin: '-20px -20px 20px -20px', // Extend to edges of container
+    borderBottom: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
+    padding: '8px 16px',
+    flexShrink: 0,
   };
 
   const dropdownStyle: React.CSSProperties = {
@@ -398,7 +566,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         onClick={() => setDropdownOpen(!dropdownOpen)}
       >
         <i className="codicon codicon-database" />
-        {currentMode}
+        {currentMode || 'Loading...'}
         <i className={`codicon ${dropdownOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'}`} />
       </button>
       {dropdownOpen && (
@@ -412,15 +580,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           >
             Local
           </div>
-          <div
-            style={{
-              ...dropdownItemStyle,
-              backgroundColor: currentMode === 'Remote' ? (isDarkTheme ? '#094771' : '#e3f2fd') : 'transparent',
-            }}
-            onClick={() => handleModeChange('Remote')}
-          >
-            Remote
-          </div>
+          {/* Remote option hidden - feature not yet visible in UI */}
         </div>
       )}
     </div>
@@ -433,7 +593,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     <div style={containerStyle}>
       {showHeader && (
         <div style={headerStyle}>
-          <h3 style={headerTitleStyle}>Experiments</h3>
+          <h3 style={headerTitleStyle}>Agent Runs</h3>
           {renderDropdown()}
         </div>
       )}
@@ -464,31 +624,24 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           </div>
           <h2 style={{ marginBottom: '10px', fontSize: '18px', fontWeight: 600 }}>Authentication Required</h2>
           <p style={{ marginBottom: '30px', opacity: 0.8, fontSize: '14px' }}>
-            Please sign in to access remote experiments
+            Please sign in to access remote agent runs
           </p>
         </div>
       ) : (
-        <>
-          {/* Search Bar */}
-          <div style={searchBarContainerStyle}>
-            <i className="codicon codicon-search" style={searchIconStyle} />
-            <input
-              type="text"
-              placeholder="Search experiments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={searchBarInputStyle}
-            />
-          </div>
-
-          {renderExperimentSection(filteredRunning, 'Running', 'running')}
-          {renderExperimentSection(filteredSimilar, 'Similar', 'similar', filteredRunning.length > 0 ? 16 : 0)}
-          {renderExperimentSection(filteredFinished, 'Finished', 'finished', (filteredRunning.length > 0 || filteredSimilar.length > 0) ? 16 : 0)}
-        </>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflow: 'hidden',
+          marginBottom: `${footerHeight}px`
+        }}>
+          {renderExperimentSection(runningProcesses, 'Running', 'running', runningSizePercent, true)}
+          {renderExperimentSection(finishedProcesses, 'Finished', 'finished', 100 - runningSizePercent, false)}
+        </div>
       )}
 
-      {/* Footer (always present) */}
-      <div style={footerStyle}>
+      {/* User Section (always present at bottom) */}
+      <div style={userSectionContainerStyle}>
         {user ? (
           <div style={userRowStyle}>
             <img
@@ -526,21 +679,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
               <IconSignOut size={20} />
             </button>
           </div>
-        ) : (
-          <button
-            style={loginButtonStyle}
-            onClick={handleLoginClick}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#f5f5f5';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.backgroundColor = isDarkTheme ? '#3C3C3C' : '#fff';
-            }}
-          >
-            Sign in with
-            <IconGoogle />
-          </button>
-        )}
+        ) : null /* Login button hidden - feature not yet visible in UI */}
       </div>
     </div>
   );

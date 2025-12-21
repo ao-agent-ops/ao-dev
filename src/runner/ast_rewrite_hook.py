@@ -42,15 +42,10 @@ class ASTImportLoader(SourceLoader):
                     code_object = marshal.load(f)
                 # logger.debug(f"[ASTHook] Using cached {pyc_path}")
                 return code_object
-            # elif file_mtime < pyc_mtime:
-            #     logger.debug(
-            #         f"[ASTHook] .pyc exists but not rewritten, forcing recompilation: {pyc_path}"
-            #     )
         except OSError as e:
             logger.errpr(f"[ASTHook] Pulling .pyc failed: {e}")
 
         # .pyc is stale, not rewritten, or not ready yet, manual AST transform...
-        # logger.debug(f"[ASTHook] Rewriting AST for {self.fullname} at {path}")
         code_object = rewrite_source_to_code(data, path, module_to_file=_module_to_user_file)
         return code_object
 

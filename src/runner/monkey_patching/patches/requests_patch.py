@@ -3,6 +3,7 @@ from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph
 from aco.server.database_manager import DB
 from aco.common.logger import logger
 from aco.common.utils import is_whitelisted_endpoint
+import builtins
 
 
 def requests_patch():
@@ -36,7 +37,7 @@ def patch_requests_send(bound_obj, bound_cls):
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
-        taint_origins = list(ACTIVE_TAINT.get())
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         if not is_whitelisted_endpoint(input_dict["request"].path_url):
             result = original_function(*args, **kwargs)
@@ -58,7 +59,7 @@ def patch_requests_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
-        ACTIVE_TAINT.set([cache_output.node_id])
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)

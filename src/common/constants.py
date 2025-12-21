@@ -1,6 +1,6 @@
 import re
 import os
-from aco.common.config import Config, derive_project_root, generate_random_username
+from aco.common.config import Config, derive_project_root
 
 
 # default home directory for configs and temporary/cached files
@@ -32,10 +32,6 @@ os.makedirs(os.path.dirname(ACO_CONFIG), exist_ok=True)
 if not os.path.exists(ACO_CONFIG):
     default_config = Config(
         project_root=derive_project_root(),
-        collect_telemetry=False,
-        telemetry_url=None,
-        telemetry_key=None,
-        telemetry_username=generate_random_username(),
         database_url=None,
     )
     default_config.to_yaml_file(ACO_CONFIG)
@@ -44,10 +40,6 @@ if not os.path.exists(ACO_CONFIG):
 config = Config.from_yaml_file(ACO_CONFIG)
 
 ACO_PROJECT_ROOT = config.project_root
-COLLECT_TELEMETRY = config.collect_telemetry
-TELEMETRY_URL = config.telemetry_url
-TELEMETRY_KEY = config.telemetry_key
-TELEMETRY_USERNAME = getattr(config, "telemetry_username", generate_random_username())
 
 # Remote PostgreSQL database URL for "Remote" mode in UI dropdown
 REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
@@ -132,12 +124,68 @@ os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
 # Computed from this file's location: aco/common/constants.py -> agent-copilot/
 ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
 WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/messages$",
     r"/v1/responses$",
     r"/v1/chat/completions$",
-    r"/v1/models/[^/]+:generateContent$",
+    r"models/[^/]+:generateContent$",
 ]
-
 COMPILED_ENDPOINT_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_ENDPOINT_PATTERNS]
+
+# List of regexes that exclude patterns from being displayed in edit IO
+EDIT_IO_EXCLUDE_PATTERNS = [
+    r"^_.*",
+    # Top-level fields
+    r"^max_tokens$",
+    r"^stream$",
+    r"^temperature$",
+    # content.* fields (metadata, usage, system info)
+    r"^content\.id$",
+    r"^content\.type$",
+    r"^content\.object$",
+    r"^content\.created(_at)?$",
+    r"^content\.completed_at$",
+    r"^content\.model$",
+    r"^content\.status$",
+    r"^content\.background$",
+    r"^content\.metadata",
+    r"^content\.usage",
+    r"^content\.service_tier$",
+    r"^content\.system_fingerprint$",
+    r"^content\.stop_reason$",
+    r"^content\.stop_sequence$",
+    r"^content\.billing",
+    r"^content\.error$",
+    r"^content\.incomplete_details$",
+    r"^content\.max_output_tokens$",
+    r"^content\.max_tool_calls$",
+    r"^content\.parallel_tool_calls$",
+    r"^content\.previous_response_id$",
+    r"^content\.prompt_cache",
+    r"^content\.reasoning\.(effort|summary)$",
+    r"^content\.safety_identifier$",
+    r"^content\.store$",
+    r"^content\.temperature$",
+    r"^content\.text\.(format\.type|verbosity)$",
+    r"^content\.tool_choice$",
+    r"^content\.top_(logprobs|p)$",
+    r"^content\.truncation$",
+    r"^content\.user$",
+    r"^content\.responseId$",
+    # content.content.* fields (array elements)
+    r"^content\.content\.\d+\.(type|id)$",
+    r"^content\.content\.\d+\.content\.\d+\.type$",
+    # content.choices.* fields
+    r"^content\.choices\.\d+\.index$",
+    r"^content\.choices\.\d+\.message\.(refusal|annotations|reasoning)$",
+    r"^content\.choices\.\d+\.(finish_reason|logprobs|seed)$",
+    # content.output.* fields
+    r"^content\.output\.\d+\.(id|type|status)$",
+    r"^content\.output\.\d+\.content\.\d+\.(type|annotations|logprobs)$",
+    # content.candidates.* fields (Google Gemini)
+    r"^content\.candidates\.\d+\.(finishReason|index)$",
+    r"^content\.usageMetadata",
+    # tools.* fields
+    r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
+    r"^tools\.\d+\.strict$",
+]
