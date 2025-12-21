@@ -107,33 +107,50 @@ class TaintWrapper:
     def __class__(self):
         return object.__getattribute__(self, "obj").__class__
 
+    # === Comparison ===
+    # Note: Not needed for user code comparisons (those go through exec_func via AST rewriting).
+    # Only needed for third-party methods that compare internally, like list.remove(), list.sort().
+
+    def __eq__(self, other):
+        obj = object.__getattribute__(self, "obj")
+        if isinstance(other, TaintWrapper):
+            other = object.__getattribute__(other, "obj")
+        return obj == other
+
+    def __lt__(self, other):
+        obj = object.__getattribute__(self, "obj")
+        if isinstance(other, TaintWrapper):
+            other = object.__getattribute__(other, "obj")
+        return obj < other
+
+    def __le__(self, other):
+        obj = object.__getattribute__(self, "obj")
+        if isinstance(other, TaintWrapper):
+            other = object.__getattribute__(other, "obj")
+        return obj <= other
+
+    def __gt__(self, other):
+        obj = object.__getattribute__(self, "obj")
+        if isinstance(other, TaintWrapper):
+            other = object.__getattribute__(other, "obj")
+        return obj > other
+
+    def __ge__(self, other):
+        obj = object.__getattribute__(self, "obj")
+        if isinstance(other, TaintWrapper):
+            other = object.__getattribute__(other, "obj")
+        return obj >= other
+
 
 def unwrap_flat(val):
-    """
-    Unwrap just the immediate TaintWrapper, don't recurse into collections.
-
-    Args:
-        val: The value to unwrap
-
-    Returns:
-        The unwrapped value (or original if not a TaintWrapper)
-    """
+    """Unwrap immediate TaintWrapper without recursing into collections."""
     if isinstance(val, TaintWrapper):
         return object.__getattribute__(val, "obj")
     return val
 
 
 def unwrap_deep(val, _seen=None):
-    """
-    Recursively unwrap TaintWrapper objects in nested structures.
-
-    Args:
-        val: The value to unwrap
-        _seen: Set to track visited containers (prevents circular references)
-
-    Returns:
-        Fully unwrapped value with all nested TaintWrappers removed
-    """
+    """Recursively unwrap TaintWrapper objects in nested structures."""
     if _seen is None:
         _seen = set()
 
@@ -166,19 +183,7 @@ def untaint_if_needed(val, _seen=None):
 
 
 def get_taint_origins(val, _seen=None):
-    """
-    Extract taint origins from TAINT_DICT.
-
-    Returns only the object's own taint, not taint from nested items.
-    To get item taint, access the item directly (e.g., get_taint_origins(l[0])).
-
-    Args:
-        val: The value to extract taint from
-        _seen: Unused, kept for API compatibility
-
-    Returns:
-        List of taint origins for this object
-    """
+    """Get taint origins for an object from TAINT_DICT."""
     import builtins
 
     if hasattr(builtins, "TAINT_DICT"):
@@ -192,14 +197,8 @@ def get_taint_origins(val, _seen=None):
     return []
 
 
-# Legacy function for backwards compatibility during transition
 def taint_wrap(obj, taint_origin=None, root_wrapper=None):
-    """
-    Legacy wrapper function - redirects to new TAINT_DICT approach.
-
-    This function exists for backwards compatibility during the transition.
-    New code should use add_to_taint_dict_and_return() instead.
-    """
+    """Wrap object with taint and add to TAINT_DICT."""
     from aco.server.ast_helpers import add_to_taint_dict_and_return
 
     if taint_origin is None:

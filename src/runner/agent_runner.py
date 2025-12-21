@@ -34,14 +34,13 @@ from aco.server.ast_helpers import (
     taint_percent_format,
     taint_open,
     exec_func,
-    exec_mutation,
-    exec_query,
-    exec_inplace,
     exec_setitem,
     exec_delitem,
     exec_inplace_binop,
-    intercept_assign,
-    intercept_access,
+    wrap_assign,
+    get_attr,
+    get_item,
+    set_attr,
     wrap_if_needed,
     add_to_taint_dict_and_return,
     get_taint,
@@ -304,14 +303,13 @@ class AgentRunner:
         builtins.taint_percent_format = taint_percent_format
         builtins.taint_open = taint_open
         builtins.exec_func = exec_func
-        builtins.exec_mutation = exec_mutation
-        builtins.exec_query = exec_query
-        builtins.exec_inplace = exec_inplace
         builtins.exec_setitem = exec_setitem
         builtins.exec_delitem = exec_delitem
         builtins.exec_inplace_binop = exec_inplace_binop
-        builtins.intercept_assign = intercept_assign
-        builtins.intercept_access = intercept_access
+        builtins.wrap_assign = wrap_assign
+        builtins.get_attr = get_attr
+        builtins.get_item = get_item
+        builtins.set_attr = set_attr
         builtins.wrap_if_needed = wrap_if_needed
         builtins.add_to_taint_dict_and_return = add_to_taint_dict_and_return
         builtins.get_taint = get_taint
