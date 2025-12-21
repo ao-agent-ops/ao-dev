@@ -61,6 +61,48 @@ jobs:
     - name: Setup test environment
       uses: ./.github/actions/setup-test-environment
 
+    - name: Debug - Check file contents
+      run: |
+        echo "=== Git commit ==="
+        git log -1 --oneline
+        echo ""
+        echo "=== src/__init__.py ==="
+        cat -n src/__init__.py
+        echo ""
+        echo "=== src/server/__init__.py ==="
+        cat -n src/server/__init__.py || echo "File is empty or does not exist"
+        wc -c src/server/__init__.py
+        echo ""
+        echo "=== src/server/ast_helpers.py (first 20 lines) ==="
+        head -20 src/server/ast_helpers.py
+        echo ""
+        echo "=== src/server/ast_transformer.py (first 20 lines) ==="
+        head -20 src/server/ast_transformer.py
+        echo ""
+        echo "=== Check for __pycache__ ==="
+        find . -name "__pycache__" -type d | head -10
+
+    - name: Debug - Test import chain
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source $HOME/miniconda/bin/activate aco
+        echo "=== Testing import of aco package ==="
+        python -c "
+import sys
+print('Python version:', sys.version)
+print('Attempting import...')
+try:
+    import aco
+    print('SUCCESS: aco imported')
+except Exception as e:
+    print(f'FAILED: {e}')
+    import traceback
+    traceback.print_exc()
+"
+        echo ""
+        echo "=== Testing import with verbose ==="
+        python -v -c "import aco" 2>&1 | grep -E "(aco|ast_helpers|__init__)" | head -50 || true
+
     - name: Setup isolated test database
       run: mkdir -p ~/.cache/agent-copilot/tests/debug-examples
 
