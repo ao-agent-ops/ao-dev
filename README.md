@@ -5,16 +5,6 @@ AO Agent Dev is a developer tool for agent builders. It supports arbitrary Pytho
 [![Quickstart video](docs/media/quickstart_screenshot.png)](https://youtu.be/woVctiSRJU0)
 
 
-## Overview
-
-AO goes beyond being a simple observability tool:
-
-- **Visualize agent traces as a DAG** - See how data flows between LLM and tool calls in your application
-- **Edit inputs and outputs** - Modify LLM and tool call inputs/outputs and **re-run** with changes, where previous nodes in the DAG are cached
-- **Debug dataflow** - Track how LLM outputs propagate through your code
-
-![AO VS Code Extension](docs/assets/images/demo-extension.png)
-
 ## Quickstart
 
 `AO Agent Dev` integrates into VS Code or IDEs based on it, like Cursor. Simply download our [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev) and install our pip package:
