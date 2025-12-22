@@ -78,7 +78,6 @@ nav:
   - API Reference:
       - Overview: api-reference/index.md
       - CLI: api-reference/cli.md
-      - Taint Wrappers: api-reference/taint-wrappers.md
       - AST Transformer: api-reference/ast-transformer.md
   - Developer Guide:
       - Architecture: developer-guide/architecture.md
