@@ -4,10 +4,14 @@ The trace of an agent executing a task is effectively a [DAG](https://en.wikiped
 
 AO is a development tool that creates interactive dataflow graphs of agent traces, enabling visualization, editing, and debugging of data flow in agentic systems – **with *zero* code changes**.
 
-<video controls width="100%">
-  <source src="assets/videos/example.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<iframe
+  width="100%"
+  height="400"
+  src="https://www.youtube.com/embed/woVctiSRJU0?rel=0&modestbranding=1"
+  frameborder="0"
+  allowfullscreen
+  style="border-radius: 8px;">
+</iframe>
 
 ## Overview
 
