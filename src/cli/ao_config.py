@@ -1,6 +1,6 @@
 # Register taint functions in builtins BEFORE any other imports
 import builtins
-from aco.server.ast_helpers import (
+from ao.server.ast_helpers import (
     taint_fstring_join,
     taint_format_string,
     taint_percent_format,
@@ -14,19 +14,19 @@ builtins.exec_func = exec_func
 
 import argparse
 import os
-from aco.common.config import (
+from ao.common.config import (
     Config,
     _ask_field,
     _convert_to_valid_path,
 )
-from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
+from ao.common.constants import AO_CONFIG, AO_PROJECT_ROOT
 
 
 def get_user_input() -> Config:
     project_root = _ask_field(
-        f"What is the root directory of your project? [{ACO_PROJECT_ROOT}]\n> ",
+        f"What is the root directory of your project? [{AO_PROJECT_ROOT}]\n> ",
         _convert_to_valid_path,
-        default=ACO_PROJECT_ROOT,
+        default=AO_PROJECT_ROOT,
         error_message="Please enter a valid path to a directory.",
     )
 
@@ -46,18 +46,18 @@ def get_user_input() -> Config:
 
 def config_command():
     config = get_user_input()
-    config_file = ACO_CONFIG
+    config_file = AO_CONFIG
     config.to_yaml_file(config_file)
 
 
 def config_command_parser():
     description = (
-        "Run `aco config` before you debug your agents. This "
+        "Run `ao config` before you debug your agents. This "
         "will prompt some configurations that you can choose. "
         "These will get saved in a default path or in --config_path "
-        "which you can pass: `aco config --config_path some/path/config.yaml"
+        "which you can pass: `ao config --config_path some/path/config.yaml"
     )
-    parser = argparse.ArgumentParser("Config", usage="aco-config", description=description)
+    parser = argparse.ArgumentParser("Config", usage="ao-config", description=description)
     return parser
 
 

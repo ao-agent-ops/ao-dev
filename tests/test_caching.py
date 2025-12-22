@@ -13,7 +13,7 @@ import subprocess
 import sys
 import pytest
 from dataclasses import dataclass
-from aco.server.database_manager import DB
+from ao.server.database_manager import DB
 
 try:
     from tests.utils import restart_server
@@ -29,9 +29,9 @@ class RunData:
     new_graph: list
 
 
-def run_script_via_aco_launch(script_path: str, project_root: str) -> str:
+def run_script_via_ao_launch(script_path: str, project_root: str) -> str:
     """
-    Run a script using aco-launch and return the session_id.
+    Run a script using ao-launch and return the session_id.
 
     Args:
         script_path: Path to the script to run
@@ -41,14 +41,14 @@ def run_script_via_aco_launch(script_path: str, project_root: str) -> str:
         The session_id from the experiment record
     """
     env = os.environ.copy()
-    env["ACO_DATABASE_MODE"] = "local"
+    env["ao_DATABASE_MODE"] = "local"
 
-    # Run the script via aco-launch
+    # Run the script via ao-launch
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "aco.cli.aco_launch",
+            "ao.cli.ao_launch",
             "--project-root",
             project_root,
             script_path,
@@ -90,7 +90,7 @@ def run_test(script_path: str, project_root: str) -> RunData:
     DB.switch_mode("local")
 
     # First run
-    session_id = run_script_via_aco_launch(script_path, project_root)
+    session_id = run_script_via_ao_launch(script_path, project_root)
 
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",
@@ -106,14 +106,14 @@ def run_test(script_path: str, project_root: str) -> RunData:
     # Second run (should use cache)
     # We need to set the session ID so the new run uses the same cache
     env = os.environ.copy()
-    env["ACO_DATABASE_MODE"] = "local"
+    env["AO_DATABASE_MODE"] = "local"
     env["AGENT_COPILOT_SESSION_ID"] = session_id
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "aco.cli.aco_launch",
+            "ao.cli.ao_launch",
             "--project-root",
             project_root,
             script_path,
@@ -146,7 +146,7 @@ def run_test(script_path: str, project_root: str) -> RunData:
 def _caching_asserts(run_data_obj: RunData):
     assert len(run_data_obj.rows) == len(
         run_data_obj.new_rows
-    ), "Length of LLM calls does not match after re-run"
+    ), f"Length of LLM calls does not match after re-run{len(run_data_obj.rows)} vs {len(run_data_obj.new_rows)}"
     for old_row, new_row in zip(run_data_obj.rows, run_data_obj.new_rows):
         assert (
             old_row["node_id"] == new_row["node_id"]

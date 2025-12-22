@@ -5,26 +5,25 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-# Map aco package to src directory with subpackages
-package-dir = {"aco" = "src"}
-packages = ["aco", "aco.cli", "aco.common", "aco.runner", "aco.runner.monkey_patching", "aco.runner.monkey_patching.patches", "aco.server"]
+# Map ao package to src directory with subpackages
+package-dir = {"ao" = "src"}
+packages = ["ao", "ao.cli", "ao.common", "ao.runner", "ao.runner.monkey_patching", "ao.runner.monkey_patching.patches", "ao.server"]
 
 [project.scripts]
-# Console commands for the agent-copilot package
-aco-launch = "aco.cli.aco_launch:main"
-aco-config = "aco.cli.aco_config:main"
-aco-server = "aco.cli.aco_server:main"
+# Console commands for the ao package
+ao-record = "ao.cli.ao_record:main"
+ao-config = "ao.cli.ao_config:main"
+ao-server = "ao.cli.ao_server:main"
 
-# Let's keep them around for now, aco-launch is confusing 
-# when quickly showing the tool.
-develop = "aco.cli.aco_launch:main"
-server = "aco.cli.aco_server:main"
+# Aliases for quick access
+record = "ao.cli.ao_record:main"
+server = "ao.cli.ao_server:main"
 
 [tool.black]
 line-length = 100
 
 [project]
-name = "agops"
+name = "ao"
 version = "0.0.5"
 description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"

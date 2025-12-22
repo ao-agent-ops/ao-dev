@@ -1,20 +1,20 @@
 # Subruns
 
-Subruns allow you to create separate tracked sessions within a single `aco-launch` execution. This is particularly useful for evaluation scripts where you want each sample to be tracked independently.
+Subruns allow you to create separate tracked sessions within a single `ao-record` execution. This is particularly useful for evaluation scripts where you want each sample to be tracked independently.
 
 ## Basic Usage
 
-Use the `aco_launch` context manager to create subruns:
+Use the `ao_record` context manager to create subruns:
 
-```python
-from aco.runner.context_manager import aco_launch
+```
+from ao.runner.context_manager import ao_record
 
 for sample in samples:
-    with aco_launch("sample-name"):
+    with ao_record("sample-name"):
         eval_sample(sample)
 ```
 
-Each iteration creates a separate run in the Agent Copilot UI, allowing you to:
+Each iteration creates a separate run in the AO UI, allowing you to:
 
 - View each sample's dataflow graph independently
 - Compare results across samples
@@ -24,9 +24,9 @@ Each iteration creates a separate run in the Agent Copilot UI, allowing you to:
 
 Give descriptive names to your subruns for easy identification:
 
-```python
+```
 for i, sample in enumerate(samples):
-    with aco_launch(f"sample-{i}-{sample.id}"):
+    with ao_record(f"sample-{i}-{sample.id}"):
         result = process_sample(sample)
 ```
 
@@ -34,12 +34,12 @@ for i, sample in enumerate(samples):
 
 Subruns can run concurrently using Python's threading or multiprocessing:
 
-```python
+```
 from concurrent.futures import ThreadPoolExecutor
-from aco.runner.context_manager import aco_launch
+from ao.runner.context_manager import ao_record
 
 def process_sample(sample):
-    with aco_launch(f"sample-{sample.id}"):
+    with ao_record(f"sample-{sample.id}"):
         return run_evaluation(sample)
 
 with ThreadPoolExecutor(max_workers=4) as executor:
@@ -65,10 +65,10 @@ When the context exits, the session is closed and the graph is finalized.
 
 ### Evaluation Pipelines
 
-```python
+```
 results = []
 for sample in test_dataset:
-    with aco_launch(f"eval-{sample.id}"):
+    with ao_record(f"eval-{sample.id}"):
         prediction = agent.run(sample.input)
         score = evaluate(prediction, sample.expected)
         results.append(score)
@@ -78,24 +78,24 @@ print(f"Average score: {sum(results) / len(results)}")
 
 ### A/B Testing
 
-```python
+```
 configs = [
     {"model": "gpt-4", "temperature": 0.7},
     {"model": "gpt-4", "temperature": 0.2},
 ]
 
 for config in configs:
-    with aco_launch(f"config-{config['model']}-t{config['temperature']}"):
+    with ao_record(f"config-{config['model']}-t{config['temperature']}"):
         run_benchmark(config)
 ```
 
 ### Debugging Specific Cases
 
-```python
+```
 failed_samples = [s for s in samples if s.status == "failed"]
 
 for sample in failed_samples:
-    with aco_launch(f"debug-{sample.id}"):
+    with ao_record(f"debug-{sample.id}"):
         # Run with verbose logging
         result = agent.run(sample.input, verbose=True)
 ```

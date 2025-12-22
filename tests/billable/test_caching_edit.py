@@ -10,8 +10,8 @@ import re
 import pytest
 from flatten_json import flatten, unflatten_list
 from dataclasses import dataclass
-from aco.server.database_manager import DB
-from aco.common.constants import HOST, PORT
+from ao.server.database_manager import DB
+from ao.common.constants import HOST, PORT
 
 try:
     from tests.billable.caching_utils import restart_server
@@ -87,15 +87,15 @@ def find_row_and_get_edit_msg(script_path: str, rows: list):
     return msg
 
 
-def _run_script_with_aco_launch(script_path: str, project_root: str, env: dict) -> tuple[int, str]:
+def _run_script_with_ao_launch(script_path: str, project_root: str, env: dict) -> tuple[int, str]:
     """
-    Run a script using aco-launch and return (return_code, session_id).
+    Run a script using ao-record and return (return_code, session_id).
 
     Parses the session_id from the runner's output.
     """
-    env["ACO_NO_DEBUG_MODE"] = "True"
+    env["AO_NO_DEBUG_MODE"] = "True"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "aco.cli.aco_launch", "--project-root", project_root, script_path],
+        [sys.executable, "-m", "ao.cli.ao_record", "--project-root", project_root, script_path],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -147,14 +147,14 @@ async def run_test(script_path: str, project_root: str):
 
     # Set up environment
     env = os.environ.copy()
-    aco_random_seed = random.randint(0, 2**31 - 1)
-    env["ACO_SEED"] = str(aco_random_seed)
+    ao_random_seed = random.randint(0, 2**31 - 1)
+    env["AO_SEED"] = str(ao_random_seed)
 
     # Ensure we use local SQLite database
     DB.switch_mode("local")
 
     # First run
-    return_code, session_id = _run_script_with_aco_launch(script_path, project_root, env)
+    return_code, session_id = _run_script_with_ao_launch(script_path, project_root, env)
     assert return_code == 0, f"First run failed with return_code {return_code}"
     assert session_id is not None, "Could not extract session_id from first run output"
 
@@ -178,8 +178,8 @@ async def run_test(script_path: str, project_root: str):
 
     # Second run (rerun with edit applied)
     # Pass the same session_id so it reuses the cache but applies the edit
-    env["AGENT_COPILOT_SESSION_ID"] = session_id
-    returncode_rerun, _ = _run_script_with_aco_launch(script_path, project_root, env)
+    env["AO_SESSION_ID"] = session_id
+    returncode_rerun, _ = _run_script_with_ao_launch(script_path, project_root, env)
     assert returncode_rerun == 0, f"Re-run failed with return_code {returncode_rerun}"
 
     graph_topology = DB.query_one(
@@ -206,7 +206,7 @@ async def run_test(script_path: str, project_root: str):
     time.sleep(1)
 
     # Third run without editing (should use cached results including the edit)
-    returncode_third, _ = _run_script_with_aco_launch(script_path, project_root, env)
+    returncode_third, _ = _run_script_with_ao_launch(script_path, project_root, env)
     assert returncode_third == 0, f"Third run failed with return_code {returncode_third}"
 
     new_graph_topology = DB.query_one(

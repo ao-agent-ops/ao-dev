@@ -4,7 +4,7 @@ import time
 import pytest
 from pathlib import Path
 from typing import Dict, List
-from aco.common.constants import PORT, HOST
+from ao.common.constants import PORT, HOST
 
 
 class TaintTestLauncher:
@@ -40,7 +40,7 @@ class TaintTestLauncher:
 
     def start_server_if_needed(self):
         """Start the daemon server if not already running."""
-        from aco.cli.aco_server import launch_daemon_server
+        from ao.cli.ao_server import launch_daemon_server
 
         print("Starting daemon server...")
         launch_daemon_server()
@@ -60,7 +60,7 @@ class TaintTestLauncher:
 
         # Use the generic test case runner, passing the module name as argument
         cmd = [
-            "aco-launch",
+            "ao-record",
             "--project-root",
             str(self.project_root),
             "-m",

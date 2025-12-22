@@ -1,6 +1,6 @@
 # Taint Tracking
 
-Agent Copilot tracks data flow ("taint") between LLM calls using a combination of taint wrappers, AST rewriting, and a file watcher process.
+AO tracks data flow ("taint") between LLM calls using a combination of taint wrappers, AST rewriting, and a file watcher process.
 
 ## Overview
 
@@ -14,8 +14,8 @@ Taint wrappers are Python types that extend built-in types to carry taint inform
 
 ### Basic Types
 
-```python
-from aco.runner.taint_wrappers import TaintStr, TaintInt, TaintList
+```
+from ao.runner.taint_wrappers import TaintStr, TaintInt, TaintList
 
 # A tainted string knows its origin
 tainted = TaintStr("Hello", taint_origin=["llm_call_1"])
@@ -42,8 +42,8 @@ combined = result + other  # Tainted with both llm_call_1 and llm_call_2
 
 ### Utility Functions
 
-```python
-from aco.runner.taint_wrappers import (
+```
+from ao.runner.taint_wrappers import (
     get_taint_origins,
     untaint_if_needed,
     is_tainted,
@@ -66,7 +66,7 @@ wrapped = taint_wrap(raw_value, taint_origin=["origin_id"])
 
 Taint wrappers handle operations on tainted values, but what about third-party library calls?
 
-```python
+```
 import os.path
 
 # This would lose taint information without AST rewriting!
@@ -75,7 +75,7 @@ result = os.path.join(tainted_path, "filename.txt")
 
 The AST transformer rewrites such calls to preserve taint:
 
-```python
+```
 # Original
 result = os.path.join(a, b)
 
@@ -124,9 +124,9 @@ Pre-compilation eliminates runtime overhead:
 
 To distinguish our `.pyc` files from standard Python-compiled ones:
 
-```python
+```
 # Injected as first line of every rewritten module
-__ACO_AST_REWRITTEN__ = True
+__AO_AST_REWRITTEN__ = True
 ```
 
 The file watcher checks for this marker to determine if recompilation is needed.
@@ -135,7 +135,7 @@ The file watcher checks for this marker to determine if recompilation is needed.
 
 1. **Server starts** → Spawns file watcher
 2. **File watcher** → Pre-compiles all user `.py` files with AST rewrites
-3. **User runs `aco-launch`** → Import hook ensures `.pyc` files exist
+3. **User runs `ao-record`** → Import hook ensures `.pyc` files exist
 4. **Python loads** → Uses pre-compiled `.pyc` with taint propagation
 5. **Monkey patches** → Intercept LLM calls, taint their outputs
 6. **Code executes** → Taint propagates through AST-rewritten operations

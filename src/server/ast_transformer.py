@@ -12,7 +12,7 @@ exec_func handles user code directly and third-party code with taint propagation
 """
 
 import ast
-from aco.common.utils import get_aco_py_files
+from ao.common.utils import get_ao_py_files
 
 
 class TaintPropagationTransformer(ast.NodeTransformer):
@@ -37,8 +37,8 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         """
         self.module_to_file = module_to_file or {}
         self.user_py_files = [*self.module_to_file.values()]
-        # also include all files in agent-copilot
-        self.user_py_files.extend(get_aco_py_files())
+        # also include all files in ao
+        self.user_py_files.extend(get_ao_py_files())
         self.current_file = current_file
         self.needs_taint_imports = False  # Track if we need to inject imports
         # Extract the root directory from current_file if available
@@ -306,8 +306,8 @@ class TaintPropagationTransformer(ast.NodeTransformer):
         ):
             self.needs_taint_imports = True
             new_node = ast.Call(
-                func=ast.Name(id="taint_percent_format", ctx=ast.Load()),
-                args=[node.left, node.right],
+                func=ast.Name(id="get_attr", ctx=ast.Load()),
+                args=[node.value, ast.Constant(value=node.attr)],
                 keywords=[],
             )
             return ast.copy_location(new_node, node)
@@ -616,7 +616,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from aco.server.ast_helpers import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, taint_assign, get_attr, get_item, set_attr
+from ao.server.ast_helpers import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, taint_assign, get_attr, get_item, set_attr
 """
 
         safe_import_tree = ast.parse(safe_import_code)

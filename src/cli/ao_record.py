@@ -1,14 +1,14 @@
 import os
 import yaml
 from argparse import ArgumentParser, REMAINDER
-from aco.common.constants import ACO_CONFIG, ACO_PROJECT_ROOT
-from aco.runner.agent_runner import AgentRunner
+from ao.common.constants import AO_CONFIG, AO_PROJECT_ROOT
+from ao.runner.agent_runner import AgentRunner
 
 
 def launch_command_parser():
     parser = ArgumentParser(
-        usage="aco-launch <script.py> [<args>]",
-        description="Launch a python script with the agent copilot under the hood.",
+        usage="ao-record <script.py> [<args>]",
+        description="Launch a python script with the AO under the hood.",
         allow_abbrev=False,
     )
 
@@ -26,7 +26,7 @@ def launch_command_parser():
 
     parser.add_argument(
         "--project-root",
-        default=ACO_PROJECT_ROOT,
+        default=AO_PROJECT_ROOT,
         help="The root directory of the user's project.",
     )
 
@@ -57,8 +57,8 @@ def _validate_launch_command(args):
     if args.config_file is not None and os.path.isfile(args.config_file):
         config_file = args.config_file
     # if not, check in the AOC_CONFIG path
-    elif os.path.isfile(ACO_CONFIG):
-        config_file = ACO_CONFIG
+    elif os.path.isfile(AO_CONFIG):
+        config_file = AO_CONFIG
     # if also not, it stays empty and we rely on the (default) args
 
     if config_file is not None:
@@ -75,9 +75,9 @@ def _validate_launch_command(args):
     # check the validity of the project_root
     assert os.path.isdir(args.project_root), (
         f"Project root {args.project_root} is not a directory. "
-        f"The derived project_root was {ACO_PROJECT_ROOT}. "
-        f"To fix this, pass the correct --project-root to aco-launch. "
-        "For example, aco-launch --project-root ~/my-project script.py"
+        f"The derived project_root was {AO_PROJECT_ROOT}. "
+        f"To fix this, pass the correct --project-root to ao-record. "
+        "For example, ao-record --project-root ~/my-project script.py"
     )
     return args
 

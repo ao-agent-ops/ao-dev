@@ -1,6 +1,6 @@
 # Testing
 
-This guide covers how to run Agent Copilot's test suite and write new tests.
+This guide covers how to run AO's test suite and write new tests.
 
 ## Running Tests
 
@@ -40,7 +40,7 @@ python -m pytest tests/unit/
 
 ### Integration Tests
 
-Tests that require the full Agent Copilot environment:
+Tests that require the full AO environment:
 
 ```bash
 python -m pytest tests/integration/
@@ -61,7 +61,7 @@ python -m pytest tests/taint/
 For API call tests, the user program executes as a replay by the server. To see the output:
 
 ```bash
-aco-server logs
+ao-server logs
 ```
 
 This shows the output of the user program, including any crash information.
@@ -74,12 +74,12 @@ Tests in `taint/general_functions` have a special setup because they rely on AST
 
 - Pytest normally ignores `.pyc` files and compiles from source
 - Our tests need the AST-rewritten `.pyc` files
-- Solution: Run tests inside an `aco-launch` process
+- Solution: Run tests inside an `ao-record` process
 
 **How it works:**
 
 1. Test cases are in files like `json_test_cases.py`
-2. All tests in a file run sequentially in one `aco-launch` process
+2. All tests in a file run sequentially in one `ao-record` process
 3. Individual test results are recorded
 4. Results are sent back to pytest for reporting
 
@@ -87,13 +87,13 @@ This approach provides:
 
 - Accurate testing of actual AST rewrites
 - Per-test granularity in results
-- Reduced overhead (one `aco-launch` per file, not per test)
+- Reduced overhead (one `ao-record` per file, not per test)
 
 ## Writing New Tests
 
 ### Standard Test
 
-```python
+```
 # tests/test_my_feature.py
 import pytest
 
@@ -106,9 +106,9 @@ def test_my_feature():
 
 For taint tests, add a test case file:
 
-```python
+```
 # tests/taint/general_functions/my_test_cases.py
-from aco.runner.taint_wrappers import TaintStr, get_taint_origins
+from ao.runner.taint_wrappers import TaintStr, get_taint_origins
 
 def test_my_operation():
     tainted = TaintStr("hello", taint_origin=["origin1"])
@@ -121,7 +121,7 @@ def test_my_operation():
 
 ### API Patch Test
 
-```python
+```
 # tests/test_api_patches.py
 import pytest
 from unittest.mock import MagicMock
@@ -131,7 +131,7 @@ def test_openai_patch():
     mock_client = MagicMock()
 
     # Apply patches
-    from aco.runner.monkey_patching.apply_monkey_patches import openai_patch
+    from ao.runner.monkey_patching.apply_monkey_patches import openai_patch
     openai_patch()
 
     # Test the patched behavior
@@ -142,7 +142,7 @@ def test_openai_patch():
 
 Common fixtures are defined in `conftest.py`:
 
-```python
+```
 @pytest.fixture
 def tainted_string():
     return TaintStr("test", taint_origin=["test_origin"])
@@ -158,7 +158,7 @@ def server_connection():
 ### View Server Logs
 
 ```bash
-aco-server logs
+ao-server logs
 ```
 
 ### Run with Debug Output
@@ -179,7 +179,7 @@ The test suite runs in GitHub Actions. Key considerations:
 
 - Tests must be deterministic (use fixed random seeds)
 - API tests should use mocks or replay mode
-- Taint tests require the full `aco-launch` environment
+- Taint tests require the full `ao-record` environment
 
 ## Next Steps
 

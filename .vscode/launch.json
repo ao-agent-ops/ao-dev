@@ -22,27 +22,27 @@
     //   "justMyCode": false,
     // },
     {
-      "name": "aco-config",
+      "name": "ao-config",
       "type": "debugpy",
       "request": "launch",
-      "module": "aco.cli.aco_config",
+      "module": "ao.cli.ao_config",
       "console": "integratedTerminal",
       "justMyCode": false
     },
     {
-      "name": "aco-server",
+      "name": "ao-server",
       "type": "debugpy",
       "request": "launch",
-      "module": "aco.cli.aco_server",
+      "module": "ao.cli.ao_server",
       "args": ["restart"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
     {
-      "name": "aco-launch",
+      "name": "ao-record",
       "type": "debugpy",
       "request": "launch",
-      "module": "aco.cli.aco_launch",
+      "module": "ao.cli.ao_record",
       // "args": ["./example_workflows/debug_examples/anthropic_async_add_numbers.py"],
       // "args": ["./example_workflows/debug_examples/anthropic_add_numbers.py"],
       // "args": ["./example_workflows/debug_examples/langchain_async_agent.py"],
