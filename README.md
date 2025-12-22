@@ -5,14 +5,7 @@
 
 A development tool that creates interactive dataflow graphs of agent traces, enabling visualization, editing, and debugging of data flow in agentic systems – **with zero code changes**.
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/woVctiSRJU0?rel=0&modestbranding=1"
-  frameborder="0"
-  allowfullscreen
-  style="border-radius: 8px;">
-</iframe>
+[![Quickstart video](docs/media/quickstart_screenshot.png)](https://youtu.be/woVctiSRJU0)
 
 ## Overview
 
