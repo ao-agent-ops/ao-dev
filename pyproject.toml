@@ -7,7 +7,17 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 # Map ao package to src directory with subpackages
 package-dir = {"ao" = "src"}
-packages = ["ao", "ao.cli", "ao.common", "ao.runner", "ao.runner.monkey_patching", "ao.runner.monkey_patching.patches", "ao.server"]
+packages = [
+    "ao",
+    "ao.cli",
+    "ao.common",
+    "ao.runner",
+    "ao.runner.monkey_patching",
+    "ao.runner.monkey_patching.api_parsers",
+    "ao.runner.monkey_patching.patches",
+    "ao.server",
+    "ao.server.database_backends"
+]
 
 [project.scripts]
 # Console commands for the ao package
@@ -24,7 +34,7 @@ line-length = 100
 
 [project]
 name = "ao-agent-dev"
-version = "0.0.1"
+version = "0.0.2"
 description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"
 requires-python = ">=3.10"

@@ -143,6 +143,10 @@ _context: vscode.WebviewViewResolveContext,
                     if (!this._pythonClient) {
                         this._pythonClient = PythonServerClient.getInstance();
                         this._pythonClient.ensureConnected(); // async but don't await - webview is ready
+                        // Request experiment list on every connection (including reconnections after server restart)
+                        this._pythonClient.onConnection(() => {
+                            this._pythonClient?.sendMessage({ type: 'get_all_experiments' });
+                        });
                         // Create message handler and store reference for cleanup
                         this._messageHandler = (msg) => {
                             // Intercept session_id message to set up config management

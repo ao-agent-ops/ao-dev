@@ -8,6 +8,7 @@ export class PythonServerClient {
     private messageQueue: string[] = [];
     private onMessageCallback?: (msg: any) => void;
     private messageCallbacks: ((msg: any) => void)[] = [];
+    private connectionCallbacks: (() => void)[] = [];
     private userId?: string;
     private serverHost: string;
     private serverPort: number;
@@ -80,6 +81,9 @@ export class PythonServerClient {
             this.client.write(JSON.stringify(handshake) + "\n");
             this.messageQueue.forEach(msg => this.client.write(msg));
             this.messageQueue = [];
+
+            // Notify connection listeners (e.g., to request experiment list)
+            this.connectionCallbacks.forEach(callback => callback());
         });
 
         let buffer = '';
@@ -156,6 +160,10 @@ export class PythonServerClient {
         this.messageCallbacks.push(cb);
     }
 
+    public onConnection(cb: () => void) {
+        this.connectionCallbacks.push(cb);
+    }
+
     public removeMessageListener(cb: (msg: any) => void) {
         const index = this.messageCallbacks.indexOf(cb);
         if (index > -1) {
@@ -178,6 +186,7 @@ export class PythonServerClient {
 
         // Clear callbacks
         this.messageCallbacks = [];
+        this.connectionCallbacks = [];
         this.messageQueue = [];
     }
 
