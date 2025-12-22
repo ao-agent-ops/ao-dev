@@ -7,7 +7,7 @@ def setup_logging():
     if root.handlers:
         root.handlers.clear()
 
-    root.setLevel(logging.CRITICAL)
+    root.setLevel(logging.DEBUG)
 
     # Create a console handler
     handler = logging.StreamHandler()
