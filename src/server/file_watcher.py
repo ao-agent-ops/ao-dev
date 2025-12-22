@@ -58,33 +58,10 @@ def rewrite_source_to_code(
     # Parse source into AST
     tree = ast.parse(source, filename=filename)
 
-    # Add rewrite marker after any __future__ imports
-    # This allows us to verify that a .pyc file was created by our AST transformer
-    marker = ast.Assign(
-        targets=[ast.Name(id="__ACO_AST_REWRITTEN__", ctx=ast.Store())],
-        value=ast.Constant(value=True),
-    )
-
-    # Find insertion point after any __future__ imports
-    insertion_point = 0
-    for i, node in enumerate(tree.body):
-        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
-            insertion_point = i + 1
-
-    # Set location info for the marker
-    marker.lineno = 1
-    marker.col_offset = 0
-    tree.body.insert(insertion_point, marker)
-
-    # Apply AST transformations for taint propagation
-    # Unified transformer handles: f-strings, .format(), % formatting, and third-party calls
+    # Apply AST transformations and inject imports if needed
     transformer = TaintPropagationTransformer(module_to_file=module_to_file, current_file=filename)
     tree = transformer.visit(tree)
-
-    # Inject taint function imports if any transformations were made
     tree = transformer._inject_taint_imports(tree)
-
-    # Fix missing location information
     ast.fix_missing_locations(tree)
 
     # Compile to code object
@@ -99,23 +76,19 @@ def is_pyc_rewritten(pyc_path: str) -> bool:
     """
     Check if a .pyc file was created by our AST transformer.
 
-    Args:
-        pyc_path: Path to a .pyc file
-
-    Returns:
-        True if the .pyc contains our rewrite marker, False otherwise
+    Returns True if the .pyc contains our injected imports (exec_func, etc).
+    Files with no transformations (empty __init__.py) return False, which is fine -
+    they don't need special handling.
     """
     try:
         import marshal
 
         with open(pyc_path, "rb") as f:
-            # Skip the .pyc header (magic number, flags, timestamp, size)
-            f.read(16)
+            f.read(16)  # Skip .pyc header
             code = marshal.load(f)
-
-            # Check if our marker is in the code object's names or constants
-            return "__ACO_AST_REWRITTEN__" in code.co_names
-    except (IOError, OSError, Exception):
+            # Check for our injected function names
+            return "exec_func" in code.co_names or "taint_fstring_join" in code.co_names
+    except Exception:
         return False
 
 
@@ -400,7 +373,6 @@ class FileWatcher:
             if self._shutdown:
                 return
             if self._needs_recompilation(file_path):
-                logger.debug(f"File changed, recompiling: {file_path}")
                 self._compile_file(file_path, module_name)
 
     def run(self):
