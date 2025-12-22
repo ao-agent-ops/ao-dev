@@ -83,8 +83,6 @@ async def run_test(script_path: str, project_root: str):
     assert return_code == 0, f"First run failed with return_code {return_code}"
     assert session_id is not None, "Could not extract session_id from first run output"
 
-    print(f"~~~~ session_id {session_id}")
-
     # Query results from first run
     rows = DB.query_all(
         "SELECT node_id, input_overwrite, output FROM llm_calls WHERE session_id=?",

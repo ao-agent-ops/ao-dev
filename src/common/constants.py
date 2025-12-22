@@ -124,28 +124,6 @@ os.makedirs(ACO_ATTACHMENT_CACHE, exist_ok=True)
 # Computed from this file's location: aco/common/constants.py -> agent-copilot/
 ACO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Whitelist of third-party modules to include in module_to_file mapping
-# Add modules here that you want to track for AST rewrites
-WHITELISTED_THIRD_PARTY_MODULES = [
-    "google.genai.models",
-    "google.genai._api_client",
-    "mcp.client.session",
-    "anthropic.resources.messages.messages",
-    "anthropic._base_client",
-    "openai.resources.responses.responses",
-    "openai.resources.chat.completions.completions",
-    "openai._base_client",
-    "together.resources.chat.completions",
-    "together.abstract.api_requestor",
-    "langchain_core.language_models.chat_models",
-    "langchain_openai.chat_models",
-    "langchain_openai.chat_models.base",
-    "langchain_anthropic.chat_models",
-    "langchain_anthropic.chat_models.base",
-    "langgraph.pregel.main",
-]
-
-# List of regexes that include patterns for API patching
 WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/messages$",
     r"/v1/responses$",

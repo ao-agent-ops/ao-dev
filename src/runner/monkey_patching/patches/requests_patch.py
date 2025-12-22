@@ -1,16 +1,14 @@
 from functools import wraps
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from aco.server.database_manager import DB
-from aco.common.logger import logger
 from aco.common.utils import is_whitelisted_endpoint
-from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
+import builtins
 
 
 def requests_patch():
     try:
         from requests import Session
     except ImportError:
-        logger.info("requests not installed, skipping requests patches")
         return
 
     def create_patched_init(original_init):
@@ -37,12 +35,12 @@ def patch_requests_send(bound_obj, bound_cls):
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # 3. Get taint origins (did another LLM produce the input?).
-        taint_origins = get_taint_origins(input_dict)
+        # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         if not is_whitelisted_endpoint(input_dict["request"].path_url):
             result = original_function(*args, **kwargs)
-            return taint_wrap(result, taint_origins)
+            return result  # No wrapping here, exec_func will use existing escrow
 
         # 4. Get result from cache or call LLM.
         cache_output = DB.get_in_out(input_dict, api_type)
@@ -59,7 +57,8 @@ def patch_requests_send(bound_obj, bound_cls):
             api_type=api_type,
         )
 
-        # 6. Taint the output object and return it.
-        return taint_wrap(cache_output.output, [cache_output.node_id])
+        # 6. Set the new taint in escrow for exec_func to wrap with.
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
+        return cache_output.output  # No wrapping here, exec_func will wrap
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)

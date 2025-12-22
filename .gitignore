@@ -241,5 +241,7 @@ aco
 # Claude local
 CLAUDE.local.md
 
+# Rewritten files
+*.aco_rewritten.py
 # Misc
 run_debug_examples.sh

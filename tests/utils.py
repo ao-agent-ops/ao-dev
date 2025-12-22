@@ -2,7 +2,7 @@ import inspect
 import textwrap
 import os
 from datetime import datetime
-from aco.server.ast_transformer import rewrite_source_to_code
+from aco.server.file_watcher import rewrite_source_to_code
 from aco.server.database_manager import DB
 
 
@@ -19,6 +19,15 @@ def cleanup_taint_db():
     # Clean up environment variables that affect taint tracking
     if "AGENT_COPILOT_SESSION_ID" in os.environ:
         del os.environ["AGENT_COPILOT_SESSION_ID"]
+
+
+def restart_server():
+    """Restart the server to ensure clean state for tests."""
+    import subprocess
+    import time
+
+    subprocess.run(["aco-server", "restart"], check=False)
+    time.sleep(1)
 
 
 def setup_test_session(session_id, name="Test Session", parent_session_id=None):
@@ -75,7 +84,7 @@ def with_ast_rewriting(test_func):
         def test_something(self):
             # Test code here will be executed with AST rewriting
             result = json.loads(tainted_data)
-            assert isinstance(result, TaintDict)
+            assert get_taint_origins(result) != []
     """
 
     def wrapper(*args, **kwargs):
@@ -102,7 +111,77 @@ def with_ast_rewriting(test_func):
             body_source, f"<{test_func.__name__}>", module_to_file={}
         )
 
-        # Execute the transformed code using caller's globals
-        exec(code_object, globals())
+        # Set up the taint environment (normally done by agent_runner)
+        import builtins
+        from contextvars import ContextVar
+        from aco.runner.taint_dict import ThreadSafeTaintDict
+
+        # Initialize ACTIVE_TAINT (ContextVar) for passing taint through third-party code
+        if not hasattr(builtins, "ACTIVE_TAINT"):
+            builtins.ACTIVE_TAINT = ContextVar("active_taint", default=[])
+        else:
+            builtins.ACTIVE_TAINT.set([])  # Clear for fresh test
+
+        # Initialize TAINT_DICT (id-based dict) as single source of truth
+        # Always create fresh TAINT_DICT for each test to avoid cross-test contamination
+        builtins.TAINT_DICT = ThreadSafeTaintDict()
+
+        # Add taint functions to builtins (normally done by agent_runner)
+        from aco.server.ast_helpers import (
+            taint_fstring_join,
+            taint_format_string,
+            taint_percent_format,
+            taint_open,
+            exec_func,
+            exec_setitem,
+            exec_delitem,
+            exec_inplace_binop,
+            taint_assign,
+            get_attr,
+            get_item,
+            set_attr,
+            add_to_taint_dict_and_return,
+            get_taint,
+        )
+
+        builtins.taint_fstring_join = taint_fstring_join
+        builtins.taint_format_string = taint_format_string
+        builtins.taint_percent_format = taint_percent_format
+        builtins.taint_open = taint_open
+        builtins.exec_func = exec_func
+        builtins.exec_setitem = exec_setitem
+        builtins.exec_delitem = exec_delitem
+        builtins.exec_inplace_binop = exec_inplace_binop
+        builtins.taint_assign = taint_assign
+        builtins.get_attr = get_attr
+        builtins.get_item = get_item
+        builtins.set_attr = set_attr
+        builtins.add_to_taint_dict_and_return = add_to_taint_dict_and_return
+        builtins.get_taint = get_taint
+
+        # Execute the transformed code using test function's globals
+        test_globals = test_func.__globals__.copy()
+        test_globals.update(globals())  # Add utils globals for any dependencies
+
+        exec(code_object, test_globals)
 
     return wrapper
+
+
+def with_ast_rewriting_class(cls):
+    """
+    Class decorator that applies @with_ast_rewriting to all test methods in a class.
+
+    Usage:
+        @with_ast_rewriting_class
+        class TestSomething:
+            def test_method(self):
+                # This will be executed with AST rewriting
+                pass
+    """
+    for attr_name in dir(cls):
+        if attr_name.startswith("test_") and callable(getattr(cls, attr_name)):
+            original_method = getattr(cls, attr_name)
+            decorated_method = with_ast_rewriting(original_method)
+            setattr(cls, attr_name, decorated_method)
+    return cls

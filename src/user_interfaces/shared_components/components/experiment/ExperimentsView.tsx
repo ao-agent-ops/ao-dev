@@ -531,6 +531,34 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     color: 'var(--vscode-editor-foreground)',
   };
 
+  const searchBarContainerStyle: React.CSSProperties = {
+    position: 'relative',
+    marginBottom: '16px',
+  };
+
+  const searchIconStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: isDarkTheme ? '#858585' : '#666666',
+    pointerEvents: 'none',
+    fontSize: '13px',
+  };
+
+  const searchBarInputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '5px 10px 5px 28px',
+    fontSize: '13px',
+    backgroundColor: isDarkTheme ? '#3c3c3c' : '#ffffff',
+    color: isDarkTheme ? '#cccccc' : '#333333',
+    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    borderRadius: '4px',
+    outline: 'none',
+    fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    boxSizing: 'border-box',
+  };
+
   const renderDropdown = () => (
     <div style={dropdownStyle}>
       <button

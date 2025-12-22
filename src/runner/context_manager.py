@@ -1,10 +1,7 @@
 import contextvars
 from contextlib import contextmanager
 import json
-import threading
 import queue
-import os
-from aco.common.logger import logger
 from aco.server.database_manager import DB
 from aco.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
 

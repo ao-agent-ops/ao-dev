@@ -7,7 +7,6 @@ Agent Copilot is a development tool that creates interactive dataflow graphs of 
 Core system files:
 - @src/server/ast_transformer.py - AST rewrites for taint propagation
 - @src/server/file_watcher.py - Automatic file monitoring and recompilation
-- @src/runner/taint_wrappers.py - Taint-aware data types for tracking provenance
 - @src/runner/agent_runner.py - Runtime environment setup
 - @src/runner/ast_rewrite_hook.py - Import hook ensuring `.pyc` availability
 - @src/runner/monkey_patching/patches/openai_patches.py - LLM API interception example
@@ -52,7 +51,7 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 
 - @src/cli/ - Command-line interface (`aco-launch`, `aco-server`)
 - @src/server/ - Core analysis server, AST transformation, file watching
-- @src/runner/ - User program execution, monkey patching, taint wrappers
+- @src/runner/ - User program execution, monkey patching
 - @src/user_interfaces/ - VS Code extension and web app
 - @tests/taint/ - Taint propagation unit tests
 - @example_workflows/ - Various AI workflow examples

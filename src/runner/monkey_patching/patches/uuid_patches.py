@@ -2,13 +2,13 @@
 UUID monkey patches for taint tracking.
 
 This module provides patches for Python's UUID class to enable taint tracking
-for UUID operations. When applied, UUID methods will return TaintStr objects
+for UUID operations. When applied, UUID methods will return TaintWrapper objects
 with position tracking information for security analysis.
 
 The patches modify the following UUID methods:
-- hex: Returns the UUID as a 32-character hexadecimal TaintStr
-- __str__: Returns the UUID as a formatted string with dashes as TaintStr
-- __repr__: Returns the UUID's repr as TaintStr
+- hex: Returns the UUID as a 32-character hexadecimal TaintWrapper
+- __str__: Returns the UUID as a formatted string with dashes as TaintWrapper
+- __repr__: Returns the UUID's repr as TaintWrapper
 
 All returned strings include Position objects that track the entire string
 as containing random/sensitive data for security analysis purposes.
@@ -23,7 +23,7 @@ def uuid_patch():
     """
     Apply taint tracking patches to the UUID class and uuid4 function.
 
-    Modifies the UUID class to return TaintStr objects instead of regular strings
+    Modifies the UUID class to return TaintWrapper objects instead of regular strings
     for hex, str, and repr operations. Also patches the uuid4 function to use
     Python's random.getrandbits instead of os.urandom for reproducible randomness.
     """

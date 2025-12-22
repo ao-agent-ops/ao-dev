@@ -2,7 +2,7 @@ from functools import wraps
 from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from aco.server.database_manager import DB
 from aco.common.logger import logger
-from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
+import builtins
 
 
 # ===========================================================
@@ -12,7 +12,6 @@ from aco.runner.taint_wrappers import get_taint_origins, taint_wrap
 
 def mcp_patch():
     try:
-        import mcp  # avoid circular import, hacky must be resolved
         from mcp.client.session import ClientSession
     except ImportError:
         logger.info("MCP not installed, skipping MCP patches")
@@ -23,40 +22,32 @@ def mcp_patch():
         @wraps(original_init)
         def patched_init(self, *args, **kwargs):
             original_init(self, *args, **kwargs)
-            patch_mcp_send_request(self)
-            # patch_mcp_call_tool(self)
+            patch_mcp_send_request(self, type(self))
 
         return patched_init
 
-    original_init = ClientSession.__init__
-    ClientSession.__init__ = create_patched_init(original_init)
+    ClientSession.__init__ = create_patched_init(ClientSession.__init__)
 
 
-def patch_mcp_send_request(session_instance):
-    try:
-        from mcp.client.session import ClientSession
-    except ImportError:
-        return
+def patch_mcp_send_request(bound_obj, bound_cls):
+    # bound_obj has a send_request method, which we are patching
+    original_function = bound_obj.send_request
 
-    # Original MCP ClientSession.send_request method
-    original_function = session_instance.send_request
-
-    # Patched function (executed instead of ClientSession.send_request)
     @wraps(original_function)
     async def patched_function(self, *args, **kwargs):
-        # 1. Set API identifier to fully qualified name of patched function.
         api_type = "MCP.ClientSession.send_request"
 
         # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # 3. Get taint origins (did another LLM produce the input?).
-        taint_origins = get_taint_origins(input_dict)
+        # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
+        # Only intercept tools/call method
         method = input_dict["request"].root.method
-        if not method in ["tools/call"]:
+        if method not in ["tools/call"]:
             result = await original_function(*args, **kwargs)
-            return taint_wrap(result, taint_origins)
+            return result  # No wrapping here, exec_func will use existing escrow
 
         # 4. Get result from cache or call tool.
         cache_output = DB.get_in_out(input_dict, api_type)
@@ -75,8 +66,8 @@ def patch_mcp_send_request(session_instance):
             api_type=api_type,
         )
 
-        # 6. Taint the output object and return it.
-        return taint_wrap(cache_output.output, [cache_output.node_id])
+        # 6. Set the new taint in escrow for exec_func to wrap with.
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
+        return cache_output.output  # No wrapping here, exec_func will wrap
 
-    # Install patch.
-    session_instance.send_request = patched_function.__get__(session_instance, ClientSession)
+    bound_obj.send_request = patched_function.__get__(bound_obj, bound_cls)
