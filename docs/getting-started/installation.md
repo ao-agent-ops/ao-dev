@@ -7,7 +7,7 @@
 ## Quick Install
 
 ```bash
-pip install ao
+pip install ao-agent-dev
 ```
 
 ## Verifying Installation
