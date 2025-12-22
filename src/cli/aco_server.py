@@ -12,20 +12,15 @@ if current_dir not in sys.path:
 # Import directly from file path to avoid triggering aco.__init__.py
 import importlib.util
 
-ast_transformer_path = os.path.join(current_dir, "server", "ast_transformer.py")
-spec = importlib.util.spec_from_file_location("ast_transformer", ast_transformer_path)
-ast_transformer = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ast_transformer)
+ast_helpers_path = os.path.join(current_dir, "server", "ast_helpers.py")
+spec = importlib.util.spec_from_file_location("ast_helpers", ast_helpers_path)
+ast_helpers = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ast_helpers)
 
-taint_fstring_join = ast_transformer.taint_fstring_join
-taint_format_string = ast_transformer.taint_format_string
-taint_percent_format = ast_transformer.taint_percent_format
-exec_func = ast_transformer.exec_func
-
-builtins.taint_fstring_join = taint_fstring_join
-builtins.taint_format_string = taint_format_string
-builtins.taint_percent_format = taint_percent_format
-builtins.exec_func = exec_func
+builtins.taint_fstring_join = ast_helpers.taint_fstring_join
+builtins.taint_format_string = ast_helpers.taint_format_string
+builtins.taint_percent_format = ast_helpers.taint_percent_format
+builtins.exec_func = ast_helpers.exec_func
 
 # Now safe to import other modules
 import socket

@@ -5,7 +5,7 @@ from importlib.util import spec_from_loader
 import marshal
 from aco.common.logger import logger
 from aco.server.file_watcher import rewrite_source_to_code, get_pyc_path
-from aco.server.ast_transformer import is_pyc_rewritten
+from aco.server.file_watcher import is_pyc_rewritten
 
 
 _module_to_user_file = dict()
@@ -40,17 +40,12 @@ class ASTImportLoader(SourceLoader):
                 with open(pyc_path, "rb") as f:
                     _ = f.read(16)  # header
                     code_object = marshal.load(f)
-                logger.debug(f"[ASTHook] Using cached {pyc_path}")
+                # logger.debug(f"[ASTHook] Using cached {pyc_path}")
                 return code_object
-            elif file_mtime < pyc_mtime:
-                logger.debug(
-                    f"[ASTHook] .pyc exists but not rewritten, forcing recompilation: {pyc_path}"
-                )
         except OSError as e:
-            logger.debug(f"[ASTHook] Pulling .pyc failed: {e}")
+            logger.errpr(f"[ASTHook] Pulling .pyc failed: {e}")
 
         # .pyc is stale, not rewritten, or not ready yet, manual AST transform...
-        logger.debug(f"[ASTHook] Rewriting AST for {self.fullname} at {path}")
         code_object = rewrite_source_to_code(data, path, module_to_file=_module_to_user_file)
         return code_object
 

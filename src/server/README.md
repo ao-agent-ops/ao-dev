@@ -46,14 +46,26 @@ When we run a workflow, new nodes with new `node_ids` are created (the graph may
 
 ## AST rewrites
 
-To track data flow ("taint") between LLM calls, we use "[taint wrapper](/src/runner/taint_wrappers.py)" that simply wrap an object or builtin (e.g., `str` or `SomeClass`) and record the LLM calls that influenced its value.
+To track data flow ("taint") between LLM calls, we use "[taint wrapper](/src/runner/taint_wrappers.py)" objects that wrap values in user code and record the LLM calls that influenced them.
 
-We need to propagate this taint through general, third-party libraries (e.g., the output of `os.path.join(a, "LLM produced string")` should be tainted, i.e., we need to remember which LLM influenced the file path).
+### Taint Architecture Invariant
 
-To achieve this, we rewrite the user's code files and make any third-party library call become like this: `llm_path = os.path.join(a, "LLM produced string")` -> `llm_path = exec_func(os.path.join, a, "LLM produced string")`. [exec_func](/src/server/ast_transformer.py) does the following:
-1. Untaint all inputs and remember the (joint) set of all taint origins.
-2. Normally execute the rewritten function (e.g., `os.path.join`) with the untainted, "raw" inputs.
-3. Wrap the output with a taint wrapper that records the (joint) taint origins from the inputs.
+Our system maintains a strict boundary between user code and third-party code:
+
+- **TaintWrapper objects exist only in user code** (within project root) - they track data provenance through user program logic
+- **Third-party code receives only untainted data** - all communication with third-party libraries uses plain Python objects  
+- **ACTIVE_TAINT handles all taint transfer** - a global context variable manages taint information when crossing the user/third-party boundary
+
+### AST Transformation Process
+
+We rewrite user code to propagate taint through third-party library calls. For example:
+`result = os.path.join(a, "LLM string")` becomes `result = exec_func(os.path.join, a, "LLM string")`
+
+[exec_func](/src/server/ast_transformer.py) implements the boundary protocol:
+1. Collect taint origins from input TaintWrapper objects
+2. Store taint in ACTIVE_TAINT and untaint all inputs  
+3. Execute the third-party function with clean data
+4. Retrieve final taint from ACTIVE_TAINT and wrap the result for user code
 
 To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `aco-launch script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
 
@@ -89,3 +101,8 @@ docker logs XXX
 ```
 
 `XXX`: `workflow-backend` for develop_server, `workflow-proxy` for auth server. `workflow-frontend` is not interesting, should do Right click -> Inspect -> Console
+
+### Debugging
+
+If you want to see the rewritten python code (not only the binary): `export ACO_DEBUG_AST_REWRITES=1`. 
+This will store `xxx.rewritten.py` files next to the original ones that are rewritten. If you don't see these files, maybe you're not rewriting the originals.

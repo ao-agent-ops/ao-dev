@@ -6,7 +6,6 @@ import os
 import sqlite3
 import threading
 import json
-import dill
 
 from aco.common.logger import logger
 from aco.common.constants import ACO_DB_PATH

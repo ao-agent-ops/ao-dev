@@ -8,15 +8,6 @@ from aco.runner.monkey_patching.api_parser import (
     func_kwargs_to_json_str,
     api_obj_to_json_str,
 )
-from aco.runner.taint_wrappers import untaint_if_needed
-
-# Global variable to track lost taint across function calls
-lost_taint = set()
-
-
-def set_lost_taint(taint: set):
-    global lost_taint
-    lost_taint = taint
 
 
 # ===========================================================
@@ -79,8 +70,6 @@ def get_input_dict(func, *args, **kwargs):
 
 def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
     """Send graph node and edge updates to the server."""
-    global lost_taint
-
     frame = inspect.currentframe()
     user_program_frame = inspect.getouterframes(frame)[2]
     line_no = user_program_frame.lineno
@@ -89,16 +78,8 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
 
     # Get strings to display in UI.
     input_string, attachments = func_kwargs_to_json_str(input_dict, api_type)
-
-    # Untaint the output object before processing to avoid Pydantic validation issues
-    untainted_output_obj = untaint_if_needed(output_obj)
-    output_string = api_obj_to_json_str(untainted_output_obj, api_type)
+    output_string = api_obj_to_json_str(output_obj, api_type)
     model = get_model_name(input_dict, api_type)
-
-    if lost_taint:
-        extended_source_node_ids = list(set(source_node_ids) | lost_taint)
-    else:
-        extended_source_node_ids = source_node_ids
 
     # Send node
     node_msg = {
@@ -114,7 +95,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
             "model": model,
             "attachments": attachments,
         },
-        "incoming_edges": extended_source_node_ids,
+        "incoming_edges": source_node_ids,
     }
 
     try:

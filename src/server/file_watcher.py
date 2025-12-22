@@ -13,14 +13,83 @@ Key Features:
 - Runs as a separate process spawned by the develop server
 """
 
+import ast
 import os
 import sys
 import time
 import signal
-from typing import Dict
+import glob
+from typing import Dict, Set
 from aco.common.logger import logger
-from aco.common.constants import FILE_POLL_INTERVAL
-from aco.server.ast_transformer import rewrite_source_to_code
+from aco.common.constants import FILE_POLL_INTERVAL, ACO_PROJECT_ROOT
+from aco.server.ast_transformer import TaintPropagationTransformer
+from aco.common.utils import MODULES_TO_FILES
+
+
+def rewrite_source_to_code(
+    source: str, filename: str, module_to_file: dict = None, return_tree=False
+):
+    """
+    Transform and compile Python source code with AST rewrites.
+
+    This is a pure function that applies AST transformations and compiles
+    the result to a code object. Same input always produces same output,
+    making it suitable for caching.
+
+    Args:
+        source: Python source code as a string
+        filename: Path to the source file (used in error messages and code object)
+        module_to_file: Dict mapping user module names to their file paths.
+                       Used to distinguish user code from third-party code.
+        return_tree: If True, return (code_object, tree) tuple for debugging
+
+    Returns:
+        A compiled code object ready for execution, or (code_object, tree) if return_tree=True
+
+    Raises:
+        SyntaxError: If the source code is invalid
+        Exception: If AST transformation fails
+    """
+    # Inject future imports to prevent type annotations from being evaluated at import time
+    # This must be done before parsing to avoid AST transformation of type subscripts
+    if "from __future__ import annotations" not in source:
+        source = "from __future__ import annotations\n" + source
+
+    # Parse source into AST
+    tree = ast.parse(source, filename=filename)
+
+    # Apply AST transformations and inject imports if needed
+    transformer = TaintPropagationTransformer(module_to_file=module_to_file, current_file=filename)
+    tree = transformer.visit(tree)
+    tree = transformer._inject_taint_imports(tree)
+    ast.fix_missing_locations(tree)
+
+    # Compile to code object
+    code_object = compile(tree, filename, "exec")
+
+    if return_tree:
+        return code_object, tree
+    return code_object
+
+
+def is_pyc_rewritten(pyc_path: str) -> bool:
+    """
+    Check if a .pyc file was created by our AST transformer.
+
+    Returns True if the .pyc contains our injected imports (exec_func, etc).
+    Files with no transformations (empty __init__.py) return False, which is fine -
+    they don't need special handling.
+    """
+    try:
+        import marshal
+
+        with open(pyc_path, "rb") as f:
+            f.read(16)  # Skip .pyc header
+            code = marshal.load(f)
+            # Check for our injected function names
+            return "exec_func" in code.co_names or "taint_fstring_join" in code.co_names
+    except Exception:
+        return False
 
 
 class FileWatcher:
@@ -44,12 +113,12 @@ class FileWatcher:
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
         self._shutdown = False  # Flag to signal shutdown
+        self.project_root = ACO_PROJECT_ROOT  # Use project root from config
         self._populate_initial_mtimes()
         self._setup_signal_handlers()
 
     def _populate_initial_mtimes(self):
         """Initialize modification times for all tracked files."""
-        logger.debug(f"[FileWatcher] Initializing tracking for {len(self.module_to_file)} modules")
         for module_name, file_path in self.module_to_file.items():
             try:
                 if os.path.exists(file_path):
@@ -66,7 +135,102 @@ class FileWatcher:
         """Set up signal handlers for graceful shutdown."""
         signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
         signal.signal(signal.SIGINT, self._handle_shutdown_signal)
-        logger.debug(f"[FileWatcher] Signal handlers installed for pid {self.pid}")
+
+    def _scan_for_python_files(self) -> Set[str]:
+        """
+        Scan the project root for all Python files.
+
+        Returns:
+            Set of absolute paths to Python files (excluding .aco_rewritten.py files)
+        """
+        python_files = set()
+
+        # Search for all .py files recursively from project root
+        pattern = os.path.join(self.project_root, "**", "*.py")
+        for file_path in glob.glob(pattern, recursive=True):
+            # Skip .aco_rewritten.py files (these are debugging files, not real code)
+            if ".aco_rewritten" in file_path:
+                continue
+
+            # Skip files in __pycache__ directories
+            if "__pycache__" in file_path:
+                continue
+
+            # Convert to absolute path
+            abs_path = os.path.abspath(file_path)
+            python_files.add(abs_path)
+
+        return python_files
+
+    def _generate_module_name(self, file_path: str) -> str:
+        """
+        Generate a module name for a discovered Python file.
+
+        Args:
+            file_path: Absolute path to the Python file
+
+        Returns:
+            Module name suitable for the module_to_file mapping
+        """
+        # Get relative path from project root
+        rel_path = os.path.relpath(file_path, self.project_root)
+
+        # Convert path separators to dots and remove .py extension
+        module_name = rel_path.replace(os.sep, ".").replace(".py", "")
+
+        # Handle special cases like __init__.py
+        if module_name.endswith(".__init__"):
+            module_name = module_name[:-9]  # Remove .__init__
+
+        return module_name
+
+    def _update_tracked_files(self):
+        """
+        Update the tracked files by discovering new Python files and removing deleted ones.
+        """
+        discovered_files = self._scan_for_python_files()
+        current_tracked_files = set(self.module_to_file.values())
+
+        # Find new files to add
+        new_files = discovered_files - current_tracked_files
+        for new_file in new_files:
+            module_name = self._generate_module_name(new_file)
+            self.module_to_file[module_name] = new_file
+            # Also update the global MODULES_TO_FILES singleton
+            MODULES_TO_FILES[module_name] = new_file
+
+            # Initialize mtime for the new file
+            try:
+                if os.path.exists(new_file):
+                    mtime = os.path.getmtime(new_file)
+                    self.file_mtimes[new_file] = mtime
+            except OSError as e:
+                logger.error(f"[FileWatcher] Error accessing new file {new_file}: {e}")
+
+        # Find deleted files to remove
+        deleted_files = current_tracked_files - discovered_files
+        for deleted_file in deleted_files:
+            # Remove from module_to_file mapping
+            modules_to_remove = [
+                mod for mod, path in self.module_to_file.items() if path == deleted_file
+            ]
+            for module_name in modules_to_remove:
+                del self.module_to_file[module_name]
+                # Also remove from the global MODULES_TO_FILES singleton
+                if module_name in MODULES_TO_FILES:
+                    del MODULES_TO_FILES[module_name]
+
+            # Remove from mtime tracking
+            if deleted_file in self.file_mtimes:
+                del self.file_mtimes[deleted_file]
+
+            # Clean up associated .pyc file if it exists
+            try:
+                pyc_path = get_pyc_path(deleted_file)
+                if os.path.exists(pyc_path):
+                    os.remove(pyc_path)
+            except OSError as e:
+                logger.warning(f"[FileWatcher] Could not remove .pyc file for {deleted_file}: {e}")
 
     def _handle_shutdown_signal(self, signum, frame):
         """Handle shutdown signals gracefully."""
@@ -88,18 +252,18 @@ class FileWatcher:
             if not os.path.exists(file_path):
                 return False
 
+            # Skip __init__.py files - they're loaded early during package initialization
+            # and injecting imports can cause circular import errors
+            if os.path.basename(file_path) == "__init__.py":
+                return False
+
             # Check if .pyc file exists
             pyc_path = get_pyc_path(file_path)
             if not os.path.exists(pyc_path):
                 return True
 
             # Check if the .pyc file was created by our AST transformer
-            from aco.server.ast_transformer import is_pyc_rewritten
-
             if not is_pyc_rewritten(pyc_path):
-                logger.debug(
-                    f"[FileWatcher] .pyc file {pyc_path} not rewritten, forcing recompilation"
-                )
                 return True
 
             current_mtime = os.path.getmtime(file_path)
@@ -127,9 +291,25 @@ class FileWatcher:
                 source = f.read()
 
             # Apply AST rewrites and compile to code object
-            code_object = rewrite_source_to_code(
-                source, file_path, module_to_file=self.module_to_file
-            )
+            debug_ast = os.environ.get("ACO_DEBUG_AST_REWRITES")
+            if debug_ast and not ".aco_rewritten.py" in file_path:
+                code_object, tree = rewrite_source_to_code(
+                    source, file_path, module_to_file=self.module_to_file, return_tree=True
+                )
+                # Write transformed source to .aco_rewritten.py for debugging
+                import ast
+
+                debug_path = file_path.replace(".py", ".aco_rewritten.py")
+                try:
+                    rewritten_source = ast.unparse(tree)
+                    with open(debug_path, "w", encoding="utf-8") as f:
+                        f.write(rewritten_source)
+                except Exception as e:
+                    logger.error(f"[FileWatcher] Failed to write debug AST: {e}")
+            else:
+                code_object = rewrite_source_to_code(
+                    source, file_path, module_to_file=self.module_to_file
+                )
 
             # Get target .pyc path
             pyc_path = get_pyc_path(file_path)
@@ -166,10 +346,7 @@ class FileWatcher:
                 f.write(marshal.dumps(code_object))
 
             # Verify .pyc file was created
-            if os.path.exists(pyc_path):
-                pyc_size = os.path.getsize(pyc_path)
-                # Compilation successful
-            else:
+            if not os.path.exists(pyc_path):
                 logger.error(f"[FileWatcher] ✗ .pyc file was not created: {pyc_path}")
                 return False
 
@@ -188,15 +365,19 @@ class FileWatcher:
     def check_and_recompile(self):
         """
         Check all tracked files and recompile those that have changed.
+        Also discovers new files and handles deleted files.
 
         This method is called periodically by the polling loop to detect
         and handle file changes.
         """
+        # First, update the list of tracked files (discover new, remove deleted)
+        self._update_tracked_files()
+
+        # Then check existing files for changes
         for module_name, file_path in self.module_to_file.items():
             if self._shutdown:
                 return
             if self._needs_recompilation(file_path):
-                logger.debug(f"File changed, recompiling: {file_path}")
                 self._compile_file(file_path, module_name)
 
     def run(self):
@@ -206,34 +387,24 @@ class FileWatcher:
         This method runs until a shutdown signal is received, checking for
         file changes every FILE_POLL_INTERVAL seconds and recompiling changed files.
         """
-        logger.debug(f"[FileWatcher] Starting file watcher process")
-
         # Initial compilation of all files
         compiled_count = 0
         failed_count = 0
         for module_name, file_path in self.module_to_file.items():
             if self._shutdown:
-                logger.info("[FileWatcher] Shutdown requested during initial compilation")
                 return
-            if self._compile_file(file_path, module_name):
-                compiled_count += 1
-            else:
-                failed_count += 1
-
-        logger.info(
-            f"[FileWatcher] Initial compilation complete: {compiled_count} successful, {failed_count} failed"
-        )
+            if self._needs_recompilation(file_path):
+                if self._compile_file(file_path, module_name):
+                    compiled_count += 1
+                else:
+                    failed_count += 1
 
         # Start polling loop
         try:
-            logger.info("[FileWatcher] Starting polling loop...")
             while not self._shutdown:
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
-        except KeyboardInterrupt:
-            logger.info("[FileWatcher] File watcher stopped by user")
         except Exception as e:
-            logger.error(f"[FileWatcher] File watcher error: {e}")
             import traceback
 
             logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")

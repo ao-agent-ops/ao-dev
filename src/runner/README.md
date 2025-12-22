@@ -32,20 +32,24 @@ The implementation of the aco_launch context manager is in `context_manager.py`.
 
 To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we use two mechanisms:
 
-1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls. When the user imports a package (e.g., `import OpenAI`), we give them an OpenAI package where classes and methods are patched such that (i) they log LLM calls to the server (e.g., input and outputs), and (ii) they wrap the output object inside a "[taint wrapper](/src/runner/taint_wrappers.py)", which records that the output was produced by the specific LLM call.
-2. **Propagating taint:** After an LLM produced an output, we need to track how this output is propagated through the program until it is eventually used as input to another LLM (imagine: llm_1's output is parsed and used in a Google search. The result is then used as input to llm_2. There's data flow from llm_1 to llm_2). We achieve this through (i) operations on taint wrappers correctly propagate taint (e.g., `TaintStr("hello") + " world"` becomes `TaintStr("Hello world")`), (ii) third-party library calls (e.g., `a = os.path.join(b, c)`) are rewritten ([AST transformer](/src/server/ast_transformer.py)) such that their output carries the same taint as their outputs (we describe this in more detail [here](/src/server/README.md)). 
+1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls. When the user imports a package (e.g., `import OpenAI`), patched methods (i) log LLM calls to the server, and (ii) use ACTIVE_TAINT to pass taint information back to user code, where results are wrapped in "[taint wrappers](/src/runner/taint_wrappers.py)".
+
+2. **Propagating taint:** We track how LLM outputs propagate through the program until used as input to another LLM. This uses a strict boundary between user code and third-party code:
+   - **User code:** TaintWrapper objects track data provenance (e.g., `taint_wrap("hello") + " world"` becomes `TaintWrapper("Hello world")`)  
+   - **Third-party code:** Receives only untainted data, with taint managed via ACTIVE_TAINT
+   - **Boundary crossing:** AST-rewritten calls (e.g., `os.path.join(b, c)`) use [exec_func](/src/server/ast_transformer.py) to transfer taint through ACTIVE_TAINT 
 
 ### Putting it Together: Execution Flow
 1. The server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base.
-    - If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. Third-party library calls become: `untaint inputs -> run function call normally -> taint outputs (record origins of inputs)` 
+    - If a file changed, the [File Watcher](/src/server/file_watcher.py) uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite third-party library calls using the ACTIVE_TAINT pattern
     - After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory.
 
-2. The user runs a script in their repo using `aco-launch script.py`. 
-   - An import hook (`ast_rewrite_hook.py`) is installed to ensure AST-rewritten `.pyc` files exist before any user module imports
-   - Python loads the compiled `.pyc` binary --- Remember: This binary has been rewritten by the [File Watcher](/src/server/file_watcher.py) and propagates taint through third-party functions.
-   - We install [monkey patches](/src/runner/monkey_patching/) for relevant imports made in the script (e.g., when the user does `import OpenAI`, they import a patched version of OpenAI). These patches serve a similar purpose as the AST rewrites and transform LLM calls into: `untaint inputs -> make LLM call -> taint the output (record it was produced in this call)`
+2. The user runs a script using `aco-launch script.py`. 
+   - An import hook (`ast_rewrite_hook.py`) ensures AST-rewritten `.pyc` files exist before user module imports
+   - Python loads the compiled `.pyc` binary with ACTIVE_TAINT-based taint propagation
+   - [Monkey patches](/src/runner/monkey_patching/) are installed for LLM libraries (e.g., OpenAI), which use ACTIVE_TAINT to communicate taint with user code
 
-3. The tainted output from the LLM call is propagated through the program using the transformed, taint-propagating code produced by the [File Watcher](/src/server/file_watcher.py). It eventually arrives at another LLM, which untaints its inputs, realizes the origin of the input and tells the server to insert an edge in the data flow graph accordingly. 
+3. TaintWrapper objects propagate through user code while third-party functions receive clean data via ACTIVE_TAINT. When tainted data reaches another LLM call, the monkey patch extracts taint origins from ACTIVE_TAINT and tells the server to create dataflow graph edges. 
 
 > [!NOTE]
 > The AST rewrites and monkey patches serve very similar purposes. However: 

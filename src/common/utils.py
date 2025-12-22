@@ -119,29 +119,6 @@ def get_module_file_path(module_name: str) -> str | None:
     return None
 
 
-def add_whitelisted_modules_to_mapping(module_to_file: dict, whitelist: list[str]) -> dict:
-    """
-    Add whitelisted third-party modules to the module_to_file mapping.
-
-    Args:
-        module_to_file: Existing mapping of module names to file paths
-        whitelist: List of module names to add (e.g., ['google.genai.models'])
-
-    Returns:
-        Updated module_to_file mapping
-    """
-    for module_name in whitelist:
-        if module_name in module_to_file:
-            # Already in mapping, skip
-            continue
-
-        file_path = get_module_file_path(module_name)
-        if file_path:
-            module_to_file[module_name] = file_path
-
-    return module_to_file
-
-
 def scan_user_py_files_and_modules(root_dir):
     """
     Scan a directory for all .py files and return:
@@ -541,13 +518,8 @@ def save_io_stream(stream, filename, dest_dir):
 
 
 # Mapping that maps module to file name
-MODULE2FILE = scan_user_py_files_and_modules(ACO_PROJECT_ROOT)
+MODULES_TO_FILES = scan_user_py_files_and_modules(ACO_PROJECT_ROOT)
 packages_in_project_root = find_additional_packages_in_project_root(project_root=ACO_PROJECT_ROOT)
 for additional_package in packages_in_project_root:
     additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
-    MODULE2FILE = {**MODULE2FILE, **additional_package_module_to_file}
-
-# Add whitelisted third-party modules to the mapping
-from aco.common.constants import WHITELISTED_THIRD_PARTY_MODULES
-
-MODULE2FILE = add_whitelisted_modules_to_mapping(MODULE2FILE, WHITELISTED_THIRD_PARTY_MODULES)
+    MODULES_TO_FILES = {**MODULES_TO_FILES, **additional_package_module_to_file}

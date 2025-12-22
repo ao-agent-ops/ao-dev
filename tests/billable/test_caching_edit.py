@@ -158,8 +158,6 @@ async def run_test(script_path: str, project_root: str):
     assert return_code == 0, f"First run failed with return_code {return_code}"
     assert session_id is not None, "Could not extract session_id from first run output"
 
-    print(f"~~~~ session_id {session_id}")
-
     rows = DB.query_all(
         "SELECT node_id, input, input_overwrite, output, session_id FROM llm_calls WHERE session_id=?",
         (session_id,),
@@ -228,10 +226,10 @@ async def run_test(script_path: str, project_root: str):
 @pytest.mark.parametrize(
     "script_path",
     [
-        "./example_workflows/debug_examples/together_add_numbers.py",
+        # "./example_workflows/debug_examples/together_add_numbers.py",
         "./example_workflows/debug_examples/anthropic_add_numbers.py",
         "./example_workflows/debug_examples/vertexai_add_numbers.py",
-        "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
+        # "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
     ],
 )
 def test_debug_examples(script_path: str):

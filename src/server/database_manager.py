@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Optional, Any
 
 from aco.common.logger import logger
-from aco.server.database_backends import postgres, sqlite
+from aco.server.database_backends import postgres
 from aco.runner.monkey_patching.api_parser import (
     get_model_name,
     func_kwargs_to_json_str,
@@ -84,9 +84,13 @@ class DatabaseManager:
         """
         if self._backend_module is None:
             if self._backend_type == "sqlite":
+                from aco.server.database_backends import sqlite
+
                 self._backend_module = sqlite
                 logger.debug("Loaded SQLite backend module")
             elif self._backend_type == "postgres":
+                from aco.server.database_backends import postgres
+
                 self._backend_module = postgres
                 logger.debug("Loaded PostgreSQL backend module")
             else:
@@ -412,11 +416,9 @@ class DatabaseManager:
     def get_in_out(self, input_dict: dict, api_type: str) -> CacheOutput:
         """Get input/output for LLM call, handling caching and overwrites."""
         from aco.runner.context_manager import get_session_id
-        from aco.runner.taint_wrappers import untaint_if_needed
         from aco.common.utils import hash_input, set_seed
 
         # Pickle input object.
-        input_dict = untaint_if_needed(input_dict)
         api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
         model = get_model_name(input_dict, api_type)
 
@@ -447,6 +449,10 @@ class DatabaseManager:
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
+
+        logger.debug(
+            f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+        )
 
         if row["input_overwrite"] is not None:
             logger.debug(
