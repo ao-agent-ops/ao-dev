@@ -42,7 +42,7 @@ config = Config.from_yaml_file(AO_CONFIG)
 AO_PROJECT_ROOT = config.project_root
 
 # Remote PostgreSQL database URL for "Remote" mode in UI dropdown
-REMOTE_DATABASE_URL = "postgresql://postgres:WorkflowAurora2024@workflow-postgres.cm14iy6021bi.us-east-1.rds.amazonaws.com:5432/workflow_db"
+REMOTE_DATABASE_URL = os.environ.get("DB_URL", "Unavailable")
 
 # server-related constants
 HOST = os.environ.get("HOST", "127.0.0.1")
@@ -120,9 +120,10 @@ AO_ATTACHMENT_CACHE = os.path.expandvars(
 )
 os.makedirs(AO_ATTACHMENT_CACHE, exist_ok=True)
 
-# Path to the ao installation directory
+# Path to the ao package directory
 # Computed from this file's location: ao/common/constants.py -> ao/
-AO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Works for both editable installs (src/) and pip installs (site-packages/ao/)
+AO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 WHITELIST_ENDPOINT_PATTERNS = [
     r"/v1/messages$",
