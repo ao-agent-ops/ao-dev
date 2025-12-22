@@ -1,9 +1,18 @@
 # AO Agent Dev: What-if Questions over Agent Trajectories  
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20us-7289da?logo=discord&logoColor=white)](https://discord.gg/fjsNSa6TAh)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/agent-ops-project/ao-agent-dev)
+<!-- [![Discord](https://img.shields.io/badge/Discord-Join%20us-7289da?logo=discord&logoColor=white)](https://discord.gg/fjsNSa6TAh)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/agent-ops-project/ao-agent-dev) -->
 
 A development tool that creates interactive dataflow graphs of agent traces, enabling visualization, editing, and debugging of data flow in agentic systems – **with zero code changes**.
+
+<iframe
+  width="100%"
+  height="400"
+  src="https://www.youtube.com/embed/woVctiSRJU0?rel=0&modestbranding=1"
+  frameborder="0"
+  allowfullscreen
+  style="border-radius: 8px;">
+</iframe>
 
 ## Overview
 
