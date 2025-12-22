@@ -9,9 +9,9 @@ import psycopg2.pool
 import threading
 from urllib.parse import urlparse
 
-from aco.common.logger import logger
-from aco.common.constants import REMOTE_DATABASE_URL
-from aco.common.utils import hash_input
+from ao.common.logger import logger
+from ao.common.constants import REMOTE_DATABASE_URL
+from ao.common.utils import hash_input
 
 # Global connection pool
 _connection_pool = None

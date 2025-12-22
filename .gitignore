@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+__ao_cache__/
 *.py[cod]
 *$py.class
 
@@ -236,12 +237,12 @@ src/static_analysis/CodeQL-Analyst/databases
 *.vsix
 
 # sim link
-aco
+ao
 
 # Claude local
 CLAUDE.local.md
 
 # Rewritten files
-*.aco_rewritten.py
+*.ao_rewritten.py
 # Misc
 run_debug_examples.sh

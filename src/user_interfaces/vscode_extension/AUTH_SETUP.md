@@ -6,7 +6,7 @@ The VSCode extension supports Google authentication so experiments can be filter
 ## Requirements
 
 1. **Google OAuth Credentials**: Make sure you have OAuth credentials configured in Google Cloud Console.
-2. **Auth Server**: The authentication server (`auth_app.py`) must be running (either locally or deployed on AWS): `uvicorn aco.server.auth_app:app --host 0.0.0.0 --port 5958 --reload`
+2. **Auth Server**: The authentication server (`auth_app.py`) must be running (either locally or deployed on AWS): `uvicorn ao.server.auth_app:app --host 0.0.0.0 --port 5958 --reload`
 3. **Python Develop Server**: The develop server (`develop_server.py`) must be running and reachable from VSCode. 
 
 ## Google Cloud Console configuration
@@ -39,7 +39,7 @@ The extension supports configuration for local or remote servers (AWS). You can 
 ### Method 1: Settings UI (recommended)
 
 1. Open **Settings** (Ctrl+,)
-2. Search for "Agops Agent Copilot"
+2. Search for "Agops AO"
 3. Set the following options:
 
    - **Auth Server URL**: Authentication server URL
@@ -55,7 +55,7 @@ The extension supports configuration for local or remote servers (AWS). You can 
 
    - **Python Server URL**: (optional) WebSocket URL used in production when connecting through the nginx/ws proxy
      - Production: `wss://ws.agops-project.com/ws`
-     - Configure this as `agopsAgentCopilot.pythonServerUrl` in VSCode settings for production deployments
+     - Configure this as `ao.pythonServerUrl` in VSCode settings for production deployments
 
 ### Method 2: Settings JSON
 
@@ -64,9 +64,9 @@ Open **Preferences: Open Settings (JSON)** (Ctrl+Shift+P → "Preferences: Open 
 ```json
 {
   // For local development
-  "agopsAgentCopilot.authServerUrl": "http://localhost:5958",
-  "agopsAgentCopilot.pythonServerHost": "127.0.0.1",
-  "agopsAgentCopilot.pythonServerPort": 5959
+  "ao.authServerUrl": "http://localhost:5958",
+  "ao.pythonServerHost": "127.0.0.1",
+  "ao.pythonServerPort": 5959
 }
 ```
 
@@ -75,12 +75,12 @@ Or for an AWS deployment:
 ```json
 {
   // For a server deployed on AWS
-  "agopsAgentCopilot.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
+  "ao.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
   // Preferred for production: use the websocket proxy URL (nginx terminates TLS)
-  "agopsAgentCopilot.pythonServerUrl": "wss://ws.agops-project.com/ws",
+  "ao.pythonServerUrl": "wss://ws.agops-project.com/ws",
   // Optional: raw host/port if you're using TCP directly
-  "agopsAgentCopilot.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
-  "agopsAgentCopilot.pythonServerPort": 443
+  "ao.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
+  "ao.pythonServerPort": 443
 }
 ```
 
@@ -90,9 +90,9 @@ To configure only the current project, create or edit `.vscode/settings.json` at
 
 ```json
 {
-  "agopsAgentCopilot.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
-  "agopsAgentCopilot.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
-  "agopsAgentCopilot.pythonServerPort": 443
+  "ao.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
+  "ao.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
+  "ao.pythonServerPort": 443
 }
 ```
 
@@ -104,7 +104,7 @@ The extension uses a UI-based login flow (instead of only commands):
 
 1. **First time / Not authenticated:**
    - Open the "Graph View" sidebar — a login screen appears
-   - The screen shows "Agops Agent Copilot" with a lock icon
+   - The screen shows "Agops AO" with a lock icon
    - Message: "Please sign in to access your experiments"
    - Button: "Sign in with Google"
 
@@ -200,7 +200,7 @@ Cause: Authentication server is not reachable
 
 Fix:
 - Ensure the authentication server is running
-- Verify the `agopsAgentCopilot.authServerUrl` setting
+- Verify the `ao.authServerUrl` setting
 - If using a remote server, check network connectivity:
   ```powershell
   Test-NetConnection -ComputerName tu-app.us-east-1.elasticbeanstalk.com -Port 443
@@ -291,8 +291,8 @@ Fix:
   netstat -an | Select-String "5959"
   ```
 - Verify configuration:
-- `agopsAgentCopilot.pythonServerHost`
-- `agopsAgentCopilot.pythonServerPort`
+- `ao.pythonServerHost`
+- `ao.pythonServerPort`
 - If remote, check firewall and Security Groups
 - View extension logs: `Ctrl+Shift+P` → "Developer: Show Logs"
 
@@ -312,20 +312,20 @@ To test authentication locally:
            Set-Item -Path Env:$($pair[0].Trim()) -Value $pair[1].Trim()
        }
    }
-   python -m uvicorn aco.server.auth_app:app --host 0.0.0.0 --port 5958 --reload
+   python -m uvicorn ao.server.auth_app:app --host 0.0.0.0 --port 5958 --reload
    ```
 
 2. **Start the develop server:**
    ```powershell
-   python -m aco.server.develop_server
+   python -m ao.server.develop_server
    ```
 
 3. **Configure VSCode for local:**
    ```json
    {
-     "agopsAgentCopilot.authServerUrl": "http://localhost:5958",
-     "agopsAgentCopilot.pythonServerHost": "127.0.0.1",
-     "agopsAgentCopilot.pythonServerPort": 5959
+     "ao.authServerUrl": "http://localhost:5958",
+     "ao.pythonServerHost": "127.0.0.1",
+     "ao.pythonServerPort": 5959
    }
    ```
 
@@ -357,9 +357,9 @@ To test with servers deployed on AWS:
 1. **Configure VSCode for AWS:**
    ```json
    {
-     "agopsAgentCopilot.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
-     "agopsAgentCopilot.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
-     "agopsAgentCopilot.pythonServerPort": 443
+     "ao.authServerUrl": "https://tu-app.us-east-1.elasticbeanstalk.com",
+     "ao.pythonServerHost": "tu-app.us-east-1.elasticbeanstalk.com",
+     "ao.pythonServerPort": 443
    }
    ```
 
@@ -423,18 +423,18 @@ You can create different configuration profiles per environment:
 **.vscode/settings.json** (local development):
 ```json
 {
-  "agopsAgentCopilot.authServerUrl": "http://localhost:5958",
-  "agopsAgentCopilot.pythonServerHost": "127.0.0.1",
-  "agopsAgentCopilot.pythonServerPort": 5959
+  "ao.authServerUrl": "http://localhost:5958",
+  "ao.pythonServerHost": "127.0.0.1",
+  "ao.pythonServerPort": 5959
 }
 ```
 
 **User settings** (production AWS):
 ```json
 {
-  "agopsAgentCopilot.authServerUrl": "https://prod-app.us-east-1.elasticbeanstalk.com",
-  "agopsAgentCopilot.pythonServerHost": "prod-app.us-east-1.elasticbeanstalk.com",
-  "agopsAgentCopilot.pythonServerPort": 443
+  "ao.authServerUrl": "https://prod-app.us-east-1.elasticbeanstalk.com",
+  "ao.pythonServerHost": "prod-app.us-east-1.elasticbeanstalk.com",
+  "ao.pythonServerPort": 443
 }
 ```
 

@@ -2,8 +2,8 @@ import contextvars
 from contextlib import contextmanager
 import json
 import queue
-from aco.server.database_manager import DB
-from aco.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
+from ao.server.database_manager import DB
+from ao.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
 
 
 # Process's session id stored as parent_session_id. Subruns have their own
@@ -39,7 +39,7 @@ def get_run_name(run_name):
 
 
 @contextmanager
-def aco_launch(run_name="Workflow run"):
+def ao_launch(run_name="Workflow run"):
     """
     Context manager for launching runs with a specific name.
     NOTE: Upon rerun of one subrun, we rerun all subruns. Other
@@ -50,7 +50,7 @@ def aco_launch(run_name="Workflow run"):
         run_name (str): Name of the run to launch
 
     Usage:
-        with aco_launch(run_name="my_eval"):
+        with ao_launch(run_name="my_eval"):
             # User code runs here
             result = some_function()
     """
@@ -112,7 +112,7 @@ def get_session_id():
 
 
 def set_parent_session_id(session_id):
-    # Called by sitecustomize.py: set session id of `aco-launch`
+    # Called by sitecustomize.py: set session id of `ao-record`
     global parent_session_id, current_session_id, run_names
     parent_session_id = session_id
     current_session_id.set(session_id)

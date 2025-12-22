@@ -9,7 +9,7 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import directly from file path to avoid triggering aco.__init__.py
+# Import directly from file path to avoid triggering ao.__init__.py
 import importlib.util
 
 ast_helpers_path = os.path.join(current_dir, "server", "ast_helpers.py")
@@ -27,9 +27,9 @@ import socket
 import time
 import subprocess
 from argparse import ArgumentParser
-from aco.common.logger import logger
-from aco.common.constants import ACO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
-from aco.server.develop_server import DevelopServer, send_json
+from ao.common.logger import logger
+from ao.common.constants import AO_LOG_PATH, HOST, PORT, SOCKET_TIMEOUT, SHUTDOWN_WAIT
+from ao.server.develop_server import DevelopServer, send_json
 
 
 def launch_daemon_server() -> None:
@@ -37,7 +37,7 @@ def launch_daemon_server() -> None:
     Launch the develop server as a detached daemon process with proper stdio handling.
     """
     # Create log file path
-    log_file = ACO_LOG_PATH
+    log_file = AO_LOG_PATH
 
     # Ensure log directory exists
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
@@ -45,7 +45,7 @@ def launch_daemon_server() -> None:
     # Open log file for the daemon
     with open(log_file, "a+") as log_f:
         subprocess.Popen(
-            [sys.executable, "-m", "aco.cli.aco_server", "_serve"],
+            [sys.executable, "-m", "ao.cli.ao_server", "_serve"],
             close_fds=True,
             start_new_session=True,
             stdin=subprocess.DEVNULL,
@@ -56,7 +56,7 @@ def launch_daemon_server() -> None:
 
 def server_command_parser():
     parser = ArgumentParser(
-        usage="aco-server {start, stop, restart, clear, logs, clear-logs}",
+        usage="ao-server {start, stop, restart, clear, logs, clear-logs}",
         description="Server utilities.",
         allow_abbrev=False,
     )
@@ -130,10 +130,10 @@ def execute_server_command(args):
     elif args.command == "logs":
         # Print the contents of the server log file
         try:
-            with open(ACO_LOG_PATH, "r") as log_file:
+            with open(AO_LOG_PATH, "r") as log_file:
                 print(log_file.read(), end="")
         except FileNotFoundError:
-            print(f"Log file not found at {ACO_LOG_PATH}")
+            print(f"Log file not found at {AO_LOG_PATH}")
         except Exception as e:
             print(f"Error reading log file: {e}")
         return
@@ -142,9 +142,9 @@ def execute_server_command(args):
         # Clear the contents of the server log file
         try:
             # Ensure log directory exists
-            os.makedirs(os.path.dirname(ACO_LOG_PATH), exist_ok=True)
+            os.makedirs(os.path.dirname(AO_LOG_PATH), exist_ok=True)
             # Clear the log file by opening in write mode
-            with open(ACO_LOG_PATH, "w") as log_file:
+            with open(AO_LOG_PATH, "w") as log_file:
                 pass  # Opening in 'w' mode truncates the file
             logger.info("Server log file cleared.")
         except Exception as e:

@@ -108,13 +108,13 @@
 #     Patch the built-in open() function to automatically wrap files with TaintFile
 #     for taint tracking across sessions.
 #     """
-#     from aco.common.logger import logger
+#     from ao.common.logger import logger
 
 #     original_open = builtins.open
 
 #     @wraps(original_open)
 #     def patched_open(file, mode="r", *args, **kwargs):
-#         from aco.common.logger import logger
+#         from ao.common.logger import logger
 
 #         # Call the original open function first
 #         file_obj = original_open(file, mode, *args, **kwargs)
@@ -159,6 +159,6 @@
 
 # def apply_file_patches():
 #     """Apply all file-related patches."""
-#     from aco.common.logger import logger
+#     from ao.common.logger import logger
 
 #     patch_builtin_open()

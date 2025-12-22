@@ -3,9 +3,9 @@ import sys
 from importlib.abc import MetaPathFinder, SourceLoader
 from importlib.util import spec_from_loader
 import marshal
-from aco.common.logger import logger
-from aco.server.file_watcher import rewrite_source_to_code, get_pyc_path
-from aco.server.file_watcher import is_pyc_rewritten
+from ao.common.logger import logger
+from ao.server.file_watcher import rewrite_source_to_code, get_pyc_path
+from ao.server.file_watcher import is_pyc_rewritten
 
 
 _module_to_user_file = dict()
@@ -43,7 +43,7 @@ class ASTImportLoader(SourceLoader):
                 # logger.debug(f"[ASTHook] Using cached {pyc_path}")
                 return code_object
         except OSError as e:
-            logger.errpr(f"[ASTHook] Pulling .pyc failed: {e}")
+            logger.error(f"[ASTHook] Pulling .pyc failed: {e}")
 
         # .pyc is stale, not rewritten, or not ready yet, manual AST transform...
         code_object = rewrite_source_to_code(data, path, module_to_file=_module_to_user_file)

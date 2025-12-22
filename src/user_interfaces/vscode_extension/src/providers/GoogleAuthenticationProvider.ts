@@ -22,7 +22,7 @@ export class GoogleAuthenticationProvider implements vscode.AuthenticationProvid
 
     constructor(private readonly context: vscode.ExtensionContext) {
         // Read auth server URL from configuration, fallback to localhost
-        const config = vscode.workspace.getConfiguration('agopsAgentCopilot');
+        const config = vscode.workspace.getConfiguration('ao');
         this.AUTH_BASE_URL = config.get<string>('authServerUrl') || 'http://localhost:5958';
 
         this._disposable = vscode.authentication.registerAuthenticationProvider(

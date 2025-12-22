@@ -1,55 +1,75 @@
 # Quickstart
 
-This guide will get you up and running with Agent Copilot in a few minutes.
+This guide will get you up and running with AO in a few minutes.
 
-## Step 1: Start the VS Code Extension
+## Step 1: Create an Example Project
 
-1. Open the Agent Copilot project in VS Code
-2. Select the "Run Extension" option from the debugger (found in `.vscode/launch.json`)
-3. Run the debugger - this opens a new window with the extension enabled
+Create a folder called `my-agent` and add a file called `openai_example.py` with the following content:
 
-![Setup Extension](../assets/images/setup_extension.gif)
+```
+from openai import OpenAI
 
-Look for the bar chart icon in the VS Code side panel to access the extension.
+def main():
+    client = OpenAI()
 
-## Step 2: Open Your Project
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input="Output the number 42 and nothing else",
+        temperature=0
+    )
+    number = response.output_text
 
-In the new VS Code window, open any Python project you want to analyze. For this quickstart, we'll use one of the included examples.
+    prompt_add_1 = f"Add 1 to {number} and just output the result."
+    prompt_add_2 = f"Add 2 to {number} and just output the result."
 
-## Step 3: Run an Example
+    response1 = client.responses.create(model="gpt-4o-mini", input=prompt_add_1, temperature=0)
+    response2 = client.responses.create(model="gpt-4o-mini", input=prompt_add_2, temperature=0)
 
-The examples require an OpenAI API key. Make sure you have `OPENAI_API_KEY` set in your environment.
+    sum_prompt = f"Add these two numbers together and just output the result: {response1.output_text} + {response2.output_text}"
+    final_sum = client.responses.create(model="gpt-4o-mini", input=sum_prompt, temperature=0)
 
-Run the example from your terminal:
+    print(f"Final sum: {final_sum.output_text}")
 
-```bash
-aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
+if __name__ == "__main__":
+    main()
 ```
 
-![Running Example](../assets/images/execute_example.gif)
+Run the script to verify it works:
 
-## What Just Happened?
+```bash
+cd my-agent
+python openai_example.py
+```
 
-When you ran `aco-launch`, Agent Copilot:
+The output should be `88` (42 + 1 = 43, 42 + 2 = 44, 43 + 44 = 87... well, roughly 88 depending on the model).
 
-1. **Analyzed your code** - Rewrote Python files to track data flow
-2. **Intercepted LLM calls** - Captured inputs and outputs from OpenAI API calls
-3. **Built a dataflow graph** - Created a visual representation of how data flows between LLM calls
-4. **Updated the VS Code extension** - Displayed the graph in the side panel
+## Step 2: Configure AO
 
-## Using the VS Code Extension
+Run `ao-config` and set the project root to your `my-agent` folder:
 
-Once your script runs, the extension shows:
+```bash
+ao-config
+```
 
-- **Nodes** - Each LLM call appears as a node
-- **Edges** - Connections show data flow between calls
-- **Inputs/Outputs** - Click a node to see the full prompt and response
+## Step 3: Start the Server
 
-You can:
+Start the AO server:
 
-- **Edit Input** - Modify the input to an LLM call
-- **Edit Output** - Override the LLM's response
-- **Re-run** - Execute again with your modifications
+```bash
+ao-server start
+```
+
+## Step 4: Run with AO
+
+Install the [AO VS Code Extension](https://google.com) from the VS Code marketplace.
+
+Open your `my-agent` folder in VS Code, then run the example with AO in the terminal:
+
+```bash
+ao-record openai_example.py
+```
+
+The VS Code extension will display the dataflow graph showing how data flows between the LLM calls.
 
 ## Next Steps
 

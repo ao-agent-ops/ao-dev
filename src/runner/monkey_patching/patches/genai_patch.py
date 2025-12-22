@@ -1,9 +1,9 @@
 from functools import wraps
-from aco.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
-from aco.server.database_manager import DB
-from aco.common.logger import logger
-from aco.server.ast_helpers import get_taint_origins
-from aco.common.utils import is_whitelisted_endpoint
+from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
+from ao.server.database_manager import DB
+from ao.common.logger import logger
+from ao.server.ast_helpers import get_taint_origins
+from ao.common.utils import is_whitelisted_endpoint
 
 
 def genai_patch():

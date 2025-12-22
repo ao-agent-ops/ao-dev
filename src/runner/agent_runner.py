@@ -18,8 +18,8 @@ import builtins
 from contextvars import ContextVar
 from typing import Optional, List
 
-from aco.common.logger import logger
-from aco.common.constants import (
+from ao.common.logger import logger
+from ao.common.constants import (
     HOST,
     PORT,
     CONNECTION_TIMEOUT,
@@ -27,12 +27,12 @@ from aco.common.constants import (
     SERVER_START_WAIT,
     MESSAGE_POLL_INTERVAL,
 )
-from aco.common.utils import MODULES_TO_FILES, compute_code_hash
-from aco.cli.aco_server import launch_daemon_server
-from aco.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
-from aco.runner.context_manager import set_parent_session_id, set_server_connection
-from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
-from aco.server.ast_helpers import (
+from ao.common.utils import MODULES_TO_FILES, compute_code_hash
+from ao.cli.ao_server import launch_daemon_server
+from ao.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
+from ao.runner.context_manager import set_parent_session_id, set_server_connection
+from ao.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
+from ao.server.ast_helpers import (
     taint_fstring_join,
     taint_format_string,
     taint_percent_format,
@@ -48,7 +48,7 @@ from aco.server.ast_helpers import (
     add_to_taint_dict_and_return,
     get_taint,
 )
-from aco.server.database_manager import DB
+from ao.server.database_manager import DB
 
 
 def get_runner_dir():
@@ -206,7 +206,7 @@ class AgentRunner:
 
     def _is_debugpy_session(self) -> bool:
         """Detect if we're running under debugpy (VSCode debugging)."""
-        if os.environ.get("ACO_NO_DEBUG_MODE", False):
+        if os.environ.get("AO_NO_DEBUG_MODE", False):
             return False
 
         try:
@@ -289,7 +289,7 @@ class AgentRunner:
             "command": self._generate_restart_command(),
             "environment": dict(os.environ),
             "process_id": self.process_id,
-            "prev_session_id": os.getenv("AGENT_COPILOT_SESSION_ID"),
+            "prev_session_id": os.getenv("AO_SESSION_ID"),
             "module_to_file": MODULES_TO_FILES,
             "code_hash": compute_code_hash(),
         }
@@ -316,7 +316,7 @@ class AgentRunner:
     def _setup_environment(self) -> None:
         """Set up the execution environment for the agent runner."""
         # Enable tracing - this tells AST-injected code to use real exec_func
-        os.environ["AGENT_COPILOT_ENABLE_TRACING"] = "1"
+        os.environ["AO_ENABLE_TRACING"] = "1"
 
         # Set up PYTHONPATH for AST rewrite hooks
         runtime_tracing_dir = get_runner_dir()
@@ -333,8 +333,8 @@ class AgentRunner:
             os.environ["PYTHONPATH"] = self.project_root + os.pathsep + runtime_tracing_dir
 
         # Set random seed
-        if not os.environ.get("ACO_SEED"):
-            os.environ["ACO_SEED"] = str(random.randint(0, 2**31 - 1))
+        if not os.environ.get("AO_SEED"):
+            os.environ["AO_SEED"] = str(random.randint(0, 2**31 - 1))
 
         # Enable taint tracking in AST-rewritten code
         os.environ["AGENT_COPILOT_ENABLE_TRACING"] = "True"
@@ -363,7 +363,7 @@ class AgentRunner:
         builtins.ACTIVE_TAINT = ContextVar("active_taint", default=[])
 
         # Register TAINT_DICT (id-based dict) as single source of truth for taint
-        from aco.runner.taint_dict import ThreadSafeTaintDict
+        from ao.runner.taint_dict import ThreadSafeTaintDict
 
         builtins.TAINT_DICT = ThreadSafeTaintDict()
 
@@ -377,15 +377,15 @@ class AgentRunner:
         apply_all_monkey_patches()
 
         # Set random seeds
-        aco_random_seed = int(os.environ["ACO_SEED"])
-        random.seed(aco_random_seed)
+        ao_random_seed = int(os.environ["AO_SEED"])
+        random.seed(ao_random_seed)
 
         try:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", module="numpy")
                 from numpy.random import seed
 
-                seed(aco_random_seed)
+                seed(ao_random_seed)
         except ImportError:
             pass
 
@@ -394,7 +394,7 @@ class AgentRunner:
                 warnings.filterwarnings("ignore", module="torch")
                 from torch import manual_seed
 
-                manual_seed(aco_random_seed)
+                manual_seed(ao_random_seed)
         except ImportError:
             pass
 

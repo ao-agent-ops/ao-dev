@@ -6,7 +6,7 @@ import os
 import re
 import pytest
 import responses
-from aco.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
+from ao.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 
 # Apply the monkey patches for LLM APIs
 apply_all_monkey_patches()

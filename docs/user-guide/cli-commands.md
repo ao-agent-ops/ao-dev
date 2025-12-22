@@ -1,25 +1,25 @@
 # CLI Commands
 
-Agent Copilot provides three main CLI commands for running and managing your LLM applications.
+AO provides three main CLI commands for running and managing your LLM applications.
 
-## aco-launch
+## ao-record
 
-The primary command for running Python scripts with Agent Copilot analysis.
+The primary command for running Python scripts with AO analysis.
 
 ### Basic Usage
 
 ```bash
 # Run a script
-aco-launch script.py
+ao-record script.py
 
 # Run a script with arguments
-aco-launch script.py --arg1 value1 --arg2 value2
+ao-record script.py --arg1 value1 --arg2 value2
 
 # Run a module
-aco-launch -m mypackage.mymodule
+ao-record -m mypackage.mymodule
 
 # Run with environment variables
-ENV_VAR=value aco-launch script.py
+ENV_VAR=value ao-record script.py
 ```
 
 ### Options
@@ -35,46 +35,46 @@ ENV_VAR=value aco-launch script.py
 
 ```bash
 # Run a simple script
-aco-launch my_agent.py
+ao-record my_agent.py
 
 # Run a module from a package
-aco-launch -m agents.research_agent
+ao-record -m agents.research_agent
 
 # Run with a custom run name
-aco-launch --run-name "experiment-v1" my_agent.py
+ao-record --run-name "experiment-v1" my_agent.py
 
 # Pass arguments to your script
-aco-launch my_agent.py --model gpt-4 --temperature 0.7
+ao-record my_agent.py --model gpt-4 --temperature 0.7
 ```
 
-## aco-server
+## ao-server
 
-Manage the Agent Copilot development server.
+Manage the AO development server.
 
 ### Commands
 
 ```bash
 # Start the server
-aco-server start
+ao-server start
 
 # Stop the server
-aco-server stop
+ao-server stop
 
 # Restart the server (useful after code changes)
-aco-server restart
+ao-server restart
 
 # Clear all recorded runs and cached LLM calls
-aco-server clear
+ao-server clear
 
 # View server logs
-aco-server logs
+ao-server logs
 ```
 
 ### Notes
 
-- The server automatically starts when you run `aco-launch` if it's not already running
-- If you make changes to server code, run `aco-server restart` to apply them
-- Server logs are stored in `~/.cache/agent-copilot/logs/server.log`
+- The server automatically starts when you run `ao-record` if it's not already running
+- If you make changes to server code, run `ao-server restart` to apply them
+- Server logs are stored in `~/.cache/ao/logs/server.log`
 
 ### Troubleshooting
 
@@ -90,14 +90,14 @@ Check which processes are using the server port:
 lsof -i :5959
 ```
 
-## aco-config
+## ao-config
 
-Configure Agent Copilot settings interactively.
+Configure AO settings interactively.
 
 ### Usage
 
 ```bash
-aco-config
+ao-config
 ```
 
 This launches an interactive configuration wizard that prompts you for:
@@ -107,26 +107,26 @@ This launches an interactive configuration wizard that prompts you for:
 
 ### When to Use
 
-Run `aco-config` when:
+Run `ao-config` when:
 
-- Setting up Agent Copilot for a new project
+- Setting up AO for a new project
 - Changing the project root directory
 - Configuring database settings for caching
 
 !!! tip "Project Root"
-    For some example workflows, you may need to set the project root to the example's directory. Run `aco-config` and set it to the root of the example repo.
+    For some example workflows, you may need to set the project root to the example's directory. Run `ao-config` and set it to the root of the example repo.
 
 ## Environment Variables
 
-Agent Copilot respects the following environment variables:
+AO respects the following environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `AGENT_COPILOT_SESSION_ID` | Current session identifier |
-| `AGENT_COPILOT_ENABLE_TRACING` | Enable/disable tracing |
-| `AGENT_COPILOT_SERVER_HOST` | Server host (default: localhost) |
-| `AGENT_COPILOT_SERVER_PORT` | Server port (default: 5959) |
-| `ACO_SEED` | Random seed for reproducibility |
+| `AO_SESSION_ID` | Current session identifier |
+| `AO_ENABLE_TRACING` | Enable/disable tracing |
+| `AO_SERVER_HOST` | Server host (default: localhost) |
+| `AO_SERVER_PORT` | Server port (default: 5959) |
+| `AO_SEED` | Random seed for reproducibility |
 
 ## Next Steps
 

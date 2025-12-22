@@ -5,9 +5,9 @@ This is basically the core of the tool. All analysis happens here. It receives m
 
 Manually start, stop, restart server:
 
- - `aco-server start` 
- - `aco-server stop`
- - `aco-server restart`
+ - `ao-server start` 
+ - `ao-server stop`
+ - `ao-server restart`
 
 Some basics: 
 
@@ -67,13 +67,13 @@ We rewrite user code to propagate taint through third-party library calls. For e
 3. Execute the third-party function with clean data
 4. Retrieve final taint from ACTIVE_TAINT and wrap the result for user code
 
-To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `aco-launch script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
+To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `ao-record script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
 
 ### AST Rewrite Verification
 
 To distinguish between standard Python-compiled `.pyc` files and our taint-tracking rewritten versions, we inject a verification marker:
 
-As the first line of every rewritten module, we put `__ACO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
+As the first line of every rewritten module, we put `__AO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
 
 Also see [here](/src/runner/README.md) on how the whole taint propagation process fits together.
 

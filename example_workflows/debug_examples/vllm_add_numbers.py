@@ -24,7 +24,7 @@ To run this example:
 
 2. Run this script:
 
-   aco-launch ./example_workflows/debug_examples/vllm_add_numbers.py
+   ao-record ./example_workflows/debug_examples/vllm_add_numbers.py
 
 Note: vLLM provides an OpenAI-compatible API, so we use the OpenAI client
 with a custom base_url pointing to the vLLM server.

@@ -1,9 +1,9 @@
 # Example Workflows
 
-Agent Copilot includes several example workflows to help you understand how to use the tool and test your setup.
+AO includes several example workflows to help you understand how to use the tool and test your setup.
 
 !!! note "Project Root Configuration"
-    For some examples, you may need to modify your project root. Run `aco-config` and set it to the root of the example repo.
+    For some examples, you may need to modify your project root. Run `ao-config` and set it to the root of the example repo.
 
 ## Built-in Examples
 
@@ -11,11 +11,11 @@ Agent Copilot includes several example workflows to help you understand how to u
 
 Location: `example_workflows/debug_examples/`
 
-Simple workflows designed for testing and debugging Agent Copilot itself.
+Simple workflows designed for testing and debugging AO itself.
 
 ```bash
 # Run the OpenAI addition example
-aco-launch ./example_workflows/debug_examples/openai_add_numbers.py
+ao-record ./example_workflows/debug_examples/openai_add_numbers.py
 ```
 
 These examples are included directly in the repository and don't require additional setup.
@@ -82,7 +82,7 @@ To add a new example workflow:
    - Setup instructions
    - Any known issues or quirks
 
-5. From the agent-copilot root, add the submodule:
+5. From the ao root, add the submodule:
    ```bash
    git submodule add https://github.com/agops-project/my_agent.git example_workflows/my_agent/repo
    ```
@@ -93,13 +93,13 @@ All examples follow the same pattern:
 
 ```bash
 # Activate your environment
-conda activate aco
+conda activate ao
 
 # Set project root if needed
-aco-config
+ao-config
 
 # Run the example
-aco-launch ./example_workflows/EXAMPLE_NAME/script.py
+ao-record ./example_workflows/EXAMPLE_NAME/script.py
 ```
 
 ## Next Steps

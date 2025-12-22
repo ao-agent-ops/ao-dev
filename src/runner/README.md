@@ -4,7 +4,7 @@
 
 This is the wrapper around the user's python command. It works like this:
 
-1. User types `aco-launch script.py` (instead of `python script.py`)
+1. User types `ao-record script.py` (instead of `python script.py`)
 2. This drops into an "agent runner". The agent runner installs monkey patches, establishes a connection to the server, and then runs the user's actual python program using `runpy.run_module`.
 Through the monkey patches, the agent runner communicates events in the user's code to the server (e.g., LLM call happened + inputs and outputs). Its stdin, stdout, stderr, etc. will be shown to the user's terminal as is. The goal here is to provide the illusion that the user just types `python script.py`.
 
@@ -13,17 +13,17 @@ Through the monkey patches, the agent runner communicates events in the user's c
 
 Manages context like the session ids for different threads.
 
-Sometimes the user wants to do "subruns" within their `aco-launch` run. For example, if the user runs an eval script, they may want each sample to be a separate run. The can do this as follows:
+Sometimes the user wants to do "subruns" within their `ao-record` run. For example, if the user runs an eval script, they may want each sample to be a separate run. The can do this as follows:
 
 ```
 for sample in samples:
-    with aco_launch("run name"):
+    with ao_launch("run name"):
         eval_sample(prompt)
 ```
 
 This can also be used to run many samples concurrently (see examples in `example_workflows/debug_examples/`).
 
-The implementation of the aco_launch context manager is in `context_manager.py`. The diagram below depicts its message sequence chart:
+The implementation of the ao_launch context manager is in `context_manager.py`. The diagram below depicts its message sequence chart:
 
 ![Subruns](/docs/media/subrun.png)
 
@@ -44,7 +44,7 @@ To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we 
     - If a file changed, the [File Watcher](/src/server/file_watcher.py) uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite third-party library calls using the ACTIVE_TAINT pattern
     - After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory.
 
-2. The user runs a script using `aco-launch script.py`. 
+2. The user runs a script using `ao-launch script.py`. 
    - An import hook (`ast_rewrite_hook.py`) ensures AST-rewritten `.pyc` files exist before user module imports
    - Python loads the compiled `.pyc` binary with ACTIVE_TAINT-based taint propagation
    - [Monkey patches](/src/runner/monkey_patching/) are installed for LLM libraries (e.g., OpenAI), which use ACTIVE_TAINT to communicate taint with user code

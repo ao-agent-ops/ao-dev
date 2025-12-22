@@ -188,9 +188,9 @@ def _is_user_function(func):
 
     Handles decorated functions by unwrapping via __wrapped__ attribute.
     """
-    from aco.common.utils import MODULES_TO_FILES, get_aco_py_files
+    from ao.common.utils import MODULES_TO_FILES, get_ao_py_files
 
-    user_py_files = list(MODULES_TO_FILES.values()) + get_aco_py_files()
+    user_py_files = list(MODULES_TO_FILES.values()) + get_ao_py_files()
 
     if not user_py_files:
         return False

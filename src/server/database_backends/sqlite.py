@@ -7,9 +7,9 @@ import sqlite3
 import threading
 import json
 
-from aco.common.logger import logger
-from aco.common.constants import ACO_DB_PATH
-from aco.common.utils import hash_input
+from ao.common.logger import logger
+from ao.common.constants import AO_DB_PATH
+from ao.common.utils import hash_input
 
 
 # Global lock among concurrent threads: Threads within a process share a single
@@ -34,7 +34,7 @@ def get_conn():
         with _db_lock:
             # Double-check pattern to avoid race condition during initialization
             if _shared_conn is None:
-                db_path = os.path.join(ACO_DB_PATH, "experiments.sqlite")
+                db_path = os.path.join(AO_DB_PATH, "experiments.sqlite")
                 # Ensure the directory exists with proper permissions
                 os.makedirs(os.path.dirname(db_path), exist_ok=True)
                 _shared_conn = sqlite3.connect(

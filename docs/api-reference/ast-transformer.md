@@ -15,7 +15,7 @@ The transformer handles:
 
 Transform and compile Python source with AST rewrites:
 
-::: aco.server.ast_transformer.rewrite_source_to_code
+::: ao.server.file_watcher.rewrite_source_to_code
     options:
       show_root_heading: true
       show_source: true
@@ -24,7 +24,7 @@ Transform and compile Python source with AST rewrites:
 
 Execute a function with taint propagation:
 
-::: aco.server.ast_transformer.exec_func
+::: ao.server.ast_helpers.exec_func
     options:
       show_root_heading: true
       show_source: true
@@ -35,7 +35,7 @@ Execute a function with taint propagation:
 
 Taint-aware replacement for f-string concatenation:
 
-::: aco.server.ast_transformer.taint_fstring_join
+::: ao.server.ast_helpers.taint_fstring_join
     options:
       show_root_heading: true
       show_source: true
@@ -44,7 +44,7 @@ Taint-aware replacement for f-string concatenation:
 
 Taint-aware replacement for `.format()` calls:
 
-::: aco.server.ast_transformer.taint_format_string
+::: ao.server.ast_helpers.taint_format_string
     options:
       show_root_heading: true
       show_source: true
@@ -53,7 +53,7 @@ Taint-aware replacement for `.format()` calls:
 
 Taint-aware replacement for `%` formatting:
 
-::: aco.server.ast_transformer.taint_percent_format
+::: ao.server.ast_helpers.taint_percent_format
     options:
       show_root_heading: true
       show_source: true
@@ -64,7 +64,7 @@ Taint-aware replacement for `%` formatting:
 
 The main AST transformer class:
 
-::: aco.server.ast_transformer.TaintPropagationTransformer
+::: ao.server.ast_transformer.TaintPropagationTransformer
     options:
       show_root_heading: true
       show_source: false
@@ -80,7 +80,7 @@ The main AST transformer class:
 
 Check if a `.pyc` file was created by the AST transformer:
 
-::: aco.server.ast_transformer.is_pyc_rewritten
+::: ao.server.file_watcher.is_pyc_rewritten
     options:
       show_root_heading: true
       show_source: true

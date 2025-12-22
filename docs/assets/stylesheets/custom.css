@@ -1,0 +1,178 @@
+/* Custom styles for AO documentation */
+
+/* ============================================
+   LIGHT MODE (default)
+   ============================================ */
+
+/* Header bar - light grey background */
+.md-header {
+  background-color: #f5f5f5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Header text and icons - dark for contrast */
+.md-header__title,
+.md-header-nav__button,
+.md-header__button,
+.md-header-nav__topic {
+  color: #2d2d2d;
+}
+
+/* Search bar styling */
+.md-search__input {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+}
+
+.md-search__input::placeholder {
+  color: #757575;
+}
+
+/* Accent color - golden orange from edit metadata icon */
+:root {
+  --md-accent-fg-color: #d4a825;
+  --md-accent-fg-color--transparent: rgba(212, 168, 37, 0.1);
+}
+
+/* Primary color adjustments for light theme */
+:root {
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #f5f5f5;
+  --md-primary-fg-color--dark: #e0e0e0;
+  --md-primary-bg-color: #2d2d2d;
+  --md-primary-bg-color--light: #4a4a4a;
+}
+
+/* Link colors */
+.md-typeset a {
+  color: #d4a825;
+}
+
+.md-typeset a:hover {
+  color: #b8922a;
+}
+
+/* Navigation accent */
+.md-nav__link--active,
+.md-nav__link:hover {
+  color: #d4a825;
+}
+
+
+/* Admonition accent */
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: #d4a825;
+}
+
+.md-typeset .note > .admonition-title,
+.md-typeset .note > summary {
+  background-color: rgba(212, 168, 37, 0.1);
+}
+
+/* Table of contents accent */
+.md-nav__link--passed {
+  color: #d4a825;
+}
+
+/* Search highlight */
+.md-search-result__meta {
+  color: #d4a825;
+}
+
+.md-search-result mark {
+  background-color: rgba(212, 168, 37, 0.3);
+}
+
+/* Tab navigation styling */
+.md-tabs {
+  background-color: #f5f5f5;
+}
+
+.md-tabs__link {
+  color: #4a4a4a;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: #d4a825;
+}
+
+/* Button and interactive element accents */
+.md-typeset .md-button--primary {
+  background-color: #d4a825;
+  border-color: #d4a825;
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: #b8922a;
+  border-color: #b8922a;
+}
+
+/* Discord link in header */
+.discord-link {
+  color: #2d2d2d;
+}
+
+.discord-link:hover {
+  color: #d4a825;
+}
+
+
+/* ============================================
+   DARK MODE (slate scheme)
+   ============================================ */
+
+[data-md-color-scheme="slate"] {
+  /* Dark mode accent - keep the golden orange */
+  --md-accent-fg-color: #d4a825;
+  --md-accent-fg-color--transparent: rgba(212, 168, 37, 0.15);
+}
+
+/* Dark mode header */
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #1e1e1e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode header text and icons */
+[data-md-color-scheme="slate"] .md-header__title,
+[data-md-color-scheme="slate"] .md-header-nav__button,
+[data-md-color-scheme="slate"] .md-header__button,
+[data-md-color-scheme="slate"] .md-header-nav__topic {
+  color: #e0e0e0;
+}
+
+/* Dark mode search bar */
+[data-md-color-scheme="slate"] .md-search__input {
+  background-color: #2d2d2d;
+  border: 1px solid #404040;
+}
+
+[data-md-color-scheme="slate"] .md-search__input::placeholder {
+  color: #888888;
+}
+
+
+/* Dark mode tabs */
+[data-md-color-scheme="slate"] .md-tabs {
+  background-color: #1e1e1e;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link {
+  color: #a0a0a0;
+}
+
+/* Dark mode Discord link */
+[data-md-color-scheme="slate"] .discord-link {
+  color: #e0e0e0;
+}
+
+[data-md-color-scheme="slate"] .discord-link:hover {
+  color: #d4a825;
+}
+
+/* Dark mode logo - invert colors */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+  filter: invert(0.85);
+}

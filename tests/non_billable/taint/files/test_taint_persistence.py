@@ -12,8 +12,8 @@
 # import os
 # import sys
 # from pathlib import Path
-# from aco.runner.taint_wrappers import taint_wrap, get_taint_origins
-# from aco.server.ast_transformer import taint_open
+# from ao.runner.taint_wrappers import taint_wrap, get_taint_origins
+# from ao.server.ast_transformer import taint_open
 
 # # Add utils path for test helpers
 # sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))

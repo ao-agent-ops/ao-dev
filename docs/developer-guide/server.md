@@ -1,6 +1,6 @@
 # Server
 
-The development server is the core of Agent Copilot. It receives events from user processes, manages the dataflow graph, and controls the UI.
+The development server is the core of AO. It receives events from user processes, manages the dataflow graph, and controls the UI.
 
 ## Overview
 
@@ -17,23 +17,23 @@ The server (`develop_server.py`) handles:
 
 ```bash
 # Manual server management
-aco-server start
-aco-server stop
-aco-server restart
-aco-server clear    # Clear all cached data
-aco-server logs     # View server logs
+ao-server start
+ao-server stop
+ao-server restart
+ao-server clear    # Clear all cached data
+ao-server logs     # View server logs
 ```
 
-The server automatically starts when you run `aco-launch` if it's not already running.
+The server automatically starts when you run `ao-record` if it's not already running.
 
 ## Server Logs
 
-Logs are stored at: `~/.cache/agent-copilot/logs/server.log`
+Logs are stored at: `~/.cache/ao/logs/server.log`
 
 View logs:
 
 ```bash
-aco-server logs
+ao-server logs
 ```
 
 ## Debugging the Server
@@ -52,7 +52,7 @@ lsof -i :5959
 
 ## Database
 
-Agent Copilot uses SQLite to store:
+AO uses SQLite to store:
 
 - **Cached LLM calls** - For fast replay during re-runs
 - **User edits** - Input/output modifications
@@ -86,7 +86,7 @@ The `graph_topology` column in the `experiments` table stores a dictionary repre
 
 ## Session Management
 
-Each `aco-launch` execution creates a session. Within a session:
+Each `ao-record` execution creates a session. Within a session:
 
 - Multiple runs can occur (via subruns or restarts)
 - Each run builds its own dataflow graph
@@ -110,7 +110,7 @@ Runner Process <---> Server <---> UI (VS Code/Web)
 When modifying server code:
 
 1. Make your changes to files in `src/server/`
-2. Restart the server: `aco-server restart`
+2. Restart the server: `ao-server restart`
 3. Changes take effect immediately
 
 ## Next Steps

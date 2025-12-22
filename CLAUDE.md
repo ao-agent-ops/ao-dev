@@ -1,6 +1,6 @@
-# Agent Copilot - LLM Dataflow Graph System
+# AO - LLM Dataflow Graph System
 
-Agent Copilot is a development tool that creates interactive dataflow graphs of LLM calls, enabling visualization, editing, and debugging of data flow in agentic AI applications.
+AO is a development tool that creates interactive dataflow graphs of LLM calls, enabling visualization, editing, and debugging of data flow in agentic AI applications.
 
 ## Quick File References
 
@@ -34,14 +34,14 @@ The system creates dataflow graphs through three integrated layers:
 
 ```bash
 # Installation
-source ~/miniforge3/bin/activate aco && pip install -e .
+source ~/miniforge3/bin/activate ao && pip install -e .
 
-# Running (replace python with aco-launch)
-aco-launch script.py
-~/miniforge3/envs/aco/bin/python -m aco.cli.aco_launch script.py  # For Claude Code
+# Running (replace python with ao-record)
+ao-record script.py
+~/miniforge3/envs/ao/bin/python -m ao.cli.ao_record script.py  # For Claude Code
 
 # Server management
-aco-server start/stop/restart/clear/logs
+ao-server start/stop/restart/clear/logs
 
 # Testing
 python -m pytest -v tests/taint/  # Test taint propagation specifically
@@ -49,7 +49,7 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 
 ## Project Structure
 
-- @src/cli/ - Command-line interface (`aco-launch`, `aco-server`)
+- @src/cli/ - Command-line interface (`ao-record`, `ao-server`)
 - @src/server/ - Core analysis server, AST transformation, file watching
 - @src/runner/ - User program execution, monkey patching
 - @src/user_interfaces/ - VS Code extension and web app
@@ -65,7 +65,3 @@ python -m pytest -v tests/taint/  # Test taint propagation specifically
 - **Do NOT** overcomplicate the system. Simplicity is a code concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
 - **Do NOT** consider backwards compatability. The code has no users yet, which allows you to write cleaner, more concise code.
 - Remain critical and skeptical about my thinking at all times. Maintain consistent intellectual standards throughout our conversation. Don’t lower your bar for evidence or reasoning quality just because we’ve been talking longer or because I seem frustrated. If I’m making weak arguments, keep pointing that out even if I’ve made good ones before.
-
-## Caveats
-
-- **aco and agops** You will sometimes see aco (short for agent copilot) and agops (short for agent ops). They mean to denote the same thing (an abbreviation of the project name).

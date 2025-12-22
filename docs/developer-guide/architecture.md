@@ -1,16 +1,16 @@
 # Architecture
 
-This page provides a high-level overview of Agent Copilot's architecture and how its components work together.
+This page provides a high-level overview of AO's architecture and how its components work together.
 
 ## System Overview
 
-Agent Copilot consists of three main processes that work together:
+AO consists of three main processes that work together:
 
 ![Processes Overview](../assets/images/processes.png)
 
 ### 1. User Program (Green)
 
-The user launches their program with `aco-launch script.py`. This feels exactly like running `python script.py` - same terminal I/O, same crash behavior, and debugger support.
+The user launches their program with `ao-record script.py`. This feels exactly like running `python script.py` - same terminal I/O, same crash behavior, and debugger support.
 
 **Components:**
 
@@ -46,7 +46,7 @@ The VS Code extension (or web app) that displays the dataflow graph and provides
 
 ### How Taint Tracking Works
 
-Agent Copilot tracks data flow using a "taint" system:
+AO tracks data flow using a "taint" system:
 
 1. **LLM Output Tainting** - When an LLM produces output, it's wrapped in a taint-aware type that records the LLM call ID
 2. **Taint Propagation** - As data flows through the program, taint information propagates through operations
@@ -68,7 +68,7 @@ Agent Copilot tracks data flow using a "taint" system:
 
 ![Execution Flow](../assets/images/develop_spawn.png)
 
-1. User runs `aco-launch script.py`
+1. User runs `ao-record script.py`
 2. Orchestrator spawns the runner process
 3. Runner establishes connection to the server
 4. Monkey patches and AST rewrites are applied
@@ -82,9 +82,9 @@ Agent Copilot tracks data flow using a "taint" system:
 ```
 src/
 ├── cli/                    # Command-line interface
-│   ├── aco_launch.py       # Main launch command
-│   ├── aco_server.py       # Server management
-│   └── aco_config.py       # Configuration
+│   ├── ao_record.py       # Main launch command
+│   ├── ao_server.py       # Server management
+│   └── ao_config.py       # Configuration
 ├── runner/                 # Runtime execution
 │   ├── develop_shim.py     # Orchestrator
 │   ├── launch_scripts.py   # Runner bootstrap

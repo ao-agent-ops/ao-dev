@@ -2,8 +2,8 @@ import inspect
 import textwrap
 import os
 from datetime import datetime
-from aco.server.file_watcher import rewrite_source_to_code
-from aco.server.database_manager import DB
+from ao.server.file_watcher import rewrite_source_to_code
+from ao.server.database_manager import DB
 
 
 def cleanup_taint_db():
@@ -17,8 +17,8 @@ def cleanup_taint_db():
     DB.execute("DELETE FROM attachments")
 
     # Clean up environment variables that affect taint tracking
-    if "AGENT_COPILOT_SESSION_ID" in os.environ:
-        del os.environ["AGENT_COPILOT_SESSION_ID"]
+    if "AO_SESSION_ID" in os.environ:
+        del os.environ["AO_SESSION_ID"]
 
 
 def restart_server():
@@ -26,7 +26,7 @@ def restart_server():
     import subprocess
     import time
 
-    subprocess.run(["aco-server", "restart"], check=False)
+    subprocess.run(["ao-server", "restart"], check=False)
     time.sleep(1)
 
 
@@ -114,7 +114,7 @@ def with_ast_rewriting(test_func):
         # Set up the taint environment (normally done by agent_runner)
         import builtins
         from contextvars import ContextVar
-        from aco.runner.taint_dict import ThreadSafeTaintDict
+        from ao.runner.taint_dict import ThreadSafeTaintDict
 
         # Initialize ACTIVE_TAINT (ContextVar) for passing taint through third-party code
         if not hasattr(builtins, "ACTIVE_TAINT"):
@@ -127,7 +127,7 @@ def with_ast_rewriting(test_func):
         builtins.TAINT_DICT = ThreadSafeTaintDict()
 
         # Add taint functions to builtins (normally done by agent_runner)
-        from aco.server.ast_helpers import (
+        from ao.server.ast_helpers import (
             taint_fstring_join,
             taint_format_string,
             taint_percent_format,

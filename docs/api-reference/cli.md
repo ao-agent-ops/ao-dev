@@ -2,33 +2,33 @@
 
 This page documents the command-line interface modules.
 
-## aco_launch
+## ao_record
 
-The main entry point for running Python scripts with Agent Copilot analysis.
+The main entry point for running Python scripts with AO analysis.
 
-::: aco.cli.aco_launch
+::: ao.cli.ao_record
     options:
       show_root_heading: true
       show_source: true
       members:
         - main
 
-## aco_server
+## ao_server
 
 Server management commands for starting, stopping, and controlling the development server.
 
-::: aco.cli.aco_server
+::: ao.cli.ao_server
     options:
       show_root_heading: true
       show_source: true
       members:
         - main
 
-## aco_config
+## ao_config
 
-Interactive configuration tool for Agent Copilot settings.
+Interactive configuration tool for AO settings.
 
-::: aco.cli.aco_config
+::: ao.cli.ao_config
     options:
       show_root_heading: true
       show_source: true

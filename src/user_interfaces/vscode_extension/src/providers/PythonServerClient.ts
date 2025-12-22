@@ -18,7 +18,7 @@ export class PythonServerClient {
 
     private constructor() {
         // Read server configuration from VSCode settings
-        const config = vscode.workspace.getConfiguration('agopsAgentCopilot');
+        const config = vscode.workspace.getConfiguration('ao');
         this.serverHost = config.get('pythonServerHost') || '127.0.0.1';
         this.serverPort = config.get('pythonServerPort') || 5959;
         this.serverUrl = config.get('pythonServerUrl');

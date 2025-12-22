@@ -20,10 +20,10 @@ import time
 import signal
 import glob
 from typing import Dict, Set
-from aco.common.logger import logger
-from aco.common.constants import FILE_POLL_INTERVAL, ACO_PROJECT_ROOT
-from aco.server.ast_transformer import TaintPropagationTransformer
-from aco.common.utils import MODULES_TO_FILES
+from ao.common.logger import logger
+from ao.common.constants import FILE_POLL_INTERVAL, AO_PROJECT_ROOT
+from ao.server.ast_transformer import TaintPropagationTransformer
+from ao.common.utils import MODULES_TO_FILES
 
 
 def rewrite_source_to_code(
@@ -113,7 +113,7 @@ class FileWatcher:
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
         self._shutdown = False  # Flag to signal shutdown
-        self.project_root = ACO_PROJECT_ROOT  # Use project root from config
+        self.project_root = AO_PROJECT_ROOT  # Use project root from config
         self._populate_initial_mtimes()
         self._setup_signal_handlers()
 
@@ -141,15 +141,15 @@ class FileWatcher:
         Scan the project root for all Python files.
 
         Returns:
-            Set of absolute paths to Python files (excluding .aco_rewritten.py files)
+            Set of absolute paths to Python files (excluding .ao_rewritten.py files)
         """
         python_files = set()
 
         # Search for all .py files recursively from project root
         pattern = os.path.join(self.project_root, "**", "*.py")
         for file_path in glob.glob(pattern, recursive=True):
-            # Skip .aco_rewritten.py files (these are debugging files, not real code)
-            if ".aco_rewritten" in file_path:
+            # Skip .ao_rewritten.py files (these are debugging files, not real code)
+            if ".ao_rewritten" in file_path:
                 continue
 
             # Skip files in __pycache__ directories
@@ -291,15 +291,15 @@ class FileWatcher:
                 source = f.read()
 
             # Apply AST rewrites and compile to code object
-            debug_ast = os.environ.get("ACO_DEBUG_AST_REWRITES")
-            if debug_ast and not ".aco_rewritten.py" in file_path:
+            debug_ast = os.environ.get("AO_DEBUG_AST_REWRITES")
+            if debug_ast and not ".AO_rewritten.py" in file_path:
                 code_object, tree = rewrite_source_to_code(
                     source, file_path, module_to_file=self.module_to_file, return_tree=True
                 )
-                # Write transformed source to .aco_rewritten.py for debugging
+                # Write transformed source to .ao_rewritten.py for debugging
                 import ast
 
-                debug_path = file_path.replace(".py", ".aco_rewritten.py")
+                debug_path = file_path.replace(".py", ".ao_rewritten.py")
                 try:
                     rewritten_source = ast.unparse(tree)
                     with open(debug_path, "w", encoding="utf-8") as f:
@@ -429,7 +429,7 @@ def run_file_watcher_process(module_to_file: Dict[str, str]):
 
 def get_pyc_path(py_file_path: str) -> str:
     """
-    Generate the standard .pyc file path for a given .py file.
+    Generate the .pyc file path for AST-rewritten code.
 
     Args:
         py_file_path: Path to the .py source file
@@ -437,10 +437,9 @@ def get_pyc_path(py_file_path: str) -> str:
     Returns:
         Path where the .pyc file should be written
     """
-    # Python's standard __pycache__ naming convention
     dir_name = os.path.dirname(py_file_path)
     base_name = os.path.splitext(os.path.basename(py_file_path))[0]
-    cache_dir = os.path.join(dir_name, "__pycache__")
+    cache_dir = os.path.join(dir_name, "__ao_cache__")
 
     # Include Python version in filename (e.g., module.cpython-311.pyc)
     version_tag = f"cpython-{sys.version_info.major}{sys.version_info.minor}"

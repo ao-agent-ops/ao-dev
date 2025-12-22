@@ -1,6 +1,6 @@
 # Taint Tracking
 
-Agent Copilot tracks data flow ("taint") between LLM calls using a combination of taint wrappers, AST rewriting, and a file watcher process.
+AO tracks data flow ("taint") between LLM calls using an ID-based dictionary, AST rewriting, and a file watcher process.
 
 ## Overview
 
@@ -8,96 +8,78 @@ The taint tracking system answers: "Which LLM calls influenced this value?"
 
 When an LLM produces output, that output is "tainted" with the LLM call's ID. As the data flows through the program, the taint information propagates. When tainted data reaches another LLM call, we know there's a data dependency.
 
-## Taint Wrappers
+## Core Architecture
 
-Taint wrappers are Python types that extend built-in types to carry taint information.
+### TAINT_DICT
 
-### Basic Types
-
-```python
-from aco.runner.taint_wrappers import TaintStr, TaintInt, TaintList
-
-# A tainted string knows its origin
-tainted = TaintStr("Hello", taint_origin=["llm_call_1"])
-
-# Operations preserve taint
-result = tainted + " World"  # Still tainted with llm_call_1
-
-# Combining tainted values combines their origins
-other = TaintStr("!", taint_origin=["llm_call_2"])
-combined = result + other  # Tainted with both llm_call_1 and llm_call_2
-```
-
-### Available Wrapper Types
-
-| Type | Base Type | Use Case |
-|------|-----------|----------|
-| `TaintStr` | `str` | String values |
-| `TaintInt` | `int` | Integer values |
-| `TaintFloat` | `float` | Float values |
-| `TaintBytes` | `bytes` | Binary data |
-| `TaintList` | `list` | List containers |
-| `TaintDict` | `dict` | Dictionary containers |
-| `TaintObject` | any | Generic wrapper for other objects |
-
-### Utility Functions
+`TAINT_DICT` is a global thread-safe dictionary that maps object IDs to their taint origins:
 
 ```python
-from aco.runner.taint_wrappers import (
-    get_taint_origins,
-    untaint_if_needed,
-    is_tainted,
-    taint_wrap,
-)
-
-# Check if a value is tainted
-if is_tainted(value):
-    origins = get_taint_origins(value)
-    print(f"Value came from: {origins}")
-
-# Get the raw value without taint
-raw_value = untaint_if_needed(tainted_value)
-
-# Wrap a value with taint
-wrapped = taint_wrap(raw_value, taint_origin=["origin_id"])
+{id(obj): (obj, [origin_ids])}
 ```
+
+Where:
+- `id(obj)` is the object's memory address (stable while we hold a reference)
+- `obj` is the actual object (kept alive to prevent id reuse)
+- `[origin_ids]` is the list of taint origin identifiers
+
+Key properties:
+1. **Direct storage:** All objects (including built-ins like int, str, list) are stored directly
+2. **Uniform handling:** All objects are treated the same way regardless of type
+3. **Prevents id reuse:** Storing the object reference prevents garbage collection
+
+### Taint Propagation
+
+Taint flows through the program in two ways:
+
+1. **Explicit taint:** Objects returned from LLM calls carry taint from their origin
+2. **Inherited taint:** When accessing an attribute or subscript, if the result has no taint of its own, it inherits the parent's taint
+
+Example:
+```python
+response = llm_call(prompt)  # response gets taint ["llm:123"]
+content = response.content   # content inherits taint ["llm:123"]
+first_char = content[0]      # first_char inherits taint ["llm:123"]
+```
+
+### ACTIVE_TAINT (ContextVar)
+
+`ACTIVE_TAINT` is a ContextVar used to pass taint through third-party code boundaries. It is ONLY used for communication between `exec_func` and monkey-patched code.
+
+Flow:
+1. `exec_func` collects taint from all arguments
+2. Sets `ACTIVE_TAINT` to the collected taint
+3. Calls the third-party function
+4. Third-party code (or monkey patches) can read `ACTIVE_TAINT`
+5. `exec_func` adds taint to the result
+6. Resets `ACTIVE_TAINT` to `[]`
 
 ## AST Rewriting
 
-Taint wrappers handle operations on tainted values, but what about third-party library calls?
+The AST transformer rewrites user code to track taint through all operations:
 
-```python
-import os.path
-
-# This would lose taint information without AST rewriting!
-result = os.path.join(tainted_path, "filename.txt")
-```
-
-The AST transformer rewrites such calls to preserve taint:
-
-```python
-# Original
-result = os.path.join(a, b)
-
-# Rewritten to:
-result = exec_func(os.path.join, (a, b), {}, user_py_files)
-```
+| Original Code | Transformed Code |
+|---------------|------------------|
+| `x = value` | `x = taint_assign(value)` |
+| `obj.attr` | `get_attr(obj, 'attr')` |
+| `obj[key]` | `get_item(obj, key)` |
+| `obj.attr = value` | `set_attr(obj, 'attr', value)` |
+| `obj[key] = value` | `exec_setitem(obj, key, value)` |
+| `func(args)` | `exec_func(func, (args,), {})` |
+| `obj.method(args)` | `exec_func(obj, (args,), {}, method_name='method')` |
+| `a + b` | `exec_func(operator.add, (a, b), {})` |
+| `f"hello {x}"` | `taint_fstring_join("hello ", x)` |
 
 ### What exec_func Does
 
-1. **Untaint inputs** - Extract raw values and collect taint origins
-2. **Execute function** - Call the original function normally
-3. **Taint output** - Wrap the result with the combined taint origins
+For **user code** (AST-rewritten): Calls directly. The AST rewrites handle taint propagation.
 
-### String Formatting
-
-The transformer also handles string formatting operations:
-
-| Original | Rewritten |
-|----------|-----------|
-| `f"Hello {name}"` | `taint_fstring_join("Hello ", name)` |
-| `"Hello {}".format(name)` | `taint_format_string("Hello {}", name)` |
-| `"Hello %s" % name` | `taint_percent_format("Hello %s", name)` |
+For **third-party code**:
+1. Collect taint from parent object (for methods) and all arguments
+2. Set `ACTIVE_TAINT` to the collected taint
+3. Call the function
+4. Add collected taint to the result
+5. Reset `ACTIVE_TAINT` to `[]`
 
 ## File Watcher
 
@@ -110,7 +92,7 @@ The file watcher is a daemon process that pre-compiles AST-rewritten Python file
 3. When a file changes:
    - Read the source file
    - Apply AST transformations
-   - Compile to `.pyc` in `__pycache__`
+   - Compile to `.pyc` in `__ao_cache__`
 
 ### Why Pre-compile?
 
@@ -120,26 +102,22 @@ Pre-compilation eliminates runtime overhead:
 - Python loads pre-compiled `.pyc` files natively
 - No startup delay for the user
 
-### AST Rewrite Verification
-
-To distinguish our `.pyc` files from standard Python-compiled ones:
-
-```python
-# Injected as first line of every rewritten module
-__ACO_AST_REWRITTEN__ = True
-```
-
-The file watcher checks for this marker to determine if recompilation is needed.
-
 ## Execution Flow
 
 1. **Server starts** → Spawns file watcher
 2. **File watcher** → Pre-compiles all user `.py` files with AST rewrites
-3. **User runs `aco-launch`** → Import hook ensures `.pyc` files exist
+3. **User runs `ao-record`** → Import hook ensures `.pyc` files exist
 4. **Python loads** → Uses pre-compiled `.pyc` with taint propagation
-5. **Monkey patches** → Intercept LLM calls, taint their outputs
+5. **Monkey patches** → Intercept LLM calls, add taint to outputs via TAINT_DICT
 6. **Code executes** → Taint propagates through AST-rewritten operations
-7. **LLM call reached** → Untaint inputs, detect origins, report to server
+7. **LLM call reached** → Extract taint origins, report to server
+
+## User Code vs Third-Party Code
+
+The system distinguishes between:
+
+- **User code:** Python files in the user's project. AST-rewritten to handle taint propagation automatically.
+- **Third-party code:** Libraries, built-ins, etc. Taint is passed through via `ACTIVE_TAINT`.
 
 ## Why Both AST Rewriting and Monkey Patching?
 
@@ -152,3 +130,7 @@ The file watcher checks for this marker to determine if recompilation is needed.
 
 - [API patching](api-patching.md) - How LLM APIs are intercepted
 - [Testing](testing.md) - Running the test suite
+
+## Reference
+
+For detailed implementation, see `src/server/taint_propagation.md`.

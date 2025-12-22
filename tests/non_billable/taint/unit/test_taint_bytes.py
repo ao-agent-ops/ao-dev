@@ -2,7 +2,7 @@
 """Test the TaintWrapper (bytes) functionality."""
 
 import pytest
-from aco.server.ast_helpers import taint_wrap, get_taint_origins, untaint_if_needed
+from ao.server.ast_helpers import taint_wrap, get_taint_origins, untaint_if_needed
 from ....utils import with_ast_rewriting_class
 
 
