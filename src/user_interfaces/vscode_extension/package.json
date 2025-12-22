@@ -1,9 +1,10 @@
 {
-  "name": "ao",
-  "displayName": "AO",
-  "description": "Visualize agent workflows. Preview for test users.",
+  "name": "ao-agent-dev",
+  "displayName": "AO Agent Dev",
+  "description": "Visualize, edit and improve agent workflows.",
+  "repository": "https://github.com/agent-ops-project/agent-dev",
   "version": "0.0.1",
-  "publisher": "agops",
+  "publisher": "agentops",
   "readme": "PKG_README.md",
   "engines": {
     "vscode": "^1.74.0"
