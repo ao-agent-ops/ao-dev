@@ -228,6 +228,7 @@ def find_additional_packages_in_project_root(project_root: str):
 # All of the below is implementing this heuristic search.
 # ==============================================================================
 def derive_project_root(start: str | None = None) -> str:
+    print("in derive proj root")
     """
     Walk upward from current working directory to infer a Python project root.
 
@@ -251,25 +252,30 @@ def derive_project_root(start: str | None = None) -> str:
     for p in _walk_up(cur):
         # Strong signal: repo/project markers at this directory
         if _has_project_markers(p) or _has_src_layout_hint(p):
+            print("in derive proj root:", str(p))
             return str(p)
 
         # If this segment cannot be in a Python dotted path, don't go above it.
         if not _segment_is_import_safe(p):
+            print("in derive proj root:", str(p))
             return str(p)
 
         # If this is a known "anchor" (Documents, Downloads, Program Files, /usr, etc.),
         # don't float above it; the project likely lives below.
         if _is_common_non_project_dir(p):
+            print("in derive proj root:", str(last_good))
             return str(last_good)
 
         # Don't float above a virtualenv boundary (if start happened to be inside one).
         if _looks_like_virtualenv_root(p):
+            print("in derive proj root:", str(last_good))
             return str(last_good)
 
         # If nothing special, this remains a reasonable candidate.
         last_good = p
 
     # We reached the OS root without a decisive marker.
+    print("in derive proj root:", str(last_good))
     return str(last_good)
 
 
