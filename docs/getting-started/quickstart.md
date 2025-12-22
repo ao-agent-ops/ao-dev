@@ -61,7 +61,7 @@ ao-server start
 
 ## Step 4: Run with AO
 
-Install the [AO VS Code Extension](vscode:extension/agentops.ao-agent-dev) from the VS Code marketplace.
+Install the [AO VS Code Extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev) from the VS Code marketplace.
 
 Open your `my-agent` folder in VS Code, then run the example with AO in the terminal:
 

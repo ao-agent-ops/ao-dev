@@ -44,7 +44,7 @@ You can set a custom run name using `--run-name`:
 ao-record --run-name "my-experiment" agent/run.py
 ```
 
-This feels *exactly* the same as running Python but also analyzes your code and populates our [VS Code extension](vscode:extension/agentops.ao-agent-dev):
+This feels *exactly* the same as running Python but also analyzes your code and populates our [VS Code extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev):
 
 - Program prints/reads to/from the same terminal, crashes the same, etc.
 - You can use the VS Code debugger normally

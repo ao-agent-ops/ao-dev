@@ -21,7 +21,7 @@ AO goes beyond being a simple observability tool:
 pip install ao-agent-dev
 ```
 
-Install the [AO VS Code Extension](vscode:extension/agentops.ao-agent-dev) from the VS Code marketplace.
+Install the [AO VS Code Extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev) from the VS Code marketplace.
 
 ### Step 1: Create an Example Project
 
