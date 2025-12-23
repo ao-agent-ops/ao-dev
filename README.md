@@ -84,4 +84,4 @@ See the [Installation Guide](https://agent-ops-project.github.io/ao-agent-dev/ge
 
 - [Join our Discord](https://discord.gg/fjsNSa6TAh)
 - [GitHub Issues](https://github.com/agent-ops-project/ao-agent-dev/issues)
-- We're just getting started on this tool and are eager to hear about any feedback or issues you ran into! We hope you enjoy it as much as we do.
+- We're just getting started on this tool and are eager to hear your feedback and resolve issues you ran into! We hope you enjoy it as much as we do.
