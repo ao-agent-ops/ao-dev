@@ -22,22 +22,8 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
   isDarkTheme,
   onNodeUpdate,
 }) => {
-  const [isGraphReady, setIsGraphReady] = useState(false);
   const [showNodeEditModal, setShowNodeEditModal] = useState(false);
   const [nodeEditData, setNodeEditData] = useState<{ nodeId: string; field: 'input' | 'output'; label: string; value: string } | null>(null);
-
-  // Reset graph ready state when graph data changes and set a short delay
-  useEffect(() => {
-    if (graphData) {
-      setIsGraphReady(false);
-      // Use a shorter, more reasonable delay
-      const timeout = setTimeout(() => {
-        setIsGraphReady(true);
-      }, 100); // Much shorter delay
-
-      return () => clearTimeout(timeout);
-    }
-  }, [graphData]);
 
   // Listen for showNodeEditModal messages from messageSender
   useEffect(() => {
@@ -103,29 +89,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
       {/* Graph View */}
       {graphData && (
         <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
-          {/* Loading overlay */}
-          {!isGraphReady && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: isDarkTheme ? "#252525" : "#F0F0F0",
-                zIndex: 1000,
-              }}
-            />
-          )}
-
-          {/* Graph (always rendered, but hidden until ready) */}
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              visibility: isGraphReady ? "visible" : "hidden"
-            }}
-          >
+          <div style={{ width: "100%", height: "100%" }}>
             <GraphView
               nodes={graphData.nodes || []}
               edges={graphData.edges || []}

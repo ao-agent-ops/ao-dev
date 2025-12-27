@@ -52,7 +52,7 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
         inputBorder: '#d0d0d0',
       };
 
-  const indent = depth * 20;
+  const indent = depth * 15;
 
   // Check if a value is a LosslessNumber from lossless-json library
   const isLosslessNumber = (val: any): boolean => {
@@ -323,7 +323,7 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
       >
         {keyName !== null && (
           <div style={{ marginBottom: '2px' }}>
-            <span style={{ color: colors.key }}>"{keyName}"</span>
+            <span style={{ color: colors.key }}>"{keyName?.split('.').pop() || keyName}"</span>
             <span style={{ color: colors.bracket }}>:</span>
           </div>
         )}
@@ -363,7 +363,7 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
         />
         {keyName !== null && (
           <>
-            <span style={{ color: colors.key }}>"{keyName}"</span>
+            <span style={{ color: colors.key }}>"{keyName?.split('.').pop() || keyName}"</span>
             <span style={{ color: colors.bracket }}>: </span>
           </>
         )}
@@ -448,7 +448,7 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
               keyName={isArray ? null : key}
               value={val}
               isDarkTheme={isDarkTheme}
-              depth={-1}
+              depth={0}
               isLast={index === arr.length - 1}
               path={[key]}
               onChange={onChange ? handleChange : undefined}

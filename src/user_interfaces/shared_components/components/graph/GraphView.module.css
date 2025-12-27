@@ -57,4 +57,9 @@
 .flowContainer {
   width: 100%;
   position: relative;
+}
+
+/* Smooth transitions for node position changes */
+.flowContainer :global(.react-flow__node) {
+  transition: transform 0.15s ease-out;
 } 
