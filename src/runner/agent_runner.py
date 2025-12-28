@@ -206,6 +206,12 @@ class AgentRunner:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+        # Start computing restart command in background (it's slow due to psutil)
+        from concurrent.futures import ThreadPoolExecutor
+
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._restart_command_future = self._executor.submit(self._generate_restart_command)
+
     def _send_message(self, msg_type: str, **kwargs) -> None:
         """Send a message to the develop server."""
         if not self.server_conn:
@@ -371,12 +377,12 @@ class AgentRunner:
             logger.error(f"Cannot connect to develop server: {e}")
             sys.exit(1)
 
+        # Build handshake without command (sent async later)
         handshake = {
             "type": "hello",
             "role": "agent-runner",
             "name": self.run_name,
             "cwd": os.getcwd(),
-            "command": self._generate_restart_command(),
             "environment": dict(os.environ),
             "process_id": self.process_id,
             "prev_session_id": os.getenv("AO_SESSION_ID"),
@@ -467,30 +473,8 @@ class AgentRunner:
         set_parent_session_id(self.session_id)
         set_server_connection(self.server_conn, self.response_queue)
 
-        # Apply monkey patches
+        # Apply monkey patches (includes random seeding - numpy/torch are lazy)
         apply_all_monkey_patches()
-
-        # Set random seeds
-        ao_random_seed = int(os.environ["AO_SEED"])
-        random.seed(ao_random_seed)
-
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", module="numpy")
-                from numpy.random import seed
-
-                seed(ao_random_seed)
-        except ImportError:
-            pass
-
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", module="torch")
-                from torch import manual_seed
-
-                manual_seed(ao_random_seed)
-        except ImportError:
-            pass
 
     def _convert_file_to_module_name(self, script_path: str) -> str:
         """Convert a file path to a module name that Python can import."""
@@ -616,6 +600,16 @@ class AgentRunner:
                 target=self._listen_for_server_messages, args=(self.server_conn,), daemon=True
             )
             self.listener_thread.start()
+
+            # Send restart command asynchronously (it's slow to compute, only needed for UI restart)
+            def send_restart_command():
+                try:
+                    cmd = self._restart_command_future.result()
+                    self._send_message("update_command", command=cmd)
+                except Exception as e:
+                    _log_error("Failed to send restart command", e)
+
+            threading.Thread(target=send_restart_command, daemon=True).start()
 
             # Use debug mode if running under debugpy, otherwise normal mode
             if self._is_debugpy_session():

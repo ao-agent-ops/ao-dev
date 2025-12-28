@@ -97,7 +97,6 @@ def launch_command(args):
 
 
 def main():
-    # Parse sample_id and user_id from the original argv before we filter them
     parser = launch_command_parser()
     args = parser.parse_args()
     launch_command(args)

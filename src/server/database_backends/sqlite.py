@@ -295,6 +295,14 @@ def update_experiment_notes_query(notes, session_id):
     )
 
 
+def update_experiment_command_query(command, session_id):
+    """Execute SQLite-specific UPDATE for experiments command"""
+    execute(
+        "UPDATE experiments SET command=? WHERE session_id=?",
+        (command, session_id),
+    )
+
+
 def update_experiment_log_query(
     updated_log, updated_success, color_preview_json, graph_json, session_id
 ):

@@ -2,7 +2,6 @@ name: Pytest
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
   issue_comment:
     types: [created]
@@ -214,6 +213,7 @@ jobs:
           script: |
             const debugResult = '${{ needs.billable-debug-examples.result }}';
             const cachingResult = '${{ needs.billable-caching-edit.result }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             
             const allPassed = debugResult === 'success' && cachingResult === 'success';
             const reaction = allPassed ? 'rocket' : '-1';
@@ -225,8 +225,9 @@ jobs:
               content: reaction
             });
             
-            const status = allPassed ? '✅ All billable tests passed!' : 
-              `❌ Billable tests failed:\n- Debug Examples: ${debugResult}\n- Caching Edit: ${cachingResult}`;
+            const status = allPassed 
+              ? `✅ All billable tests passed! [View logs](${runUrl})`
+              : `❌ Billable tests failed ([View logs](${runUrl})):\n- Debug Examples: ${debugResult}\n- Caching Edit: ${cachingResult}`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,

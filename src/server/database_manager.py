@@ -293,6 +293,10 @@ class DatabaseManager:
         """Update the experiment notes."""
         self.backend.update_experiment_notes_query(notes, session_id)
 
+    def update_command(self, session_id, command):
+        """Update the experiment restart command."""
+        self.backend.update_experiment_command_query(command, session_id)
+
     def _color_graph_nodes(self, graph, color):
         """Update border_color for each node."""
         # Update border_color for each node
