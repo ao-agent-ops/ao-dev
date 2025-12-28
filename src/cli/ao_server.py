@@ -30,10 +30,10 @@ import socket
 import time
 import subprocess
 from argparse import ArgumentParser
-from ao.common.logger import logger
+
+from ao.common.logger import logger, create_file_logger
 
 from ao.common.constants import (
-    AO_LOG_PATH,
     AO_DEVELOP_SERVER_LOG,
     AO_FILE_WATCHER_LOG,
     HOST,
@@ -44,19 +44,19 @@ from ao.common.constants import (
 
 from ao.server.develop_server import DevelopServer, send_json
 
+# Create file logger for server startup timing (only used in _serve command)
+_server_logger = create_file_logger("AO.ServerStartup", AO_DEVELOP_SERVER_LOG)
+
 
 def launch_daemon_server() -> None:
     """
     Launch the develop server as a detached daemon process with proper stdio handling.
     """
-    # Create log file path
-    log_file = AO_LOG_PATH
-
     # Ensure log directory exists
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    os.makedirs(os.path.dirname(AO_DEVELOP_SERVER_LOG), exist_ok=True)
 
-    # Open log file for the daemon
-    with open(log_file, "a+") as log_f:
+    # Open log file for the daemon (all logs go to develop_server.log)
+    with open(AO_DEVELOP_SERVER_LOG, "a+") as log_f:
         subprocess.Popen(
             [sys.executable, "-m", "ao.cli.ao_server", "_serve"],
             close_fds=True,
@@ -164,7 +164,7 @@ def execute_server_command(args):
 
     elif args.command == "clear-logs":
         # Clear all server log files
-        log_files = [AO_LOG_PATH, AO_DEVELOP_SERVER_LOG, AO_FILE_WATCHER_LOG]
+        log_files = [AO_DEVELOP_SERVER_LOG, AO_FILE_WATCHER_LOG]
         for log_path in log_files:
             try:
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)
@@ -177,12 +177,10 @@ def execute_server_command(args):
 
     elif args.command == "_serve":
         # Internal: run the server loop (not meant to be called by users directly)
-        import time as _time
-
+        _server_logger.info(f"[ao_server] Imports completed in {_time.time() - _import_start:.2f}s")
         _start = _time.time()
-        logger.info(f"[ao_server] _serve command started at {_start}")
         server = DevelopServer()
-        logger.info(f"[ao_server] DevelopServer created in {_time.time() - _start:.2f}s")
+        _server_logger.info(f"[ao_server] DevelopServer created in {_time.time() - _start:.2f}s")
         server.run_server()
 
 

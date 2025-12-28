@@ -121,7 +121,6 @@ AO_LOG_DIR = os.path.expandvars(
     )
 )
 os.makedirs(AO_LOG_DIR, exist_ok=True)
-AO_LOG_PATH = os.path.join(AO_LOG_DIR, "server.log")  # Legacy, used by develop_server
 AO_DEVELOP_SERVER_LOG = os.path.join(AO_LOG_DIR, "develop_server.log")
 AO_FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")
 

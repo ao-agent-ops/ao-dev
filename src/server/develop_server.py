@@ -15,7 +15,6 @@ from ao.common.utils import MODULES_TO_FILES
 from ao.common.logger import create_file_logger
 from ao.common.constants import (
     AO_CONFIG,
-    AO_LOG_PATH,
     AO_DEVELOP_SERVER_LOG,
     HOST,
     PORT,
@@ -907,13 +906,6 @@ class DevelopServer:
 
         signal.signal(signal.SIGTERM, shutdown_handler)
         signal.signal(signal.SIGINT, shutdown_handler)
-
-        # Clear the log file on server startup
-        try:
-            with open(AO_LOG_PATH, "w"):
-                pass  # Just truncate the file
-        except Exception as e:
-            logger.warning(f"Could not clear log file on startup: {e}")
 
         logger.info(f"[DevelopServer] Creating socket... ({time.time() - _run_start:.2f}s)")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

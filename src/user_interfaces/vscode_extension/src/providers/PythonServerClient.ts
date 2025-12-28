@@ -100,6 +100,7 @@ export class PythonServerClient {
         });
 
         this.client.on('close', () => {
+            this.client = undefined;  // Reset so ensureConnected() will reconnect
             this.reconnecting = false;
             // Clear any pending reconnect
             if (this.reconnectTimer) {

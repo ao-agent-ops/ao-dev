@@ -13,7 +13,9 @@ from dataclasses import dataclass
 from typing import Optional, Any
 
 from ao.common.logger import logger
-from ao.server.database_backends import postgres
+
+# NOTE: postgres backend is currently disabled - uncomment when needed
+# from ao.server.database_backends import postgres
 from ao.runner.monkey_patching.api_parser import (
     get_model_name,
     func_kwargs_to_json_str,
