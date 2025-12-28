@@ -246,3 +246,5 @@ CLAUDE.local.md
 *.ao_rewritten.py
 # Misc
 run_debug_examples.sh
+
+*.ipynb
