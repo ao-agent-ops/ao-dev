@@ -293,6 +293,10 @@ class DatabaseManager:
         """Update the experiment notes."""
         self.backend.update_experiment_notes_query(notes, session_id)
 
+    def update_command(self, session_id, command):
+        """Update the experiment restart command."""
+        self.backend.update_experiment_command_query(command, session_id)
+
     def _color_graph_nodes(self, graph, color):
         """Update border_color for each node."""
         # Update border_color for each node
@@ -439,7 +443,9 @@ class DatabaseManager:
         row = self.backend.get_llm_call_by_session_and_hash_query(session_id, input_hash)
 
         if row is None:
-            logger.debug(f"Cache MISS, (session_id, input_hash): {(session_id, input_hash)}")
+            logger.debug(
+                f"Cache miss: session_id {str(session_id)[:4]}, input_hash {str(input_hash)[:4]}"
+            )
             return CacheOutput(
                 input_dict=input_dict,
                 output=None,
@@ -453,13 +459,9 @@ class DatabaseManager:
         node_id = row["node_id"]
         output = None
 
-        logger.debug(
-            f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
-        )
-
         if row["input_overwrite"] is not None:
             logger.debug(
-                f"Cache HIT - Input overwrite, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+                f"Cache hit (input overwritten): session_id {str(session_id)[:4]}, input_hash {str(input_hash)[:4]}"
             )
             overwrite_json_str = row["input_overwrite"]
             overwrite_text = json.loads(overwrite_json_str)["input"]
@@ -476,7 +478,7 @@ class DatabaseManager:
         if row["output"] is not None:
             output = json_str_to_api_obj(row["output"], api_type)
             logger.debug(
-                f"Cache HIT, (session_id, node_id, input_hash): {(session_id, node_id, input_hash)}"
+                f"Cache hit (output set): session_id {str(session_id)[:4]}, input_hash {str(input_hash)[:4]}"
             )
 
         set_seed(node_id)

@@ -8,6 +8,22 @@ the user's installation of the APIs because they change all the time.
 import pytest
 import sys
 import builtins
+import importlib
+
+
+def _get_all_patch_functions():
+    """Dynamically load all patch functions from LAZY_PATCHES."""
+    from ao.runner.monkey_patching.apply_monkey_patches import LAZY_PATCHES
+
+    patch_functions = []
+    for module_prefix, (patch_module, patch_func_name) in LAZY_PATCHES.items():
+        try:
+            mod = importlib.import_module(patch_module)
+            patch_func = getattr(mod, patch_func_name)
+            patch_functions.append(patch_func)
+        except ImportError:
+            pass  # Skip if the patch module itself can't be imported
+    return patch_functions
 
 
 class TestOptionalDependencies:
@@ -46,10 +62,10 @@ class TestOptionalDependencies:
             # Apply the comprehensive mock
             builtins.__import__ = mock_import
 
-            # Import module
-            from ao.runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            # Get all patch functions dynamically from LAZY_PATCHES
+            patch_functions = _get_all_patch_functions()
 
-            for patch_func in CUSTOM_PATCH_FUNCTIONS:
+            for patch_func in patch_functions:
                 try:
                     patch_func()
                     print(f"✓ {patch_func.__name__} handled missing dependency gracefully")
@@ -74,11 +90,11 @@ class TestOptionalDependencies:
         print("\nTesting import with API dependencies...")
 
         try:
-            # Import module normally (no mocking)
-            from ao.runner.monkey_patching.apply_monkey_patches import CUSTOM_PATCH_FUNCTIONS
+            # Get all patch functions dynamically from LAZY_PATCHES
+            patch_functions = _get_all_patch_functions()
 
             # Test each patch function
-            for patch_func in CUSTOM_PATCH_FUNCTIONS:
+            for patch_func in patch_functions:
                 try:
                     patch_func()
                     print(f"✓ {patch_func.__name__} succeeded with dependencies available")

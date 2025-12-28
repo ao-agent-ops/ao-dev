@@ -62,12 +62,8 @@ class DevelopServer:
         self.file_watcher_process = None  # Child process for file watching
         # self.current_user_id = None  # Store the current authenticated user_id (auth disabled)
         self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
-        logger.info(f"[DevelopServer] Creating GitVersioner...")
-        _git_start = time.time()
         self.git_versioner = GitVersioner()
-        logger.info(f"[DevelopServer] GitVersioner created in {time.time() - _git_start:.2f}s")
         self._last_activity_time = time.time()  # Track last message received for inactivity timeout
-        logger.info(f"[DevelopServer] __init__ completed in {time.time() - _init_start:.2f}s")
 
     # ============================================================
     # File Watcher Management
@@ -529,6 +525,16 @@ class DevelopServer:
                 f"[DevelopServer] handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
             )
 
+    def handle_update_command(self, msg: dict) -> None:
+        """Update the restart command for a session (sent async after handshake)."""
+        session_id = msg.get("session_id")
+        command = msg.get("command")
+        if session_id and command:
+            session = self.sessions.get(session_id)
+            if session:
+                session.command = command
+                DB.update_command(session_id, command)
+
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
         session_id = msg["session_id"]
 
@@ -750,6 +756,8 @@ class DevelopServer:
             self.handle_set_database_mode(msg)
         elif msg_type == "get_all_experiments":
             self.handle_get_all_experiments(conn)
+        elif msg_type == "update_command":
+            self.handle_update_command(msg)
         else:
             logger.error(f"[DevelopServer] Unknown message type. Message:\n{msg}")
 

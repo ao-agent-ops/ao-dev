@@ -165,6 +165,11 @@ class FileWatcher:
             if "__pycache__" in file_path:
                 continue
 
+            # Skip __init__.py files - they use normal Python import mechanism
+            # (avoids circular import issues from injected taint imports)
+            if os.path.basename(file_path) == "__init__.py":
+                continue
+
             # Convert to absolute path
             abs_path = os.path.abspath(file_path)
             python_files.add(abs_path)

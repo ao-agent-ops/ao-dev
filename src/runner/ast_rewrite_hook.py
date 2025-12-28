@@ -30,6 +30,11 @@ class ASTImportLoader(SourceLoader):
 
     def source_to_code(self, data, path, *, _optimize=-1):
         code_object = data
+        # Skip .pyc loading for __init__.py - file_watcher doesn't compile them
+        # to avoid circular import issues from injected taint imports
+        if os.path.basename(path) == "__init__.py":
+            code_object = rewrite_source_to_code(data, path, module_to_file=_module_to_user_file)
+            return code_object
         try:
             pyc_path = get_pyc_path(path)
             file_mtime = os.path.getmtime(path)
