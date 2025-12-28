@@ -1,4 +1,13 @@
-debug-billable:
+name: Pytest
+
+on:
+  push:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+jobs:
+  debug-billable:
     name: Debug Billable Trigger
     if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
@@ -9,9 +18,6 @@ debug-billable:
           echo "Comment body: ${{ github.event.comment.body }}"
           echo "Contains trigger: ${{ contains(github.event.comment.body, '/run-billable-tests') }}"
 
-billable-permission-check:
+  billable-permission-check:
     name: Billable Tests / Permission Check
-    if: |
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request != null &&
-      contains(github.event.comment.body, '/run-billable-tests')
+    # ... rest of the job
