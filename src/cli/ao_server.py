@@ -51,7 +51,7 @@ _server_logger = create_file_logger("AO.ServerStartup", MAIN_SERVER_LOG)
 
 def launch_daemon_server() -> None:
     """
-    Launch the develop server as a detached daemon process with proper stdio handling.
+    Launch the main server as a detached daemon process with proper stdio handling.
     """
     # Ensure log directory exists
     os.makedirs(os.path.dirname(MAIN_SERVER_LOG), exist_ok=True)
@@ -98,13 +98,13 @@ def execute_server_command(args):
         # If server is already running, do not start another
         try:
             socket.create_connection((HOST, PORT), timeout=SOCKET_TIMEOUT).close()
-            logger.info("Develop server is already running.")
+            logger.info("Main server is already running.")
             return
         except Exception:
             pass
         # Launch the server as a detached background process (POSIX)
         launch_daemon_server()
-        logger.info("Develop server started.")
+        logger.info("Main server started.")
 
     elif args.command == "stop":
         # Connect to the server and send a shutdown command
@@ -114,7 +114,7 @@ def execute_server_command(args):
             send_json(sock, handshake)
             send_json(sock, {"type": "shutdown"})
             sock.close()
-            logger.info("Develop server stop signal sent.")
+            logger.info("Main server stop signal sent.")
         except Exception:
             logger.warning("No running server found.")
             sys.exit(1)
@@ -128,13 +128,13 @@ def execute_server_command(args):
             send_json(sock, handshake)
             send_json(sock, {"type": "shutdown"})
             sock.close()
-            logger.info("Develop server stop signal sent (for restart). Waiting for shutdown...")
+            logger.info("Main server stop signal sent (for restart). Waiting for shutdown...")
             time.sleep(SHUTDOWN_WAIT)
         except Exception:
             logger.info("No running server found. Proceeding to start.")
         # Start the server
         launch_daemon_server()
-        logger.info("Develop server restarted.")
+        logger.info("Main server restarted.")
 
     elif args.command == "clear":
         # Connect to the server and send a clear command
@@ -145,7 +145,7 @@ def execute_server_command(args):
             send_json(sock, handshake)
             send_json(sock, {"type": "clear"})
             sock.close()
-            logger.info("Develop server clear signal sent.")
+            logger.info("Main server clear signal sent.")
         except Exception:
             logger.warning("No running server found.")
             sys.exit(1)

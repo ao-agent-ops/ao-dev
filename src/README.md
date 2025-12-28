@@ -80,9 +80,9 @@ If you want to print the server logs, do `ao-server logs`. The server logs can b
 
 These are the processes running. 
 
-1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py` --- they can also use the debugger to run their script, which also feels completely normal. Under the hood the `ao-record` command monkey patches certain functions and logs runtime events to the `develop server`. [Code](/src/runner/)
-2. Develop server (blue): The `develop server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `develop server` happens over a TCP socket (default: 5959). [Code](/src/server/)
-3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `develop server`. TODO: The VS Code extension spawns the `develop server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits. [Code](/src/user_interfaces/)
+1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py` --- they can also use the debugger to run their script, which also feels completely normal. Under the hood the `ao-record` command monkey patches certain functions and logs runtime events to the `main server`. [Code](/src/runner/)
+2. Develop server (blue): The `main server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `main server` happens over a TCP socket (default: 5959). [Code](/src/server/)
+3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `main server`. TODO: The VS Code extension spawns the `main server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits. [Code](/src/user_interfaces/)
 
 ![Processes overview](/docs/media/processes.png)
 
@@ -95,20 +95,26 @@ These are the processes running.
 
 Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billable"](/tests/billable) tests. Billable tests use third-party APIs and therefore incur costs. You should run both of these tests locally to make sure your code works as expected.  In our CI/CD, we run non-billable tests on every commit and, before a PR is merged, an admin will also run the billable tests on it. 
 
-### Publishing
+## Publishing
 
-#### pip package
+### pip package
+
+ - The description of the pip package on PyPi will be the README in /docs/PKG_README.
 
 1. ‼️ Check `pyproject.toml`: Does everything look like what you want to upload (version number, package name). The package description that will appear on PyPI is in `PKG_README.md`.
-2. Install `pip install build twine` if you haven't already.
-3. Run `python -m build` in root dir. This wil create a `dist/` dir.
-4. Test locally: `pip install dist/agops_bird-0.0.2-py3-none-any.whl` (you need to check the name of the `.whl` file).
-5. Do a test upload, it's worth it. Publish to TestPyPI first: `python -m twine upload --repository testpypi dist/*`. Then try to install from TestPyPi. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our TestPyPI account.
-6. When installing from TestPyPI, do the following (just swap out the package name at the end of the command): `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ agops-bird==0.0.6`
-7. Upload to PyPI: `python -m twine upload dist/*`. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our PyPI account.
+2. ‼️ Remember to set the logger level (not server_logger) to CRITICAL. The server_logger can stay at DEBUG.
+3. Install `pip install build twine` if you haven't already.
+4. Run `python -m build` in root dir. This wil create a `dist/` dir.
+5. Test locally: `pip install dist/agops_bird-0.0.2-py3-none-any.whl` (you need to check the name of the `.whl` file).
+6. Do a test upload, it's worth it. Publish to TestPyPI first: `python -m twine upload --repository testpypi dist/*`. Then try to install from TestPyPi. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our TestPyPI account. The purpose of this is that version numbers can't be reused on PyPi und buggy versions can't be removed.
+7. When installing from TestPyPI, do the following (just swap out the package name at the end of the command): `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ agops-bird==0.0.6`
+8. Upload to PyPI: `python -m twine upload dist/*`. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our PyPI account.
 
 
-#### VS Code extension
+### VS Code extension
+
+- The description of the pip package on VS Code Marketplace will be the README in /src/user_interfaces/vscode_extension/PKG_README.md.
+- You can change the icon, look at statistics or upload the file through a web app at https://marketplace.visualstudio.com/manage/. Ask Ferdi (ferdi.kossmann@gmail.com) if you need our log in.
 
 1. ‼️ Look at `src/user_interface/package.json`. Make sure name, description, version are what you want.
 1. Install `npm install -g @vscode/vsce` if you haven't already.
@@ -116,7 +122,7 @@ Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billab
 3. Create VSIX package: `vsce package` . If you get errors like `npm error extraneous`, you need to `rm -rf node_modules package-lock.json`
 4. `vsce publish`. Ask Ferdi (ferdi.kossmann@gmail.com) for personal access token if you don't have it.
 
-#### Web app
+### Web app
 
 > [!NOTE]  
 > We shut down the web app for now.

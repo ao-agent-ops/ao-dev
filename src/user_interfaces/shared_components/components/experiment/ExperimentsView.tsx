@@ -271,8 +271,8 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     const listContainerStyle: React.CSSProperties = {
       display: 'flex',
       flexDirection: 'column',
-      height: isExpanded ? `${sizePercent}%` : 'auto',
-      minHeight: isExpanded ? '0' : undefined,
+      flex: isExpanded ? sizePercent : 'none',
+      minHeight: isExpanded ? 0 : undefined,
       overflow: 'hidden',
     };
 
