@@ -10,6 +10,4 @@ tsconfig.json
 **/*.ts
 !dist/**/*.js
 node_modules/**
-../webapp/**
-../node_modules/**
 *.md

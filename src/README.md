@@ -118,9 +118,10 @@ Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billab
 
 1. ‼️ Look at `src/user_interface/package.json`. Make sure name, description, version are what you want.
 1. Install `npm install -g @vscode/vsce` if you haven't already.
-2. `cd src/user_interface`
-3. Create VSIX package: `vsce package` . If you get errors like `npm error extraneous`, you need to `rm -rf node_modules package-lock.json`
-4. `vsce publish`. Ask Ferdi (ferdi.kossmann@gmail.com) for personal access token if you don't have it.
+2. `cd src/user_interfaces/vscode_extension`
+3. Create VSIX package: `./build-vsix.sh`
+4. Try to install it locally to see if it works: Go to the marketplace, click the three dots at the top right of the panel, click "Install from VSIX...", check it out.
+5. Publish to store: `vsce publish` or via https://marketplace.visualstudio.com/manage/. Ask Ferdi (ferdi.kossmann@gmail.com) for personal access token / log in if you don't have it.
 
 ### Web app
 

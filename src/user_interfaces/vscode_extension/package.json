@@ -3,7 +3,7 @@
   "displayName": "AO Agent Dev",
   "description": "Visualize, edit and improve agent workflows.",
   "repository": "https://github.com/agent-ops-project/agent-dev",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "publisher": "agentops",
   "readme": "PKG_README.md",
   "engines": {
@@ -77,7 +77,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "npm run package && rm -f dist/*.map",
     "compile": "webpack",
     "build": "webpack",
     "watch": "webpack --watch",
