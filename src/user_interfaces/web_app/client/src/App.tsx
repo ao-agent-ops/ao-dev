@@ -112,11 +112,6 @@ function App() {
         window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
           detail: message.payload
         }));
-      } else if (
-        message.type === "trackNodeInputView" ||
-        message.type === "trackNodeOutputView"
-      ) {
-        // Telemetry - no action needed in webapp
       } else if (message.type === "navigateToCode") {
         // Code navigation not available in webapp
       } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -193,6 +188,10 @@ function App() {
 
         case "graph_update":
           if (msg.payload) {
+            console.log('[App] graph_update received:', {
+              nodes: msg.payload.nodes?.length,
+              edges: msg.payload.edges?.map((e: any) => e.id)
+            });
             setGraphData(msg.payload);
           }
           break;

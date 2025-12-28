@@ -120,6 +120,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
     widthSpan: number;
   } | null>(null);
 
+  // Track previous structure and width to detect when layout recalc is needed
+  const prevLayoutRef = useRef<{ nodeIds: string; edgeIds: string; width: number } | null>(null);
+
   const handleNodeUpdate = useCallback(
     (nodeId: string, field: keyof GraphNode, value: string) => {
       onNodeUpdate(nodeId, field, value);
@@ -138,10 +141,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
   // Calculate the graph layout (node and edge positions) - should only change when nodes/edges change
   const calculateLayout = useCallback(() => {
     // Don't calculate layout until we have actual container dimensions
-    if (maxContainerWidth === null) return;
+    if (containerWidth === 0) return;
 
-    // Use the maximum available width (without metadata panel) for layout calculation
-    const layout = layoutEngine.layoutGraph(initialNodes, initialEdges, maxContainerWidth);
+    // Use the current container width for layout calculation (responds to resize)
+    const layout = layoutEngine.layoutGraph(initialNodes, initialEdges, containerWidth);
 
     // Calculate if we have left bands that need negative positioning
     const hasLeftBands = layout.edges.some(edge => edge.band?.includes('Left'));
@@ -247,7 +250,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
     messageSender,
     isDarkTheme,
     layoutEngine,
-    maxContainerWidth
+    containerWidth
   ]);
 
   // Calculate viewport (zoom and position) based on current container width
@@ -275,10 +278,43 @@ export const GraphView: React.FC<GraphViewProps> = ({
     // Don't increment rfKey here - it causes a flash during metadata panel toggle
   }, [containerWidth, isMetadataPanelOpen]);
 
-  // Recalculate layout when nodes/edges change
+  // Recalculate layout when structure or width changes, or update data in place if only content changed
   useEffect(() => {
-    calculateLayout();
-  }, [calculateLayout]);
+    // Don't process until we have container dimensions
+    if (containerWidth === 0) return;
+
+    const currentNodeIds = initialNodes.map(n => n.id).sort().join(',');
+    const currentEdgeIds = initialEdges.map(e => e.id).sort().join(',');
+    const prev = prevLayoutRef.current;
+
+    const structureChanged = !prev || prev.nodeIds !== currentNodeIds || prev.edgeIds !== currentEdgeIds;
+    const widthChanged = !prev || prev.width !== containerWidth;
+
+    if (structureChanged || widthChanged) {
+      // Structure or width changed - need full layout recalculation
+      calculateLayout();
+      prevLayoutRef.current = { nodeIds: currentNodeIds, edgeIds: currentEdgeIds, width: containerWidth };
+    } else {
+      // Only data changed - update node data in place without layout recalc
+      setNodes(currentNodes => currentNodes.map(node => {
+        const updatedData = initialNodes.find(n => n.id === node.id);
+        if (updatedData) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              ...updatedData,
+              onUpdate: handleNodeUpdate,
+              session_id,
+              messageSender,
+              isDarkTheme,
+            },
+          };
+        }
+        return node;
+      }));
+    }
+  }, [initialNodes, initialEdges, calculateLayout, setNodes, handleNodeUpdate, session_id, messageSender, isDarkTheme, containerWidth]);
 
   // Update viewport when container width changes (metadata panel opens/closes)
   useEffect(() => {

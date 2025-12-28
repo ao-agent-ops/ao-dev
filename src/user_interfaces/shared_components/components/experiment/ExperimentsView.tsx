@@ -310,7 +310,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
       cursor: 'ns-resize',
       backgroundColor: 'transparent',
       borderTop: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
-      borderBottom: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
       transition: 'background-color 0.1s',
     };
 
@@ -380,23 +379,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                     return <i className="codicon codicon-circle-outline" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.6 }} />;
                   };
 
-                  // Format timestamp to "Mon dd yyyy hh:mm" format
-                  const formatDate = (timestamp?: string) => {
-                    if (!timestamp) return 'No date';
-                    try {
-                      const date = new Date(timestamp);
-                      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                      const month = months[date.getMonth()];
-                      const day = date.getDate();
-                      const year = date.getFullYear();
-                      const hours = date.getHours().toString().padStart(2, '0');
-                      const minutes = date.getMinutes().toString().padStart(2, '0');
-                      return `${month} ${day} ${year} ${hours}:${minutes}`;
-                    } catch {
-                      return timestamp;
-                    }
-                  };
-
                   return (
                     <div
                       key={process.session_id}
@@ -420,34 +402,21 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                         {process.run_name || 'Untitled'}
                       </span>
                       <span style={{ flex: 1 }} />
-                      <span style={{
-                        fontSize: '11px',
-                        color: isDarkTheme ? '#858585' : '#8e8e8e',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {formatDate(process.timestamp)}
-                      </span>
-                      <span style={{
-                        width: '60px',
-                        marginLeft: '8px',
-                        display: 'inline-block',
-                        textAlign: 'right',
-                      }}>
-                        {process.code_hash && (
-                          <span style={{
-                            fontSize: '10px',
-                            fontFamily: 'monospace',
-                            color: hashColors.text,
-                            backgroundColor: hashColors.bg,
-                            padding: '1px 4px',
-                            borderRadius: '2px',
-                            whiteSpace: 'nowrap',
-                            lineHeight: '1',
-                          }}>
-                            {process.code_hash}
-                          </span>
-                        )}
-                      </span>
+                      {process.code_hash && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontFamily: 'monospace',
+                          color: hashColors.text,
+                          backgroundColor: hashColors.bg,
+                          padding: '1px 4px',
+                          borderRadius: '2px',
+                          whiteSpace: 'nowrap',
+                          lineHeight: '1',
+                          marginRight: '0px',
+                        }}>
+                          {process.code_hash}
+                        </span>
+                      )}
                     </div>
                   );
                 });

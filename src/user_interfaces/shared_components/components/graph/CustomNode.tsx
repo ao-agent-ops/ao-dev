@@ -52,18 +52,6 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   const handleAction = async (action: string) => {
     switch (action) {
       case "editInput":
-        // Track node input view through MessageSender
-        data.messageSender.send({
-          type: "trackNodeInputView",
-          payload: {
-            id,
-            input: data.input || '',
-            session_id: data.session_id || '',
-            label: data.label || ''
-          }
-        });
-
-        // Request to show node edit modal
         data.messageSender.send({
           type: "showNodeEditModal",
           payload: {
@@ -75,18 +63,6 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         });
         break;
       case "editOutput":
-        // Track node output view through MessageSender
-        data.messageSender.send({
-          type: "trackNodeOutputView",
-          payload: {
-            id,
-            output: data.output || '',
-            session_id: data.session_id || '',
-            label: data.label || ''
-          }
-        });
-        
-        // Request to show node edit modal
         data.messageSender.send({
           type: "showNodeEditModal",
           payload: {

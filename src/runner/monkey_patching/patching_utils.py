@@ -82,6 +82,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
     model = get_model_name(input_dict, api_type)
 
     # Send node
+    # print("sending node:", node_id, "-->", source_node_ids)
     node_msg = {
         "type": "add_node",
         "session_id": get_session_id(),

@@ -33,13 +33,16 @@ class ThreadSafeTaintDict:
     def add(self, obj, taint):
         """Add object with taint origins, keeping reference alive."""
         with self._lock:
-            self._dict[id(obj)] = (obj, list(taint))
+            obj_id = id(obj)
+            self._dict[obj_id] = (obj, list(taint))
 
     def get_taint(self, obj):
         """Get taint origins for object. Returns [] if not found."""
         with self._lock:
-            entry = self._dict.get(id(obj))
-            return list(entry[1]) if entry else []
+            obj_id = id(obj)
+            entry = self._dict.get(obj_id)
+            result = list(entry[1]) if entry else []
+            return result
 
     def has_taint(self, obj):
         """Check if object has a taint entry."""
@@ -60,3 +63,10 @@ class ThreadSafeTaintDict:
         """Check if object has a taint entry (for 'in' operator)."""
         with self._lock:
             return id(obj) in self._dict
+
+    def debug_dump(self, prefix=""):
+        """Print all entries for debugging."""
+        with self._lock:
+            print(f"{prefix}TAINT_DICT has {len(self._dict)} entries:")
+            for obj_id, (obj, taint) in self._dict.items():
+                print(f"  id={obj_id}, taint={taint}, obj={repr(obj)[:80]}")

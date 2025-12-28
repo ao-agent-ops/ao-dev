@@ -14,7 +14,6 @@ export class PythonServerClient {
     private serverPort: number;
     private serverUrl?: string;
     private useWebSocket = false;
-    private reconnecting = false;
     private reconnectTimer: NodeJS.Timeout | undefined;
 
     private constructor() {
@@ -38,35 +37,36 @@ export class PythonServerClient {
     }
 
     public async ensureConnected() {
+        console.log('[AO] ensureConnected called, client exists:', !!this.client);
         if (!this.client) {
-            // Check for authentication before connecting
-            try {
-                const vscode = await import('vscode');
-                const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
-                if (session) {
-                    this.userId = session.account.id;
-                }
-            } catch (error) {
-                // Authentication check failed, continue without user_id
-                console.error('Failed to check authentication before connection:', error);
-            }
+            // Google auth disabled - feature not yet visible in UI
+            // try {
+            //     const vscode = await import('vscode');
+            //     const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
+            //     if (session) {
+            //         this.userId = session.account.id;
+            //     }
+            // } catch (error) {
+            //     // Authentication check failed, continue without user_id
+            //     console.error('Failed to check authentication before connection:', error);
+            // }
             this.connect();
         }
     }
 
     private connect() {
+        console.log('[AO] connect() called');
         // Clean up existing client before reconnecting
         if (this.client) {
             this.client.removeAllListeners();
             this.client.destroy();
         }
-        
+
         // Create a new socket for each connection attempt
         this.client = new net.Socket();
-        
+
         this.client.connect(5959, '127.0.0.1', () => {
-            this.reconnecting = false;
-            
+            console.log('[AO] Connected successfully');
             const handshake: any = {
                 type: "hello",
                 role: "ui",
@@ -100,7 +100,8 @@ export class PythonServerClient {
         });
 
         this.client.on('close', () => {
-            this.reconnecting = false;
+            console.log('[AO] Connection closed');
+            this.client = undefined;  // Reset so ensureConnected() will reconnect
             // Clear any pending reconnect
             if (this.reconnectTimer) {
                 clearTimeout(this.reconnectTimer);
@@ -109,9 +110,14 @@ export class PythonServerClient {
             this.reconnectTimer = setTimeout(() => this.ensureConnected(), 2000);
         });
 
-        this.client.on('error', () => {
-            // Don't call connect() again here since 'close' will also fire
-            // This prevents double reconnection attempts
+        this.client.on('error', (err: any) => {
+            console.log('[AO] Connection error:', err.code, err.message);
+            // Connection refused means server isn't running - try to start it
+            if (err.code === 'ECONNREFUSED') {
+                console.log('[AO] Server not running, starting...');
+                this.startServerIfNeeded();
+            }
+            // Don't reconnect here - 'close' event fires after 'error' and handles reconnection
         });
     }
 
@@ -141,15 +147,49 @@ export class PythonServerClient {
             }
         }
 
-        // fallback: queue message
+        // No connection - queue message and trigger reconnection
+        console.log('[AO] No connection, queuing message and triggering reconnect');
         this.messageQueue.push(msgStr);
+        this.ensureConnected();
     }
 
     public startServerIfNeeded() {
-        child_process.spawn('python', ['src/server/develop_server.py', 'start'], {
+        console.log('[AO] startServerIfNeeded() called');
+        const pythonPath = this.getPythonPath();
+        console.log(`[AO] Starting server with: ${pythonPath} -m ao.cli.ao_server start`);
+
+        const proc = child_process.spawn(pythonPath, ['-m', 'ao.cli.ao_server', 'start'], {
             detached: true,
-            stdio: 'ignore'
-        }).unref();
+            stdio: 'pipe',
+            shell: false
+        });
+        proc.stdout?.on('data', (data) => console.log('[AO] server stdout:', data.toString()));
+        proc.stderr?.on('data', (data) => console.log('[AO] server stderr:', data.toString()));
+        proc.on('error', (err) => console.log('[AO] spawn error:', err));
+        proc.on('exit', (code) => console.log('[AO] spawn exit code:', code));
+        proc.unref();
+    }
+
+    private getPythonPath(): string {
+        // Read python_executable from ~/.cache/ao/config.yaml
+        const configPath = require('path').join(require('os').homedir(), '.cache', 'ao', 'config.yaml');
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(configPath)) {
+                const content = fs.readFileSync(configPath, 'utf8');
+                // Simple YAML parsing for python_executable field
+                const match = content.match(/python_executable:\s*(.+)/);
+                if (match && match[1]) {
+                    const pythonPath = match[1].trim();
+                    console.log('[AO] Found python_executable in config:', pythonPath);
+                    return pythonPath;
+                }
+            }
+        } catch (err) {
+            console.log('[AO] Could not read config:', err);
+        }
+        console.log('[AO] No python_executable in config, falling back to python3');
+        return 'python3';
     }
 
     public stopServer() {
@@ -188,23 +228,5 @@ export class PythonServerClient {
         this.messageCallbacks = [];
         this.connectionCallbacks = [];
         this.messageQueue = [];
-    }
-
-    private scheduleReconnect() {
-        if (this.reconnecting) {
-            return; // Already scheduled
-        }
-        
-        this.reconnecting = true;
-        
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-        }
-        
-        this.reconnectTimer = setTimeout(() => {
-            this.reconnecting = false;
-            this.reconnectTimer = undefined;
-            this.connect();
-        }, 2000);
     }
 } 

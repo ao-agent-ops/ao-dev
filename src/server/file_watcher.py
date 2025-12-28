@@ -19,9 +19,17 @@ import sys
 import time
 import signal
 import glob
+import threading
 from typing import Dict, Set
-from ao.common.logger import logger
-from ao.common.constants import FILE_POLL_INTERVAL, AO_PROJECT_ROOT
+from ao.common.logger import create_file_logger
+from ao.common.constants import (
+    FILE_POLL_INTERVAL,
+    ORPHAN_POLL_INTERVAL,
+    AO_PROJECT_ROOT,
+    AO_FILE_WATCHER_LOG,
+)
+
+logger = create_file_logger("AO.FileWatcher", AO_FILE_WATCHER_LOG)
 from ao.server.ast_transformer import TaintPropagationTransformer
 from ao.common.utils import MODULES_TO_FILES
 
@@ -112,6 +120,7 @@ class FileWatcher:
         self.module_to_file = module_to_file
         self.file_mtimes = {}  # Track last modification times
         self.pid = os.getpid()
+        self._parent_pid = os.getppid()  # Store parent PID to detect orphaning
         self._shutdown = False  # Flag to signal shutdown
         self.project_root = AO_PROJECT_ROOT  # Use project root from config
         self._populate_initial_mtimes()
@@ -237,6 +246,31 @@ class FileWatcher:
         logger.info(f"[FileWatcher] Received signal {signum}, shutting down gracefully...")
         self._shutdown = True
 
+    def _is_parent_alive(self) -> bool:
+        """
+        Check if the parent process is still alive.
+
+        On Unix, when a parent dies, the child's PPID becomes 1 (init/launchd).
+        We also check if PPID changed from what we recorded at startup.
+        """
+        current_ppid = os.getppid()
+        # Parent died if PPID is now 1 (init) or changed from original
+        return current_ppid == self._parent_pid and current_ppid != 1
+
+    def _start_parent_monitor(self) -> None:
+        """Start a daemon thread that monitors if the parent process is still alive."""
+
+        def monitor_parent():
+            while not self._shutdown:
+                if not self._is_parent_alive():
+                    logger.info("[FileWatcher] Parent process died, shutting down...")
+                    self._shutdown = True
+                    return
+                time.sleep(ORPHAN_POLL_INTERVAL)
+
+        thread = threading.Thread(target=monitor_parent, daemon=True)
+        thread.start()
+
     def _needs_recompilation(self, file_path: str) -> bool:
         """
         Check if a file needs recompilation based on modification time, missing .pyc file,
@@ -291,8 +325,8 @@ class FileWatcher:
                 source = f.read()
 
             # Apply AST rewrites and compile to code object
-            debug_ast = os.environ.get("AO_DEBUG_AST_REWRITES")
-            if debug_ast and not ".AO_rewritten.py" in file_path:
+            debug_ast = os.environ.get("DEBUG_AST_REWRITES")
+            if debug_ast and not ".ao_rewritten.py" in file_path:
                 code_object, tree = rewrite_source_to_code(
                     source, file_path, module_to_file=self.module_to_file, return_tree=True
                 )
@@ -353,6 +387,7 @@ class FileWatcher:
             # Update our tracked modification time
             self.file_mtimes[file_path] = os.path.getmtime(file_path)
 
+            logger.info(f"[FileWatcher] Recompiled {module_name}")
             return True
 
         except Exception as e:
@@ -398,6 +433,9 @@ class FileWatcher:
                     compiled_count += 1
                 else:
                     failed_count += 1
+
+        # Start parent monitor thread (detects orphaned process)
+        self._start_parent_monitor()
 
         # Start polling loop
         try:

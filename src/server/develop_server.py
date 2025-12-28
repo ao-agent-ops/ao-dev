@@ -6,15 +6,25 @@ import subprocess
 import time
 import uuid
 import shlex
+import signal
 import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
 
 from ao.common.utils import MODULES_TO_FILES
+from ao.common.logger import create_file_logger
+from ao.common.constants import (
+    AO_CONFIG,
+    AO_DEVELOP_SERVER_LOG,
+    HOST,
+    PORT,
+    SERVER_INACTIVITY_TIMEOUT,
+)
 from ao.server.database_manager import DB
-from ao.common.logger import logger
-from ao.common.constants import AO_CONFIG, AO_LOG_PATH, HOST, PORT
 from ao.server.file_watcher import run_file_watcher_process
+from ao.server.git_versioner import GitVersioner
+
+logger = create_file_logger("AO.DevelopServer", AO_DEVELOP_SERVER_LOG)
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
@@ -40,6 +50,8 @@ class DevelopServer:
     """Manages the development server for LLM call visualization."""
 
     def __init__(self, module_to_file: Optional[Dict[str, str]] = None):
+        _init_start = time.time()
+        logger.info(f"[DevelopServer] __init__ starting...")
         self.server_sock = None
         self.lock = threading.Lock()
         self.conn_info = {}  # conn -> {role, session_id}
@@ -48,8 +60,14 @@ class DevelopServer:
         self.sessions = {}  # session_id -> Session (only for agent runner connections)
         self.module_to_file = module_to_file or MODULES_TO_FILES  # Module mapping for file watcher
         self.file_watcher_process = None  # Child process for file watching
-        self.current_user_id = None  # Store the current authenticated user_id
+        # self.current_user_id = None  # Store the current authenticated user_id (auth disabled)
         self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
+        logger.info(f"[DevelopServer] Creating GitVersioner...")
+        _git_start = time.time()
+        self.git_versioner = GitVersioner()
+        logger.info(f"[DevelopServer] GitVersioner created in {time.time() - _git_start:.2f}s")
+        self._last_activity_time = time.time()  # Track last message received for inactivity timeout
+        logger.info(f"[DevelopServer] __init__ completed in {time.time() - _init_start:.2f}s")
 
     # ============================================================
     # File Watcher Management
@@ -100,11 +118,34 @@ class DevelopServer:
                 self.file_watcher_process = None
 
     # ============================================================
+    # Inactivity Monitor
+    # ============================================================
+
+    def _start_inactivity_monitor(self) -> None:
+        """Start a daemon thread that shuts down the server after inactivity timeout."""
+
+        def monitor_inactivity():
+            while True:
+                time.sleep(60)  # Check every minute
+                elapsed = time.time() - self._last_activity_time
+                if elapsed >= SERVER_INACTIVITY_TIMEOUT:
+                    logger.info(f"[DevelopServer] No activity for {elapsed:.0f}s, shutting down...")
+                    self.handle_shutdown()
+                    return
+
+        thread = threading.Thread(target=monitor_inactivity, daemon=True)
+        thread.start()
+
+    # ============================================================
     # Utils
     # ============================================================
 
     def broadcast_to_all_uis(self, msg: dict) -> None:
         """Broadcast a message to all UI connections."""
+        msg_type = msg.get("type", "unknown")
+        logger.debug(
+            f"[DevelopServer] broadcast_to_all_uis: type={msg_type}, num_ui_connections={len(self.ui_connections)}"
+        )
         for ui_conn in list(self.ui_connections):
             try:
                 send_json(ui_conn, msg)
@@ -115,11 +156,15 @@ class DevelopServer:
     def broadcast_graph_update(self, session_id: str) -> None:
         """Broadcast current graph state for a session to all UIs."""
         if session_id in self.session_graphs:
+            graph = self.session_graphs[session_id]
+            logger.info(
+                f"[DevelopServer] broadcast_graph_update: session={session_id}, nodes={len(graph.get('nodes', []))}, edges={[e['id'] for e in graph.get('edges', [])]}"
+            )
             self.broadcast_to_all_uis(
                 {
                     "type": "graph_update",
                     "session_id": session_id,
-                    "payload": self.session_graphs[session_id],
+                    "payload": graph,
                 }
             )
 
@@ -189,22 +234,14 @@ class DevelopServer:
             except Exception as e:
                 logger.error(f"Error sending experiment list to UI: {e}")
 
+        # Auth disabled - get all experiments without user filtering
+        db_experiments = DB.get_all_experiments_sorted()
         if conn:
-            user_id = None
-            info = self.conn_info.get(conn)
-            if info:
-                user_id = info.get("user_id")
-            db_experiments = DB.get_all_experiments_sorted(user_id)
             build_and_send(conn, db_experiments)
             return
 
-        # Broadcast to all UIs, but filter per UI by their user_id
+        # Broadcast to all UIs
         for ui_conn in list(self.ui_connections):
-            user_id = None
-            info = self.conn_info.get(ui_conn)
-            if info:
-                user_id = info.get("user_id")
-            db_experiments = DB.get_all_experiments_sorted(user_id)
             build_and_send(ui_conn, db_experiments)
 
     def print_graph(self, session_id):
@@ -513,21 +550,22 @@ class DevelopServer:
         # Then send the experiment list
         self.broadcast_experiment_list_to_uis(conn)
 
-    def handle_auth(self, msg: dict, conn: socket.socket) -> None:
-        """Handle auth messages from UI clients: attach user_id to connection and store current user."""
-        try:
-            user_id = msg.get("user_id")
-            # Store the current authenticated user_id on the server
-            self.current_user_id = user_id
-            info = self.conn_info.get(conn)
-            if info is None:
-                self.conn_info[conn] = {"role": "ui", "session_id": None, "user_id": user_id}
-            else:
-                info["user_id"] = user_id
-            # Send filtered list to this connection
-            self.broadcast_experiment_list_to_uis(conn)
-        except Exception as e:
-            logger.error(f"Error handling auth message: {e}")
+    # NOTE: Auth disabled - handle_auth method commented out
+    # def handle_auth(self, msg: dict, conn: socket.socket) -> None:
+    #     """Handle auth messages from UI clients: attach user_id to connection and store current user."""
+    #     try:
+    #         user_id = msg.get("user_id")
+    #         # Store the current authenticated user_id on the server
+    #         self.current_user_id = user_id
+    #         info = self.conn_info.get(conn)
+    #         if info is None:
+    #             self.conn_info[conn] = {"role": "ui", "session_id": None, "user_id": user_id}
+    #         else:
+    #             info["user_id"] = user_id
+    #         # Send filtered list to this connection
+    #         self.broadcast_experiment_list_to_uis(conn)
+    #     except Exception as e:
+    #         logger.error(f"Error handling auth message: {e}")
 
     def handle_add_subrun(self, msg: dict, conn: socket.socket) -> None:
         # If rerun, use previous session_id. Else, assign new one.
@@ -546,11 +584,12 @@ class DevelopServer:
                 run_index = DB.get_next_run_index()
                 name = f"Run {run_index}"
             parent_session_id = msg.get("parent_session_id")
-            # Determine user_id: prefer explicit msg value, else use current_user_id
-            user_id = msg.get("user_id")
-            if user_id is None:
-                user_id = self.current_user_id
+            # NOTE: Auth disabled - user_id handling commented out
+            # user_id = msg.get("user_id")
+            # if user_id is None:
+            #     user_id = self.current_user_id
 
+            code_hash = self.git_versioner.commit_and_get_version()
             DB.add_experiment(
                 session_id,
                 name,
@@ -559,7 +598,8 @@ class DevelopServer:
                 command,
                 environment,
                 parent_session_id,
-                user_id,
+                None,  # user_id disabled
+                code_hash,
             )
         # Insert session if not present.
         with self.lock:
@@ -671,10 +711,12 @@ class DevelopServer:
     # ============================================================
 
     def process_message(self, msg: dict, conn: socket.socket) -> None:
+        self._last_activity_time = time.time()  # Reset inactivity timer
         msg_type = msg.get("type")
-        if msg_type == "auth":
-            self.handle_auth(msg, conn)
-        elif msg_type == "shutdown":
+        # NOTE: Auth disabled - auth message handling commented out
+        # if msg_type == "auth":
+        #     self.handle_auth(msg, conn)
+        if msg_type == "shutdown":
             self.handle_shutdown()
         elif msg_type == "restart":
             self.handle_restart_message(msg)
@@ -722,6 +764,7 @@ class DevelopServer:
             if not handshake_line:
                 return
             handshake = json.loads(handshake_line.strip())
+            self._last_activity_time = time.time()  # Reset inactivity timer on new connection
             role = handshake.get("role")
             session_id = None
             # Only assign session_id for agent-runner.
@@ -741,7 +784,7 @@ class DevelopServer:
                     if not name:
                         run_index = DB.get_next_run_index()
                         name = f"Run {run_index}"
-                    code_hash = handshake.get("code_hash")
+                    code_hash = self.git_versioner.commit_and_get_version()
                     DB.add_experiment(
                         session_id,
                         name,
@@ -750,10 +793,10 @@ class DevelopServer:
                         command,
                         environment,
                         None,
-                        self.current_user_id,
+                        None,  # user_id disabled
                         code_hash,
                     )
-                    logger.info(f"[CodeHash] code hash in handshake is {code_hash}")
+                    logger.info(f"[GitVersioner] code version is {code_hash}")
                 # Insert session if not present.
                 with self.lock:
                     if session_id not in self.sessions:
@@ -788,13 +831,12 @@ class DevelopServer:
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()
                 self.ui_connections.add(conn)
-                # Read user_id from handshake (populated by web proxy from cookie)
-                user_id = handshake.get("user_id") if isinstance(handshake, dict) else None
-                # Store the current authenticated user_id on the server
-                if user_id is not None:
-                    self.current_user_id = user_id
+                # NOTE: Auth disabled - user_id handling commented out
+                # user_id = handshake.get("user_id") if isinstance(handshake, dict) else None
+                # if user_id is not None:
+                #     self.current_user_id = user_id
                 # Send session_id and config_path to this UI connection (None for UI)
-                self.conn_info[conn] = {"role": role, "session_id": None, "user_id": user_id}
+                self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(
                     conn,
                     {
@@ -847,17 +889,25 @@ class DevelopServer:
 
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
-        # Clear the log file on server startup
-        try:
-            with open(AO_LOG_PATH, "w"):
-                pass  # Just truncate the file
-        except Exception as e:
-            logger.warning(f"Could not clear log file on startup: {e}")
+        _run_start = time.time()
+        logger.info(f"[DevelopServer] run_server starting...")
 
+        # Set up signal handlers to ensure clean shutdown (especially FileWatcher cleanup)
+        def shutdown_handler(signum, frame):
+            logger.info(f"[DevelopServer] Received signal {signum}")
+            self.handle_shutdown()
+
+        signal.signal(signal.SIGTERM, shutdown_handler)
+        signal.signal(signal.SIGINT, shutdown_handler)
+
+        logger.info(f"[DevelopServer] Creating socket... ({time.time() - _run_start:.2f}s)")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Try binding with retry logic and better error handling
+        logger.info(
+            f"[DevelopServer] Binding to {HOST}:{PORT}... ({time.time() - _run_start:.2f}s)"
+        )
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -874,13 +924,21 @@ class DevelopServer:
                     raise
 
         self.server_sock.listen()
-        logger.info(f"[DevelopServer] Develop server listening on {HOST}:{PORT}")
+        logger.info(
+            f"[DevelopServer] Develop server listening on {HOST}:{PORT} ({time.time() - _run_start:.2f}s)"
+        )
 
         # Start file watcher process for AST recompilation
+        logger.info(f"[DevelopServer] Starting file watcher... ({time.time() - _run_start:.2f}s)")
         self.start_file_watcher()
 
+        # Start inactivity monitor (shuts down after 1 hour of no messages)
+        self._start_inactivity_monitor()
+
         # Load finished runs on startup
+        logger.info(f"[DevelopServer] Loading finished runs... ({time.time() - _run_start:.2f}s)")
         self.load_finished_runs()
+        logger.info(f"[DevelopServer] Server fully ready! ({time.time() - _run_start:.2f}s)")
 
         try:
             while True:

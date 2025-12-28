@@ -27,7 +27,7 @@ from ao.common.constants import (
     SERVER_START_WAIT,
     MESSAGE_POLL_INTERVAL,
 )
-from ao.common.utils import MODULES_TO_FILES, compute_code_hash
+from ao.common.utils import MODULES_TO_FILES
 from ao.cli.ao_server import launch_daemon_server
 from ao.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
 from ao.runner.context_manager import set_parent_session_id, set_server_connection
@@ -64,17 +64,105 @@ def _log_error(context: str, exception: Exception) -> None:
     logger.debug(f"[AgentRunner] Traceback: {traceback.format_exc()}")
 
 
+def _find_process_on_port(port: int) -> Optional[int]:
+    """Find PID of process listening on the given port using lsof."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # lsof returns PIDs, one per line - take the first one
+            pid_str = result.stdout.strip().split("\n")[0]
+            return int(pid_str)
+    except Exception as e:
+        logger.debug(f"Could not check port {port} with lsof: {e}")
+    return None
+
+
+def _kill_zombie_server(pid: int) -> bool:
+    """
+    Kill a zombie server process gracefully.
+    Returns True if the process was killed or doesn't exist.
+    """
+    try:
+        # First try SIGTERM (graceful shutdown)
+        os.kill(pid, signal.SIGTERM)
+        logger.info(f"Sent SIGTERM to zombie server process {pid}")
+
+        # Wait up to 3 seconds for it to die
+        for _ in range(6):
+            time.sleep(0.5)
+            try:
+                # Check if process still exists (os.kill with signal 0)
+                os.kill(pid, 0)
+            except OSError:
+                # Process is gone
+                logger.info(f"Zombie server process {pid} terminated")
+                return True
+
+        # Still alive, try SIGKILL
+        logger.warning(f"Process {pid} didn't respond to SIGTERM, sending SIGKILL")
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(0.5)
+        return True
+
+    except OSError as e:
+        if e.errno == 3:  # No such process
+            return True
+        logger.warning(f"Could not kill process {pid}: {e}")
+        return False
+
+
 def ensure_server_running() -> None:
     """Ensure the develop server is running, start it if necessary."""
+    # First, try to connect to see if server is healthy
     try:
         socket.create_connection((HOST, PORT), timeout=SERVER_START_TIMEOUT).close()
         logger.debug(f"Server already running on {HOST}:{PORT}")
-    except Exception:
-        logger.info(f"Starting server on {HOST}:{PORT}")
-        launch_daemon_server()
-        time.sleep(SERVER_START_WAIT)
-        socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT).close()
-        logger.debug("Server started successfully")
+        return
+    except ConnectionRefusedError:
+        # Port is free, no process listening - safe to launch
+        logger.info(f"No server on {HOST}:{PORT}, starting new one...")
+    except socket.timeout:
+        # Connection timed out - might be a zombie process
+        logger.warning(f"Server on {HOST}:{PORT} not responding, checking for zombie process...")
+        zombie_pid = _find_process_on_port(PORT)
+        if zombie_pid:
+            logger.warning(f"Found unresponsive server process {zombie_pid}, killing it...")
+            if _kill_zombie_server(zombie_pid):
+                # Wait a moment for port to be released
+                time.sleep(1)
+            else:
+                logger.error(f"Could not kill zombie process {zombie_pid}")
+    except Exception as e:
+        # Other connection error - log and try to start anyway
+        logger.info(f"Connection to {HOST}:{PORT} failed ({e}), attempting to start server...")
+
+    # Launch new daemon
+    launch_daemon_server()
+    logger.debug(f"Daemon launched, waiting for startup...")
+
+    # Poll for server availability
+    max_wait = 15
+    poll_interval = 0.5
+    elapsed = 0
+    while elapsed < max_wait:
+        time.sleep(poll_interval)
+        elapsed += poll_interval
+        try:
+            socket.create_connection((HOST, PORT), timeout=1).close()
+            logger.info(f"Server started successfully after {elapsed:.1f}s")
+            return
+        except Exception:
+            if elapsed % 5 < poll_interval:
+                logger.debug(f"Waiting for server... ({elapsed:.1f}s elapsed)")
+
+    # Final attempt with full timeout
+    logger.warning(f"Server not ready after {max_wait}s, making final connection attempt...")
+    socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT).close()
+    logger.info("Server started successfully (final attempt)")
 
 
 class AgentRunner:
@@ -275,8 +363,10 @@ class AgentRunner:
 
     def _connect_to_server(self) -> None:
         """Connect to the develop server and perform handshake."""
+        logger.info(f"[AgentRunner] Connecting to server at {HOST}:{PORT}...")
         try:
             self.server_conn = socket.create_connection((HOST, PORT), timeout=CONNECTION_TIMEOUT)
+            logger.info(f"[AgentRunner] Connected to server")
         except Exception as e:
             logger.error(f"Cannot connect to develop server: {e}")
             sys.exit(1)
@@ -291,16 +381,20 @@ class AgentRunner:
             "process_id": self.process_id,
             "prev_session_id": os.getenv("AO_SESSION_ID"),
             "module_to_file": MODULES_TO_FILES,
-            "code_hash": compute_code_hash(),
         }
 
         if self.user_id is not None:
             handshake["user_id"] = str(self.user_id)
 
         try:
+            logger.info(f"[AgentRunner] Sending handshake...")
             self.server_conn.sendall((json.dumps(handshake) + "\n").encode("utf-8"))
+            logger.info(f"[AgentRunner] Handshake sent, waiting for response...")
             file_obj = self.server_conn.makefile(mode="r")
             session_line = file_obj.readline()
+            logger.info(
+                f"[AgentRunner] Received response: {session_line[:100] if session_line else 'empty'}"
+            )
             if session_line:
                 session_msg = json.loads(session_line.strip())
                 self.session_id = session_msg.get("session_id")

@@ -163,7 +163,8 @@ def _collect_taint_from_args(args, kwargs):
         seen.add(obj_id)
 
         # Check for own taint
-        origins.update(get_taint(val))
+        val_taint = get_taint(val)
+        origins.update(val_taint)
 
         # Recurse into collections
         if isinstance(val, (list, tuple)):
@@ -325,7 +326,8 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
     """
     # Collect taint from all inputs
     all_origins = set(obj_taint or [])
-    all_origins.update(_collect_taint_from_args(args, kwargs))
+    args_taint = _collect_taint_from_args(args, kwargs)
+    all_origins.update(args_taint)
     taint = list(all_origins)
 
     if is_async:
@@ -373,7 +375,8 @@ def _finalize_taint(result):
     """
     # Check if result already has its own taint - preserve it as-is
     # This handles cases like pop() returning an item with its own taint
-    if get_taint(result):
+    existing_taint = get_taint(result)
+    if existing_taint:
         return result
 
     # Get taint from ACTIVE_TAINT (accumulated from function inputs)

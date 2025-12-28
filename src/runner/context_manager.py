@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import json
 import queue
 from ao.server.database_manager import DB
-from ao.common.utils import send_to_server, send_to_server_and_receive, compute_code_hash
+from ao.common.utils import send_to_server, send_to_server_and_receive
 
 
 # Process's session id stored as parent_session_id. Subruns have their own
@@ -73,7 +73,6 @@ def ao_launch(run_name="Workflow run"):
         "command": parent_env["command"],
         "environment": json.loads(parent_env["environment"]),
         "prev_session_id": prev_session_id,
-        "code_hash": compute_code_hash(),
     }
     response = send_to_server_and_receive(msg)
     session_id = response["session_id"]

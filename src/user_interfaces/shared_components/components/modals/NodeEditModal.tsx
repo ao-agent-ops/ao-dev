@@ -108,9 +108,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
     }
 
     onSave(nodeId, field, valueToSave);
-    // Reset the change tracking by updating the initial reference
-    setInitialParsedData(parse(stringify(parsedData)));
-    setHasChanges(false);
+    onClose();
   };
 
   const handleReset = () => {
