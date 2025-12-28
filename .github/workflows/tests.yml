@@ -1,12 +1,10 @@
-name: Test Comment Trigger
-
-on:
-  issue_comment:
-    types: [created]
-
-jobs:
-  test:
-    if: contains(github.event.comment.body, '/ping')
+debug-billable:
+    name: Debug Billable Trigger
+    if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "It worked!"
+      - name: Dump context
+        run: |
+          echo "Is PR: ${{ github.event.issue.pull_request }}"
+          echo "Comment body: ${{ github.event.comment.body }}"
+          echo "Contains trigger: ${{ contains(github.event.comment.body, '/run-billable-tests') }}"
