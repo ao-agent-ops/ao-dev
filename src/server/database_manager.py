@@ -160,38 +160,39 @@ class DatabaseManager:
         """Retrieve taint tracking information."""
         return self.backend.get_taint_info(file_path, line_number)
 
-    def upsert_user(self, google_id, email, name, picture):
-        """
-        Upsert user in the database.
-
-        Args:
-            google_id: Google OAuth ID
-            email: User email
-            name: User name
-            picture: User profile picture URL
-
-        Returns:
-            User record from the database
-
-        Raises:
-            Exception: If current backend doesn't support user management (e.g., SQLite)
-        """
-        return postgres.upsert_user(google_id, email, name, picture)
-
-    def get_user_by_id(self, user_id):
-        """
-        Get user by their ID from the database.
-
-        Args:
-            user_id: The user's ID
-
-        Returns:
-            The user record or None if not found
-
-        Raises:
-            Exception: If current backend doesn't support user management (e.g., SQLite)
-        """
-        return self.backend.get_user_by_id_query(user_id)
+    # NOTE: Auth disabled - user management methods commented out
+    # def upsert_user(self, google_id, email, name, picture):
+    #     """
+    #     Upsert user in the database.
+    #
+    #     Args:
+    #         google_id: Google OAuth ID
+    #         email: User email
+    #         name: User name
+    #         picture: User profile picture URL
+    #
+    #     Returns:
+    #         User record from the database
+    #
+    #     Raises:
+    #         Exception: If current backend doesn't support user management (e.g., SQLite)
+    #     """
+    #     return postgres.upsert_user(google_id, email, name, picture)
+    #
+    # def get_user_by_id(self, user_id):
+    #     """
+    #     Get user by their ID from the database.
+    #
+    #     Args:
+    #         user_id: The user's ID
+    #
+    #     Returns:
+    #         The user record or None if not found
+    #
+    #     Raises:
+    #         Exception: If current backend doesn't support user management (e.g., SQLite)
+    #     """
+    #     return self.backend.get_user_by_id_query(user_id)
 
     def set_input_overwrite(self, session_id, node_id, new_input):
         # Make sure string repr. is uniform
@@ -535,9 +536,10 @@ class DatabaseManager:
         """Get all finished runs."""
         return self.backend.get_finished_runs_query()
 
-    def get_all_experiments_sorted(self, user_id):
-        """Get all experiments sorted by name (alphabetical), optionally filtered by user_id."""
-        return self.backend.get_all_experiments_sorted_by_user_query(user_id)
+    def get_all_experiments_sorted(self):
+        """Get all experiments sorted by timestamp (most recent first)."""
+        # Auth disabled - return all experiments without user filtering
+        return self.backend.get_all_experiments_sorted_query()
 
     def get_graph(self, session_id):
         """Get graph topology for session."""

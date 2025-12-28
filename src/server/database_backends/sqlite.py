@@ -376,7 +376,7 @@ def get_finished_runs_query():
 def get_all_experiments_sorted_query():
     """Get all experiments sorted by timestamp desc."""
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, success, notes, log FROM experiments ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments ORDER BY timestamp DESC",
         (),
     )
 

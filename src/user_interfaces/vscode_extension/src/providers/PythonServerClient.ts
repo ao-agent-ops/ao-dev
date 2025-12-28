@@ -14,7 +14,6 @@ export class PythonServerClient {
     private serverPort: number;
     private serverUrl?: string;
     private useWebSocket = false;
-    private reconnecting = false;
     private reconnectTimer: NodeJS.Timeout | undefined;
 
     private constructor() {
@@ -39,17 +38,17 @@ export class PythonServerClient {
 
     public async ensureConnected() {
         if (!this.client) {
-            // Check for authentication before connecting
-            try {
-                const vscode = await import('vscode');
-                const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
-                if (session) {
-                    this.userId = session.account.id;
-                }
-            } catch (error) {
-                // Authentication check failed, continue without user_id
-                console.error('Failed to check authentication before connection:', error);
-            }
+            // Google auth disabled - feature not yet visible in UI
+            // try {
+            //     const vscode = await import('vscode');
+            //     const session = await vscode.authentication.getSession('google', [], { createIfNone: false });
+            //     if (session) {
+            //         this.userId = session.account.id;
+            //     }
+            // } catch (error) {
+            //     // Authentication check failed, continue without user_id
+            //     console.error('Failed to check authentication before connection:', error);
+            // }
             this.connect();
         }
     }
@@ -65,8 +64,6 @@ export class PythonServerClient {
         this.client = new net.Socket();
         
         this.client.connect(5959, '127.0.0.1', () => {
-            this.reconnecting = false;
-            
             const handshake: any = {
                 type: "hello",
                 role: "ui",
@@ -101,7 +98,6 @@ export class PythonServerClient {
 
         this.client.on('close', () => {
             this.client = undefined;  // Reset so ensureConnected() will reconnect
-            this.reconnecting = false;
             // Clear any pending reconnect
             if (this.reconnectTimer) {
                 clearTimeout(this.reconnectTimer);
@@ -110,9 +106,12 @@ export class PythonServerClient {
             this.reconnectTimer = setTimeout(() => this.ensureConnected(), 2000);
         });
 
-        this.client.on('error', () => {
-            // Don't call connect() again here since 'close' will also fire
-            // This prevents double reconnection attempts
+        this.client.on('error', (err: any) => {
+            // Connection refused means server isn't running - try to start it
+            if (err.code === 'ECONNREFUSED') {
+                this.startServerIfNeeded();
+            }
+            // Don't reconnect here - 'close' event fires after 'error' and handles reconnection
         });
     }
 
@@ -147,9 +146,10 @@ export class PythonServerClient {
     }
 
     public startServerIfNeeded() {
-        child_process.spawn('python', ['src/server/develop_server.py', 'start'], {
+        child_process.spawn('ao-server', ['start'], {
             detached: true,
-            stdio: 'ignore'
+            stdio: 'ignore',
+            shell: true
         }).unref();
     }
 
@@ -189,23 +189,5 @@ export class PythonServerClient {
         this.messageCallbacks = [];
         this.connectionCallbacks = [];
         this.messageQueue = [];
-    }
-
-    private scheduleReconnect() {
-        if (this.reconnecting) {
-            return; // Already scheduled
-        }
-        
-        this.reconnecting = true;
-        
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-        }
-        
-        this.reconnectTimer = setTimeout(() => {
-            this.reconnecting = false;
-            this.reconnectTimer = undefined;
-            this.connect();
-        }, 2000);
     }
 } 

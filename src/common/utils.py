@@ -105,14 +105,18 @@ def get_module_file_path(module_name: str) -> str | None:
 def scan_user_py_files_and_modules(root_dir):
     """
     Scan a directory for all .py files and return:
-      - file_to_module: mapping from file path to module name (relative to root_dir)
+      - module_to_file: mapping from module name to file path (relative to root_dir)
 
-    Excludes ao directories except for example_workflows.
+    Excludes ao package directories (except example_workflows) and common non-code dirs.
+
+    NOTE: We intentionally don't use find_spec() to check for shorter module names
+    because find_spec() can trigger imports of parent packages, which can execute
+    code in modules that lack `if __name__ == "__main__":` guards.
     """
     module_to_file = dict()
 
     # Standard directories to exclude
-    exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules"}
+    exclude_dirs = {".git", ".venv", "__pycache__", "__ao_cache__", ".pytest_cache", "node_modules"}
 
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # Check if we're inside ao directory
@@ -133,13 +137,6 @@ def scan_user_py_files_and_modules(root_dir):
                 if mod_name.endswith(".__init__"):
                     mod_name = mod_name[:-9]  # remove .__init__
                 module_to_file[mod_name] = abs_path
-                # is it possible to shorten the module name and still get a
-                # valid import?
-                mod_name = ".".join(mod_name.split(".")[1:])
-                while is_valid_mod(mod_name):
-                    # If it is, add it to the dict
-                    module_to_file[mod_name] = abs_path
-                    mod_name = ".".join(mod_name.split(".")[1:])
 
     return module_to_file
 
