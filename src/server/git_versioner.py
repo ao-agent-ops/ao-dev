@@ -14,7 +14,7 @@ from typing import Optional
 from ao.common.logger import create_file_logger
 from ao.common.constants import AO_PROJECT_ROOT, GIT_DIR, GIT_VERSIONER_LOG
 
-logger = create_file_logger("AO.GitVersioner", GIT_VERSIONER_LOG)
+logger = create_file_logger(GIT_VERSIONER_LOG)
 
 
 class GitVersioner:
@@ -37,7 +37,7 @@ class GitVersioner:
         if self._git_available is None:
             self._git_available = shutil.which("git") is not None
             if not self._git_available:
-                logger.warning("[GitVersioner] git not found in PATH, code versioning disabled")
+                logger.warning("git not found in PATH, code versioning disabled")
         return self._git_available
 
     def _run_git(
@@ -97,15 +97,15 @@ class GitVersioner:
             self._run_git("config", "user.name", "AO Code Versioner")
             self._run_git("config", "user.email", "ao@localhost")
 
-            logger.info(f"[GitVersioner] Initialized repository at {self.git_dir}")
+            logger.info(f"Initialized repository at {self.git_dir}")
             self._initialized = True
             return True
 
         except subprocess.SubprocessError as e:
-            logger.error(f"[GitVersioner] Failed to initialize repository: {e}")
+            logger.error(f"Failed to initialize repository: {e}")
             return False
         except OSError as e:
-            logger.error(f"[GitVersioner] Failed to create git directory: {e}")
+            logger.error(f"Failed to create git directory: {e}")
             return False
 
     def commit_and_get_version(self) -> Optional[str]:
@@ -142,15 +142,15 @@ class GitVersioner:
             self._run_git("commit", "-m", commit_message)
 
             version_str = self._format_version(now)
-            logger.debug(f"[GitVersioner] Created commit with version {version_str}")
+            logger.debug(f"Created commit with version {version_str}")
             return version_str
 
         except subprocess.SubprocessError as e:
             stderr = getattr(e, "stderr", None)
-            logger.error(f"[GitVersioner] Git operation failed: {e}, stderr: {stderr}")
+            logger.error(f"Git operation failed: {e}, stderr: {stderr}")
             return None
         except subprocess.TimeoutExpired:
-            logger.error("[GitVersioner] Git operation timed out")
+            logger.error("Git operation timed out")
             return None
 
     def get_commit_timestamp(self, commit_hash: str) -> Optional[datetime]:
@@ -171,5 +171,5 @@ class GitVersioner:
             timestamp_str = result.stdout.strip()
             return datetime.fromisoformat(timestamp_str)
         except (subprocess.SubprocessError, ValueError) as e:
-            logger.debug(f"[GitVersioner] Could not get timestamp for {commit_hash}: {e}")
+            logger.debug(f"Could not get timestamp for {commit_hash}: {e}")
             return None

@@ -86,6 +86,11 @@ AO_CACHE = os.path.expandvars(
 )
 os.makedirs(AO_CACHE, exist_ok=True)
 
+# Centralized cache for AST-rewritten .pyc files
+# All compiled user code goes here (hidden from user, no cleanup needed)
+AO_CACHE_DIR = os.path.join(AO_HOME, "pyc")
+os.makedirs(AO_CACHE_DIR, exist_ok=True)
+
 # Git repository for code versioning (separate from user's git)
 default_git_path = os.path.join(AO_HOME, "git")
 GIT_DIR = os.path.expandvars(

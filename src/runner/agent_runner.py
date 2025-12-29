@@ -9,12 +9,12 @@ import random
 import threading
 import queue
 import time
-import warnings
 import psutil
 import debugpy
 import signal
 import runpy
 import builtins
+
 from contextvars import ContextVar
 from typing import Optional, List
 
@@ -386,7 +386,6 @@ class AgentRunner:
             "environment": dict(os.environ),
             "process_id": self.process_id,
             "prev_session_id": os.getenv("AO_SESSION_ID"),
-            "module_to_file": MODULES_TO_FILES,
         }
 
         if self.user_id is not None:

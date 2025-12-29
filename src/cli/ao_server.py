@@ -46,7 +46,7 @@ from ao.common.constants import (
 from ao.server.main_server import MainServer, send_json
 
 # Create file logger for server startup timing (only used in _serve command)
-_server_logger = create_file_logger("AO.ServerStartup", MAIN_SERVER_LOG)
+_server_logger = create_file_logger(MAIN_SERVER_LOG)
 
 
 def launch_daemon_server() -> None:
@@ -199,7 +199,7 @@ def execute_server_command(args):
 
     elif args.command == "_serve":
         # Internal: run the server loop (not meant to be called by users directly)
-        _server_logger.info(f"[ao_server] Imports completed in {_time.time() - _import_start:.2f}s")
+        _server_logger.info(f"Imports completed in {_time.time() - _import_start:.2f}s")
 
         # Save Python executable path to config for VS Code extension to use
         from ao.common.constants import AO_CONFIG
@@ -210,13 +210,13 @@ def execute_server_command(args):
             if config.python_executable != sys.executable:
                 config.python_executable = sys.executable
                 config.to_yaml_file(AO_CONFIG)
-                _server_logger.info(f"[ao_server] Saved python_executable: {sys.executable}")
+                _server_logger.info(f"Saved python_executable: {sys.executable}")
         except Exception as e:
-            _server_logger.warning(f"[ao_server] Could not save python_executable: {e}")
+            _server_logger.warning(f"Could not save python_executable: {e}")
 
         _start = _time.time()
         server = MainServer()
-        _server_logger.info(f"[ao_server] MainServer created in {_time.time() - _start:.2f}s")
+        _server_logger.info(f"MainServer created in {_time.time() - _start:.2f}s")
         server.run_server()
 
 

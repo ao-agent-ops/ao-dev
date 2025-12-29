@@ -70,7 +70,8 @@ export class PythonServerClient {
             const handshake: any = {
                 type: "hello",
                 role: "ui",
-                script: "vscode-extension"
+                script: "vscode-extension",
+                workspace_root: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
             };
 
             // Add user_id to handshake if authenticated
@@ -158,10 +159,18 @@ export class PythonServerClient {
         const pythonPath = this.getPythonPath();
         console.log(`[AO] Starting server with: ${pythonPath} -m ao.cli.ao_server start`);
 
+        // Pass workspace root to server via environment variable
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const env: NodeJS.ProcessEnv = { ...process.env };
+        if (workspaceRoot) {
+            env.AO_WORKSPACE_ROOT = workspaceRoot;
+        }
+
         const proc = child_process.spawn(pythonPath, ['-m', 'ao.cli.ao_server', 'start'], {
             detached: true,
             stdio: 'pipe',
-            shell: false
+            shell: false,
+            env: env
         });
         proc.stdout?.on('data', (data) => console.log('[AO] server stdout:', data.toString()));
         proc.stderr?.on('data', (data) => console.log('[AO] server stderr:', data.toString()));

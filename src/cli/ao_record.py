@@ -1,8 +1,23 @@
 import os
+import time
 import yaml
 from argparse import ArgumentParser, REMAINDER
 from ao.common.constants import AO_CONFIG, AO_PROJECT_ROOT
 from ao.runner.agent_runner import AgentRunner
+
+
+def _get_default_project_root() -> str:
+    """
+    Get the default project root.
+
+    Priority:
+    1. AO_WORKSPACE_ROOT env var (set by VS Code extension)
+    2. AO_PROJECT_ROOT from config (derived from cwd/git root)
+    """
+    workspace_root = os.environ.get("AO_WORKSPACE_ROOT")
+    if workspace_root and os.path.isdir(workspace_root):
+        return workspace_root
+    return AO_PROJECT_ROOT
 
 
 def launch_command_parser():
@@ -26,7 +41,7 @@ def launch_command_parser():
 
     parser.add_argument(
         "--project-root",
-        default=AO_PROJECT_ROOT,
+        default=_get_default_project_root(),
         help="The root directory of the user's project.",
     )
 
