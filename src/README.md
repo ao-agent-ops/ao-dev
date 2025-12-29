@@ -22,7 +22,7 @@ This will feel *exactly* the same as running Python but also analyzes their code
 ### Installation
 If you're starting from a clean sheet, create a blank conda environment and activate it. We recommend Python 3.13, but Python versions >=3.10 are supported.
 ```bash
-conda create -n ao python=3.13 -y && conda activate ao
+conda create -n ao python=3.13 nodejs sqlite -y && conda activate ao
 ```
 
 > [!NOTE]  
@@ -33,7 +33,7 @@ For non-developers, install the project like so:
 pip install -e .
 # Because the extension is not packaged yet, you need to install UI dependencies as well
 cd src/user_interfaces && npm install
-npm run build:all
+npm run build:extension
 ```
 
 ### Running the extension
@@ -55,7 +55,7 @@ Please install the dependencies required for developing
 ```bash
 pip install -e ".[dev]"
 pre-commit install
-cd src/user_interfaces && npm run build:all
+cd src/user_interfaces && npm run build:extension
 ```
 
 Some Python linters will (incorrectly) say that the modules inside our code base can't be found. Run the following in the project root to make these linters happy:
