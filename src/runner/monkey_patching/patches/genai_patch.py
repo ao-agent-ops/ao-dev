@@ -45,13 +45,6 @@ def patch_genai_async_request(bound_obj, bound_cls):
         # Get taint origins (did another LLM produce the input?)
         taint_origins = get_taint_origins(input_dict)
 
-        # Debug: print taint origins
-        print(f"\n[GENAI INTERCEPT] async_request", flush=True)
-        print(
-            f"  taint_origins from input_dict: {[t[:8] + '...' if isinstance(t, str) and len(t) > 8 else t for t in taint_origins]}",
-            flush=True,
-        )
-
         # Check if this endpoint should be patched
         path = input_dict.get("path", "")
         if not is_whitelisted_endpoint(path):
