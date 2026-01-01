@@ -216,6 +216,8 @@ class ASTImportFinder(MetaPathFinder):
             )
 
         # Fast path: if parent module is skipped, skip submodules too
+        # Only applies when parent has a file that shouldn't be rewritten (confirmed third-party)
+        # Namespace packages (no file) are NOT in _skip_modules, so their submodules are checked
         if "." in fullname:
             parent = fullname.rsplit(".", 1)[0]
             if parent in _skip_modules:
@@ -223,15 +225,19 @@ class ASTImportFinder(MetaPathFinder):
                 return None
 
         # For unknown modules, check if they should be rewritten using blacklist heuristic
-        # This handles dynamically discovered files (e.g., from other sys.path entries)
         file_path = _find_module_file(fullname, path)
-        if file_path and should_rewrite(file_path):
-            # Add to our tracking dict for future lookups
-            _module_to_user_file[fullname] = file_path
-            return spec_from_loader(fullname, ASTImportLoader(fullname, file_path))
+        if file_path:
+            if should_rewrite(file_path):
+                # User code - add to tracking dict and rewrite
+                _module_to_user_file[fullname] = file_path
+                return spec_from_loader(fullname, ASTImportLoader(fullname, file_path))
+            else:
+                # Third-party with file - cache as skip (submodules will inherit)
+                _skip_modules.add(fullname)
+                return None
 
-        # Cache this module as one we shouldn't rewrite
-        _skip_modules.add(fullname)
+        # No file found - likely namespace package or built-in
+        # Don't add to _skip_modules: submodules should still be checked individually
         return None
 
 

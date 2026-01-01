@@ -38,8 +38,14 @@ def patch_requests_send(bound_obj, bound_cls):
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
+        url_path = input_dict["request"].path_url if "request" in input_dict else "unknown"
+        print(f"\n[DEBUG_TAINT] === requests_patch ===")
+        print(f"[DEBUG_TAINT]   url: {url_path}")
+        print(f"[DEBUG_TAINT]   ACTIVE_TAINT received: {taint_origins}")
+
         if not is_whitelisted_endpoint(input_dict["request"].path_url):
             result = original_function(*args, **kwargs)
+            print(f"[DEBUG_TAINT]   (non-whitelisted, returning without taint change)")
             return result  # No wrapping here, exec_func will use existing escrow
 
         # 4. Get result from cache or call LLM.
@@ -58,6 +64,7 @@ def patch_requests_send(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
+        print(f"[DEBUG_TAINT]   Setting ACTIVE_TAINT to node_id: [{cache_output.node_id}]")
         builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 

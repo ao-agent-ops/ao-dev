@@ -286,6 +286,28 @@ def _debug_taint_info(label, obj, include_id=True):
     return f"{label}: taint={taint}, val={obj_repr}"
 
 
+def _debug_log_args_taint(func_name, args, kwargs, obj=None, obj_taint=None):
+    """Log taint info for all arguments."""
+    print(f"\n[DEBUG_TAINT] === exec_func: {func_name} ===")
+
+    # if obj is not None:
+    #     print(f"[DEBUG_TAINT]   obj: id={id(obj)}, taint={obj_taint}, repr={repr(obj)[:60]}")
+
+    for i, arg in enumerate(args):
+        arg_taint = get_taint(arg)
+        arg_repr = repr(arg)[:60] if arg is not None else "None"
+        print(f"[DEBUG_TAINT]   arg[{i}]: id={id(arg)}, taint={arg_taint}, repr={arg_repr}")
+
+    for key, val in kwargs.items():
+        val_taint = get_taint(val)
+        val_repr = repr(val)[:60] if val is not None else "None"
+        print(f"[DEBUG_TAINT]   kwarg[{key}]: id={id(val)}, taint={val_taint}, repr={val_repr}")
+
+    # Also show current ACTIVE_TAINT state
+    current_active = list(builtins.ACTIVE_TAINT.get())
+    print(f"[DEBUG_TAINT]   ACTIVE_TAINT (before): {current_active}")
+
+
 def exec_func(func_or_obj, args, kwargs, method_name=None):
     """
     Execute function or method with taint tracking.
@@ -299,6 +321,9 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
 
     Otherwise track taint through ACTIVE_TAINT.
     """
+    # Quick check that exec_func is being called
+    print(f"[EXEC_FUNC_CALLED] method_name={method_name}")
+
     # Resolve the actual function and collect object taint
     if method_name is not None:
         obj = func_or_obj
@@ -311,16 +336,32 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
         if hasattr(func, "__self__"):
             obj_taint = get_taint(func.__self__)
 
+    # Debug logging for taint propagation
+    func_name = f"{method_name}" if method_name else getattr(func, "__name__", str(func))
+    _debug_log_args_taint(func_name, args, kwargs, obj, obj_taint)
+
     # Call directly if user code or storing method
     is_storing = method_name is not None and method_name in STORING_METHODS
     if _is_user_function(func) or is_storing:
         if iscoroutinefunction(func):
 
             async def wrapper():
-                return await func(*args, **kwargs)
+                result = await func(*args, **kwargs)
+                result_repr = repr(result)[:60] if result is not None else "None"
+                result_taint = get_taint(result)
+                print(f"[DEBUG_TAINT] exec_func (user async) {func_name} returned:")
+                print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
+                print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {result_taint}")
+                return result
 
             return wrapper()
-        return func(*args, **kwargs)
+        result = func(*args, **kwargs)
+        result_repr = repr(result)[:60] if result is not None else "None"
+        result_taint = get_taint(result)
+        print(f"[DEBUG_TAINT] exec_func (user/storing) {func_name} returned:")
+        print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
+        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {result_taint}")
+        return result
 
     # Third-party: track taint through ACTIVE_TAINT
     if iscoroutinefunction(func):
@@ -340,12 +381,22 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
     all_origins.update(args_taint)
     taint = list(all_origins)
 
+    func_name = getattr(func, "__name__", str(func))
+
+    print(f"[DEBUG_TAINT] _exec_third_party: {func_name}")
+    print(f"[DEBUG_TAINT]   obj_taint={obj_taint}, args_taint={args_taint}")
+    print(f"[DEBUG_TAINT]   Setting ACTIVE_TAINT to: {taint}")
+
     if is_async:
 
         async def async_call():
             builtins.ACTIVE_TAINT.set(taint)
             try:
                 result = await func(*args, **kwargs)
+                final_active = list(builtins.ACTIVE_TAINT.get())
+                print(f"[DEBUG_TAINT] _exec_third_party async {func_name} returning:")
+                print(f"[DEBUG_TAINT]   ACTIVE_TAINT (after call): {final_active}")
+                print(f"[DEBUG_TAINT]   result id={id(result)}, repr={repr(result)[:60]}")
                 return _finalize_taint(result)
             finally:
                 builtins.ACTIVE_TAINT.set([])
@@ -368,6 +419,11 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
             if asyncio.iscoroutine(result):
                 return _wrap_coroutine_with_taint(result, taint)
 
+            final_active = list(builtins.ACTIVE_TAINT.get())
+            print(f"[DEBUG_TAINT] _exec_third_party sync {func_name} returning:")
+            print(f"[DEBUG_TAINT]   ACTIVE_TAINT (after call): {final_active}")
+            print(f"[DEBUG_TAINT]   result id={id(result)}, repr={repr(result)[:60]}")
+
             return _finalize_taint(result)
         finally:
             builtins.ACTIVE_TAINT.set([])
@@ -387,10 +443,18 @@ def _finalize_taint(result):
     # This handles cases like pop() returning an item with its own taint
     existing_taint = get_taint(result)
     if existing_taint:
+        result_repr = repr(result)[:60] if result is not None else "None"
+        print(f"[DEBUG_TAINT] _finalize_taint: result already has taint, preserving")
+        print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
+        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {existing_taint}")
         return result
 
     # Get taint from ACTIVE_TAINT (accumulated from function inputs)
     active_taint = list(builtins.ACTIVE_TAINT.get())
+
+    result_repr = repr(result)[:60] if result is not None else "None"
+    print(f"[DEBUG_TAINT] _finalize_taint: applying active_taint={active_taint}")
+    print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
 
     if active_taint:
         # Propagate taint to container elements so unpacking works
@@ -404,7 +468,12 @@ def _finalize_taint(result):
                 # Only add taint if item doesn't already have its own taint
                 if not get_taint(item):
                     add_to_taint_dict_and_return(item, taint=active_taint)
-        return add_to_taint_dict_and_return(result, taint=active_taint)
+        final_result = add_to_taint_dict_and_return(result, taint=active_taint)
+        final_taint = get_taint(final_result)
+        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(final_result)}] = {final_taint}")
+        return final_result
+
+    print(f"[DEBUG_TAINT]   (no active_taint, result untainted)")
     return result
 
 

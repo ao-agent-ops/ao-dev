@@ -43,19 +43,35 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
-        if method not in ["tools/call"]:
+        # Check if this is a tools/call request
+        # The method is at input_dict["request"].root.method
+        request = input_dict.get("request")
+        method = getattr(getattr(request, "root", None), "method", None) if request else None
+
+        print(f"\n[DEBUG_MCP] === mcp_patch send_request ===")
+        print(f"[DEBUG_MCP]   method: {method}")
+        print(f"[DEBUG_MCP]   ACTIVE_TAINT: {taint_origins}")
+
+        if method != "tools/call":
             result = await original_function(*args, **kwargs)
+            print(f"[DEBUG_MCP]   (non-tools/call, returning without graph update)")
             return result  # No wrapping here, exec_func will use existing escrow
+
+        print(f"[DEBUG_MCP]   tools/call detected, processing...")
 
         # 4. Get result from cache or call tool.
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
+            print(f"[DEBUG_MCP]   cache miss, calling original function...")
             result = await original_function(**cache_output.input_dict)
             DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
         else:
+            print(f"[DEBUG_MCP]   cache hit, using cached output")
             cache_output.output = input_dict["result_type"].model_validate(cache_output.output)
 
         # 5. Tell server that this tool call happened.
+        print(f"[DEBUG_MCP]   sending graph node, node_id={cache_output.node_id}")
+        print(f"[DEBUG_MCP]   source_node_ids={taint_origins}")
         send_graph_node_and_edges(
             node_id=cache_output.node_id,
             input_dict=cache_output.input_dict,
@@ -65,6 +81,7 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         )
 
         # 6. Set the new taint in escrow for exec_func to wrap with.
+        print(f"[DEBUG_MCP]   Setting ACTIVE_TAINT to [{cache_output.node_id}]")
         builtins.ACTIVE_TAINT.set([cache_output.node_id])
         return cache_output.output  # No wrapping here, exec_func will wrap
 
