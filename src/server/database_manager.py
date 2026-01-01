@@ -450,12 +450,6 @@ class DatabaseManager:
             logger.debug(
                 f"Cache miss: session_id {str(session_id)[:4]}, input_hash {str(input_hash)[:4]}"
             )
-            # Print cache miss details for debugging
-            print(
-                f"\n[CACHE MISS] session={str(session_id)[:8]}, hash={str(input_hash)[:8]}, model={model}",
-                flush=True,
-            )
-            print(f"  Full input:\n{api_json_str}\n", flush=True)
             return CacheOutput(
                 input_dict=input_dict,
                 output=None,
@@ -468,11 +462,6 @@ class DatabaseManager:
         # Use data from previous LLM call.
         node_id = row["node_id"]
         output = None
-        print(
-            f"\n[CACHE HIT] session={str(session_id)[:8]}, hash={str(input_hash)[:8]}, node_id={node_id[:8]}",
-            flush=True,
-        )
-        print(f"  Full input:\n{api_json_str}\n", flush=True)
 
         if row["input_overwrite"] is not None:
             logger.debug(
@@ -497,10 +486,6 @@ class DatabaseManager:
             )
 
         set_seed(node_id)
-        # Log the cached output
-        if output is not None:
-            output_str = api_obj_to_json_str(output, api_type)
-            print(f"  Cached output:\n{output_str}\n", flush=True)
         return CacheOutput(
             input_dict=input_dict,
             output=output,
@@ -539,7 +524,6 @@ class DatabaseManager:
 
         if response_ok and cache:
             output_json_str = api_obj_to_json_str(output_obj, api_type)
-            print(f"  New output (caching):\n{output_json_str}\n", flush=True)
             self.backend.insert_llm_call_with_output_query(
                 cache_result.session_id,
                 cache_result.input_pickle,

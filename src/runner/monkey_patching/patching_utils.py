@@ -82,12 +82,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
     model = get_model_name(input_dict, api_type)
 
     # Send node
-    print(f"\n[GRAPH] Adding node: {node_id[:8]}...", flush=True)
-    print(
-        f"  incoming_edges from: {[s[:8] + '...' if isinstance(s, str) and len(s) > 8 else s for s in source_node_ids]}",
-        flush=True,
-    )
-    print(f"  model: {model}, location: {codeLocation}", flush=True)
+    # print("sending node:", node_id, "-->", source_node_ids)
     node_msg = {
         "type": "add_node",
         "session_id": get_session_id(),

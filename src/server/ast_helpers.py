@@ -277,15 +277,6 @@ def exec_inplace_binop(obj, value, op_name):
     return result
 
 
-def _debug_taint_info(label, obj, include_id=True):
-    """Helper to format taint debug info for an object."""
-    taint = get_taint(obj)
-    obj_repr = repr(obj)[:80] if obj is not None else "None"
-    if include_id:
-        return f"{label}: id={id(obj)}, taint={taint}, val={obj_repr}"
-    return f"{label}: taint={taint}, val={obj_repr}"
-
-
 def exec_func(func_or_obj, args, kwargs, method_name=None):
     """
     Execute function or method with taint tracking.
@@ -311,26 +302,9 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
         if hasattr(func, "__self__"):
             obj_taint = get_taint(func.__self__)
 
-    # Debug: Print function call info
-    func_name = getattr(func, "__name__", str(func))
-    if method_name:
-        func_name = f"{type(obj).__name__}.{method_name}"
-
-    print(f"\n[EXEC_FUNC] {func_name}", flush=True)
-    if obj is not None:
-        print(f"  {_debug_taint_info('obj', obj)}", flush=True)
-    for i, arg in enumerate(args):
-        print(f"  {_debug_taint_info(f'arg[{i}]', arg)}", flush=True)
-    for k, v in kwargs.items():
-        print(f"  {_debug_taint_info(f'kwarg[{k}]', v)}", flush=True)
-
     # Call directly if user code or storing method
     is_storing = method_name is not None and method_name in STORING_METHODS
-    is_user = _is_user_function(func)
-    print(f"  is_user={is_user}, is_storing={is_storing}", flush=True)
-
-    if is_user or is_storing:
-        print(f"  -> DIRECT CALL (user code or storing)", flush=True)
+    if _is_user_function(func) or is_storing:
         if iscoroutinefunction(func):
 
             async def wrapper():
@@ -340,7 +314,6 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
         return func(*args, **kwargs)
 
     # Third-party: track taint through ACTIVE_TAINT
-    print(f"  -> THIRD-PARTY CALL (via ACTIVE_TAINT)", flush=True)
     if iscoroutinefunction(func):
         return _exec_third_party(func, args, kwargs, obj_taint, is_async=True)
     return _exec_third_party(func, args, kwargs, obj_taint, is_async=False)
@@ -358,25 +331,13 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
     all_origins.update(args_taint)
     taint = list(all_origins)
 
-    func_name = getattr(func, "__name__", str(func))
-    print(
-        f"  [THIRD_PARTY] {func_name}: obj_taint={obj_taint}, args_taint={args_taint}", flush=True
-    )
-    print(f"  [THIRD_PARTY] Setting ACTIVE_TAINT to: {taint}", flush=True)
-
     if is_async:
 
         async def async_call():
             builtins.ACTIVE_TAINT.set(taint)
             try:
                 result = await func(*args, **kwargs)
-                finalized = _finalize_taint(result)
-                result_taint = get_taint(finalized)
-                print(
-                    f"  [THIRD_PARTY] {func_name} returned (async): {_debug_taint_info('result', finalized)}",
-                    flush=True,
-                )
-                return finalized
+                return _finalize_taint(result)
             finally:
                 builtins.ACTIVE_TAINT.set([])
 
@@ -398,12 +359,7 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
             if asyncio.iscoroutine(result):
                 return _wrap_coroutine_with_taint(result, taint)
 
-            finalized = _finalize_taint(result)
-            print(
-                f"  [THIRD_PARTY] {func_name} returned (sync): {_debug_taint_info('result', finalized)}",
-                flush=True,
-            )
-            return finalized
+            return _finalize_taint(result)
         finally:
             builtins.ACTIVE_TAINT.set([])
 

@@ -17,19 +17,6 @@ class RunData:
     new_graph: list
 
 
-def print_graph(graph: dict, label: str) -> None:
-    """Print graph topology for debugging."""
-    print("\n" + "=" * 60)
-    print(f"{label}:")
-    print(f"  Nodes ({len(graph['nodes'])}):")
-    for node in graph["nodes"]:
-        print(f"    - {node['id']}: {node.get('type', 'unknown')}")
-    print(f"  Edges ({len(graph['edges'])}):")
-    for edge in graph["edges"]:
-        print(f"    - {edge['source']} -> {edge['target']}")
-    print("=" * 60 + "\n")
-
-
 def restart_server():
     """Restart the server to ensure clean state for tests."""
     subprocess.run(["ao-server", "restart"], check=False)
@@ -43,7 +30,6 @@ def _run_script_with_ao_record(script_path: str, env: dict) -> tuple[int, str]:
     Parses the session_id from the runner's output.
     """
     env["AO_NO_DEBUG_MODE"] = "True"
-    env["PYTHONUNBUFFERED"] = "1"  # Ensure output isn't buffered
     proc = subprocess.Popen(
         [sys.executable, "-m", "ao.cli.ao_record", script_path],
         env=env,
@@ -58,8 +44,6 @@ def _run_script_with_ao_record(script_path: str, env: dict) -> tuple[int, str]:
     # Read output and look for session_id
     for line in proc.stdout:
         output_lines.append(line)
-        # Print all output for debugging
-        print(line, end="", flush=True)
         # Look for session_id in log output
         if "session_id:" in line or "Registered with session_id:" in line:
             # Extract session_id from line like "Registered with session_id: abc123"
@@ -95,9 +79,6 @@ async def run_test(script_path: str):
     DB.switch_mode("local")
 
     # First run
-    print("\n" + "=" * 60)
-    print("STARTING FIRST RUN")
-    print("=" * 60)
     return_code, session_id = _run_script_with_ao_record(script_path, env)
     assert return_code == 0, f"First run failed with return_code {return_code}"
     assert session_id is not None, "Could not extract session_id from first run output"
@@ -113,16 +94,12 @@ async def run_test(script_path: str):
         (session_id,),
     )
     graph = json.loads(graph_topology["graph_topology"])
-    print_graph(graph, "FIRST RUN GRAPH")
 
     # Wait a moment before second run
     time.sleep(1)
 
     # Second run (should use cached results)
     # Pass the same session_id so it reuses the cache
-    print("\n" + "=" * 60)
-    print("STARTING SECOND RUN (should use cache)")
-    print("=" * 60)
     env["AO_SESSION_ID"] = session_id
     returncode_rerun, _ = _run_script_with_ao_record(script_path, env)
     assert returncode_rerun == 0, f"Re-run failed with return_code {returncode_rerun}"
@@ -138,7 +115,6 @@ async def run_test(script_path: str):
         (session_id,),
     )
     new_graph = json.loads(new_graph_topology["graph_topology"])
-    print_graph(new_graph, "SECOND RUN GRAPH")
 
     run_data_obj = RunData(rows=rows, new_rows=new_rows, graph=graph, new_graph=new_graph)
 
@@ -152,15 +128,15 @@ def caching_asserts(run_data_obj: RunData):
     for old_row, new_row in zip(run_data_obj.rows, run_data_obj.new_rows):
         assert (
             old_row["node_id"] == new_row["node_id"]
-        ), f"Node IDs of LLM calls don't match after re-run. Potential cache issue. Original: {len(run_data_obj.rows)}; New: {len(run_data_obj.new_rows)}"
+        ), f"Node IDs of LLM calls don't match after re-run. Potential cache issue. {len(run_data_obj.rows)} vs {len(run_data_obj.new_rows)}"
 
     # Compare graph topology between runs
     assert len(run_data_obj.graph["nodes"]) == len(
         run_data_obj.new_graph["nodes"]
-    ), f"Number of nodes in graph topology doesn't match after re-run. {len(run_data_obj.graph["nodes"])}; New:{len(run_data_obj.new_graph["nodes"])}"
+    ), "Number of nodes in graph topology doesn't match after re-run"
     assert len(run_data_obj.graph["edges"]) == len(
         run_data_obj.new_graph["edges"]
-    ), f"Number of edges in graph topology doesn't match after re-run. Original: {len(run_data_obj.graph["edges"])}; New: {len(run_data_obj.new_graph["edges"])}\n\n"
+    ), "Number of edges in graph topology doesn't match after re-run"
 
     # Check that node IDs match between the two graphs
     original_node_ids = {node["id"] for node in run_data_obj.graph["nodes"]}
@@ -172,4 +148,4 @@ def caching_asserts(run_data_obj: RunData):
     new_edges = {(edge["source"], edge["target"]) for edge in run_data_obj.new_graph["edges"]}
     assert (
         original_edges == new_edges
-    ), f"Edge structure in graph topology doesn't match after re-run.\noriginal: {original_edges}\n\nnew: {new_edges}"
+    ), "Edge structure in graph topology doesn't match after re-run"

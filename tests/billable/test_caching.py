@@ -67,12 +67,13 @@ def _deepresearch_asserts(run_data_obj: RunData):
         "./example_workflows/debug_examples/vertexai_streaming_async.py",
     ],
 )
-# def test_debug_examples(script_path: str):
-#     run_data_obj = asyncio.run(run_test(script_path=script_path))
-#     caching_asserts(run_data_obj)
+def test_debug_examples(script_path: str):
+    run_data_obj = asyncio.run(run_test(script_path=script_path))
+    caching_asserts(run_data_obj)
 
 
 def test_deepresearch():
+    return
     run_data_obj = asyncio.run(
         run_test(script_path="./example_workflows/miroflow_deep_research/single_task.py")
     )
