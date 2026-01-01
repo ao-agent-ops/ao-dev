@@ -174,12 +174,7 @@ class ASTImportLoader(SourceLoader):
             return f.read()
 
     def source_to_code(self, data, path, *, _optimize=-1):
-        """
-        Load code from cache if fresh, otherwise compile and notify FileWatcher.
-
-        With centralized cache in ~/.cache/ao/pyc/, all .pyc files are ours,
-        so we only need to check freshness (source mtime vs pyc mtime).
-        """
+        """Load code from cache if fresh, otherwise compile and notify FileWatcher."""
         # Skip .pyc loading for __init__.py - file_watcher doesn't compile them
         # to avoid circular import issues from injected taint imports
         if os.path.basename(path) == "__init__.py":
@@ -209,12 +204,7 @@ class ASTImportLoader(SourceLoader):
 
 class ASTImportFinder(MetaPathFinder):
     def find_spec(self, fullname, path, target=None):
-        """
-        Find and return a module spec for modules that should be AST-rewritten.
-
-        Uses O(1) dict lookup for known modules, then falls back to blacklist
-        heuristic for unknown modules.
-        """
+        """Find and return a module spec for modules that should be AST-rewritten."""
         # Fast path: skip modules we've already determined shouldn't be rewritten
         if fullname in _skip_modules:
             return None

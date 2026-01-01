@@ -6,20 +6,6 @@ from ao.common.constants import AO_CONFIG
 from ao.runner.agent_runner import AgentRunner
 
 
-def _get_default_project_root() -> str:
-    """
-    Get the default project root.
-
-    Priority:
-    1. AO_WORKSPACE_ROOT env var (set by VS Code extension)
-    2. AO_PROJECT_ROOT from config (derived from cwd/git root)
-    """
-    workspace_root = os.environ.get("AO_WORKSPACE_ROOT")
-    if workspace_root and os.path.isdir(workspace_root):
-        return workspace_root
-    return AO_PROJECT_ROOT
-
-
 def launch_command_parser():
     parser = ArgumentParser(
         usage="ao-record <script.py> [<args>]",
