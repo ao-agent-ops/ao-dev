@@ -3,12 +3,65 @@ import random
 import json
 import os
 import sys
+import site
+import sysconfig
 import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
 from ao.common.constants import AO_INSTALL_DIR, AO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
 from ao.common.logger import logger
+
+
+# ==============================================================================
+# Blacklist heuristic for determining what code to AST-rewrite
+# ==============================================================================
+def _get_third_party_roots():
+    """Get all directories where third-party/stdlib code lives."""
+    roots = set()
+
+    # Site-packages (covers conda, homebrew, pyenv, venv, etc.)
+    try:
+        roots.update(site.getsitepackages())
+    except AttributeError:
+        pass
+    try:
+        roots.add(site.getusersitepackages())  # ~/.local/lib/...
+    except AttributeError:
+        pass
+
+    # Stdlib location
+    stdlib_path = sysconfig.get_path("stdlib")
+    if stdlib_path:
+        roots.add(stdlib_path)
+
+    # Python installation prefix (catches anything else in the interpreter tree)
+    roots.add(sys.prefix)
+    roots.add(sys.base_prefix)  # Different from prefix in venvs
+
+    # Also add AO_INSTALL_DIR to avoid rewriting our own code
+    roots.add(AO_INSTALL_DIR)
+
+    return {os.path.realpath(r) for r in roots if r}
+
+
+_THIRD_PARTY_ROOTS = _get_third_party_roots()
+
+
+def should_rewrite(file_path: str) -> bool:
+    """
+    Return True if file should be AST-rewritten (not third-party).
+
+    Uses blacklist heuristic: rewrites everything except files in:
+    - site-packages / dist-packages
+    - Python stdlib
+    - Python installation prefix
+    - AO install directory
+    """
+    if not file_path or not file_path.endswith(".py"):
+        return False
+    real_path = os.path.realpath(file_path)
+    return not any(real_path.startswith(root) for root in _THIRD_PARTY_ROOTS)
 
 
 def is_whitelisted_endpoint(path: str) -> bool:
@@ -100,45 +153,6 @@ def get_module_file_path(module_name: str) -> str | None:
             return os.path.abspath(module_path)
 
     return None
-
-
-def scan_user_py_files_and_modules(root_dir):
-    """
-    Scan a directory for all .py files and return:
-      - module_to_file: mapping from module name to file path (relative to root_dir)
-
-    Excludes ao package directories (except example_workflows) and common non-code dirs.
-
-    NOTE: We intentionally don't use find_spec() to check for shorter module names
-    because find_spec() can trigger imports of parent packages, which can execute
-    code in modules that lack `if __name__ == "__main__":` guards.
-    """
-    module_to_file = dict()
-
-    # Standard directories to exclude
-    exclude_dirs = {".git", ".venv", "__pycache__", "__ao_cache__", ".pytest_cache", "node_modules"}
-
-    for dirpath, dirnames, filenames in os.walk(root_dir):
-        # Check if we're inside ao directory
-        if os.path.commonpath([dirpath, AO_INSTALL_DIR]) == AO_INSTALL_DIR:
-            # We're inside ao, only include example_workflows
-            rel_to_agent = os.path.relpath(dirpath, AO_INSTALL_DIR)
-            if not rel_to_agent.startswith("example_workflows"):
-                continue
-
-        # Filter out excluded directories
-        dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
-        for filename in filenames:
-            if filename.endswith(".py"):
-                abs_path = os.path.abspath(os.path.join(dirpath, filename))
-                # Compute module name relative to root_dir
-                rel_path = os.path.relpath(abs_path, root_dir)
-                mod_name = rel_path[:-3].replace(os.sep, ".")  # strip .py, convert / to .
-                if mod_name.endswith(".__init__"):
-                    mod_name = mod_name[:-9]  # remove .__init__
-                module_to_file[mod_name] = abs_path
-
-    return module_to_file
 
 
 # ==============================================================================
@@ -495,11 +509,3 @@ def save_io_stream(stream, filename, dest_dir):
             return new_path
 
         counter += 1
-
-
-# Mapping that maps module to file name
-MODULES_TO_FILES = scan_user_py_files_and_modules(AO_PROJECT_ROOT)
-packages_in_project_root = find_additional_packages_in_project_root(project_root=AO_PROJECT_ROOT)
-for additional_package in packages_in_project_root:
-    additional_package_module_to_file = scan_user_py_files_and_modules(additional_package)
-    MODULES_TO_FILES = {**MODULES_TO_FILES, **additional_package_module_to_file}

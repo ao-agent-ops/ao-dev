@@ -1,4 +1,5 @@
 import builtins
+import sys
 
 from ao.runner.monkey_patching.patches.randomness_patch import random_seed_patch
 
@@ -24,11 +25,9 @@ _original_import = builtins.__import__
 def _patching_import(name, globals=None, locals=None, fromlist=(), level=0):
     """
     Wrapper around __import__ that applies patches lazily when relevant modules are imported.
+    Patches are applied BEFORE the user's import, ensuring we do a clean import first.
     """
-    # Do the normal import first
-    module = _original_import(name, globals, locals, fromlist, level)
-
-    # Check if any lazy patches should be triggered
+    # Check if any lazy patches should be triggered BEFORE the import
     for module_prefix, (patch_module, patch_func_name) in list(LAZY_PATCHES.items()):
         if module_prefix in _applied_patches:
             continue
@@ -37,12 +36,13 @@ def _patching_import(name, globals=None, locals=None, fromlist=(), level=0):
         if name == module_prefix or name.startswith(module_prefix + "."):
             _applied_patches.add(module_prefix)
 
-            # Import and call the patch function
+            # Import and apply the patch FIRST (clean import)
             patch_mod = _original_import(patch_module, fromlist=[patch_func_name])
             patch_func = getattr(patch_mod, patch_func_name)
             patch_func()
 
-    return module
+    # Now do the user's import (module is already loaded and patched)
+    return _original_import(name, globals, locals, fromlist, level)
 
 
 def apply_all_monkey_patches():

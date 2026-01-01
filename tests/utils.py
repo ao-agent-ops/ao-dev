@@ -108,7 +108,7 @@ def with_ast_rewriting(test_func):
 
         # Apply AST transformation
         code_object = rewrite_source_to_code(
-            body_source, f"<{test_func.__name__}>", module_to_file={}
+            body_source, f"<{test_func.__name__}>", user_files=set()
         )
 
         # Set up the taint environment (normally done by agent_runner)

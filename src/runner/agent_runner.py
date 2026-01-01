@@ -9,12 +9,12 @@ import random
 import threading
 import queue
 import time
-import warnings
 import psutil
 import debugpy
 import signal
 import runpy
 import builtins
+
 from contextvars import ContextVar
 from typing import Optional, List
 
@@ -27,9 +27,8 @@ from ao.common.constants import (
     SERVER_START_WAIT,
     MESSAGE_POLL_INTERVAL,
 )
-from ao.common.utils import MODULES_TO_FILES
 from ao.cli.ao_server import launch_daemon_server
-from ao.runner.ast_rewrite_hook import install_patch_hook, set_module_to_user_file
+from ao.runner.ast_rewrite_hook import install_patch_hook
 from ao.runner.context_manager import set_parent_session_id, set_server_connection
 from ao.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
 from ao.server.ast_helpers import (
@@ -49,11 +48,6 @@ from ao.server.ast_helpers import (
     get_taint,
 )
 from ao.server.database_manager import DB
-
-
-def get_runner_dir():
-    """Return the absolute path to the runner directory."""
-    return os.path.abspath(os.path.dirname(__file__))
 
 
 def _log_error(context: str, exception: Exception) -> None:
@@ -173,7 +167,6 @@ class AgentRunner:
         script_path: str,
         script_args: List[str],
         is_module_execution: bool,
-        project_root: str,
         sample_id: Optional[str] = None,
         user_id: Optional[str] = None,
         run_name: Optional[str] = None,
@@ -181,7 +174,6 @@ class AgentRunner:
         self.script_path = script_path
         self.script_args = script_args
         self.is_module_execution = is_module_execution
-        self.project_root = project_root
         self.sample_id = sample_id
         self.user_id = user_id
         self.run_name = run_name
@@ -386,7 +378,6 @@ class AgentRunner:
             "environment": dict(os.environ),
             "process_id": self.process_id,
             "prev_session_id": os.getenv("AO_SESSION_ID"),
-            "module_to_file": MODULES_TO_FILES,
         }
 
         if self.user_id is not None:
@@ -418,29 +409,11 @@ class AgentRunner:
         # Enable tracing - this tells AST-injected code to use real exec_func
         os.environ["AO_ENABLE_TRACING"] = "1"
 
-        # Set up PYTHONPATH for AST rewrite hooks
-        runtime_tracing_dir = get_runner_dir()
-
-        if "PYTHONPATH" in os.environ:
-            os.environ["PYTHONPATH"] = (
-                self.project_root
-                + os.pathsep
-                + runtime_tracing_dir
-                + os.pathsep
-                + os.environ["PYTHONPATH"]
-            )
-        else:
-            os.environ["PYTHONPATH"] = self.project_root + os.pathsep + runtime_tracing_dir
-
         # Set random seed
         if not os.environ.get("AO_SEED"):
             os.environ["AO_SEED"] = str(random.randint(0, 2**31 - 1))
 
-        # Enable taint tracking in AST-rewritten code
-        os.environ["AGENT_COPILOT_ENABLE_TRACING"] = "True"
-
-        # Install AST hooks
-        set_module_to_user_file(MODULES_TO_FILES)
+        # Install AST import hook (discovers modules on-demand via should_rewrite())
         install_patch_hook()
 
         # Register taint functions in builtins
@@ -477,35 +450,9 @@ class AgentRunner:
         apply_all_monkey_patches()
 
     def _convert_file_to_module_name(self, script_path: str) -> str:
-        """Convert a file path to a module name that Python can import."""
-        if os.path.isabs(script_path):
-            abs_path = script_path
-        else:
-            abs_path = os.path.abspath(script_path)
-
-        try:
-            rel_path = os.path.relpath(abs_path, self.project_root)
-
-            if rel_path.startswith(".."):
-                module_name = os.path.splitext(os.path.basename(abs_path))[0]
-                return module_name
-
-            if rel_path.endswith(".py"):
-                rel_path = rel_path[:-3]
-
-            module_name = rel_path.replace(os.sep, ".")
-
-            if module_name.endswith(".__init__"):
-                module_name = module_name[:-9]
-
-            if not module_name:
-                module_name = os.path.splitext(os.path.basename(abs_path))[0]
-
-            return module_name
-
-        except ValueError:
-            base_name = os.path.splitext(os.path.basename(abs_path))[0]
-            return base_name
+        """Convert a file path to a module name (just the basename without .py)."""
+        abs_path = os.path.abspath(script_path)
+        return os.path.splitext(os.path.basename(abs_path))[0]
 
     def _execute_user_code(self) -> int:
         """Execute the user's code directly in this process.
@@ -514,17 +461,18 @@ class AgentRunner:
             Exit code from the user's script (0 for success, non-zero for error)
         """
         try:
-            # Ensure current working directory is in sys.path for module imports
-            cwd = os.getcwd()
-            if cwd not in sys.path:
-                sys.path.insert(0, cwd)
-                logger.info(f"[AgentRunner] Added current directory to sys.path: {cwd}")
+            # Add script's directory to sys.path (mimics Python's behavior)
+            script_dir = os.path.dirname(os.path.abspath(self.script_path))
+            if script_dir not in sys.path:
+                sys.path.insert(0, script_dir)
 
-            # Run user program.
+            # Run user program
             if self.is_module_execution:
+                # -m flag: user provides module name directly
                 sys.argv = [self.script_path] + self.script_args
                 runpy.run_module(self.script_path, run_name="__main__")
             else:
+                # Script path: convert to module name (basename) and run
                 module_name = self._convert_file_to_module_name(self.script_path)
                 sys.argv = [self.script_path] + self.script_args
                 runpy.run_module(module_name, run_name="__main__")

@@ -189,9 +189,10 @@ def _is_user_function(func):
 
     Handles decorated functions by unwrapping via __wrapped__ attribute.
     """
-    from ao.common.utils import MODULES_TO_FILES, get_ao_py_files
+    from ao.runner.ast_rewrite_hook import get_user_module_files
+    from ao.common.utils import get_ao_py_files
 
-    user_py_files = list(MODULES_TO_FILES.values()) + get_ao_py_files()
+    user_py_files = get_user_module_files() + get_ao_py_files()
 
     if not user_py_files:
         return False
@@ -251,7 +252,7 @@ def _is_type_annotation_access(obj, _key):
 # =============================================================================
 
 
-# Methods that store values - don't unwrap args to preserve taint on stored items
+# Methods that store values - call directly so stored items retain their id in TAINT_DICT
 STORING_METHODS = {"append", "extend", "insert", "add", "update", "setdefault"}
 
 
@@ -274,6 +275,15 @@ def exec_inplace_binop(obj, value, op_name):
     op_func = getattr(operator, op_name)
     result = op_func(obj, value)
     return result
+
+
+def _debug_taint_info(label, obj, include_id=True):
+    """Helper to format taint debug info for an object."""
+    taint = get_taint(obj)
+    obj_repr = repr(obj)[:80] if obj is not None else "None"
+    if include_id:
+        return f"{label}: id={id(obj)}, taint={taint}, val={obj_repr}"
+    return f"{label}: taint={taint}, val={obj_repr}"
 
 
 def exec_func(func_or_obj, args, kwargs, method_name=None):

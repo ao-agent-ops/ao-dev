@@ -11,7 +11,6 @@ import multiprocessing
 from datetime import datetime
 from typing import Optional, Dict
 
-from ao.common.utils import MODULES_TO_FILES
 from ao.common.logger import create_file_logger
 from ao.common.constants import (
     AO_CONFIG,
@@ -22,18 +21,17 @@ from ao.common.constants import (
 )
 from ao.server.database_manager import DB
 from ao.server.file_watcher import run_file_watcher_process
-from ao.server.git_versioner import GitVersioner
 
-logger = create_file_logger("AO.MainServer", MAIN_SERVER_LOG)
+logger = create_file_logger(MAIN_SERVER_LOG)
 
 
 def send_json(conn: socket.socket, msg: dict) -> None:
     try:
         msg_type = msg.get("type", "unknown")
-        logger.debug(f"[MainServer] Sent message type: {msg_type}")
+        logger.debug(f"Sent message type: {msg_type}")
         conn.sendall((json.dumps(msg) + "\n").encode("utf-8"))
     except Exception as e:
-        logger.error(f"[MainServer] Error sending JSON: {e}")
+        logger.error(f"Error sending JSON: {e}")
 
 
 class Session:
@@ -49,40 +47,42 @@ class Session:
 class MainServer:
     """Manages the development server for LLM call visualization."""
 
-    def __init__(self, module_to_file: Optional[Dict[str, str]] = None):
+    def __init__(self):
         _init_start = time.time()
-        logger.info(f"[MainServer] __init__ starting...")
+        logger.info(f"__init__ starting...")
         self.server_sock = None
         self.lock = threading.Lock()
         self.conn_info = {}  # conn -> {role, session_id}
         self.session_graphs = {}  # session_id -> graph_data
-        self.ui_connections = set()  # All UI connections (simplified)
+        self.ui_connections = set()
         self.sessions = {}  # session_id -> Session (only for agent runner connections)
-        self.module_to_file = module_to_file or MODULES_TO_FILES  # Module mapping for file watcher
         self.file_watcher_process = None  # Child process for file watching
+        self.file_watch_queue = multiprocessing.Queue()  # MainServer → FileWatcher
+        self.file_watch_response_queue = multiprocessing.Queue()  # FileWatcher → MainServer
         # self.current_user_id = None  # Store the current authenticated user_id (auth disabled)
         self.rerun_sessions = set()  # Track sessions being rerun to avoid clearing llm_calls
-        self.git_versioner = GitVersioner()
         self._last_activity_time = time.time()  # Track last message received for inactivity timeout
+        self._project_root = None  # Workspace root from VS Code UI
 
     # ============================================================
     # File Watcher Management
     # ============================================================
 
     def start_file_watcher(self) -> None:
-        """Start the file watcher process if module mapping is available."""
-        if not self.module_to_file:
-            logger.warning("[MainServer] No module mapping provided, skipping file watcher")
-            return
-
+        """Start the file watcher process."""
         if self.file_watcher_process and self.file_watcher_process.is_alive():
-            logger.warning("[MainServer] File watcher process is already running")
+            logger.warning("File watcher process is already running")
             return
 
         try:
+            # Use workspace root from VS Code UI, or fall back to config
+            from ao.common.constants import AO_PROJECT_ROOT
+
+            project_root = self._project_root or AO_PROJECT_ROOT
+
             self.file_watcher_process = multiprocessing.Process(
                 target=run_file_watcher_process,
-                args=(self.module_to_file,),
+                args=(project_root, self.file_watch_queue, self.file_watch_response_queue),
                 daemon=True,  # Dies when parent process dies
             )
             self.file_watcher_process.start()
@@ -90,13 +90,13 @@ class MainServer:
             # Give it a moment to start
             time.sleep(0.1)
             if not self.file_watcher_process.is_alive():
-                logger.error(f"[MainServer] File watcher process died immediately")
+                logger.error(f"File watcher process died immediately")
 
         except Exception as e:
-            logger.error(f"[MainServer] ✗ Failed to start file watcher process: {e}")
+            logger.error(f"✗ Failed to start file watcher process: {e}")
             import traceback
 
-            logger.error(f"[MainServer] Traceback: {traceback.format_exc()}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
     def stop_file_watcher(self) -> None:
         """Stop the file watcher process if it's running."""
@@ -109,7 +109,7 @@ class MainServer:
                     self.file_watcher_process.kill()
                     self.file_watcher_process.join()
             except Exception as e:
-                logger.error(f"[MainServer] Error stopping file watcher process: {e}")
+                logger.error(f"Error stopping file watcher process: {e}")
             finally:
                 self.file_watcher_process = None
 
@@ -125,11 +125,37 @@ class MainServer:
                 time.sleep(60)  # Check every minute
                 elapsed = time.time() - self._last_activity_time
                 if elapsed >= SERVER_INACTIVITY_TIMEOUT:
-                    logger.info(f"[MainServer] No activity for {elapsed:.0f}s, shutting down...")
+                    logger.info(f"No activity for {elapsed:.0f}s, shutting down...")
                     self.handle_shutdown()
                     return
 
         thread = threading.Thread(target=monitor_inactivity, daemon=True)
+        thread.start()
+
+    def _start_response_queue_monitor(self) -> None:
+        """Start a daemon thread that polls the FileWatcher response queue."""
+        import queue
+
+        def monitor_response_queue():
+            while True:
+                try:
+                    msg = self.file_watch_response_queue.get(timeout=1.0)
+                    msg_type = msg.get("type")
+                    if msg_type == "version_result":
+                        # FileWatcher completed git commit, update DB and broadcast
+                        session_id = msg.get("session_id")
+                        version_date = msg.get("version_date")
+                        if session_id and version_date:
+                            DB.update_experiment_version_date(session_id, version_date)
+                        self.broadcast_experiment_list_to_uis()
+                    else:
+                        logger.warning(f"Unknown response queue message type: {msg_type}")
+                except queue.Empty:
+                    continue
+                except Exception as e:
+                    logger.error(f"Error processing response queue: {e}")
+
+        thread = threading.Thread(target=monitor_response_queue, daemon=True)
         thread.start()
 
     # ============================================================
@@ -140,13 +166,13 @@ class MainServer:
         """Broadcast a message to all UI connections."""
         msg_type = msg.get("type", "unknown")
         logger.debug(
-            f"[MainServer] broadcast_to_all_uis: type={msg_type}, num_ui_connections={len(self.ui_connections)}"
+            f"broadcast_to_all_uis: type={msg_type}, num_ui_connections={len(self.ui_connections)}"
         )
         for ui_conn in list(self.ui_connections):
             try:
                 send_json(ui_conn, msg)
             except Exception as e:
-                logger.error(f"[MainServer] Error broadcasting to UI: {e}")
+                logger.error(f"Error broadcasting to UI: {e}")
                 self.ui_connections.discard(ui_conn)
 
     def broadcast_graph_update(self, session_id: str) -> None:
@@ -154,7 +180,7 @@ class MainServer:
         if session_id in self.session_graphs:
             graph = self.session_graphs[session_id]
             logger.info(
-                f"[MainServer] broadcast_graph_update: session={session_id}, nodes={len(graph.get('nodes', []))}, edges={[e['id'] for e in graph.get('edges', [])]}"
+                f"broadcast_graph_update: session={session_id}, nodes={len(graph.get('nodes', []))}, edges={[e['id'] for e in graph.get('edges', [])]}"
             )
             self.broadcast_to_all_uis(
                 {
@@ -200,7 +226,7 @@ class MainServer:
                 success = row["success"]
                 notes = row["notes"]
                 log = row["log"]
-                code_hash = row["code_hash"]
+                version_date = row["version_date"]
 
                 # Parse color_preview from database
                 color_preview = []
@@ -216,7 +242,7 @@ class MainServer:
                         "status": status,
                         "timestamp": timestamp,
                         "color_preview": color_preview,
-                        "code_hash": code_hash,
+                        "version_date": version_date,
                         "run_name": run_name,
                         "result": success,
                         "notes": notes,
@@ -287,7 +313,7 @@ class MainServer:
         try:
             cwd, command, environment = DB.get_exec_command(session_id)
             logger.debug(
-                f"[MainServer] Rerunning finished session {session_id} with cwd={cwd} and command={command}"
+                f"Rerunning finished session {session_id} with cwd={cwd} and command={command}"
             )
 
             # Mark this session as being rerun to avoid clearing llm_calls
@@ -298,7 +324,7 @@ class MainServer:
             env["AO_SESSION_ID"] = session_id
             env.update(environment)
             logger.debug(
-                f"[MainServer] Restored {len(environment)} environment variables for session {session_id}"
+                f"Restored {len(environment)} environment variables for session {session_id}"
             )
 
             # Spawn the process
@@ -313,7 +339,7 @@ class MainServer:
                 self.broadcast_experiment_list_to_uis()
 
         except Exception as e:
-            logger.error(f"[MainServer] Failed to rerun finished session: {e}")
+            logger.error(f"Failed to rerun finished session: {e}")
 
     # ============================================================
     # Handle message types.
@@ -408,13 +434,11 @@ class MainServer:
                     full_edge = {"id": edge_id, "source": source, "target": target}
                     graph["edges"].append(full_edge)
                     existing_edge_ids.add(edge_id)  # Track newly added edge
-                    logger.info(f"[MainServer] Added edge {edge_id} in session {sid}")
+                    logger.info(f"Added edge {edge_id} in session {sid}")
                 else:
-                    logger.debug(f"[MainServer] Skipping duplicate edge {edge_id}")
+                    logger.debug(f"Skipping duplicate edge {edge_id}")
             else:
-                logger.debug(
-                    f"[MainServer] Skipping edge from non-existent node {source} to {node['id']}"
-                )
+                logger.debug(f"Skipping edge from non-existent node {source} to {node['id']}")
 
         # Update color preview in database
         node_colors = [n["border_color"] for n in graph["nodes"]]
@@ -468,7 +492,7 @@ class MainServer:
         value = msg.get("value")
 
         if not all([session_id, node_id, field]):
-            logger.error(f"[MainServer] Missing required fields in updateNode message: {msg}")
+            logger.error(f"Missing required fields in updateNode message: {msg}")
             return
 
         if session_id in self.session_graphs:
@@ -482,7 +506,7 @@ class MainServer:
             DB.update_graph_topology(session_id, self.session_graphs[session_id])
             self.broadcast_graph_update(session_id)
         else:
-            logger.warning(f"[MainServer] Session {session_id} not found in session_graphs")
+            logger.warning(f"Session {session_id} not found in session_graphs")
 
     def handle_log(self, msg: dict) -> None:
         session_id = msg["session_id"]
@@ -500,7 +524,7 @@ class MainServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"[MainServer] handle_update_run_name: Missing required fields: session_id={session_id}, run_name={run_name}"
+                f"handle_update_run_name: Missing required fields: session_id={session_id}, run_name={run_name}"
             )
 
     def handle_update_result(self, msg: dict) -> None:
@@ -511,7 +535,7 @@ class MainServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"[MainServer] handle_update_result: Missing required fields: session_id={session_id}, result={result}"
+                f"handle_update_result: Missing required fields: session_id={session_id}, result={result}"
             )
 
     def handle_update_notes(self, msg: dict) -> None:
@@ -522,7 +546,7 @@ class MainServer:
             self.broadcast_experiment_list_to_uis()
         else:
             logger.error(
-                f"[MainServer] handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
+                f"handle_update_notes: Missing required fields: session_id={session_id}, notes={notes}"
             )
 
     def handle_update_command(self, msg: dict) -> None:
@@ -534,6 +558,17 @@ class MainServer:
             if session:
                 session.command = command
                 DB.update_command(session_id, command)
+
+    def handle_watch_file(self, msg: dict) -> None:
+        """
+        Forward a newly discovered file to FileWatcher via Queue.
+
+        Called by import hook when it discovers a file that should be AST-rewritten.
+        """
+        file_path = msg.get("path")
+        if file_path:
+            self.file_watch_queue.put(file_path)
+            logger.debug(f"Forwarded watch_file to FileWatcher: {file_path}")
 
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
         session_id = msg["session_id"]
@@ -595,7 +630,7 @@ class MainServer:
             # if user_id is None:
             #     user_id = self.current_user_id
 
-            code_hash = self.git_versioner.commit_and_get_version()
+            # Create experiment with version_date=None, request async versioning
             DB.add_experiment(
                 session_id,
                 name,
@@ -605,8 +640,10 @@ class MainServer:
                 environment,
                 parent_session_id,
                 None,  # user_id disabled
-                code_hash,
+                None,  # version_date will be set async by FileWatcher
             )
+            # Request async git versioning from FileWatcher
+            self.file_watch_queue.put({"type": "request_version", "session_id": session_id})
         # Insert session if not present.
         with self.lock:
             if session_id not in self.sessions:
@@ -637,7 +674,7 @@ class MainServer:
         session_id = msg.get("session_id")
         parent_session_id = DB.get_parent_session_id(session_id)
         if not parent_session_id:
-            logger.error("[MainServer] Restart message missing session_id. Ignoring.")
+            logger.error("Restart message missing session_id. Ignoring.")
             return
         # Clear UI state (updates both memory and database atomically)
         self._clear_session_ui(session_id)
@@ -649,15 +686,15 @@ class MainServer:
             if session.shim_conn:
                 restart_msg = {"type": "restart", "session_id": parent_session_id}
                 logger.debug(
-                    f"[MainServer] Session running...Sending restart for session_id: {parent_session_id}"
+                    f"Session running...Sending restart for session_id: {parent_session_id}"
                 )
                 try:
                     send_json(session.shim_conn, restart_msg)
                 except Exception as e:
-                    logger.error(f"[MainServer] Error sending restart: {e}")
+                    logger.error(f"Error sending restart: {e}")
                 return
             else:
-                logger.warning(f"[MainServer] No shim_conn for session_id: {parent_session_id}")
+                logger.warning(f"No shim_conn for session_id: {parent_session_id}")
         elif session and session.status == "finished":
             # Rerun for finished session: spawn new process with same session_id
             self._spawn_session_process(parent_session_id, session_id)
@@ -671,15 +708,26 @@ class MainServer:
 
     def handle_shutdown(self) -> None:
         """Handle shutdown command by closing all connections."""
-        logger.info("[MainServer] Shutdown command received. Closing all connections.")
+        logger.info("Shutdown command received. Closing all connections.")
         # Stop file watcher process first
         self.stop_file_watcher()
+        # Close the multiprocessing queues to release semaphores
+        try:
+            self.file_watch_queue.close()
+            self.file_watch_queue.join_thread()
+        except Exception as e:
+            logger.debug(f"Error closing file_watch_queue: {e}")
+        try:
+            self.file_watch_response_queue.close()
+            self.file_watch_response_queue.join_thread()
+        except Exception as e:
+            logger.debug(f"Error closing file_watch_response_queue: {e}")
         # Close all client sockets
         for s in list(self.conn_info.keys()):
             try:
                 s.close()
             except Exception as e:
-                logger.error(f"[MainServer] Error closing socket: {e}")
+                logger.error(f"Error closing socket: {e}")
         os._exit(0)
 
     def handle_clear(self):
@@ -695,7 +743,7 @@ class MainServer:
         """Handle database mode switching from UI dropdown."""
         mode = msg.get("mode")  # "local" or "remote"
         if mode not in ["local", "remote"]:
-            logger.error(f"[MainServer] Invalid database mode: {mode}")
+            logger.error(f"Invalid database mode: {mode}")
             return
 
         try:
@@ -710,10 +758,10 @@ class MainServer:
                 self.broadcast_experiment_list_to_uis()
 
         except Exception as e:
-            logger.error(f"[MainServer] Failed to switch database mode: {e}")
+            logger.error(f"Failed to switch database mode: {e}")
 
     # ============================================================
-    # Message rounting logic.
+    # Message routing logic.
     # ============================================================
 
     def process_message(self, msg: dict, conn: socket.socket) -> None:
@@ -758,8 +806,10 @@ class MainServer:
             self.handle_get_all_experiments(conn)
         elif msg_type == "update_command":
             self.handle_update_command(msg)
+        elif msg_type == "watch_file":
+            self.handle_watch_file(msg)
         else:
-            logger.error(f"[MainServer] Unknown message type. Message:\n{msg}")
+            logger.error(f"Unknown message type. Message:\n{msg}")
 
     def handle_client(self, conn: socket.socket) -> None:
         """Handle a new client connection in a separate thread."""
@@ -792,7 +842,7 @@ class MainServer:
                     if not name:
                         run_index = DB.get_next_run_index()
                         name = f"Run {run_index}"
-                    code_hash = self.git_versioner.commit_and_get_version()
+                    # Create experiment with version_date=None, request async versioning
                     DB.add_experiment(
                         session_id,
                         name,
@@ -802,9 +852,10 @@ class MainServer:
                         environment,
                         None,
                         None,  # user_id disabled
-                        code_hash,
+                        None,  # version_date will be set async by FileWatcher
                     )
-                    logger.info(f"[GitVersioner] code version is {code_hash}")
+                    # Request async git versioning from FileWatcher
+                    self.file_watch_queue.put({"type": "request_version", "session_id": session_id})
                 # Insert session if not present.
                 with self.lock:
                     if session_id not in self.sessions:
@@ -824,17 +875,6 @@ class MainServer:
                     },
                 )
 
-                # Extract module mapping for file watcher
-                module_to_file = handshake.get("module_to_file", {})
-                if module_to_file:
-                    # Update server's module mapping
-                    self.module_to_file.update(module_to_file)
-                    # Restart file watcher with updated mapping
-                    self.stop_file_watcher()
-                    self.start_file_watcher()
-                else:
-                    logger.warning(f"[MainServer] No module mapping received from agent-runner")
-
             elif role == "ui":
                 # Always reload finished runs from the DB before sending experiment list
                 self.load_finished_runs()
@@ -843,6 +883,16 @@ class MainServer:
                 # user_id = handshake.get("user_id") if isinstance(handshake, dict) else None
                 # if user_id is not None:
                 #     self.current_user_id = user_id
+
+                # Extract workspace_root from VS Code and update FileWatcher
+                workspace_root = handshake.get("workspace_root")
+                if workspace_root and workspace_root != self._project_root:
+                    logger.info(f"Setting workspace root to: {workspace_root}")
+                    self._project_root = workspace_root
+                    # Restart file watcher with new project root
+                    self.stop_file_watcher()
+                    self.start_file_watcher()
+
                 # Send session_id and config_path to this UI connection (None for UI)
                 self.conn_info[conn] = {"role": role, "session_id": None}
                 send_json(
@@ -862,12 +912,11 @@ class MainServer:
                     try:
                         msg = json.loads(line.strip())
                     except Exception as e:
-                        logger.error(f"[MainServer] Error parsing JSON: {e}")
+                        logger.error(f"Error parsing JSON: {e}")
                         continue
 
-                    # Print message type.
                     msg_type = msg.get("type", "unknown")
-                    logger.debug(f"[MainServer] Received message type: {msg_type}")
+                    logger.debug(f"Received message type: {msg_type}")
 
                     if "session_id" not in msg:
                         msg["session_id"] = session_id
@@ -893,27 +942,27 @@ class MainServer:
             try:
                 conn.close()
             except Exception as e:
-                logger.error(f"[MainServer] Error closing connection: {e}")
+                logger.error(f"Error closing connection: {e}")
 
     def run_server(self) -> None:
         """Main server loop: accept clients and spawn handler threads."""
         _run_start = time.time()
-        logger.info(f"[MainServer] run_server starting...")
+        logger.info(f"run_server starting...")
 
         # Set up signal handlers to ensure clean shutdown (especially FileWatcher cleanup)
         def shutdown_handler(signum, frame):
-            logger.info(f"[MainServer] Received signal {signum}")
+            logger.info(f"Received signal {signum}")
             self.handle_shutdown()
 
         signal.signal(signal.SIGTERM, shutdown_handler)
         signal.signal(signal.SIGINT, shutdown_handler)
 
-        logger.info(f"[MainServer] Creating socket... ({time.time() - _run_start:.2f}s)")
+        logger.info(f"Creating socket... ({time.time() - _run_start:.2f}s)")
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Try binding with retry logic and better error handling
-        logger.info(f"[MainServer] Binding to {HOST}:{PORT}... ({time.time() - _run_start:.2f}s)")
+        logger.info(f"Binding to {HOST}:{PORT}... ({time.time() - _run_start:.2f}s)")
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -922,7 +971,7 @@ class MainServer:
             except OSError as e:
                 if e.errno == 48 and attempt < max_retries - 1:  # Address already in use
                     logger.warning(
-                        f"[MainServer] Port {PORT} in use, retrying in 2 seconds... (attempt {attempt + 1}/{max_retries})"
+                        f"Port {PORT} in use, retrying in 2 seconds... (attempt {attempt + 1}/{max_retries})"
                     )
                     time.sleep(2)
                     continue
@@ -930,21 +979,22 @@ class MainServer:
                     raise
 
         self.server_sock.listen()
-        logger.info(
-            f"[MainServer] Develop server listening on {HOST}:{PORT} ({time.time() - _run_start:.2f}s)"
-        )
+        logger.info(f"Develop server listening on {HOST}:{PORT} ({time.time() - _run_start:.2f}s)")
 
         # Start file watcher process for AST recompilation
-        logger.info(f"[MainServer] Starting file watcher... ({time.time() - _run_start:.2f}s)")
+        logger.info(f"Starting file watcher... ({time.time() - _run_start:.2f}s)")
         self.start_file_watcher()
 
         # Start inactivity monitor (shuts down after 1 hour of no messages)
         self._start_inactivity_monitor()
 
+        # Start response queue monitor (handles FileWatcher responses)
+        self._start_response_queue_monitor()
+
         # Load finished runs on startup
-        logger.info(f"[MainServer] Loading finished runs... ({time.time() - _run_start:.2f}s)")
+        logger.info(f"Loading finished runs... ({time.time() - _run_start:.2f}s)")
         self.load_finished_runs()
-        logger.info(f"[MainServer] Server fully ready! ({time.time() - _run_start:.2f}s)")
+        logger.info(f"Server fully ready! ({time.time() - _run_start:.2f}s)")
 
         try:
             while True:
@@ -957,7 +1007,7 @@ class MainServer:
             # Stop file watcher process
             self.stop_file_watcher()
             self.server_sock.close()
-            logger.info("[MainServer] Develop server stopped.")
+            logger.info("Develop server stopped.")
 
 
 if __name__ == "__main__":

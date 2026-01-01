@@ -19,85 +19,58 @@ import sys
 import time
 import signal
 import glob
+import hashlib
+import hashlib
 import threading
-from typing import Dict, Set
+import queue
+import subprocess
+import shutil
+import traceback
+from datetime import datetime
+from typing import Dict, Set, Optional
 from ao.common.logger import create_file_logger
 from ao.common.constants import (
     FILE_POLL_INTERVAL,
     ORPHAN_POLL_INTERVAL,
     AO_PROJECT_ROOT,
+    AO_CACHE_DIR,
     FILE_WATCHER_LOG,
+    GIT_DIR,
 )
 
-logger = create_file_logger("AO.FileWatcher", FILE_WATCHER_LOG)
+logger = create_file_logger(FILE_WATCHER_LOG)
 from ao.server.ast_transformer import TaintPropagationTransformer
-from ao.common.utils import MODULES_TO_FILES
 
 
-def rewrite_source_to_code(
-    source: str, filename: str, module_to_file: dict = None, return_tree=False
-):
+def rewrite_source_to_code(source: str, filename: str, user_files: set = None, return_tree=False):
     """
     Transform and compile Python source code with AST rewrites.
-
-    This is a pure function that applies AST transformations and compiles
-    the result to a code object. Same input always produces same output,
-    making it suitable for caching.
 
     Args:
         source: Python source code as a string
         filename: Path to the source file (used in error messages and code object)
-        module_to_file: Dict mapping user module names to their file paths.
-                       Used to distinguish user code from third-party code.
+        user_files: Set of user code file paths (to distinguish from third-party code)
         return_tree: If True, return (code_object, tree) tuple for debugging
 
     Returns:
         A compiled code object ready for execution, or (code_object, tree) if return_tree=True
-
-    Raises:
-        SyntaxError: If the source code is invalid
-        Exception: If AST transformation fails
     """
     # Inject future imports to prevent type annotations from being evaluated at import time
-    # This must be done before parsing to avoid AST transformation of type subscripts
     if "from __future__ import annotations" not in source:
         source = "from __future__ import annotations\n" + source
 
-    # Parse source into AST
     tree = ast.parse(source, filename=filename)
 
-    # Apply AST transformations and inject imports if needed
-    transformer = TaintPropagationTransformer(module_to_file=module_to_file, current_file=filename)
+    transformer = TaintPropagationTransformer(user_files=user_files, current_file=filename)
     tree = transformer.visit(tree)
     tree = transformer._inject_taint_imports(tree)
     ast.fix_missing_locations(tree)
 
-    # Compile to code object
     code_object = compile(tree, filename, "exec")
 
     if return_tree:
         return code_object, tree
     return code_object
-
-
-def is_pyc_rewritten(pyc_path: str) -> bool:
-    """
-    Check if a .pyc file was created by our AST transformer.
-
-    Returns True if the .pyc contains our injected imports (exec_func, etc).
-    Files with no transformations (empty __init__.py) return False, which is fine -
-    they don't need special handling.
-    """
-    try:
-        import marshal
-
-        with open(pyc_path, "rb") as f:
-            f.read(16)  # Skip .pyc header
-            code = marshal.load(f)
-            # Check for our injected function names
-            return "exec_func" in code.co_names or "taint_fstring_join" in code.co_names
-    except Exception:
-        return False
 
 
 class FileWatcher:
@@ -109,41 +82,176 @@ class FileWatcher:
     .pyc files contain the AST-rewritten code with taint propagation.
     """
 
-    def __init__(self, module_to_file: Dict[str, str]):
+    def __init__(self, project_root: str = None, watch_queue=None, response_queue=None):
         """
         Initialize the file watcher.
 
         Args:
-            module_to_file: Dict mapping module names to their file paths
-                           (e.g., {"mypackage.mymodule": "/path/to/mymodule.py"})
+            project_root: Root directory to scan for Python files.
+                         Falls back to AO_PROJECT_ROOT if not provided.
+            watch_queue: multiprocessing.Queue for receiving messages from MainServer.
+            response_queue: multiprocessing.Queue for sending messages back to MainServer.
         """
-        self.module_to_file = module_to_file
-        self.file_mtimes = {}  # Track last modification times
+        self.tracked_files: Set[str] = set()
+        self.file_mtimes: Dict[str, float] = {}
         self.pid = os.getpid()
-        self._parent_pid = os.getppid()  # Store parent PID to detect orphaning
-        self._shutdown = False  # Flag to signal shutdown
-        self.project_root = AO_PROJECT_ROOT  # Use project root from config
-        self._populate_initial_mtimes()
+        self._parent_pid = os.getppid()
+        self._shutdown = False
+        self.project_root = project_root or AO_PROJECT_ROOT
+        self.watch_queue = watch_queue
+        self.response_queue = response_queue
+        # Git versioning state (lazy init)
+        self._git_available: Optional[bool] = None
+        self._git_initialized = False
+        self._git_dir = os.path.abspath(GIT_DIR)
+        logger.info(f"Started with project_root: {self.project_root}")
         self._setup_signal_handlers()
 
-    def _populate_initial_mtimes(self):
-        """Initialize modification times for all tracked files."""
-        for module_name, file_path in self.module_to_file.items():
-            try:
-                if os.path.exists(file_path):
-                    mtime = os.path.getmtime(file_path)
-                    self.file_mtimes[file_path] = mtime
-                else:
-                    logger.warning(
-                        f"[FileWatcher] Module file not found: {module_name} -> {file_path}"
-                    )
-            except OSError as e:
-                logger.error(f"[FileWatcher] Error accessing file {file_path}: {e}")
+    # =========================================================================
+    # Git Versioning (moved from git_versioner.py)
+    # =========================================================================
+
+    def _is_git_available(self) -> bool:
+        """Check if git is installed on the system."""
+        if self._git_available is None:
+            self._git_available = shutil.which("git") is not None
+            if not self._git_available:
+                logger.warning("git not found in PATH, code versioning disabled")
+        return self._git_available
+
+    def _run_git(self, *args, check: bool = True) -> subprocess.CompletedProcess:
+        """Run git command with GIT_DIR and GIT_WORK_TREE set."""
+        env = os.environ.copy()
+        env["GIT_DIR"] = self._git_dir
+        env["GIT_WORK_TREE"] = self.project_root
+
+        cmd = ["git"] + list(args)
+        return subprocess.run(
+            cmd,
+            env=env,
+            cwd=self.project_root,
+            check=check,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def _format_version(self, dt: datetime) -> str:
+        """Format datetime as 'Version Dec 12, 8:45' (24h format)."""
+        return f"Version {dt.strftime('%b')} {dt.day}, {dt.hour}:{dt.strftime('%M')}"
+
+    def _ensure_git_initialized(self) -> bool:
+        """Ensure the git repository is initialized. Returns True on success."""
+        if self._git_initialized:
+            return True
+
+        if not self._is_git_available():
+            return False
+
+        try:
+            # Check if already initialized
+            if os.path.exists(os.path.join(self._git_dir, "HEAD")):
+                self._git_initialized = True
+                return True
+
+            # Create git directory
+            os.makedirs(self._git_dir, exist_ok=True)
+
+            # Initialize repository
+            self._run_git("init")
+
+            # Configure user for commits (required by git)
+            self._run_git("config", "user.name", "AO Code Versioner")
+            self._run_git("config", "user.email", "ao@localhost")
+
+            logger.info(f"Initialized git repository at {self._git_dir}")
+            self._git_initialized = True
+            return True
+
+        except subprocess.SubprocessError as e:
+            logger.error(f"Failed to initialize git repository: {e}")
+            return False
+        except OSError as e:
+            logger.error(f"Failed to create git directory: {e}")
+            return False
+
+    def _commit_and_get_version(self) -> Optional[str]:
+        """
+        Commit tracked files and return version string.
+
+        Uses only the files in self.tracked_files, ensuring git versioning
+        and file watching are in sync.
+
+        Returns:
+            Human-readable version string like "Version Dec 12, 8:45", or None if unavailable.
+        """
+        if not self._ensure_git_initialized():
+            return None
+
+        try:
+            files = list(self.tracked_files)
+            if not files:
+                logger.debug("No files to commit")
+                return None
+
+            # Stage only the files we're tracking
+            self._run_git("add", "--", *files)
+
+            # Check if there are staged changes
+            result = self._run_git("diff", "--cached", "--quiet", check=False)
+
+            if result.returncode == 0:
+                # No changes - return timestamp of current HEAD if it exists
+                try:
+                    result = self._run_git("log", "-1", "--format=%cI", "HEAD")
+                    timestamp_str = result.stdout.strip()
+                    dt = datetime.fromisoformat(timestamp_str)
+                    return self._format_version(dt)
+                except subprocess.SubprocessError:
+                    # No commits yet and no changes
+                    return None
+
+            # There are changes - commit them
+            now = datetime.now()
+            commit_message = now.isoformat(timespec="seconds")
+            self._run_git("commit", "-m", commit_message)
+
+            version_str = self._format_version(now)
+            logger.info(f"Created git commit: {version_str}")
+            return version_str
+
+        except subprocess.SubprocessError as e:
+            stderr = getattr(e, "stderr", None)
+            logger.error(f"Git operation failed: {e}, stderr: {stderr}")
+            return None
+        except subprocess.TimeoutExpired:
+            logger.error("Git operation timed out")
+            return None
+
+    def _handle_version_request(self, session_id: str) -> None:
+        """Handle a request_version message: commit files and return version_date."""
+        version_date = self._commit_and_get_version()
+        if self.response_queue:
+            self.response_queue.put(
+                {
+                    "type": "version_result",
+                    "session_id": session_id,
+                    "version_date": version_date,
+                }
+            )
 
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful shutdown."""
         signal.signal(signal.SIGTERM, self._handle_shutdown_signal)
         signal.signal(signal.SIGINT, self._handle_shutdown_signal)
+
+    def _log_tracked_files(self):
+        """Log the current list of tracked files."""
+        if not self.tracked_files:
+            logger.info("Tracked files: (none)")
+            return
+        file_list = "\n  ".join(sorted(self.tracked_files))
+        logger.info(f"Tracked files ({len(self.tracked_files)}):\n  {file_list}")
 
     def _scan_for_python_files(self) -> Set[str]:
         """
@@ -157,7 +265,7 @@ class FileWatcher:
         # Search for all .py files recursively from project root
         pattern = os.path.join(self.project_root, "**", "*.py")
         for file_path in glob.glob(pattern, recursive=True):
-            # Skip .ao_rewritten.py files (these are debugging files, not real code)
+            # Skip .ao_rewritten.py debugging files
             if ".ao_rewritten" in file_path:
                 continue
 
@@ -165,8 +273,7 @@ class FileWatcher:
             if "__pycache__" in file_path:
                 continue
 
-            # Skip __init__.py files - they use normal Python import mechanism
-            # (avoids circular import issues from injected taint imports)
+            # Skip __init__.py - injecting imports causes circular import issues
             if os.path.basename(file_path) == "__init__.py":
                 continue
 
@@ -176,67 +283,27 @@ class FileWatcher:
 
         return python_files
 
-    def _generate_module_name(self, file_path: str) -> str:
-        """
-        Generate a module name for a discovered Python file.
-
-        Args:
-            file_path: Absolute path to the Python file
-
-        Returns:
-            Module name suitable for the module_to_file mapping
-        """
-        # Get relative path from project root
-        rel_path = os.path.relpath(file_path, self.project_root)
-
-        # Convert path separators to dots and remove .py extension
-        module_name = rel_path.replace(os.sep, ".").replace(".py", "")
-
-        # Handle special cases like __init__.py
-        if module_name.endswith(".__init__"):
-            module_name = module_name[:-9]  # Remove .__init__
-
-        return module_name
-
     def _update_tracked_files(self):
-        """
-        Update the tracked files by discovering new Python files and removing deleted ones.
-        """
+        """Discover new Python files and remove deleted ones."""
         discovered_files = self._scan_for_python_files()
-        current_tracked_files = set(self.module_to_file.values())
 
         # Find new files to add
-        new_files = discovered_files - current_tracked_files
+        new_files = discovered_files - self.tracked_files
         for new_file in new_files:
-            module_name = self._generate_module_name(new_file)
-            self.module_to_file[module_name] = new_file
-            # Also update the global MODULES_TO_FILES singleton
-            MODULES_TO_FILES[module_name] = new_file
-
-            # Initialize mtime for the new file
+            self.tracked_files.add(new_file)
+            logger.info(f"File added: {new_file}")
             try:
                 if os.path.exists(new_file):
-                    mtime = os.path.getmtime(new_file)
-                    self.file_mtimes[new_file] = mtime
+                    self.file_mtimes[new_file] = os.path.getmtime(new_file)
             except OSError as e:
-                logger.error(f"[FileWatcher] Error accessing new file {new_file}: {e}")
+                logger.error(f"Error accessing new file {new_file}: {e}")
 
         # Find deleted files to remove
-        deleted_files = current_tracked_files - discovered_files
+        deleted_files = self.tracked_files - discovered_files
         for deleted_file in deleted_files:
-            # Remove from module_to_file mapping
-            modules_to_remove = [
-                mod for mod, path in self.module_to_file.items() if path == deleted_file
-            ]
-            for module_name in modules_to_remove:
-                del self.module_to_file[module_name]
-                # Also remove from the global MODULES_TO_FILES singleton
-                if module_name in MODULES_TO_FILES:
-                    del MODULES_TO_FILES[module_name]
-
-            # Remove from mtime tracking
-            if deleted_file in self.file_mtimes:
-                del self.file_mtimes[deleted_file]
+            self.tracked_files.discard(deleted_file)
+            self.file_mtimes.pop(deleted_file, None)
+            logger.info(f"File removed: {deleted_file}")
 
             # Clean up associated .pyc file if it exists
             try:
@@ -244,22 +311,19 @@ class FileWatcher:
                 if os.path.exists(pyc_path):
                     os.remove(pyc_path)
             except OSError as e:
-                logger.warning(f"[FileWatcher] Could not remove .pyc file for {deleted_file}: {e}")
+                logger.warning(f"Could not remove .pyc for {deleted_file}: {e}")
+
+        if new_files or deleted_files:
+            self._log_tracked_files()
 
     def _handle_shutdown_signal(self, signum, frame):
         """Handle shutdown signals gracefully."""
-        logger.info(f"[FileWatcher] Received signal {signum}, shutting down gracefully...")
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
         self._shutdown = True
 
     def _is_parent_alive(self) -> bool:
-        """
-        Check if the parent process is still alive.
-
-        On Unix, when a parent dies, the child's PPID becomes 1 (init/launchd).
-        We also check if PPID changed from what we recorded at startup.
-        """
+        """Check if parent process is alive (PPID becomes 1 when parent dies)."""
         current_ppid = os.getppid()
-        # Parent died if PPID is now 1 (init) or changed from original
         return current_ppid == self._parent_pid and current_ppid != 1
 
     def _start_parent_monitor(self) -> None:
@@ -268,7 +332,7 @@ class FileWatcher:
         def monitor_parent():
             while not self._shutdown:
                 if not self._is_parent_alive():
-                    logger.info("[FileWatcher] Parent process died, shutting down...")
+                    logger.info("Parent process died, shutting down...")
                     self._shutdown = True
                     return
                 time.sleep(ORPHAN_POLL_INTERVAL)
@@ -276,17 +340,40 @@ class FileWatcher:
         thread = threading.Thread(target=monitor_parent, daemon=True)
         thread.start()
 
+    def _process_queue(self):
+        """Process messages from MainServer (file paths or version requests)."""
+        if not self.watch_queue:
+            return
+
+        added_files = []
+        while True:
+            try:
+                msg = self.watch_queue.get_nowait()
+
+                # Handle dict messages (structured commands)
+                if isinstance(msg, dict):
+                    msg_type = msg.get("type")
+                    if msg_type == "request_version":
+                        self._handle_version_request(msg.get("session_id"))
+                    else:
+                        logger.warning(f"Unknown message type: {msg_type}")
+                    continue
+
+                # Handle string messages (file paths from import hook)
+                file_path = msg
+                if file_path not in self.tracked_files:
+                    self.tracked_files.add(file_path)
+                    self.file_mtimes[file_path] = 0  # Force recompile
+                    added_files.append(file_path)
+                    logger.info(f"File added (import hook): {file_path}")
+            except queue.Empty:
+                break
+
+        if added_files:
+            self._log_tracked_files()
+
     def _needs_recompilation(self, file_path: str) -> bool:
-        """
-        Check if a file needs recompilation based on modification time, missing .pyc file,
-        or if the .pyc file wasn't created by our AST transformer.
-
-        Args:
-            file_path: Path to the source file
-
-        Returns:
-            True if the file needs recompilation, False otherwise
-        """
+        """Check if source is newer than cached .pyc."""
         try:
             if not os.path.exists(file_path):
                 return False
@@ -296,70 +383,44 @@ class FileWatcher:
             if os.path.basename(file_path) == "__init__.py":
                 return False
 
-            # Check if .pyc file exists
             pyc_path = get_pyc_path(file_path)
-            if not os.path.exists(pyc_path):
-                return True
+            # Check freshness: source mtime > pyc mtime means recompilation needed
+            return os.path.getmtime(file_path) > os.path.getmtime(pyc_path)
+        except OSError:
+            # .pyc doesn't exist or other error - needs recompilation
+            return True
 
-            # Check if the .pyc file was created by our AST transformer
-            if not is_pyc_rewritten(pyc_path):
-                return True
-
-            current_mtime = os.path.getmtime(file_path)
-            last_mtime = self.file_mtimes.get(file_path, 0)
-
-            return current_mtime > last_mtime
-        except OSError as e:
-            logger.error(f"Error checking modification time for {file_path}: {e}")
-            return False
-
-    def _compile_file(self, file_path: str, module_name: str) -> bool:
-        """
-        Compile a single file with AST rewrites to .pyc format.
-
-        Args:
-            file_path: Path to the source file
-            module_name: Name of the module
-
-        Returns:
-            True if compilation succeeded, False otherwise
-        """
+    def _compile_file(self, file_path: str) -> bool:
+        """Compile a single file with AST rewrites to .pyc format."""
         try:
-            # Read source code
             with open(file_path, "r", encoding="utf-8") as f:
                 source = f.read()
 
             # Apply AST rewrites and compile to code object
             debug_ast = os.environ.get("DEBUG_AST_REWRITES")
-            if debug_ast and not ".ao_rewritten.py" in file_path:
+            if debug_ast and ".ao_rewritten.py" not in file_path:
                 code_object, tree = rewrite_source_to_code(
-                    source, file_path, module_to_file=self.module_to_file, return_tree=True
+                    source, file_path, user_files=self.tracked_files, return_tree=True
                 )
                 # Write transformed source to .ao_rewritten.py for debugging
-                import ast
-
                 debug_path = file_path.replace(".py", ".ao_rewritten.py")
                 try:
                     rewritten_source = ast.unparse(tree)
                     with open(debug_path, "w", encoding="utf-8") as f:
                         f.write(rewritten_source)
                 except Exception as e:
-                    logger.error(f"[FileWatcher] Failed to write debug AST: {e}")
+                    logger.error(f"Failed to write debug AST: {e}")
             else:
                 code_object = rewrite_source_to_code(
-                    source, file_path, module_to_file=self.module_to_file
+                    source, file_path, user_files=self.tracked_files
                 )
 
-            # Get target .pyc path
             pyc_path = get_pyc_path(file_path)
 
-            # Ensure __pycache__ directory exists
-            cache_dir = os.path.dirname(pyc_path)
-            os.makedirs(cache_dir, exist_ok=True)
+            # Ensure cache directory exists
+            os.makedirs(os.path.dirname(pyc_path), exist_ok=True)
 
-            # Write compiled code to .pyc file
-            # We need to write the .pyc file manually since py_compile.compile()
-            # would recompile from source without our AST rewrites
+            # Write .pyc file manually (py_compile would recompile without our AST rewrites)
             import marshal
             import struct
             import importlib.util
@@ -367,96 +428,55 @@ class FileWatcher:
             source_mtime = int(os.path.getmtime(file_path))
             source_size = os.path.getsize(file_path)
 
-            # .pyc file format: magic number + flags + timestamp + source size + marshaled code
             with open(pyc_path, "wb") as f:
-                # Write magic number for current Python version
                 f.write(importlib.util.MAGIC_NUMBER)
-
-                # Write flags (0 for now)
-                f.write(struct.pack("<I", 0))
-
-                # Write source file timestamp
+                f.write(struct.pack("<I", 0))  # flags
                 f.write(struct.pack("<I", source_mtime))
-
-                # Write source file size
                 f.write(struct.pack("<I", source_size))
-
-                # Write marshaled code object
                 f.write(marshal.dumps(code_object))
 
-            # Verify .pyc file was created
             if not os.path.exists(pyc_path):
-                logger.error(f"[FileWatcher] ✗ .pyc file was not created: {pyc_path}")
+                logger.error(f"✗ .pyc not created: {pyc_path}")
                 return False
 
-            # Update our tracked modification time
             self.file_mtimes[file_path] = os.path.getmtime(file_path)
-
-            logger.info(f"[FileWatcher] Recompiled {module_name}")
+            logger.info(f"Recompiled {file_path}")
             return True
 
         except Exception as e:
-            logger.error(f"[FileWatcher] ✗ Failed to compile {module_name} at {file_path}: {e}")
-            import traceback
-
-            logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")
+            logger.error(f"✗ Failed to compile {file_path}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
     def check_and_recompile(self):
-        """
-        Check all tracked files and recompile those that have changed.
-        Also discovers new files and handles deleted files.
-
-        This method is called periodically by the polling loop to detect
-        and handle file changes.
-        """
-        # First, update the list of tracked files (discover new, remove deleted)
+        """Check all tracked files and recompile those that have changed."""
+        self._process_queue()
         self._update_tracked_files()
 
-        # Then check existing files for changes
-        for module_name, file_path in self.module_to_file.items():
+        for file_path in self.tracked_files:
             if self._shutdown:
                 return
             if self._needs_recompilation(file_path):
-                self._compile_file(file_path, module_name)
+                self._compile_file(file_path)
 
     def run(self):
-        """
-        Main polling loop that monitors files and triggers recompilation.
-
-        This method runs until a shutdown signal is received, checking for
-        file changes every FILE_POLL_INTERVAL seconds and recompiling changed files.
-        """
-        # Initial compilation of all files
-        compiled_count = 0
-        failed_count = 0
-        for module_name, file_path in self.module_to_file.items():
-            if self._shutdown:
-                return
-            if self._needs_recompilation(file_path):
-                if self._compile_file(file_path, module_name):
-                    compiled_count += 1
-                else:
-                    failed_count += 1
-
+        """Main polling loop that monitors files and triggers recompilation."""
         # Start parent monitor thread (detects orphaned process)
         self._start_parent_monitor()
 
-        # Start polling loop
+        # Polling loop
         try:
             while not self._shutdown:
                 self.check_and_recompile()
                 time.sleep(FILE_POLL_INTERVAL)
-        except Exception as e:
-            import traceback
-
-            logger.error(f"[FileWatcher] Traceback: {traceback.format_exc()}")
+        except Exception:
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
         finally:
-            logger.info(f"[FileWatcher] File watcher process {self.pid} exiting")
+            logger.info(f"File watcher process {self.pid} exiting")
 
 
-def run_file_watcher_process(module_to_file: Dict[str, str]):
+def run_file_watcher_process(project_root: str = None, watch_queue=None, response_queue=None):
     """
     Entry point for the file watcher process.
 
@@ -464,28 +484,33 @@ def run_file_watcher_process(module_to_file: Dict[str, str]):
     It creates a FileWatcher instance and starts the monitoring loop.
 
     Args:
-        module_to_file: Dict mapping module names to their file paths
+        project_root: Root directory to scan for Python files (from VS Code workspace)
+        watch_queue: multiprocessing.Queue for receiving messages from MainServer
+        response_queue: multiprocessing.Queue for sending messages back to MainServer
     """
-    watcher = FileWatcher(module_to_file)
+    watcher = FileWatcher(project_root, watch_queue, response_queue)
     watcher.run()
+
+
+# Pre-compute version tag (called many times, never changes)
+_VERSION_TAG = f"cpython-{sys.version_info.major}{sys.version_info.minor}"
 
 
 def get_pyc_path(py_file_path: str) -> str:
     """
     Generate the .pyc file path for AST-rewritten code.
 
+    All compiled files go to centralized cache at ~/.cache/ao/pyc/.
+    Uses hash of full source path to avoid collisions and path length issues.
+
     Args:
         py_file_path: Path to the .py source file
 
     Returns:
-        Path where the .pyc file should be written
+        Path where the .pyc file should be written in ~/.cache/ao/pyc/
     """
-    dir_name = os.path.dirname(py_file_path)
+    # Hash the full path to ensure uniqueness and avoid path length issues
+    path_hash = hashlib.md5(py_file_path.encode()).hexdigest()[:16]
     base_name = os.path.splitext(os.path.basename(py_file_path))[0]
-    cache_dir = os.path.join(dir_name, "__ao_cache__")
-
-    # Include Python version in filename (e.g., module.cpython-311.pyc)
-    version_tag = f"cpython-{sys.version_info.major}{sys.version_info.minor}"
-    pyc_name = f"{base_name}.{version_tag}.pyc"
-
-    return os.path.join(cache_dir, pyc_name)
+    pyc_name = f"{base_name}.{path_hash}.{_VERSION_TAG}.pyc"
+    return os.path.join(AO_CACHE_DIR, pyc_name)

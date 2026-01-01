@@ -72,7 +72,7 @@ def _init_db(conn):
             cwd TEXT,
             command TEXT,
             environment TEXT,
-            code_hash TEXT,
+            version_date TEXT,
             name TEXT,
             success TEXT CHECK (success IN ('', 'Satisfactory', 'Failed')),
             notes TEXT,
@@ -218,11 +218,11 @@ def add_experiment_query(
     default_note,
     default_log,
     user_id,  # Ignored in SQLite - kept for API compatibility
-    code_hash,
+    version_date,
 ):
     """Execute SQLite-specific INSERT for experiments table"""
     execute(
-        "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, code_hash, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, version_date, success, notes, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             session_id,
             parent_session_id,
@@ -232,7 +232,7 @@ def add_experiment_query(
             cwd,
             command,
             env_json,
-            code_hash,
+            version_date,
             default_success,
             default_note,
             default_log,
@@ -300,6 +300,14 @@ def update_experiment_command_query(command, session_id):
     execute(
         "UPDATE experiments SET command=? WHERE session_id=?",
         (command, session_id),
+    )
+
+
+def update_experiment_version_date_query(version_date, session_id):
+    """Execute SQLite-specific UPDATE for experiments version_date"""
+    execute(
+        "UPDATE experiments SET version_date=? WHERE session_id=?",
+        (version_date, session_id),
     )
 
 
@@ -384,7 +392,7 @@ def get_finished_runs_query():
 def get_all_experiments_sorted_query():
     """Get all experiments sorted by timestamp desc."""
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, version_date, success, notes, log FROM experiments ORDER BY timestamp DESC",
         (),
     )
 
@@ -393,7 +401,7 @@ def get_all_experiments_sorted_by_user_query(user_id=None):
     """Get all experiments sorted by timestamp desc. SQLite ignores user_id filtering (single-user)."""
     # SQLite is single-user, so we always return all experiments regardless of user_id
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, version_date, success, notes, log FROM experiments ORDER BY timestamp DESC",
         (),
     )
 

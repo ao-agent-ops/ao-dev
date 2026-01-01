@@ -70,7 +70,7 @@ export interface ProcessInfo {
     result?: string;
     notes?: string;
     log?: string;
-    code_hash?: string;
+    version_date?: string;
 }
 
 export interface WorkflowRunDetailsPanelProps {

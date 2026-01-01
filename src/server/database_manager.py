@@ -242,7 +242,7 @@ class DatabaseManager:
         environment,
         parent_session_id=None,
         user_id=None,
-        code_hash=None,
+        version_date=None,
     ):
         """Add experiment to database."""
         import json
@@ -267,7 +267,7 @@ class DatabaseManager:
             DEFAULT_NOTE,
             DEFAULT_LOG,
             user_id,
-            code_hash,
+            version_date,
         )
 
     def update_graph_topology(self, session_id, graph_dict):
@@ -296,6 +296,10 @@ class DatabaseManager:
     def update_command(self, session_id, command):
         """Update the experiment restart command."""
         self.backend.update_experiment_command_query(command, session_id)
+
+    def update_experiment_version_date(self, session_id, version_date):
+        """Update the version_date for an existing experiment."""
+        self.backend.update_experiment_version_date_query(version_date, session_id)
 
     def _color_graph_nodes(self, graph, color):
         """Update border_color for each node."""

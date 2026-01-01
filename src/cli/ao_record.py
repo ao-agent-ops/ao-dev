@@ -1,7 +1,8 @@
 import os
+import time
 import yaml
 from argparse import ArgumentParser, REMAINDER
-from ao.common.constants import AO_CONFIG, AO_PROJECT_ROOT
+from ao.common.constants import AO_CONFIG
 from ao.runner.agent_runner import AgentRunner
 
 
@@ -22,12 +23,6 @@ def launch_command_parser():
         "--run-name",
         default=None,
         help="Name that will be used in the experiment list. If not set, Run X where X is the index of the current run will be used.",
-    )
-
-    parser.add_argument(
-        "--project-root",
-        default=AO_PROJECT_ROOT,
-        help="The root directory of the user's project.",
     )
 
     parser.add_argument(
@@ -72,25 +67,16 @@ def _validate_launch_command(args):
     # want to confuse people with it still in the args:
     del args.config_file
 
-    # check the validity of the project_root
-    assert os.path.isdir(args.project_root), (
-        f"Project root {args.project_root} is not a directory. "
-        f"The derived project_root was {AO_PROJECT_ROOT}. "
-        f"To fix this, pass the correct --project-root to ao-record. "
-        "For example, ao-record --project-root ~/my-project script.py"
-    )
     return args
 
 
 def launch_command(args):
     args = _validate_launch_command(args)
 
-    # Note: UI event logging moved to AgentRunner where session_id is available
     agent_runner = AgentRunner(
         script_path=args.script_path,
         script_args=args.script_args,
         is_module_execution=args.module,
-        project_root=args.project_root,
         run_name=args.run_name,
     )
     agent_runner.run()

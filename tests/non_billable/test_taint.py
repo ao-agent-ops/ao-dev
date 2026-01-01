@@ -61,8 +61,6 @@ class TaintTestLauncher:
         # Use the generic test case runner, passing the module name as argument
         cmd = [
             "ao-record",
-            "--project-root",
-            str(self.project_root),
             "-m",
             "user_programs.taint_test_runner",
             module_name,

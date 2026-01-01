@@ -26,28 +26,17 @@ class TaintPropagationTransformer(ast.NodeTransformer):
     - open() -> taint_open
     """
 
-    def __init__(self, module_to_file=None, current_file=None):
+    def __init__(self, user_files=None, current_file=None):
         """
         Initialize the transformer.
 
         Args:
-            module_to_file: Dict mapping user module names to their file paths.
-                           Used to identify which modules are user-defined.
+            user_files: Set of user code file paths (to distinguish from third-party code)
             current_file: The path to the current file being transformed.
         """
-        self.module_to_file = module_to_file or {}
-        self.user_py_files = [*self.module_to_file.values()]
-        # also include all files in ao
-        self.user_py_files.extend(get_ao_py_files())
+        self.user_py_files = list(user_files or []) + get_ao_py_files()
         self.current_file = current_file
-        self.needs_taint_imports = False  # Track if we need to inject imports
-        # Extract the root directory from current_file if available
-        if current_file:
-            # Find the common prefix between current_file and all module files
-            # to determine project_root
-            self.project_root = self._extract_project_root(current_file)
-        else:
-            self.project_root = None
+        self.needs_taint_imports = False
 
     def _create_exec_func_call(self, op_func_name, args_list, node):
         """Create exec_func call for any operation."""
@@ -102,7 +91,6 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 child.ctx = ast.Load()
 
         # Use exec_inplace_binop(obj, value, op_name) for in-place operations
-        # This preserves TAINT_DICT entries for TaintWrapper objects
         exec_call = ast.Call(
             func=ast.Name(id="exec_inplace_binop", ctx=ast.Load()),
             args=[target_load, value, ast.Constant(value=op_func_name)],
@@ -378,7 +366,6 @@ class TaintPropagationTransformer(ast.NodeTransformer):
                 )
 
             # Identity comparisons: Don't transform - compare actual objects
-            # (including TaintWrappers) without unwrapping
             elif op_type in (ast.Is, ast.IsNot):
                 return node
 
@@ -572,32 +559,6 @@ class TaintPropagationTransformer(ast.NodeTransformer):
     # Variable reads don't need transformation - variables already hold wrappers from assignment.
     # When we do `x = value`, visit_Assign rewrites it to `x = taint_assign(value)`
     # which wraps the value. Later reading `x` just returns that wrapper directly.
-
-    def _extract_project_root(self, current_file):
-        """Extract project root by finding common prefix of module paths."""
-        if not self.module_to_file:
-            return None
-
-        import os
-
-        current_file = os.path.abspath(current_file)
-        common_parts = None
-
-        for file_path in self.module_to_file.values():
-            file_path = os.path.abspath(file_path)
-            if common_parts is None:
-                common_parts = file_path.split(os.sep)
-            else:
-                path_parts = file_path.split(os.sep)
-                common_parts = [
-                    p
-                    for i, p in enumerate(common_parts)
-                    if i < len(path_parts) and path_parts[i] == p
-                ]
-
-        if common_parts:
-            return os.sep.join(common_parts) or os.sep
-        return None
 
     def _inject_taint_imports(self, tree):
         """Inject import statements for taint functions if needed."""

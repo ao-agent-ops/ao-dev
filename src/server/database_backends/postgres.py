@@ -134,7 +134,7 @@ def _init_db(conn):
             cwd TEXT,
             command TEXT,
             environment TEXT,
-            code_hash TEXT,
+            version_date TEXT,
             name TEXT,
             success TEXT CHECK (success IN ('', 'Satisfactory', 'Failed')),
             notes TEXT,
@@ -332,11 +332,11 @@ def add_experiment_query(
     default_note,
     default_log,
     user_id,
-    code_hash,
+    version_date,
 ):
     """Execute PostgreSQL-specific INSERT for experiments table"""
     execute(
-        """INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, code_hash, success, notes, log, user_id) 
+        """INSERT INTO experiments (session_id, parent_session_id, name, graph_topology, timestamp, cwd, command, environment, version_date, success, notes, log, user_id) 
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (session_id) DO UPDATE SET
                parent_session_id = EXCLUDED.parent_session_id,
@@ -346,7 +346,7 @@ def add_experiment_query(
                cwd = EXCLUDED.cwd,
                command = EXCLUDED.command,
                environment = EXCLUDED.environment,
-               code_hash = EXCLUDED.code_hash,
+               version_date = EXCLUDED.version_date,
                success = EXCLUDED.success,
                notes = EXCLUDED.notes,
                log = EXCLUDED.log,
@@ -360,7 +360,7 @@ def add_experiment_query(
             cwd,
             command,
             env_json,
-            code_hash,
+            version_date,
             default_success,
             default_note,
             default_log,
@@ -515,7 +515,7 @@ def get_all_experiments_sorted_by_user_query(user_id=None):
     """Get all experiments sorted by timestamp desc, optionally filtered by user_id."""
     # Filter by user_id
     return query_all(
-        "SELECT session_id, timestamp, color_preview, name, code_hash, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
+        "SELECT session_id, timestamp, color_preview, name, version_date, success, notes, log FROM experiments WHERE user_id=%s ORDER BY timestamp DESC",
         (user_id,),
     )
 

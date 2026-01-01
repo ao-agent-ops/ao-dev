@@ -345,7 +345,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                   let currentColorIndex = 0;
                   const colorIndices: number[] = [];
                   processes.forEach((process, index) => {
-                    if (index > 0 && process.code_hash !== processes[index - 1].code_hash) {
+                    if (index > 0 && process.version_date !== processes[index - 1].version_date) {
                       currentColorIndex = (currentColorIndex + 1) % 2;
                     }
                     colorIndices.push(currentColorIndex);
@@ -395,7 +395,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                         {process.run_name || 'Untitled'}
                       </span>
                       <span style={{ flex: 1 }} />
-                      {process.code_hash && (
+                      {process.version_date && (
                         <span style={{
                           fontSize: '10px',
                           fontFamily: 'monospace',
@@ -407,7 +407,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                           lineHeight: '1',
                           marginRight: '0px',
                         }}>
-                          {process.code_hash}
+                          {process.version_date}
                         </span>
                       )}
                     </div>
