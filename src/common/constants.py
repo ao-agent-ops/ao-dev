@@ -64,6 +64,7 @@ DEFAULT_LOG = "No entries"
 DEFAULT_SUCCESS = ""
 SUCCESS_STRING = {True: "Satisfactory", False: "Failed", None: ""}
 
+
 CERTAINTY_UNKNOWN = "#000000"
 CERTAINTY_GREEN = "#7fc17b"  # Matches restart/rerun button
 CERTAINTY_YELLOW = "#d4a825"  # Matches tag icon; currently unused
