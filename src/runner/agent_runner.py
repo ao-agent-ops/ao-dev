@@ -10,7 +10,6 @@ import threading
 import queue
 import time
 import psutil
-import debugpy
 import signal
 import runpy
 import builtins
@@ -295,20 +294,16 @@ class AgentRunner:
         if os.environ.get("AO_NO_DEBUG_MODE", False):
             return False
 
+        # Only import debugpy if it's already loaded (by VS Code)
+        if "debugpy" not in sys.modules:
+            return False
+
         try:
+            import debugpy
+
             return debugpy.is_client_connected() or hasattr(debugpy, "_client")
         except (ImportError, AttributeError):
-            pass
-
-        if "debugpy" in sys.modules:
-            return True
-
-        debugpy_env_vars = [
-            "DEBUGPY_LAUNCHER_PORT",
-            "PYDEVD_LOAD_VALUES_ASYNC",
-            "PYDEVD_USE_FRAME_EVAL",
-        ]
-        return any(os.getenv(var) for var in debugpy_env_vars)
+            return True  # debugpy in sys.modules but can't check - assume debugging
 
     def _get_parent_cmdline(self) -> List[str]:
         """Get the command line of the parent process."""

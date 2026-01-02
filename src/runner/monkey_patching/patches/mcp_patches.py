@@ -43,7 +43,12 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
-        if method not in ["tools/call"]:
+        # Check if this is a tools/call request
+        # The method is at input_dict["request"].root.method
+        request = input_dict.get("request")
+        method = getattr(getattr(request, "root", None), "method", None) if request else None
+
+        if method != "tools/call":
             result = await original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing escrow
 

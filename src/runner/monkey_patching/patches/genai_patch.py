@@ -2,8 +2,8 @@ from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from ao.server.database_manager import DB
 from ao.common.logger import logger
-from ao.server.ast_helpers import get_taint_origins
 from ao.common.utils import is_whitelisted_endpoint
+import builtins
 
 
 def genai_patch():
@@ -42,14 +42,15 @@ def patch_genai_async_request(bound_obj, bound_cls):
         # Get full input dict
         input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # Get taint origins (did another LLM produce the input?)
-        taint_origins = get_taint_origins(input_dict)
+        # Get taint origins from ACTIVE_TAINT (set by exec_func)
+        taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         # Check if this endpoint should be patched
         path = input_dict.get("path", "")
+
         if not is_whitelisted_endpoint(path):
             result = await original_function(*args, **kwargs)
-            return taint_wrap(result, taint_origins)
+            return result  # No wrapping here, exec_func will use existing taint
 
         # Get result from cache or call LLM
         cache_output = DB.get_in_out(input_dict, api_type)
@@ -66,7 +67,8 @@ def patch_genai_async_request(bound_obj, bound_cls):
             api_type=api_type,
         )
 
-        # Taint the output object and return it
-        return taint_wrap(cache_output.output, [cache_output.node_id])
+        # Set the new taint in escrow for exec_func to wrap with
+        builtins.ACTIVE_TAINT.set([cache_output.node_id])
+        return cache_output.output  # No wrapping here, exec_func will wrap
 
     bound_obj.async_request = patched_function.__get__(bound_obj, bound_cls)

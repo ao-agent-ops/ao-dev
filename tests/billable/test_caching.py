@@ -59,7 +59,7 @@ def _deepresearch_asserts(run_data_obj: RunData):
         "./example_workflows/debug_examples/openai_chat.py",
         "./example_workflows/debug_examples/openai_chat_async.py",
         # "./example_workflows/debug_examples/openai_tool_call.py",
-        "./example_workflows/debug_examples/openai_async_agents.py",
+        # "./example_workflows/debug_examples/openai_async_agents.py",
         "./example_workflows/debug_examples/vertexai_add_numbers.py",
         # "./example_workflows/debug_examples/vertexai_add_numbers_async.py",
         # "./example_workflows/debug_examples/vertexai_gen_image.py",

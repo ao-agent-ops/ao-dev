@@ -288,14 +288,14 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             ast.MatMult: "matmul",
         }
 
-        # Special case: string % formatting
+        # Special case: string % formatting (e.g., "Hello %s" % name)
         if isinstance(node.op, ast.Mod) and (
             isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)
         ):
             self.needs_taint_imports = True
             new_node = ast.Call(
-                func=ast.Name(id="get_attr", ctx=ast.Load()),
-                args=[node.value, ast.Constant(value=node.attr)],
+                func=ast.Name(id="taint_percent_format", ctx=ast.Load()),
+                args=[node.left, node.right],
                 keywords=[],
             )
             return ast.copy_location(new_node, node)
