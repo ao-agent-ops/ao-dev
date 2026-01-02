@@ -157,8 +157,8 @@ jobs:
       if: always()
       run: rm -rf ~/.cache/ao/tests/debug-examples
 
-  billable-caching-edit:
-    name: Billable Tests / Caching Edit
+  billable-edits:
+    name: Billable Tests / Edits
     needs: billable-permission-check
     if: needs.billable-permission-check.outputs.has_permission == 'true'
     runs-on: ubuntu-latest
@@ -200,15 +200,64 @@ jobs:
       run: |
         export PATH="$HOME/miniconda/bin:$PATH"
         source $HOME/miniconda/bin/activate ao
-        pytest -v -s tests/billable/test_caching_edit.py
+        pytest -v -s tests/billable/test_edits.py
 
     - name: Clean up
       if: always()
       run: rm -rf ~/.cache/ao/tests/caching-edit
 
+  billable-caching:
+    name: Billable Tests / Caching
+    needs: billable-permission-check
+    if: needs.billable-permission-check.outputs.has_permission == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+        token: ${{ secrets.GH_TOKEN }}
+        ref: ${{ needs.billable-permission-check.outputs.ref }}
+
+    - name: Setup test environment
+      uses: ./.github/actions/setup-test-environment
+
+    - name: Setup isolated test database
+      run: mkdir -p ~/.cache/ao/tests/caching
+
+    - name: Launch shim server
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        export DB_PATH="$HOME/.cache/ao/tests/caching"
+        export PYTHON_PORT=5963
+        source $HOME/miniconda/bin/activate ao
+        ao-server start
+
+    - name: Run tests
+      env:
+        DB_PATH: ~/.cache/ao/tests/caching
+        PYTHON_PORT: 5963
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+        TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+      run: |
+        export PATH="$HOME/miniconda/bin:$PATH"
+        source $HOME/miniconda/bin/activate ao
+        pytest -v -s tests/billable/test_caching.py
+
+    - name: Clean up
+      if: always()
+      run: rm -rf ~/.cache/ao/tests/caching
+
   billable-status:
     name: Billable Tests / Status
-    needs: [billable-permission-check, billable-debug-examples, billable-caching-edit]
+    needs: [billable-permission-check, billable-debug-examples, billable-edits, billable-caching]
     if: always() && needs.billable-permission-check.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -217,23 +266,24 @@ jobs:
         with:
           script: |
             const debugResult = '${{ needs.billable-debug-examples.result }}';
-            const cachingResult = '${{ needs.billable-caching-edit.result }}';
+            const editsResult = '${{ needs.billable-edits.result }}';
+            const cachingResult = '${{ needs.billable-caching.result }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            
-            const allPassed = debugResult === 'success' && cachingResult === 'success';
+
+            const allPassed = debugResult === 'success' && editsResult === 'success' && cachingResult === 'success';
             const reaction = allPassed ? 'rocket' : '-1';
-            
+
             await github.rest.reactions.createForIssueComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: context.payload.comment.id,
               content: reaction
             });
-            
-            const status = allPassed 
+
+            const status = allPassed
               ? `✅ All billable tests passed! [View logs](${runUrl})`
-              : `❌ Billable tests failed ([View logs](${runUrl})):\n- Debug Examples: ${debugResult}\n- Caching Edit: ${cachingResult}`;
-            
+              : `❌ Billable tests failed ([View logs](${runUrl})):\n- Debug Examples: ${debugResult}\n- Edits: ${editsResult}\n- Caching: ${cachingResult}`;
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
