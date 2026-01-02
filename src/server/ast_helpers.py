@@ -20,23 +20,82 @@ import builtins
 # =============================================================================
 
 
+def _de_intern(obj, _seen=None):
+    """
+    Create a copy of obj with all strings de-interned (unique ids).
+
+    Python interns short strings, meaning different occurrences of "hello"
+    may share the same id. This causes issues with id-based taint tracking
+    because tainting one "hello" would taint all of them.
+
+    The bytes encode/decode roundtrip creates a new string object with a
+    unique id, solving this problem.
+
+    Objects already in TAINT_DICT are preserved as-is since they already
+    have unique ids from a previous de-interning.
+
+    Args:
+        obj: Object to de-intern (recursively for containers)
+        _seen: Set of already-processed object ids (for cycle detection)
+
+    Returns:
+        Object with all strings de-interned (or original if already tainted)
+    """
+    if _seen is None:
+        _seen = set()
+
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return obj  # Avoid infinite recursion on cycles
+
+    # If object is already in TAINT_DICT, it's already de-interned.
+    # Preserve it to maintain taint tracking.
+    if builtins.TAINT_DICT.has_taint(obj):
+        return obj
+
+    if isinstance(obj, str):
+        return obj.encode("utf-8").decode("utf-8")
+    elif isinstance(obj, dict):
+        _seen.add(obj_id)
+        return {_de_intern(k, _seen): _de_intern(v, _seen) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        _seen.add(obj_id)
+        return [_de_intern(item, _seen) for item in obj]
+    elif isinstance(obj, tuple):
+        _seen.add(obj_id)
+        return tuple(_de_intern(item, _seen) for item in obj)
+
+    return obj
+
+
 def add_to_taint_dict_and_return(obj, taint):
     """
-    Add obj to TAINT_DICT with given taint. Returns obj unchanged.
+    Add obj to TAINT_DICT with given taint.
+
+    When taint is being added, strings are de-interned to ensure unique ids.
+    This prevents interned strings (like "type", "user") from causing spurious
+    taint propagation across unrelated code.
+
+    If the object is already in TAINT_DICT (already de-interned), we skip
+    de-interning to preserve its identity and avoid orphaning the entry.
 
     Args:
         obj: Object to add to TAINT_DICT
         taint: List of taint origin identifiers
 
     Returns:
-        The object unchanged (no wrapping)
+        The object (de-interned if newly tainted)
     """
-
     # Skip non-taintable types
     if isinstance(obj, bool) or obj is None or isinstance(obj, type):
         return obj
 
     if taint:
+        # Only de-intern if object is not already in TAINT_DICT.
+        # This prevents double de-interning (e.g., when taint_assign is called
+        # on an already-tainted object from exec_func).
+        if not builtins.TAINT_DICT.has_taint(obj):
+            obj = _de_intern(obj)
         builtins.TAINT_DICT.add(obj, taint)
     return obj
 
@@ -269,43 +328,19 @@ def exec_delitem(obj, key):
 
 
 def exec_inplace_binop(obj, value, op_name):
-    """Execute in-place operation (+=, *=, etc.)."""
+    """Execute in-place operation (+=, *=, etc.) with taint propagation."""
     import operator
+
+    # Collect taint from both operands
+    all_origins = set()
+    all_origins.update(get_taint(obj))
+    all_origins.update(get_taint(value))
 
     op_func = getattr(operator, op_name)
     result = op_func(obj, value)
-    return result
 
-
-def _debug_taint_info(label, obj, include_id=True):
-    """Helper to format taint debug info for an object."""
-    taint = get_taint(obj)
-    obj_repr = repr(obj)[:80] if obj is not None else "None"
-    if include_id:
-        return f"{label}: id={id(obj)}, taint={taint}, val={obj_repr}"
-    return f"{label}: taint={taint}, val={obj_repr}"
-
-
-def _debug_log_args_taint(func_name, args, kwargs, obj=None, obj_taint=None):
-    """Log taint info for all arguments."""
-    print(f"\n[DEBUG_TAINT] === exec_func: {func_name} ===")
-
-    # if obj is not None:
-    #     print(f"[DEBUG_TAINT]   obj: id={id(obj)}, taint={obj_taint}, repr={repr(obj)[:60]}")
-
-    for i, arg in enumerate(args):
-        arg_taint = get_taint(arg)
-        arg_repr = repr(arg)[:60] if arg is not None else "None"
-        print(f"[DEBUG_TAINT]   arg[{i}]: id={id(arg)}, taint={arg_taint}, repr={arg_repr}")
-
-    for key, val in kwargs.items():
-        val_taint = get_taint(val)
-        val_repr = repr(val)[:60] if val is not None else "None"
-        print(f"[DEBUG_TAINT]   kwarg[{key}]: id={id(val)}, taint={val_taint}, repr={val_repr}")
-
-    # Also show current ACTIVE_TAINT state
-    current_active = list(builtins.ACTIVE_TAINT.get())
-    print(f"[DEBUG_TAINT]   ACTIVE_TAINT (before): {current_active}")
+    # Propagate combined taint to result
+    return add_to_taint_dict_and_return(result, list(all_origins))
 
 
 def exec_func(func_or_obj, args, kwargs, method_name=None):
@@ -321,8 +356,6 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
 
     Otherwise track taint through ACTIVE_TAINT.
     """
-    # Quick check that exec_func is being called
-    print(f"[EXEC_FUNC_CALLED] method_name={method_name}")
 
     # Resolve the actual function and collect object taint
     if method_name is not None:
@@ -336,32 +369,16 @@ def exec_func(func_or_obj, args, kwargs, method_name=None):
         if hasattr(func, "__self__"):
             obj_taint = get_taint(func.__self__)
 
-    # Debug logging for taint propagation
-    func_name = f"{method_name}" if method_name else getattr(func, "__name__", str(func))
-    _debug_log_args_taint(func_name, args, kwargs, obj, obj_taint)
-
     # Call directly if user code or storing method
     is_storing = method_name is not None and method_name in STORING_METHODS
     if _is_user_function(func) or is_storing:
         if iscoroutinefunction(func):
 
             async def wrapper():
-                result = await func(*args, **kwargs)
-                result_repr = repr(result)[:60] if result is not None else "None"
-                result_taint = get_taint(result)
-                print(f"[DEBUG_TAINT] exec_func (user async) {func_name} returned:")
-                print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
-                print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {result_taint}")
-                return result
+                return await func(*args, **kwargs)
 
             return wrapper()
-        result = func(*args, **kwargs)
-        result_repr = repr(result)[:60] if result is not None else "None"
-        result_taint = get_taint(result)
-        print(f"[DEBUG_TAINT] exec_func (user/storing) {func_name} returned:")
-        print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
-        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {result_taint}")
-        return result
+        return func(*args, **kwargs)
 
     # Third-party: track taint through ACTIVE_TAINT
     if iscoroutinefunction(func):
@@ -381,22 +398,12 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
     all_origins.update(args_taint)
     taint = list(all_origins)
 
-    func_name = getattr(func, "__name__", str(func))
-
-    print(f"[DEBUG_TAINT] _exec_third_party: {func_name}")
-    print(f"[DEBUG_TAINT]   obj_taint={obj_taint}, args_taint={args_taint}")
-    print(f"[DEBUG_TAINT]   Setting ACTIVE_TAINT to: {taint}")
-
     if is_async:
 
         async def async_call():
             builtins.ACTIVE_TAINT.set(taint)
             try:
                 result = await func(*args, **kwargs)
-                final_active = list(builtins.ACTIVE_TAINT.get())
-                print(f"[DEBUG_TAINT] _exec_third_party async {func_name} returning:")
-                print(f"[DEBUG_TAINT]   ACTIVE_TAINT (after call): {final_active}")
-                print(f"[DEBUG_TAINT]   result id={id(result)}, repr={repr(result)[:60]}")
                 return _finalize_taint(result)
             finally:
                 builtins.ACTIVE_TAINT.set([])
@@ -419,11 +426,6 @@ def _exec_third_party(func, args, kwargs, obj_taint, is_async):
             if asyncio.iscoroutine(result):
                 return _wrap_coroutine_with_taint(result, taint)
 
-            final_active = list(builtins.ACTIVE_TAINT.get())
-            print(f"[DEBUG_TAINT] _exec_third_party sync {func_name} returning:")
-            print(f"[DEBUG_TAINT]   ACTIVE_TAINT (after call): {final_active}")
-            print(f"[DEBUG_TAINT]   result id={id(result)}, repr={repr(result)[:60]}")
-
             return _finalize_taint(result)
         finally:
             builtins.ACTIVE_TAINT.set([])
@@ -439,41 +441,37 @@ def _finalize_taint(result):
     had its own taint), we preserve that existing taint rather than merging
     with the container's taint. This ensures items maintain their identity.
     """
+    # Skip non-taintable types (singletons that can't have unique ids)
+    if isinstance(result, bool) or result is None or isinstance(result, type):
+        return result
+
     # Check if result already has its own taint - preserve it as-is
     # This handles cases like pop() returning an item with its own taint
     existing_taint = get_taint(result)
     if existing_taint:
-        result_repr = repr(result)[:60] if result is not None else "None"
-        print(f"[DEBUG_TAINT] _finalize_taint: result already has taint, preserving")
-        print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
-        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(result)}] = {existing_taint}")
         return result
 
     # Get taint from ACTIVE_TAINT (accumulated from function inputs)
     active_taint = list(builtins.ACTIVE_TAINT.get())
 
-    result_repr = repr(result)[:60] if result is not None else "None"
-    print(f"[DEBUG_TAINT] _finalize_taint: applying active_taint={active_taint}")
-    print(f"[DEBUG_TAINT]   result id={id(result)}, repr={result_repr}")
-
     if active_taint:
-        # Propagate taint to container elements so unpacking works
-        # e.g., `before, sep, after = s.partition(',')` needs each element tainted
-        # But only if the element doesn't already have its own taint
+        # De-intern result once to ensure all strings have unique ids.
+        # This is done here (not in add_to_taint_dict_and_return) to avoid
+        # double de-interning when we taint both items and the container.
+        result = _de_intern(result)
+
+        # Taint container items for for-loops (Python's GET_ITER/FOR_ITER
+        # bytecode doesn't go through exec_func, so items need taint).
         if isinstance(result, (tuple, list)):
             for item in result:
-                # Skip non-taintable types
-                if isinstance(item, bool) or item is None or isinstance(item, type):
-                    continue
-                # Only add taint if item doesn't already have its own taint
-                if not get_taint(item):
-                    add_to_taint_dict_and_return(item, taint=active_taint)
-        final_result = add_to_taint_dict_and_return(result, taint=active_taint)
-        final_taint = get_taint(final_result)
-        print(f"[DEBUG_TAINT]   TAINT_DICT[{id(final_result)}] = {final_taint}")
-        return final_result
+                if not isinstance(item, bool) and item is not None:
+                    if not get_taint(item):
+                        builtins.TAINT_DICT.add(item, list(active_taint))
 
-    print(f"[DEBUG_TAINT]   (no active_taint, result untainted)")
+        # Taint the result itself
+        builtins.TAINT_DICT.add(result, list(active_taint))
+        return result
+
     return result
 
 
@@ -510,6 +508,8 @@ def get_attr(obj, attr):
     if result_taint:
         return result
 
+    # Inherit parent's taint. Items inside result (if it's a container)
+    # get tainted lazily when accessed via get_item or iteration.
     parent_taint = get_taint(obj)
     return add_to_taint_dict_and_return(result, parent_taint)
 
@@ -523,7 +523,8 @@ def get_item(obj, key):
     if item_taint:
         return result
 
-    # Otherwise inherit parent's taint
+    # Inherit parent's taint. Items inside result (if it's a container)
+    # get tainted lazily when accessed via get_item or iteration.
     parent_taint = get_taint(obj)
     return add_to_taint_dict_and_return(result, parent_taint)
 

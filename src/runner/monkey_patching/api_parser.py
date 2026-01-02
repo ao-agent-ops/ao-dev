@@ -271,9 +271,9 @@ def api_obj_to_response_ok(response_obj: Any, api_type: str) -> bool:
     elif api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
         return response_obj.is_success
     elif api_type == "MCP.ClientSession.send_request":
-        # MCP CallToolResult has an isError field (defaults to False if not set)
-        if hasattr(response_obj, "isError"):
-            return not response_obj.isError
+        # MCP tool responses should always be cached for replay, even if isError=True.
+        # Unlike HTTP errors (which may be transient), MCP tool errors are deterministic
+        # responses that should be replayed consistently.
         return True
     else:
         return True
