@@ -236,6 +236,12 @@ class TaintPropagationTransformer(ast.NodeTransformer):
             )
             return ast.copy_location(new_node, node)
 
+        # Skip wrapping for functions that use stack introspection (e.g., find_dotenv)
+        # These functions use sys._getframe() to find the caller's location
+        SKIP_WRAP_FUNCTIONS = {"load_dotenv", "find_dotenv"}
+        if isinstance(node.func, ast.Name) and node.func.id in SKIP_WRAP_FUNCTIONS:
+            return node
+
         # Transform direct function calls
         elif isinstance(node.func, ast.Name):
             self.needs_taint_imports = True
