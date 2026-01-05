@@ -2,9 +2,11 @@
   "name": "ao-agent-dev",
   "displayName": "AO Agent Dev",
   "description": "Visualize, edit and improve agent workflows.",
-  "repository": "https://github.com/agent-ops-project/agent-dev",
-  "version": "0.0.4",
+  "repository": "https://github.com/ao-agent-ops/ao-dev",
+  "version": "0.0.6",
   "publisher": "agentops",
+  "license": "Apache-2.0",
+  "icon": "icon.png",
   "readme": "PKG_README.md",
   "engines": {
     "vscode": "^1.74.0"

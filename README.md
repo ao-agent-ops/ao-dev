@@ -7,17 +7,17 @@ AO Agent Dev is a developer tool for agent builders. It supports arbitrary Pytho
 
 ## Quickstart
 
-`AO Agent Dev` integrates into VS Code or IDEs based on it, like Cursor. Simply download our [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev) and install our pip package:
+`AO Agent Dev` integrates into VS Code or IDEs based on it, like Cursor. 
+
+Simply download (1) our [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=agentops.ao-agent-dev) (type ao dev into the marketplace search and install the one with the blue icon by "Agent Ops"), (2) install our pip package:
 
 ```bash
-pip install ao-agent-dev
+pip install ao-dev
 ```
 
-Then, give it a spin:
+**Then, give it a spin:**
 
-#### 1. Create an Example Project
-
-Create a folder called `my-agent` and add a file called `openai_example.py` with the following content:
+1. Create a folder called `my-agent` and add a file with some LM program. For example, in the video above we use `openai_example.py` with the following content:
 
 ```python
 from openai import OpenAI
@@ -47,20 +47,20 @@ if __name__ == "__main__":
     main()
 ```
 
-Run the script to verify it works:
+2. Run the script with python to verify it works (keys are set correctly, etc.):
 
 ```bash
 cd my-agent
 python openai_example.py
 ```
 
-#### 2. Configure AO
-
-Run `ao-config` and set the project root to your `my-agent` folder:
+3. Run the script using ao-record and check out the graph (should look like in the video above).
 
 ```bash
-ao-config
+ao-record openai_example.py
 ```
+
+
 
 #### 3. Run an example
 

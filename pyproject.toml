@@ -33,8 +33,8 @@ server = "ao.cli.ao_server:main"
 line-length = 100
 
 [project]
-name = "ao-agent-dev"
-version = "0.0.2"
+name = "ao-dev"
+version = "0.0.3"
 description = "A development tool for LLM call visualization and debugging"
 readme = "docs/PKG_README.md"
 requires-python = ">=3.10"

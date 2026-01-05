@@ -116,7 +116,7 @@ Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billab
 - The description of the pip package on VS Code Marketplace will be the README in /src/user_interfaces/vscode_extension/PKG_README.md.
 - You can change the icon, look at statistics or upload the file through a web app at https://marketplace.visualstudio.com/manage/. Ask Ferdi (ferdi.kossmann@gmail.com) if you need our log in.
 
-1. ‼️ Look at `src/user_interface/package.json`. Make sure name, description, version are what you want.
+1. ‼️ Look at `src/user_interfaces/vscode_extension/package.json`. Make sure name, description, version are what you want.
 1. Install `npm install -g @vscode/vsce` if you haven't already.
 2. `cd src/user_interfaces/vscode_extension`
 3. Create VSIX package: `./build-vsix.sh`

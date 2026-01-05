@@ -48,6 +48,12 @@ EOF
 # Copy readme for VS Code marketplace
 cp PKG_README.md "$TEMP_DIR/extension/README.md"
 
+# Copy license file from repo root
+cp ../../../LICENSE "$TEMP_DIR/extension/LICENSE"
+
+# Copy icon
+cp icon.png "$TEMP_DIR/extension/icon.png"
+
 # Step 4: Create a minimal .vscodeignore in temp
 cat > "$TEMP_DIR/extension/.vscodeignore" << 'EOF'
 **/*.map
