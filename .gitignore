@@ -244,5 +244,7 @@ CLAUDE.local.md
 
 # Rewritten files
 *.ao_rewritten.py
+
 # Misc
 run_debug_examples.sh
+**/example_workflows/debug_examples/test_commands.txt

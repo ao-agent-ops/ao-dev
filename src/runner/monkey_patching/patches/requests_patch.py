@@ -38,7 +38,10 @@ def patch_requests_send(bound_obj, bound_cls):
         # 3. Get taint origins from TAINT_STACK (set by exec_func)
         taint_origins = builtins.TAINT_STACK.read()
 
-        if not is_whitelisted_endpoint(input_dict["request"].path_url):
+        request = input_dict["request"]
+        url = str(request.url)
+        path = request.path_url
+        if not is_whitelisted_endpoint(url, path):
             result = original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing escrow
 

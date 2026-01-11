@@ -55,11 +55,26 @@ def rewrite_source_to_code(source: str, filename: str, user_files: set = None, r
     Returns:
         A compiled code object ready for execution, or (code_object, tree) if return_tree=True
     """
-    # Inject future imports to prevent type annotations from being evaluated at import time
-    if "from __future__ import annotations" not in source:
-        source = "from __future__ import annotations\n" + source
-
     tree = ast.parse(source, filename=filename)
+
+    # Inject future import as AST node (not source text) to preserve line numbers.
+    # This prevents type annotations from being evaluated at import time (PEP 563).
+    has_future_annotations = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
+    if not has_future_annotations:
+        future_import = ast.ImportFrom(
+            module="__future__",
+            names=[ast.alias(name="annotations", asname=None)],
+            level=0,
+        )
+        # Set line/col to 0 so it doesn't affect original line numbers
+        future_import.lineno = 0
+        future_import.col_offset = 0
+        tree.body.insert(0, future_import)
 
     transformer = TaintPropagationTransformer(user_files=user_files, current_file=filename)
     tree = transformer.visit(tree)

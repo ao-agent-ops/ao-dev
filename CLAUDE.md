@@ -4,12 +4,17 @@ AO is a development tool that creates interactive dataflow graphs of LLM calls, 
 
 ## Quick File References
 
+VSCode extension files:
+- @src/user_interfaces/vscode_extension/src/ – Contains relevant source code for the extensions.
+
 Core system files:
+- @src/server/main_server.py - Manages the server that interfaces user script runner and extensions/UIs
+- @src/server/database_manager.py - Manages commuication with the database
 - @src/server/ast_transformer.py - AST rewrites for taint propagation
 - @src/server/file_watcher.py - Automatic file monitoring and recompilation
 - @src/runner/agent_runner.py - Runtime environment setup
 - @src/runner/ast_rewrite_hook.py - Import hook ensuring `.pyc` availability
-- @src/runner/monkey_patching/patches/openai_patches.py - LLM API interception example
+- @src/runner/monkey_patching/patches/httpx_patch.py - LLM API interception example
 - @src/runner/README.md - Overall runner system documentation
 
 ## System Overview
@@ -39,26 +44,31 @@ source ~/miniforge3/bin/activate ao && pip install -e .
 # Running (replace python with ao-record)
 ao-record script.py
 ~/miniforge3/envs/ao/bin/python -m ao.cli.ao_record script.py  # For Claude Code
+# Note sometimes, the conda env is also called ao-dev
 
 # Server management
 ao-server start/stop/restart/clear/logs
 
 # Testing
-python -m pytest -v tests/taint/  # Test taint propagation specifically
+python -m pytest -v tests/non_billable/taint/  # Test taint propagation specifically
 ```
 
 ## Project Structure
 
-- @src/cli/ - Command-line interface (`ao-record`, `ao-server`)
-- @src/server/ - Core analysis server, AST transformation, file watching
-- @src/runner/ - User program execution, monkey patching
+- @src/cli/ - CLI tools (`ao-record`, `ao-server`, `ao-config`)
+- @src/common/ - Shared utilities (config, constants, logger, utils)
+- @src/server/ - Core server (main_server, ast_transformer, ast_helpers, file_watcher, database_manager)
+- @src/runner/ - Runtime execution (agent_runner, ast_rewrite_hook, context_manager, taint_dict)
+- @src/runner/monkey_patching/ - API interception (patches/, api_parsers/)
 - @src/user_interfaces/ - VS Code extension and web app
-- @tests/taint/ - Taint propagation unit tests
-- @example_workflows/ - Various AI workflow examples
+- @tests/billable/ - Tests that make LLM API calls
+- @tests/non_billable/taint/ - Taint propagation unit tests
+- @example_workflows/ - AI workflow examples (bird-bench, human_eval, swe_bench, debug_examples, etc.)
+- @docs/ - Documentation for mkdocs site
 
 ## Code Style & Guidelines
 
-- **Follow monkey patching pattern** from @src/runner/monkey_patching/patches/openai_patches.py
+- **Follow monkey patching pattern** from @src/runner/monkey_patching/patches/httpx_patch.py
 
 ## Do Not
 

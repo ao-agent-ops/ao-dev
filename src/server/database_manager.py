@@ -17,13 +17,13 @@ from ao.common.logger import logger
 # NOTE: postgres backend is currently disabled - uncomment when needed
 # from ao.server.database_backends import postgres
 from ao.runner.monkey_patching.api_parser import (
-    get_model_name,
     func_kwargs_to_json_str,
     json_str_to_api_obj,
     api_obj_to_json_str,
     json_str_to_original_inp_dict,
     api_obj_to_response_ok,
 )
+from ao.common.utils import get_raw_model_name
 
 
 @dataclass
@@ -431,7 +431,7 @@ class DatabaseManager:
 
         # Pickle input object.
         api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
-        model = get_model_name(input_dict, api_type)
+        model = get_raw_model_name(input_dict, api_type)
 
         cacheable_input = {
             "input": api_json_str,
