@@ -15,6 +15,12 @@ Simply download (1) our [VS Code Extension](https://marketplace.visualstudio.com
 pip install ao-dev
 ```
 
+Or if you use [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add ao-dev
+```
+
 **Then, give it a spin:**
 
 1. Create a folder called `my-agent` and add a file with some LM program. For example, in the video above we use `openai_example.py` with the following content:
@@ -58,6 +64,12 @@ python openai_example.py
 
 ```bash
 ao-record openai_example.py
+```
+
+Or with uv:
+
+```bash
+uv run ao-record openai_example.py
 ```
 
 This should show you the example's graph (like in the video above) where you can edit inputs and outputs and rerun.

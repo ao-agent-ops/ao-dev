@@ -68,4 +68,4 @@ for sample in samples:
 ## Further Resources
 
 - [Join our Discord server](https://discord.gg/fjsNSa6TAh)
-- [GitHub Repository](https://github.com/agent-ops-project/agops-platform)
+- [GitHub Repository](https://github.com/ao-agent-ops/ao-dev)

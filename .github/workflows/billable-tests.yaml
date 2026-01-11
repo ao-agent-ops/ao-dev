@@ -86,13 +86,11 @@ jobs:
     - name: Setup isolated test database
       run: mkdir -p ~/.cache/ao/tests/caching-edit
 
-    - name: Launch shim server
+    - name: Launch ao server
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
         export DB_PATH="$HOME/.cache/ao/tests/caching-edit"
         export PYTHON_PORT=5962
-        source $HOME/miniconda/bin/activate ao
-        ao-server start
+        uv run ao-server start
 
     - name: Run tests
       env:
@@ -107,9 +105,7 @@ jobs:
         JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
         TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate ao
-        pytest -v -s tests/billable/test_edits.py
+        uv run pytest -v -s tests/billable/test_edits.py
 
     - name: Clean up
       if: always()
@@ -135,21 +131,11 @@ jobs:
     - name: Setup isolated test database
       run: mkdir -p ~/.cache/ao/tests/caching
 
-    - name: Launch shim server
+    - name: Launch ao server
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
         export DB_PATH="$HOME/.cache/ao/tests/caching"
         export PYTHON_PORT=5963
-        source $HOME/miniconda/bin/activate ao
-        ao-server start
-
-    - name: Install miroflow dependencies
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate ao
-        pip install -e ./example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-tool
-        pip install -e ./example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow-contrib
-        pip install -e ./example_workflows/miroflow_deep_research/MiroFlow/libs/miroflow
+        uv run ao-server start
 
     - name: Run tests
       env:
@@ -164,9 +150,7 @@ jobs:
         JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
         TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate ao
-        pytest -v -s tests/billable/test_caching.py
+        uv run pytest -v -s tests/billable/test_caching.py
 
     - name: Clean up
       if: always()

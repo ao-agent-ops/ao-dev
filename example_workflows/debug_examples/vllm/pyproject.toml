@@ -1,0 +1,12 @@
+[project]
+name = "ao-examples-vllm"
+version = "0.1.0"
+description = "AO debug examples for vLLM"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "openai",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

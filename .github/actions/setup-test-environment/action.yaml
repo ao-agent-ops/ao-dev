@@ -1,5 +1,5 @@
 name: 'Setup Test Environment'
-description: 'Set up Python, Node.js, Miniconda, and install dependencies'
+description: 'Set up Python, Node.js, uv, and install dependencies'
 
 runs:
   using: "composite"
@@ -14,74 +14,11 @@ runs:
       with:
         node-version: '22'
 
-    - name: Download and install Miniconda
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Install ao-dev dependencies
       shell: bash
       run: |
-        # Check if we're running in act (local testing)
-        if [ -n "$ACT" ]; then
-          echo "Running in act (local environment)"
-        fi
-
-        # Detect system architecture and OS
-        ARCH=$(uname -m)
-        OS=$(uname -s)
-        echo "Detected OS: $OS, Architecture: $ARCH"
-
-        # Determine the correct Miniconda download URL
-        if [[ "$OS" == "Linux" ]]; then
-          if [[ "$ARCH" == "x86_64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-          elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh"
-          else
-            echo "Unsupported Linux architecture: $ARCH"
-            exit 1
-          fi
-        elif [[ "$OS" == "Darwin" ]]; then
-          if [[ "$ARCH" == "x86_64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh"
-          elif [[ "$ARCH" == "arm64" ]]; then
-            MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh"
-          else
-            echo "Unsupported macOS architecture: $ARCH"
-            exit 1
-          fi
-        else
-          echo "Unsupported OS: $OS"
-          exit 1
-        fi
-
-        echo "Downloading Miniconda from: $MINICONDA_URL"
-        curl -sSL "$MINICONDA_URL" -o miniconda.sh
-
-        # Install Miniconda
-        bash miniconda.sh -b -p $HOME/miniconda
-
-        # Initialize conda
-        source $HOME/miniconda/bin/activate
-        conda init bash
-
-        # Add to PATH for current and future steps
-        echo "$HOME/miniconda/bin" >> $GITHUB_PATH
-        export PATH="$HOME/miniconda/bin:$PATH"
-
-        # Verify installation
-        conda --version
-
-    - name: Create conda environment
-      shell: bash
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        conda create -n ao python=3.13 -y
-        conda info --envs
-
-    - name: Install dev dependencies for testing
-      shell: bash
-      run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate ao
-
-        which python
-        which pip
-
-        pip install -e ".[dev]"
+        uv sync --extra dev
+        echo "ao-dev installed successfully"
