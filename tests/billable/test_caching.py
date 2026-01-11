@@ -26,11 +26,11 @@ def _deepresearch_asserts(run_data_obj: RunData):
         label = node.get("label", "")
 
         # Skip check for "gpt-4.1" nodes
-        if label == "gpt-4.1":
+        if label == "GPT 4.1":
             continue
 
         # Skip check for the first "o3" node only
-        if label == "o3" and not first_o3_found:
+        if label == "O3" and not first_o3_found:
             first_o3_found = True
             continue
 

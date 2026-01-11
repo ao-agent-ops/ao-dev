@@ -46,13 +46,13 @@ with open('${TEMP_DIR}/extension/package.json', 'w') as f:
 EOF
 
 # Copy readme for VS Code marketplace
-cp PKG_README.md "$TEMP_DIR/extension/README.md"
+cp ../../../docs/release/VSIX_DESC.md "$TEMP_DIR/extension/README.md"
 
 # Copy license file from repo root
 cp ../../../LICENSE "$TEMP_DIR/extension/LICENSE"
 
 # Copy icon
-cp icon.png "$TEMP_DIR/extension/icon.png"
+cp ../../../docs/release/marketplace_icon.png "$TEMP_DIR/extension/icon.png"
 
 # Step 4: Create a minimal .vscodeignore in temp
 cat > "$TEMP_DIR/extension/.vscodeignore" << 'EOF'

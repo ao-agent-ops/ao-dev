@@ -2,82 +2,67 @@
 
 This is basically the core of the tool. All analysis happens here. It receives messages from the user's agent runner process and controls the UI. I.e., communication goes agent_runner <-> server <-> UI.
 
-
-Manually start, stop, restart server:
-
- - `ao-server start` 
- - `ao-server stop`
- - `ao-server restart`
-
-Some basics: 
-
  - To check if the server process is still running: `ps aux | grep main_server.py` or check which processes are holding the port: `lsof -i :5959`
 
- - When you make changes to `main_server.py`, remember to restart the server to see them take effect.
+## Server processes
 
+1. Main server: Receives all UI and runner messages and forwards them. Core forwarding logic.
+2. File watcher:
+   - Pre-compiles all files in `user_root`: Reads code, AST-transforms it, stores compiled binary in `~/.cache/ao/pyc`. It polls files to detect user edits and recompile. This is purely a performance optimization so files don't need to be rewritten upon `ao-record`. 
+   - The file watcher also includes a git versioner: On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version time stamp to the run, so the user knows what version of the code they ran. In the future, we will probably also allow the user to jump between versions. This git vesioner is completely independent of any git operations the user performs. It is save in `~/.cache/ao/git`. We expect it to commit ways more frequently than the user, as it commits on any file change once the user runs `ao-record`.
 
-## Editing and caching LLM calls
+## Server commands and log
 
-### Goal
+Upon running `ao-record` or actions in the UI, the server will be started automatically. It will also automatically shut down after periods of inactivity. Use the following to manually start and stop the server:
 
-Overall, we want the following user experience:
+ - `ao-server start`
+ - `ao-server stop`
+ - `ao-server restart`
+ 
+> [!NOTE]
+> When you make changes to the server code, you need to restart such that these changes are reflected in the running server!
 
- - We have our dataflow graph in the UI where each node is an LLM call. The user can click "edit input" and "edit output" and the develop epxeriment will rerun using cached LLM calls (so things are quick) but then apply the user edits.
- - If there are past runs, the user can see the graph and it's inputs and ouputs, but not re-run (we can leave the dialogs, and all UI the same, we just need to remember what the graph looked like and what input, output, colors and labels were).
+If you want to clear all recorded runs and cached LLM calls (i.e., clear the DB), do `ao-server clear`.
 
-We want to achieve this with the following functionality:
+The server spawns a [file watcher](/src/server/file_watcher.py) process that AST-rewrites user files, compiles the rewritten files and stores them in `~/.cache/ao/pyc`. The file watcher also performs git versioning on the files, so we can display fine-grained file versions to the user (upon them changing files, not only upon them committing using their own git). To see logs of the three, use these commands:
 
-1. For any past run, we can display the graph and all the inputs, outputs, labels and colors like when it was executed. This must also work if VS Code is closed and restarted again.
-2. LLM calls are cached so calls with the same prompt to the same model can be replayed.
-3. The user can overwrite LLM inputs and ouputs.
+ - Logs of the main server: `ao-server logs`
+ - Logs of the file watcher: `ao-server rewrite-logs`
+ - Logs of the git versioning: `ao-server git-logs`
 
+Note that all server logs are printed to files and not visible from any terminal.
 
-### Database
+## Database
 
-We use a [SQLite](https://sqlite.org) database to cache LLM results and store user overwrites. See `db.py` for their schemas.
+We support different database backends (e.g., sqlite, postgres) but (at the time of writing) only expose sqlite to the user. Amongst other things, the database stores cached LLM results and user input overrides (see `llm_calls` table). See [sqlite.py](/src/server/database_backends/sqlite.py) for the sqlite DB schema. Schemas may be different between different DB backends (beyond syntax).
 
-The `graph_topology` in the `experiments` table is a dict representation of the graph, that is used inside the develop server. I.e., the develop server can dump and reconstruct in-memory graph representations from that column.
+## Taint Tracking via AST Rewrites
 
-When we run a workflow, new nodes with new `node_ids` are created (the graph may change based on an edited input). So instead of querying the cache based on `node_id`, we query based on `input_hash`.
+We track which variables were produced by LLM calls using an **id-based approach**: a global `TAINT_DICT` maps `id(obj)` → `[list of LLM node origins]`. User code is AST-rewritten so that all operations propagate taint through this dict.
 
-`CacheManager` is responsible for look ups in the DB.
+**Key principles:**
 
-`EditManager` is responible for updating the DB.
+1. **Id-based tracking**: Every object's taint is stored by its `id()` in `TAINT_DICT`. No wrapper objects—values flow through the program unchanged.
 
-## AST rewrites
+2. **String de-interning**: Python interns short strings (`id("hello") == id("hello")`), which breaks id-based tracking. We de-intern strings by encoding/decoding them to get unique ids.
 
-To track data flow ("taint") between LLM calls, we use "[taint wrapper](/src/runner/taint_wrappers.py)" objects that wrap values in user code and record the LLM calls that influenced them.
+3. **User code is rewritten**: The [AST Transformer](/src/server/ast_transformer.py) rewrites operations to propagate taint:
+   - `a + b` → `exec_func(operator.add, (a, b), {})`
+   - `obj.method(x)` → `exec_func(obj, (x,), {}, method_name="method")`
+   - `obj.attr` → `get_attr(obj, "attr")`
+   - `x = value` → `x = taint_assign(value)`
 
-### Taint Architecture Invariant
+4. **Third-party code boundary**: Third-party code (e.g., `os.path.join`) isn't rewritten, so we can't track taint inside it. Instead, `exec_func` uses `ACTIVE_TAINT` as an "escrow":
+   - Before call: collect taint from inputs → store in `ACTIVE_TAINT`
+   - After call: read `ACTIVE_TAINT` → apply to outputs
 
-Our system maintains a strict boundary between user code and third-party code:
+   For regular third-party calls, `ACTIVE_TAINT` passes through unchanged (inputs → outputs). But monkey-patched LLM calls can *replace* it with their own node_id, so the output carries the LLM's taint instead of the inputs'.
 
-- **TaintWrapper objects exist only in user code** (within project root) - they track data provenance through user program logic
-- **Third-party code receives only untainted data** - all communication with third-party libraries uses plain Python objects  
-- **ACTIVE_TAINT handles all taint transfer** - a global context variable manages taint information when crossing the user/third-party boundary
+5. **Monkey patches replace ACTIVE_TAINT**: When an LLM patch (e.g., httpx) intercepts a call, it reads `ACTIVE_TAINT` to discover input origins (→ graph edges), then sets `ACTIVE_TAINT` to its own node_id. When control returns to `exec_func`, this new taint is applied to the result.
 
-### AST Transformation Process
+**Compilation flow**: The [File Watcher](/src/server/file_watcher.py) polls user files, applies AST rewrites, and stores compiled `.pyc` files in `~/.cache/ao/pyc`. An import hook ensures these pre-compiled files are loaded at runtime.
 
-We rewrite user code to propagate taint through third-party library calls. For example:
-`result = os.path.join(a, "LLM string")` becomes `result = exec_func(os.path.join, a, "LLM string")`
-
-[exec_func](/src/server/ast_transformer.py) implements the boundary protocol:
-1. Collect taint origins from input TaintWrapper objects
-2. Store taint in ACTIVE_TAINT and untaint all inputs  
-3. Execute the third-party function with clean data
-4. Retrieve final taint from ACTIVE_TAINT and wrap the result for user code
-
-To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `ao-record script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
-
-### AST Rewrite Verification
-
-To distinguish between standard Python-compiled `.pyc` files and our taint-tracking rewritten versions, we inject a verification marker:
-
-As the first line of every rewritten module, we put `__AO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
-
-Also see [here](/src/runner/README.md) on how the whole taint propagation process fits together.
-
-## Maintainance of EC2 server
+## Maintainance of EC2 server [OUT OF SERVICE]
 
 ### List running process
 
@@ -104,5 +89,5 @@ docker logs XXX
 
 ### Debugging
 
-If you want to see the rewritten python code (not only the binary): `export ACO_DEBUG_AST_REWRITES=1`. 
-This will store `xxx.rewritten.py` files next to the original ones that are rewritten. If you don't see these files, maybe you're not rewriting the originals.
+If you want to see the rewritten python code (not only the binary): `export DEBUG_AST_REWRITES=1`.
+This will store `.ao_rewritten.py` files next to the original ones that are rewritten. If you don't see these files, maybe you're not rewriting the originals.

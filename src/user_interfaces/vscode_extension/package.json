@@ -7,7 +7,6 @@
   "publisher": "agentops",
   "license": "Apache-2.0",
   "icon": "icon.png",
-  "readme": "PKG_README.md",
   "engines": {
     "vscode": "^1.74.0"
   },

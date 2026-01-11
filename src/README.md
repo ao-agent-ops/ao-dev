@@ -2,25 +2,26 @@
 
 See README's in src dirs for more details.
 
-## User workflow
-We assume the user coded their workflow in Python, i.e., runs it with something like:
+## User workflow (Python semantics)
+We assume the user coded their workflow in Python, i.e., it can be run with something like:
 
  - `python -m foo.bar`
  - `ENV_VAR=5 python script.py --some-flag`
 
-All they change is the Python command. Whenever they want to develop their script with us, they run:
+All they change is the Python command. Whenever they want to record their agent's trajectory graph, they run:
 
  - `ao-record -m foo.bar`
  - `ENV_VAR=5 ao-record script.py --some-flag`
 
-This will feel *exactly* the same as running Python but also analyzes their code, populates our VS Code extension, etc. Specfically:
+This will feel *exactly* the same as running Python. The program prints to and reads from the same terminal, crashes the same way, etc.
 
- - Program prints/reads to/from same terminal, crashes the same, etc.
- - User can use VS Code debugger
+A core goal of development is to provide this illusion while recording the agent's traectory graph.
 
 ## Building from source
+
 ### Installation
-If you're starting from a clean sheet, create a blank conda environment and activate it. We recommend Python 3.13, but Python versions >=3.10 are supported.
+
+If you're starting from a clean sheet, create a blank conda environment and activate it. We recommend Python 3.13, but Python all versions >=3.10 are supported.
 ```bash
 conda create -n ao python=3.13 nodejs sqlite -y && conda activate ao
 ```
@@ -28,34 +29,35 @@ conda create -n ao python=3.13 nodejs sqlite -y && conda activate ao
 > [!NOTE]  
 > If you are a developer of this project, jump to the [Development](#development) section for installation instructions.
 
-For non-developers, install the project like so:
+For non-developers, install the project like so (install python deps and build UI):
 ```bash
 pip install -e .
-# Because the extension is not packaged yet, you need to install UI dependencies as well
-cd src/user_interfaces && npm install
-npm run build:extension
+cd src/user_interfaces && npm install && npm run build:extension
 ```
 
 ### Running the extension
-Open this project in a new window. Select the "Run Extension" option from the debugger and run it. This will open a new window with the extension enabled ([more details](/src/user_interface/README.md)).
+Open this project in a new VS Code window. Select the "Run Extension" option from the debugger and run it. This will open a new window with the extension enabled (see the video below):
 
-![Setup Extension](/docs/media/setup_extension.gif)
+![Launch extension](/docs/media/launch_extension.gif)
+
 
 ### Try an example
-In the new window, you can now open any project that you are working on. We will run an example from our [examples](/example_workflows/debug_examples/) folder. Note that this example depends on the OpenAI API.
+In the new window, you can now open any project that you are working on. We will run the `openai_add_numbers.py` example from our [examples](/example_workflows/debug_examples/) folder. Note that this example depends on the OpenAI API, which you might need to install before running the example (`pip install openai`). 
+
+If you run the following command, you should see the result in the video:
 ```bash
 ao-record ./example_workflows/debug_examples/openai_add_numbers.py
 ```
 
-![Running Example](/docs/media/execute_example.gif)
+![Run example](/docs/media/run_example.gif)
 
 ## Development
 
-Please install the dependencies required for developing
+Please install the project as follows (install python dev deps, pre-commit hook for code formatting and build UI):
 ```bash
 pip install -e ".[dev]"
 pre-commit install
-cd src/user_interfaces && npm run build:extension
+cd src/user_interfaces && npm install && npm run build:extension
 ```
 
 Some Python linters will (incorrectly) say that the modules inside our code base can't be found. Run the following in the project root to make these linters happy:
@@ -64,68 +66,77 @@ Some Python linters will (incorrectly) say that the modules inside our code base
 ln -s src ao
 ```
 
+### Architecture
+
+Our code base is structured into the following components:
+
+1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py`. Under the hood the `ao-record` command installs monkey patches for certain functions and rewrites the user program's AST in order to log events like LLM calls to the `main server`. Monkey patches are installed to detect events like LLM calls, AST rewrites happen in order to trace dataflow ("taint") between LLM calls. [Code](/src/runner/)
+2. Develop server (blue): The `main server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `main server` happens over one TCP socket (default: 5959). [Code](/src/server/)
+3. UI (red): We currently implement the UI as VS Code extension and web app, where most webview components between the two are shared. The UI gets updated by the `main server`. [Code](/src/user_interfaces/)
+
+![Processes overview](/docs/media/processes.png)
+
+
 ### Server commands and log
-To manually start and stop our server. Just do:
+
+Upon running `ao-record` or actions in the UI, the server will be started automatically. It will also automatically shut down after periods of inactivity. Use the following to manually start and stop the server:
 
  - `ao-server start`
  - `ao-server stop`
+ - `ao-server restart`
+ 
+> [!NOTE]
+> When you make changes to the server code, you need to restart such that these changes are reflected in the running server!
 
-If you make changes to the server code, you can also do `ao-server restart` so the changes are reflected in the running server. If you want to clear all recorded runs and cached LLM calls, do `ao-server clear`.
+If you want to clear all recorded runs and cached LLM calls (i.e., clear the DB), do `ao-server clear`.
 
-If the server isn't running already, it will automatically be started upon running `ao-record`.
+The server spawns a [file watcher](/src/server/file_watcher.py) process that AST-rewrites user files, compiles the rewritten files and stores them in `~/.cache/ao/logs`. The file watcher also performs git versioning on the files, so we can display fine-grained file versions to the user (upon them changing files, not only upon them committing using their own git). To see logs of the three, use these commands:
 
-If you want to print the server logs, do `ao-server logs`. The server logs can be found in `~/.cache/agent-copilot/logs/server.log`.
+ - Logs of the main server: `ao-server logs`
+ - Logs of the file watcher: `ao-server rewrite-logs`
+ - Logs of the git versioning: `ao-server git-logs`
 
-### Architecture
+Note that all server logs are printed to files and not visible from any terminal.
 
-These are the processes running. 
+## Tests
 
-1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py` --- they can also use the debugger to run their script, which also feels completely normal. Under the hood the `ao-record` command monkey patches certain functions and logs runtime events to the `main server`. [Code](/src/runner/)
-2. Develop server (blue): The `main server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `main server` happens over a TCP socket (default: 5959). [Code](/src/server/)
-3. UI (red): The red boxes are the UI of the VS Code extension. The UI gets updated by the `main server`. TODO: The VS Code extension spawns the `main server` and tears it down. They also exchange a heart beat for failures and unclean VS Code exits. [Code](/src/user_interfaces/)
+Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billable"](/tests/billable) tests. Billable tests use third-party APIs and therefore incur costs. You should run both of these tests locally to make sure your code works as expected. In our CI/CD, we run non-billable tests on every commit and, before a PR is merged, an repo maintainer will also run the billable tests on it. To do so, leave a comment on the PR containing "/run-billable-tests". After the tests run, github-actions will leave a comment whether the tests passed or failed.
 
-![Processes overview](/docs/media/processes.png)
+## Releasing
+
+### pip package
+
+1. ‼️ Check `pyproject.toml`: Check version number, package name, dependencies and anything else that's relevant.
+2. ‼️ Check the PyPi description at [/docs/release/PYPI_DESC.md](/docs/release/PYPI_DESC.md).
+3. ‼️ Set the `logger` level (not `server_logger`) to `CRITICAL` [here](/src/common/logger.py). The server_logger can stay at `DEBUG`.
+4. Install `pip install build twine` if you haven't already.
+5. Run `python -m build` in root dir. This wil create a `dist/` dir.
+6. Test install locally: `pip install dist/ao-dev-0.0.1-py3-none-any.whl` (you need to check the name of the `.whl` file).
+7. Do a test upload, it's worth it:
+   1. Publish to TestPyPI first: `python -m twine upload --repository testpypi dist/*`. Then try to install from TestPyPi. Ask Ferdi if you don't have the key to our TestPyPI account.
+   2. When installing from TestPyPI, do the following (just swap out the package name at the end of the command): `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ao-dev==0.0.1`
+8. Upload to PyPI: `python -m twine upload dist/*`. Ask Ferdi if you don't have the key to our PyPI account.
+
+
+### VS Code extension
+
+- You can change developer settings and look at statistics at https://marketplace.visualstudio.com/manage/. Ask Ferdi if you need a log in.
+
+1. ‼️ Look at `src/user_interfaces/vscode_extension/package.json`. Make sure name, description, version, etc. are what you want. (Don't worry about "icon", see below)
+2. ‼️ Look at the marketplace description at [/docs/release/VSIX_DESC.md](/docs/release/VSIX_DESC.md). Also look at the icon at [/docs/release/marketplace_icon.png](/docs/release/marketplace_icon.png)
+3. Install `npm install -g @vscode/vsce` if you haven't already.
+4. Create VSIX package: `cd src/user_interfaces/vscode_extension` and run `./build-vsix.sh`.
+5. Try to install the VSIX locally to see if it works: Go to the marketplace, click the three dots at the top right of the panel, click "Install from VSIX...".
+6. Publish to store: `vsce publish` or upload via https://marketplace.visualstudio.com/manage/. Ask Ferdi for a personal access token / log in if you don't have it.
+
+### Hosted web app
+
+> [!NOTE]  
+> We stopped hosting the web app.
+
+~~Just push to webapp-prod.~~
 
 ## Further resources
 
  - [Join our discord server](https://discord.gg/fjsNSa6TAh)
  - [Read our docs](https://agent-ops-project.github.io/ao-agent-dev/)
-
-## Tests
-
-Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billable"](/tests/billable) tests. Billable tests use third-party APIs and therefore incur costs. You should run both of these tests locally to make sure your code works as expected.  In our CI/CD, we run non-billable tests on every commit and, before a PR is merged, an admin will also run the billable tests on it. 
-
-## Publishing
-
-### pip package
-
- - The description of the pip package on PyPi will be the README in /docs/PKG_README.
-
-1. ‼️ Check `pyproject.toml`: Does everything look like what you want to upload (version number, package name). The package description that will appear on PyPI is in `PKG_README.md`.
-2. ‼️ Remember to set the logger level (not server_logger) to CRITICAL. The server_logger can stay at DEBUG.
-3. Install `pip install build twine` if you haven't already.
-4. Run `python -m build` in root dir. This wil create a `dist/` dir.
-5. Test locally: `pip install dist/agops_bird-0.0.2-py3-none-any.whl` (you need to check the name of the `.whl` file).
-6. Do a test upload, it's worth it. Publish to TestPyPI first: `python -m twine upload --repository testpypi dist/*`. Then try to install from TestPyPi. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our TestPyPI account. The purpose of this is that version numbers can't be reused on PyPi und buggy versions can't be removed.
-7. When installing from TestPyPI, do the following (just swap out the package name at the end of the command): `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ agops-bird==0.0.6`
-8. Upload to PyPI: `python -m twine upload dist/*`. Ask Ferdi (ferdi.kossmann@gmail.com) if you don't have the key to our PyPI account.
-
-
-### VS Code extension
-
-- The description of the pip package on VS Code Marketplace will be the README in /src/user_interfaces/vscode_extension/PKG_README.md.
-- You can change the icon, look at statistics or upload the file through a web app at https://marketplace.visualstudio.com/manage/. Ask Ferdi (ferdi.kossmann@gmail.com) if you need our log in.
-
-1. ‼️ Look at `src/user_interfaces/vscode_extension/package.json`. Make sure name, description, version are what you want.
-1. Install `npm install -g @vscode/vsce` if you haven't already.
-2. `cd src/user_interfaces/vscode_extension`
-3. Create VSIX package: `./build-vsix.sh`
-4. Try to install it locally to see if it works: Go to the marketplace, click the three dots at the top right of the panel, click "Install from VSIX...", check it out.
-5. Publish to store: `vsce publish` or via https://marketplace.visualstudio.com/manage/. Ask Ferdi (ferdi.kossmann@gmail.com) for personal access token / log in if you don't have it.
-
-### Web app
-
-> [!NOTE]  
-> We shut down the web app for now.
-
-Just push to webapp-prod.

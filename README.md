@@ -1,6 +1,6 @@
 # AO Agent Dev: What-if Questions over Agent Trajectories  
 
-AO Agent Dev is a developer tool for agent builders. It supports arbitrary Python progams (like your existing ones!) and will visualize your agent's LLM and MCP calls into a dataflow graph. You can then inspect, edit and rerun this graph and understand how to fix your agent.
+AO Agent Dev is a developer tool for agent builders. It supports arbitrary Python progams (like your existing agents!) and will visualize your agent's LLM and MCP calls into a dataflow graph. You can then inspect, edit and rerun this graph and understand how to fix your agent.
 
 [![Quickstart video](docs/media/quickstart_screenshot.png)](https://youtu.be/woVctiSRJU0)
 
@@ -54,23 +54,13 @@ cd my-agent
 python openai_example.py
 ```
 
-3. Run the script using ao-record and check out the graph (should look like in the video above).
+3. Run the script using ao-record.
 
 ```bash
 ao-record openai_example.py
 ```
 
-
-
-#### 3. Run an example
-
-Open your `my-agent` folder in VS Code, then run the example with AO in the terminal:
-
-```bash
-ao-record openai_example.py
-```
-
-The VS Code extension will display the dataflow graph showing how data flows between the LLM calls.
+This should show you the example's graph (like in the video above) where you can edit inputs and outputs and rerun.
 
 ## Documentation
 
@@ -78,7 +68,7 @@ For complete documentation, installation guides, and tutorials, visit our **[Doc
 
 ## Building from source and developing
 
-See the [Installation Guide](https://ao-agent-ops.github.io/ao-dev/getting-started/installation/) for development setup and the [Developer Guide](https://ao-agent-ops.github.io/ao-dev/developer-guide/architecture/) for architecture details.
+See the [Installation Guide](https://ao-agent-ops.github.io/ao-dev/getting-started/installation/) for development setup and the [Developer Guide](https://ao-agent-ops.github.io/ao-dev/developer-guide/architecture/) for architecture details. More details can also be found in the READMEs of the corresponding dirs in `src/`.
 
 ## Community
 
