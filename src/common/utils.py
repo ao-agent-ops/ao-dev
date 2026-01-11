@@ -76,8 +76,8 @@ def _extract_name_from_url(input_dict: Dict[str, Any], api_type: str) -> Optiona
         else:
             return None
 
-        # Try regex pattern for /models/xxx
-        match = re.search(r"/models/([^/:]+)", path)
+        # Try regex pattern for /models/xxx:<path> or models/xxx:<path>
+        match = re.search(r"/?models/([^/:]+)", path)
         if match:
             return match.group(1)
 
