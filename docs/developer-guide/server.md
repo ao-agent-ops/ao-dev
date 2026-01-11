@@ -1,6 +1,6 @@
 # Server
 
-The development server is the core of AO. It receives events from user processes, manages the dataflow graph, and controls the UI.
+The development server is the core of AO. It receives events from user processes, manages the dataflow graph, and controls the UI. All communication goes: agent_runner <-> server <-> UI.
 
 ## Overview
 
@@ -13,27 +13,44 @@ The server (`main_server.py`) handles:
 - User edit management
 - UI updates
 
-## Starting the Server
+## Server Processes
+
+The server spawns two processes:
+
+### 1. Main Server
+
+Receives all UI and runner messages and forwards them. Core forwarding logic.
+
+### 2. File Watcher
+
+The file watcher has two responsibilities:
+
+- **Pre-compiles all files in user's project:** Reads code, AST-transforms it, stores compiled binary in `~/.cache/ao/pyc`. It polls files to detect user edits and recompile. This is purely a performance optimization so files don't need to be rewritten upon `ao-record`.
+
+- **Git versioning:** On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version timestamp to the run, so the user knows what version of the code they ran. This git versioner is completely independent of any git operations the user performs. It is saved in `~/.cache/ao/git`. We expect it to commit more frequently than the user, as it commits on any file change once the user runs `ao-record`.
+
+## Server Commands
+
+The server starts automatically when you run `ao-record` or interact with the UI. It also automatically shuts down after periods of inactivity.
 
 ```bash
 # Manual server management
 ao-server start
 ao-server stop
 ao-server restart
-ao-server clear    # Clear all cached data
-ao-server logs     # View server logs
+ao-server clear    # Clear all cached data and DB
 ```
 
-The server automatically starts when you run `ao-record` if it's not already running.
+> **Note:** When you make changes to the server code, you need to restart the server for changes to take effect!
 
 ## Server Logs
 
-Logs are stored at: `~/.cache/ao/logs/server.log`
-
-View logs:
+All server logs are written to files (not visible in any terminal). Use these commands to view them:
 
 ```bash
-ao-server logs
+ao-server logs          # Main server logs
+ao-server rewrite-logs  # File watcher (AST rewrite) logs
+ao-server git-logs      # Git versioning logs
 ```
 
 ## Debugging the Server
@@ -50,13 +67,23 @@ Check which processes are using the port:
 lsof -i :5959
 ```
 
+To see the rewritten Python code (not just the binary):
+
+```bash
+export DEBUG_AST_REWRITES=1
+```
+
+This will store `.ao_rewritten.py` files next to the original ones that are rewritten.
+
 ## Database
 
-AO uses SQLite to store:
+We support different database backends (e.g., sqlite, postgres) but currently only expose sqlite to the user. The database stores:
 
 - **Cached LLM calls** - For fast replay during re-runs
 - **User edits** - Input/output modifications
 - **Graph topology** - For reconstructing past runs
+
+See `src/server/database_backends/sqlite.py` for the sqlite DB schema. Schemas may differ between different DB backends.
 
 ### Key Concepts
 
