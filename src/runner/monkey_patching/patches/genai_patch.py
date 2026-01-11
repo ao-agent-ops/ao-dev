@@ -8,7 +8,7 @@ import builtins
 
 def genai_patch():
     """
-    Patch google.genai's BaseApiClient to intercept async_request calls.
+    Patch google.genai's BaseApiClient to intercept async_request and async_request_streamed calls.
     """
     try:
         from google.genai._api_client import BaseApiClient
@@ -46,9 +46,11 @@ def patch_genai_async_request(bound_obj, bound_cls):
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
         # Check if this endpoint should be patched
+        # genai doesn't expose full URL in input_dict, only path
+        # Use placeholder URL since genai is always Google's API
         path = input_dict.get("path", "")
 
-        if not is_whitelisted_endpoint(path):
+        if not is_whitelisted_endpoint("*", path):
             result = await original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing taint
 
