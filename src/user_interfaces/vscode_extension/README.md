@@ -31,9 +31,10 @@ provider.addNode({
 ### Node Interactions
 - **Hover** over a node to see the action menu
 - **Edit Input**: Modify the node's input string
-- **Edit Output**: Modify the node's output string  
+- **Edit Output**: Modify the node's output string
 - **Change Label**: Update the node's display label
 - **See in Code**: Navigate to code location
+- **Document Preview**: Base64-encoded files (PDF, images, DOCX) are detected and shown as clickable buttons to open in your default app
 
 ### Backend Communication
 The extension sends messages to the backend when:
