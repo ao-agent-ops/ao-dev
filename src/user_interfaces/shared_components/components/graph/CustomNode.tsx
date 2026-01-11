@@ -12,6 +12,16 @@ const SIDE_HANDLE_OFFSET = 15; // pixels from center
 const HANDLE_TARGET_POSITION = 50 - SIDE_HANDLE_OFFSET; // 35% from top
 const HANDLE_SOURCE_POSITION = 50 + SIDE_HANDLE_OFFSET; // 65% from top
 
+// Label truncation
+const MAX_LABEL_LENGTH = 20;
+
+function truncateLabel(label: string): string {
+  if (label.length > MAX_LABEL_LENGTH) {
+    return label.slice(0, MAX_LABEL_LENGTH - 1) + "…";
+  }
+  return label;
+}
+
 interface CustomNodeData extends GraphNode {
   attachments: any;
   onUpdate: (nodeId: string, field: string, value: string) => void;
@@ -246,8 +256,9 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           wordBreak: "break-word",
           lineHeight: "1.3",
         }}
+        title={data.label}
       >
-        {data.label}
+        {truncateLabel(data.label)}
       </div>
     </div>
   );

@@ -65,6 +65,10 @@ DEFAULT_SUCCESS = ""
 SUCCESS_STRING = {True: "Satisfactory", False: "Failed", None: ""}
 
 
+# Node label constants
+MAX_LABEL_LENGTH = 20
+NO_LABEL = "No Label"
+
 CERTAINTY_UNKNOWN = "#000000"
 CERTAINTY_GREEN = "#7fc17b"  # Matches restart/rerun button
 CERTAINTY_YELLOW = "#d4a825"  # Matches tag icon; currently unused
@@ -158,6 +162,10 @@ WHITELIST_ENDPOINT_PATTERNS = [
     (r".*", r"/v1/chat/completions"),  # OpenAI
     (r".*", r"models/[^/]+:generateContent"),  # Google GenAI
     (r".*", r"models/[^/]+:streamGenerateContent"),  # Google GenAI
+    (r".*", r"/api/chat"),  # Ollama
+    (r".*", r"/api/generate"),  # Ollama
+    (r".*", r"/api/embed"),  # Ollama embeddings (single)
+    (r".*", r"/api/embeddings"),  # Ollama embeddings (batch)
     # CrewAI Tool APIs
     (r"serper\.dev", r".*"),  # All Serper tools (search, scrape, etc.)
     (r".*api\.search\.brave\.com", r"/res/v1/web/search"),  # BraveSearchTool
@@ -230,6 +238,15 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     # tools.* fields
     r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
     r"^tools\.\d+\.strict$",
+    # Ollama response fields (timing/stats)
+    r"^content\.done$",
+    r"^content\.done_reason$",
+    r"^content\.eval_count$",
+    r"^content\.eval_duration$",
+    r"^content\.load_duration$",
+    r"^content\.prompt_eval_count$",
+    r"^content\.prompt_eval_duration$",
+    r"^content\.total_duration$",
 ]
 
 # Regex patterns to look up display names for nodes in the graph
@@ -255,3 +272,31 @@ URL_PATTERN_TO_NODE_NAME = [
 COMPILED_URL_PATTERN_TO_NODE_NAME = [
     (re.compile(pattern), name) for pattern, name in URL_PATTERN_TO_NODE_NAME
 ]
+
+# Exact match patterns for known models -> clean display names
+# These are matched against the raw model name before cleanup rules are applied
+MODEL_NAME_PATTERNS = [
+    # OpenAI
+    (r"^gpt-4o-mini$", "GPT-4o Mini"),
+    (r"^gpt-4o$", "GPT-4o"),
+    (r"^gpt-4-turbo$", "GPT-4 Turbo"),
+    (r"^gpt-4$", "GPT-4"),
+    (r"^gpt-3\.5-turbo$", "GPT-3.5 Turbo"),
+    (r"^o1-preview$", "O1 Preview"),
+    (r"^o1-mini$", "O1 Mini"),
+    # Anthropic
+    (r"^claude-sonnet-4-5", "Claude Sonnet 4.5"),
+    (r"^claude-3-5-sonnet", "Claude 3.5 Sonnet"),
+    (r"^claude-3-5-haiku", "Claude 3.5 Haiku"),
+    (r"^claude-3-opus", "Claude 3 Opus"),
+    # Google
+    (r"^gemini-2\.0-flash", "Gemini 2.0 Flash"),
+    (r"^gemini-2\.5-flash", "Gemini 2.5 Flash"),
+    (r"^gemini-1\.5-pro", "Gemini 1.5 Pro"),
+    (r"^gemini-1\.5-flash", "Gemini 1.5 Flash"),
+]
+COMPILED_MODEL_NAME_PATTERNS = [
+    (re.compile(pattern), name) for pattern, name in MODEL_NAME_PATTERNS
+]
+
+INVALID_LABEL_CHARS = set("{[<>%$#@")

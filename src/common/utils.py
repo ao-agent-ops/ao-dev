@@ -2,19 +2,177 @@ import hashlib
 import random
 import json
 import os
+import re
 import sys
 import site
 import sysconfig
 import importlib
 from pathlib import Path
 import threading
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 from ao.common.constants import (
     AO_INSTALL_DIR,
     COMPILED_ENDPOINT_PATTERNS,
-    COMPILED_URL_PATTERN_TO_NODE_NAME
+    COMPILED_URL_PATTERN_TO_NODE_NAME,
+    NO_LABEL,
+    COMPILED_MODEL_NAME_PATTERNS,
+    INVALID_LABEL_CHARS
 )
 from ao.common.logger import logger
+
+
+# ==============================================================================
+# Model and tool name extraction
+# ==============================================================================
+def _extract_model_from_body(input_dict: Dict[str, Any], api_type: str) -> Optional[str]:
+    """
+    Extract model name from request body/params (API-specific).
+    Returns None if extraction fails.
+    """
+    try:
+        if api_type == "requests.Session.send":
+            body = input_dict["request"].body
+            if isinstance(body, bytes):
+                body = body.decode("utf-8")
+            return json.loads(body)["model"]
+
+        elif api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+            content = input_dict["request"].content.decode("utf-8")
+            return json.loads(content)["model"]
+
+        elif api_type == "genai.BaseApiClient.async_request":
+            if "model" in input_dict.get("request_dict", {}):
+                return input_dict["request_dict"]["model"]
+            return None
+
+        elif api_type == "MCP.ClientSession.send_request":
+            return input_dict["request"].root.params.name
+
+    except (KeyError, json.JSONDecodeError, UnicodeDecodeError, AttributeError, TypeError):
+        pass
+
+    return None
+
+
+def _extract_name_from_url(input_dict: Dict[str, Any], api_type: str) -> Optional[str]:
+    """
+    Extract model name from URL path or known URL patterns.
+    Returns None if extraction fails.
+    """
+    try:
+        # Get URL based on API type
+        if api_type == "requests.Session.send":
+            url = str(input_dict["request"].url)
+            path = input_dict["request"].path_url
+        elif api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+            url = str(input_dict["request"].url)
+            path = input_dict["request"].url.path
+        elif api_type == "genai.BaseApiClient.async_request":
+            path = input_dict.get("path", "")
+            url = path  # genai doesn't have full URL
+        elif api_type == "MCP.ClientSession.send_request":
+            # MCP doesn't have URL-based fallback traditionally, but we can try
+            return None
+        else:
+            return None
+
+        # Try regex pattern for /models/xxx
+        match = re.search(r"/models/([^/:]+)", path)
+        if match:
+            return match.group(1)
+
+        # Try known URL patterns (tools like Serper, Brave, etc.)
+        for pattern, name in COMPILED_URL_PATTERN_TO_NODE_NAME:
+            if pattern.search(url):
+                return name
+
+        # Last resort: return the path itself
+        if url:
+            return url
+
+    except (AttributeError, KeyError, TypeError):
+        pass
+
+    return None
+
+
+def _clean_model_name(name: str) -> str:
+    """
+    Clean raw model name by applying extraction patterns.
+    E.g., "meta-llama/Llama-3-8B" -> "Llama-3-8B"
+    """
+    if not name:
+        return name
+
+    # HuggingFace format: org/model-name -> extract model-name
+    if "/" in name:
+        name = name.rsplit("/", 1)[-1]
+
+    return name
+
+
+def _sanitize_for_display(name: str) -> str:
+    """
+    Sanitize model name for display as node label.
+    Truncation is handled in the VSCode extension (CustomNode.tsx).
+    """
+    from urllib.parse import urlparse
+
+    if not name:
+        return NO_LABEL
+
+    # Check for exact match against known model patterns first
+    for pattern, clean_name in COMPILED_MODEL_NAME_PATTERNS:
+        if pattern.match(name):
+            return clean_name
+
+    parsed_url = urlparse(name)
+    if parsed_url.scheme and parsed_url.netloc:
+        name = parsed_url.hostname + parsed_url.path
+    else:
+        # this is not a valid URL, so we treat it as a model name/tool name
+        # Convert hyphens between digits to dots (version numbers like 2-5 -> 2.5)
+        name = re.sub(r"(\d)-(?=\d)", r"\1.", name)
+
+        # Replace underscores and remaining hyphens with spaces, then title case
+        name = name.replace("_", " ").replace("-", " ").title()
+
+    # Check for invalid characters that indicate malformed input
+    if any(c in INVALID_LABEL_CHARS for c in name):
+        return NO_LABEL
+
+    return name
+
+
+def get_raw_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
+    """
+    Extract raw model/tool name from request (for caching).
+
+    Tries body/params first, then URL fallback.
+    Returns NO_LABEL if extraction fails.
+    """
+    raw_name = _extract_model_from_body(input_dict, api_type)
+    if not raw_name:
+        raw_name = _extract_name_from_url(input_dict, api_type)
+    return raw_name or NO_LABEL
+
+
+def get_node_label(input_dict: Dict[str, Any], api_type: str) -> str:
+    """
+    Extract and sanitize model/tool name for display as node label.
+
+    1. Extract from body/params
+    2. Clean HuggingFace-style names (org/model -> model)
+    3. Fall back to URL extraction if body fails
+    4. Sanitize for display
+    """
+    raw_name = _extract_model_from_body(input_dict, api_type)
+    if raw_name:
+        raw_name = _clean_model_name(raw_name)
+    else:
+        raw_name = _extract_name_from_url(input_dict, api_type)
+
+    return _sanitize_for_display(raw_name) if raw_name else NO_LABEL
 
 
 # ==============================================================================

@@ -1,6 +1,5 @@
 import json
 from typing import Any, Dict
-from ao.common.utils import get_node_name_for_url
 
 
 def json_str_to_original_inp_dict_requests(json_str: str, input_dict: dict) -> dict:
@@ -33,14 +32,14 @@ def func_kwargs_to_json_str_requests(input_dict: Dict[str, Any]):
         if isinstance(body, bytes):
             _body_encoded = True
             body = body.decode("utf-8")
-        body_json_str = json.dumps(json.loads(body), sort_keys=True)
+        body_json = json.loads(body)
     else:
-        body_json_str = ""
+        body_json = ""
     
     url = str(input_dict["request"].url)
     json_str = json.dumps({
         "url": url,
-        "body": body_json_str,
+        "body": body_json,
         "_body_encoded": _body_encoded
     }, sort_keys=True)
 
@@ -87,33 +86,3 @@ def json_str_to_api_obj_requests(new_output_text: str) -> None:
     if hasattr(obj, "_content_consumed"):
         obj._content_consumed = False
     return obj
-
-
-def get_model_requests(input_dict: Dict[str, Any]) -> str:
-    """Extract model name from requests request."""
-    try:
-        json_str = input_dict["request"].body.decode("utf-8")
-        return json.loads(json_str)["model"]
-    except (KeyError, json.JSONDecodeError, UnicodeDecodeError, AttributeError, TypeError):
-        # Fallback: try to extract model name from URL path
-        try:
-            import re
-
-            path = input_dict["request"].url.path
-            match = re.search(r"/models/([^/]+?)(?::|$)", path)
-            if match:
-                return match.group(1)
-        except (AttributeError, KeyError):
-            pass
-
-        try:
-            path_url = input_dict["request"].path_url
-            url = str(input_dict["request"].url)
-            node_name = get_node_name_for_url(url)
-            if node_name:
-                return node_name
-            return path_url
-        except (AttributeError, KeyError):
-            pass
-
-        return "undefined"

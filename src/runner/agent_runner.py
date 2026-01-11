@@ -233,7 +233,6 @@ class AgentRunner:
     def _listen_for_server_messages(self, sock: socket.socket) -> None:
         """Background thread: listen for 'restart' or 'shutdown' messages from the server."""
         try:
-            sock.setblocking(False)
             buffer = b""
             while not self.shutdown_flag:
                 try:
