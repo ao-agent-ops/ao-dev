@@ -38,7 +38,7 @@ cd src/user_interfaces && npm install && npm run build:extension
 ### Running the extension
 Open this project in a new VS Code window. Select the "Run Extension" option from the debugger and run it. This will open a new window with the extension enabled (see the video below):
 
-<video src="../docs/media/launch_extension.mp4" controls muted></video>
+<video src="/docs/media/launch_extension.mp4" controls muted></video>
 
 ### Try an example
 In the new window, you can now open any project that you are working on. We will run the `openai_add_numbers.py` example from our [examples](/example_workflows/debug_examples/) folder. Note that this example depends on the OpenAI API, which you might need to install before running the example (`pip install openai`). 
@@ -48,7 +48,7 @@ If you run the following command, you should see the result in the video:
 ao-record ./example_workflows/debug_examples/openai_add_numbers.py
 ```
 
-<video src="../docs/media/run_example.mp4" controls muted></video>
+<video src="/docs/media/run_example.mp4" controls muted></video>
 
 ## Development
 
