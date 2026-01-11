@@ -3,6 +3,7 @@ import { GraphTabApp as SharedGraphTabApp } from '../../../shared_components/com
 import { GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
+import { DocumentContextProvider, useDocumentContext } from '../../../shared_components/contexts/DocumentContext';
 
 // Global type augmentation for window.vscode
 declare global {
@@ -15,11 +16,13 @@ declare global {
   }
 }
 
-export const GraphTabApp: React.FC = () => {
+// Inner component that uses the document context
+const GraphTabAppInner: React.FC = () => {
   const [experiment, setExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isDarkTheme = useIsVsCodeDarkTheme();
+  const { setDocumentOpened } = useDocumentContext();
 
   // Override body overflow to allow scrolling
   useEffect(() => {
@@ -128,6 +131,12 @@ export const GraphTabApp: React.FC = () => {
         case 'vscode-theme-change':
           // Theme changes are handled by the useIsVsCodeDarkTheme hook
           break;
+        case 'documentOpened':
+          // Track opened document path for UI update
+          if (message.payload?.documentKey && message.payload?.path) {
+            setDocumentOpened(message.payload.documentKey, message.payload.path);
+          }
+          break;
       }
     };
 
@@ -141,7 +150,7 @@ export const GraphTabApp: React.FC = () => {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [sessionId]);
+  }, [sessionId, setDocumentOpened]);
 
   const handleNodeUpdate = (
     nodeId: string,
@@ -199,3 +208,10 @@ export const GraphTabApp: React.FC = () => {
     </div>
   );
 };
+
+// Wrap with DocumentContextProvider
+export const GraphTabApp: React.FC = () => (
+  <DocumentContextProvider>
+    <GraphTabAppInner />
+  </DocumentContextProvider>
+);

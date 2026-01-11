@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { RunDetailsDialogProvider } from './RunDetailsDialogProvider';
 import { PythonServerClient } from './PythonServerClient';
 import { ProcessInfo } from '../../../../shared_components/types';
@@ -145,6 +147,9 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                         targetPanel.title = `Graph: ${title}`;
                     }
                     break;
+                case 'openDocument':
+                    this._handleOpenDocument(data.payload, panel);
+                    break;
             }
         });
 
@@ -258,6 +263,39 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
             };
         }
         return { filePath: undefined, line: undefined };
+    }
+
+    private async _handleOpenDocument(payload: { data: string; fileType: string; mimeType: string; documentKey?: string }, panel: vscode.WebviewPanel): Promise<void> {
+        const { data, fileType, documentKey } = payload;
+
+        // Whitelist of file types we'll open with system default app
+        const openableTypes = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'docx', 'xlsx'];
+        const shouldOpen = openableTypes.includes(fileType);
+
+        try {
+            // Save to temp file
+            const tempDir = os.tmpdir();
+            const fileName = `ao-preview-${Date.now()}.${fileType}`;
+            const tempPath = path.join(tempDir, fileName);
+
+            const buffer = Buffer.from(data, 'base64');
+            fs.writeFileSync(tempPath, buffer);
+
+            // Open with system default app if whitelisted
+            if (shouldOpen) {
+                const uri = vscode.Uri.file(tempPath);
+                await vscode.env.openExternal(uri);
+            }
+
+            // Send path back to webview
+            panel.webview.postMessage({
+                type: 'documentOpened',
+                payload: { path: tempPath, documentKey }
+            });
+        } catch (error) {
+            console.error('[GraphTabProvider] Failed to open document:', error);
+            vscode.window.showErrorMessage(`Failed to open document: ${error}`);
+        }
     }
 
 
