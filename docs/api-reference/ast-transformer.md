@@ -74,13 +74,3 @@ The main AST transformer class:
         - visit_Call
         - visit_BinOp
 
-## Utility Functions
-
-### is_pyc_rewritten
-
-Check if a `.pyc` file was created by the AST transformer:
-
-::: ao.server.file_watcher.is_pyc_rewritten
-    options:
-      show_root_heading: true
-      show_source: true

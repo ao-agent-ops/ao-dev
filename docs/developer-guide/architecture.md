@@ -6,7 +6,7 @@ This page provides a high-level overview of AO's architecture and how its compon
 
 AO consists of three main processes that work together:
 
-![Processes Overview](../assets/images/processes.png)
+![Processes Overview](../media/processes.png)
 
 ### 1. User Program (Green)
 
@@ -14,8 +14,9 @@ The user launches their program with `ao-record script.py`. This feels exactly l
 
 **Components:**
 
-- **Orchestrator** (`develop_shim.py`) - Manages the lifecycle of the runner process. Handles restart commands from the UI.
-- **Runner** - Executes the actual Python program with monkey patches and AST rewrites applied.
+- **Agent Runner** (`agent_runner.py`) - Wraps the user's Python command. Sets up the environment, connects to the server, applies monkey patches and AST rewrites, then executes the user's program.
+- **AST Rewrite Hook** (`ast_rewrite_hook.py`) - Import hook that ensures AST-rewritten `.pyc` files are loaded from `~/.cache/ao/pyc`.
+- **Monkey Patching** (`monkey_patching/`) - Intercepts LLM API calls to record inputs/outputs and propagate taint.
 
 ### 2. Development Server (Blue)
 
@@ -48,34 +49,34 @@ The VS Code extension (or web app) that displays the dataflow graph and provides
 
 AO tracks data flow using a "taint" system:
 
-1. **LLM Output Tainting** - When an LLM produces output, it's wrapped in a taint-aware type that records the LLM call ID
-2. **Taint Propagation** - As data flows through the program, taint information propagates through operations
+1. **LLM Output Tainting** - When an LLM produces output, its ID is stored in `TAINT_DICT` mapping `id(obj)` to the list of LLM origins
+2. **Taint Propagation** - As data flows through the program, taint information propagates through AST-rewritten operations
 3. **Edge Detection** - When tainted data reaches another LLM call, an edge is added to the dataflow graph
 
 ### Two Mechanisms for Taint Propagation
 
 1. **Monkey Patching** - Intercepts LLM API calls to:
    - Record inputs and outputs
-   - Wrap outputs with taint information
-   - Report events to the server
+   - Read `ACTIVE_TAINT` to discover input origins (graph edges)
+   - Set `ACTIVE_TAINT` to the current node ID for outputs
 
 2. **AST Rewriting** - Rewrites Python code to propagate taint through:
-   - Third-party library calls
+   - All function and method calls
    - String formatting operations
-   - Built-in functions
+   - Binary operations (+, -, etc.)
+   - Attribute and subscript access
 
 ## Execution Flow
 
-![Execution Flow](../assets/images/develop_spawn.png)
-
 1. User runs `ao-record script.py`
-2. Orchestrator spawns the runner process
-3. Runner establishes connection to the server
-4. Monkey patches and AST rewrites are applied
-5. User code executes with full tracing
-6. LLM calls are intercepted and reported to server
-7. Server builds dataflow graph
-8. UI displays the graph in real-time
+2. Agent runner sets up environment (builtins, import hooks)
+3. Agent runner connects to server (starts it if needed)
+4. Monkey patches are applied to LLM libraries
+5. User code is imported via AST rewrite hook (loads pre-compiled `.pyc` from cache)
+6. User code executes with full tracing
+7. LLM calls are intercepted and reported to server
+8. Server builds dataflow graph
+9. UI displays the graph in real-time
 
 ## Module Organization
 
@@ -86,17 +87,18 @@ src/
 │   ├── ao_server.py       # Server management
 │   └── ao_config.py       # Configuration
 ├── runner/                 # Runtime execution
-│   ├── develop_shim.py     # Orchestrator
-│   ├── launch_scripts.py   # Runner bootstrap
-│   ├── taint_wrappers.py   # Taint-aware types
+│   ├── agent_runner.py     # Main runner (setup + execution)
+│   ├── ast_rewrite_hook.py # Import hook for AST-rewritten .pyc
+│   ├── taint_dict.py       # Thread-safe taint storage
 │   ├── context_manager.py  # Session management
 │   └── monkey_patching/    # API interception
 │       ├── apply_monkey_patches.py
 │       └── patches/        # Per-API patches
 ├── server/                 # Core server
-│   ├── main_server.py   # Main server logic
+│   ├── main_server.py      # Main server logic
 │   ├── ast_transformer.py  # AST rewriting
-│   ├── file_watcher.py     # File monitoring
+│   ├── ast_helpers.py      # Taint propagation functions
+│   ├── file_watcher.py     # File monitoring + git versioning
 │   └── database_manager.py # Caching/storage
 └── user_interfaces/        # UI components
     ├── vscode_extension/   # VS Code extension
