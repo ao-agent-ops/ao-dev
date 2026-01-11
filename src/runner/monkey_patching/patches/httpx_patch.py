@@ -50,7 +50,10 @@ def patch_httpx_send(bound_obj, bound_cls):
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
-        if not is_whitelisted_endpoint(input_dict["request"].url.path):
+        request = input_dict["request"]
+        url = str(request.url)
+        path = request.url.path
+        if not is_whitelisted_endpoint(url, path):
             result = original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing escrow
 
@@ -91,7 +94,10 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         # 3. Get taint origins from ACTIVE_TAINT (set by exec_func)
         taint_origins = list(builtins.ACTIVE_TAINT.get())
 
-        if not is_whitelisted_endpoint(input_dict["request"].url.path):
+        request = input_dict["request"]
+        url = str(request.url)
+        path = request.url.path
+        if not is_whitelisted_endpoint(url, path):
             result = await original_function(*args, **kwargs)
             return result  # No wrapping here, exec_func will use existing escrow
 

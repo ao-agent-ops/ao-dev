@@ -9,7 +9,11 @@ import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union
-from ao.common.constants import AO_INSTALL_DIR, AO_PROJECT_ROOT, COMPILED_ENDPOINT_PATTERNS
+from ao.common.constants import (
+    AO_INSTALL_DIR,
+    COMPILED_ENDPOINT_PATTERNS,
+    COMPILED_URL_PATTERN_TO_NODE_NAME
+)
 from ao.common.logger import logger
 
 
@@ -64,9 +68,20 @@ def should_rewrite(file_path: str) -> bool:
     return not any(real_path.startswith(root) for root in _THIRD_PARTY_ROOTS)
 
 
-def is_whitelisted_endpoint(path: str) -> bool:
-    """Check if a path matches any of the whitelist regex patterns."""
-    return any(pattern.search(path) for pattern in COMPILED_ENDPOINT_PATTERNS)
+def is_whitelisted_endpoint(url: str, path: str) -> bool:
+    """Check if a URL and path match any of the whitelist (url_regex, path_regex) tuples."""
+    for url_pattern, path_pattern in COMPILED_ENDPOINT_PATTERNS:
+        if url_pattern.search(url) and path_pattern.search(path):
+            return True
+    return False
+
+
+def get_node_name_for_url(url: str) -> Optional[str]:
+    """Return the display name for a URL if it matches any pattern, else None."""
+    for pattern, name in COMPILED_URL_PATTERN_TO_NODE_NAME:
+        if pattern.search(url):
+            return name
+    return None
 
 
 def hash_input(input_bytes):

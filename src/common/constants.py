@@ -148,13 +148,31 @@ os.makedirs(ATTACHMENT_CACHE, exist_ok=True)
 # Works for both editable installs (src/) and pip installs (site-packages/ao/)
 AO_INSTALL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Whitelist patterns as (url_regex, path_regex) tuples.
+# A request matches if BOTH regexes match (use ".*" for "any").
+# Note: path may include query params (e.g., /search?q=...), so don't use $ anchor.
 WHITELIST_ENDPOINT_PATTERNS = [
-    r"/v1/messages$",
-    r"/v1/responses$",
-    r"/v1/chat/completions$",
-    r"models/[^/]+:generateContent$",
+    # LLM APIs (any URL, match by path)
+    (r".*", r"/v1/messages"),  # Anthropic
+    (r".*", r"/v1/responses"),  # OpenAI
+    (r".*", r"/v1/chat/completions"),  # OpenAI
+    (r".*", r"models/[^/]+:generateContent"),  # Google GenAI
+    (r".*", r"models/[^/]+:streamGenerateContent"),  # Google GenAI
+    # CrewAI Tool APIs
+    (r"serper\.dev", r".*"),  # All Serper tools (search, scrape, etc.)
+    (r".*api\.search\.brave\.com", r"/res/v1/web/search"),  # BraveSearchTool
+    (r".*r\.jina\.ai", r".*"),  # JinaScrapeWebsiteTool (any path, URL contains target)
+    (r".*api\.brightdata\.com", r"/request"),  # BrightDataSerpTool, BrightDataUnlockerTool
+    (r".*api\.patronus\.ai", r"/v1/evaluate"),  # PatronusEvalTool
+    (r".*api\.contextual\.ai", r"/v1/datastores/"),  # ContextualAI query
+    (r".*api\.contextual\.ai", r"/v1/parse"),  # ContextualAI parse
+    (r".*api\.contextual\.ai", r"/v1/rerank"),  # ContextualAI rerank
+    (r".*api\.parallel\.ai", r"/v1beta/search"),  # ParallelSearchTool
 ]
-COMPILED_ENDPOINT_PATTERNS = [re.compile(pattern) for pattern in WHITELIST_ENDPOINT_PATTERNS]
+COMPILED_ENDPOINT_PATTERNS = [
+    (re.compile(url_pat), re.compile(path_pat))
+    for url_pat, path_pat in WHITELIST_ENDPOINT_PATTERNS
+]
 
 # List of regexes that exclude patterns from being displayed in edit IO
 EDIT_IO_EXCLUDE_PATTERNS = [
@@ -212,4 +230,28 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     # tools.* fields
     r"^tools\.\d+\.parameters\.(additionalProperties|properties|required|type)$",
     r"^tools\.\d+\.strict$",
+]
+
+# Regex patterns to look up display names for nodes in the graph
+# Each key is a regex pattern that matches URLs, value is the display name
+URL_PATTERN_TO_NODE_NAME = [
+    # Serper tools (different subdomains for different tools)
+    (r"google\.serper\.dev", "Serper Search"),
+    (r"scrape\.serper\.dev", "Serper Scrape"),
+    # Brave Search
+    (r"api\.search\.brave\.com/res/v1/web/search", "Brave Search"),
+    # Jina (URL contains target site in path)
+    (r"r\.jina\.ai/", "Jina Scrape"),
+    # BrightData
+    (r"api\.brightdata\.com/request", "BrightData"),
+    # Patronus
+    (r"api\.patronus\.ai/v1/evaluate", "Patronus Eval"),
+    # ContextualAI
+    (r"api\.contextual\.ai/v1/parse", "Contextual Parse"),
+    (r"api\.contextual\.ai/v1/rerank", "Contextual Rerank"),
+    # Parallel AI
+    (r"api\.parallel\.ai/v1beta/search", "Parallel Search"),
+]
+COMPILED_URL_PATTERN_TO_NODE_NAME = [
+    (re.compile(pattern), name) for pattern, name in URL_PATTERN_TO_NODE_NAME
 ]
