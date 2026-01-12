@@ -15,15 +15,15 @@ if current_dir not in sys.path:
 # Import directly from file path to avoid triggering ao.__init__.py
 import importlib.util
 
-ast_helpers_path = os.path.join(current_dir, "server", "ast_helpers.py")
-spec = importlib.util.spec_from_file_location("ast_helpers", ast_helpers_path)
-ast_helpers = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ast_helpers)
+taint_ops_path = os.path.join(current_dir, "server", "taint_ops.py")
+spec = importlib.util.spec_from_file_location("taint_ops", taint_ops_path)
+taint_ops = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(taint_ops)
 
-builtins.taint_fstring_join = ast_helpers.taint_fstring_join
-builtins.taint_format_string = ast_helpers.taint_format_string
-builtins.taint_percent_format = ast_helpers.taint_percent_format
-builtins.exec_func = ast_helpers.exec_func
+builtins.taint_fstring_join = taint_ops.taint_fstring_join
+builtins.taint_format_string = taint_ops.taint_format_string
+builtins.taint_percent_format = taint_ops.taint_percent_format
+builtins.exec_func = taint_ops.exec_func
 
 # Now safe to import other modules
 import socket

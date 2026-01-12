@@ -113,7 +113,7 @@ def with_ast_rewriting(test_func):
 
         # Set up the taint environment (normally done by agent_runner)
         import builtins
-        from ao.runner.taint_dict import ThreadSafeTaintDict, TaintStack
+        from ao.runner.taint_containers import ThreadSafeTaintDict, TaintStack
 
         # Initialize TAINT_STACK for passing taint through third-party code
         builtins.TAINT_STACK = TaintStack()
@@ -123,7 +123,7 @@ def with_ast_rewriting(test_func):
         builtins.TAINT_DICT = ThreadSafeTaintDict()
 
         # Add taint functions to builtins (normally done by agent_runner)
-        from ao.server.ast_helpers import (
+        from ao.server.taint_ops import (
             taint_fstring_join,
             taint_format_string,
             taint_percent_format,

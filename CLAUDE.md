@@ -57,8 +57,8 @@ python -m pytest -v tests/non_billable/taint/  # Test taint propagation specific
 
 - @src/cli/ - CLI tools (`ao-record`, `ao-server`, `ao-config`)
 - @src/common/ - Shared utilities (config, constants, logger, utils)
-- @src/server/ - Core server (main_server, ast_transformer, ast_helpers, file_watcher, database_manager)
-- @src/runner/ - Runtime execution (agent_runner, ast_rewrite_hook, context_manager, taint_dict)
+- @src/server/ - Core server (main_server, ast_transformer, taint_ops, file_watcher, database_manager)
+- @src/runner/ - Runtime execution (agent_runner, ast_rewrite_hook, context_manager, taint_containers)
 - @src/runner/monkey_patching/ - API interception (patches/, api_parsers/)
 - @src/user_interfaces/ - VS Code extension and web app
 - @tests/billable/ - Tests that make LLM API calls

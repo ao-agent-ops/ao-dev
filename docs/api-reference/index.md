@@ -23,7 +23,7 @@ ao/
 │   ├── ao_server.py       # Server management
 │   └── ao_config.py       # Configuration tool
 ├── runner/                 # Runtime execution
-│   ├── taint_dict.py       # Taint tracking dictionary
+│   ├── taint_containers.py # Taint tracking containers
 │   ├── context_manager.py  # Session management
 │   └── monkey_patching/    # API interception
 └── server/                 # Core server
@@ -39,9 +39,9 @@ Most users interact with AO through the CLI commands. However, you can also use 
 ### Context Manager for Subruns
 
 ```
-from ao.runner.context_manager import ao_record
+from ao import launch
 
-with ao_record("my-run"):
+with launch("my-run"):
     # Your LLM code here
     pass
 ```

@@ -1,6 +1,7 @@
 from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from ao.server.database_manager import DB
+from ao.common.logger import logger
 from ao.common.utils import is_whitelisted_endpoint
 import builtins
 
@@ -9,6 +10,7 @@ def requests_patch():
     try:
         from requests import Session
     except ImportError:
+        logger.info("requests not installed, skipping requests patches")
         return
 
     def create_patched_init(original_init):
@@ -24,7 +26,6 @@ def requests_patch():
 
 
 def patch_requests_send(bound_obj, bound_cls):
-    # bound_obj has a send method, which we are patching
     original_function = bound_obj.send
 
     @wraps(original_function)
@@ -32,26 +33,22 @@ def patch_requests_send(bound_obj, bound_cls):
 
         api_type = "requests.Session.send"
 
-        # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
-
-        # 3. Get taint origins from TAINT_STACK (set by exec_func)
         taint_origins = builtins.TAINT_STACK.read()
 
         request = input_dict["request"]
         url = str(request.url)
         path = request.path_url
         if not is_whitelisted_endpoint(url, path):
-            result = original_function(*args, **kwargs)
-            return result  # No wrapping here, exec_func will use existing escrow
+            return original_function(*args, **kwargs)
 
-        # 4. Get result from cache or call LLM.
+        # Get result from cache or call LLM
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
-            result = original_function(**cache_output.input_dict)  # Call LLM.
+            result = original_function(**cache_output.input_dict)  # Call LLM
             DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
-        # 5. Tell server that this LLM call happened.
+        # Send graph node to server
         send_graph_node_and_edges(
             node_id=cache_output.node_id,
             input_dict=cache_output.input_dict,
@@ -60,8 +57,8 @@ def patch_requests_send(bound_obj, bound_cls):
             api_type=api_type,
         )
 
-        # 6. Set the new taint in escrow for exec_func to wrap with.
+        # Update TAINT_STACK so exec_func applies this node's taint to result
         builtins.TAINT_STACK.update([cache_output.node_id])
-        return cache_output.output  # No wrapping here, exec_func will wrap
+        return cache_output.output
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)

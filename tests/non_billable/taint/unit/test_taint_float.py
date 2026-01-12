@@ -3,7 +3,7 @@
 import pytest
 import math
 
-from ao.server.ast_helpers import add_to_taint_dict_and_return as taint, get_taint
+from ao.server.taint_ops import add_to_taint_dict_and_return as taint, get_taint
 from ....utils import with_ast_rewriting_class
 
 

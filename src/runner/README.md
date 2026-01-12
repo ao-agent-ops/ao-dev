@@ -32,7 +32,7 @@ This can also be used to run many samples concurrently (see examples in `example
 ## ast_rewrite_hook.py
 
 > [!NOTE]
-> We only rewrite "user code". I.e., we blacklist certain modules (e.g., ones defined in `site-packages`) because rewritten code incurs larger import times. This is a pure performance optimization as third-party library imports (`import os`, `import openai`, etc) often import many files. For "third-party functions", we just assume the taint of its inputs is also the taint of its outputs. See [AST transformer](/src/server/ast_transformer.py) and [AST helpers](/src/server/ast_helpers.py) for more details (there are some edge cases).
+> We only rewrite "user code". I.e., we blacklist certain modules (e.g., ones defined in `site-packages`) because rewritten code incurs larger import times. This is a pure performance optimization as third-party library imports (`import os`, `import openai`, etc) often import many files. For "third-party functions", we just assume the taint of its inputs is also the taint of its outputs. See [AST transformer](/src/server/ast_transformer.py) and [AST helpers](/src/server/taint_ops.py) for more details (there are some edge cases).
 
 The import hook is needed because: 
 1. **Custom cache location:** The .pyc files are stored in `~/.cache/ao/pyc/` with hashed filenames, not the standard `__pycache__` directory. Python's default import machinery won't find them there.
@@ -48,7 +48,7 @@ To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we 
 
 1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls (and MCP tool invocations, ...). When the user imports a package (e.g., `import openai`), patched methods (i) log LLM calls to the server, and (ii) check if input variables have been produced by another LLM and make sure that the output variables are marked (tainted) to be from the current LLM call.
 
-2. **Propagating taint:** For each variable in the user's program, we store if it has been produced by an LLM call (and by which one). We do this inside a globally available `TAINT_DICT` (defined [here](/src/runner/taint_dict.py)) where we map `id(var)` -> `[list of llm origins]`. Inside the rewritten "user code", we rewrite each operation and function call such that taint is propagated. For example, consider the following program:
+2. **Propagating taint:** For each variable in the user's program, we store if it has been produced by an LLM call (and by which one). We do this inside a globally available `TAINT_DICT` (defined [here](/src/runner/taint_containers.py)) where we map `id(var)` -> `[list of llm origins]`. Inside the rewritten "user code", we rewrite each operation and function call such that taint is propagated. For example, consider the following program:
 
 ```python
 a = llm_call("hello")
@@ -64,7 +64,7 @@ We don't rewrite "third-party functions" (e.g., `llm_call()`) for performance re
 
 We use a stack (rather than a single value) to handle nested calls correctly (e.g., LangChain calls LLM #1, then user's tool function, then LLM #2 - each level needs its own taint context preserved), and we use task-keyed storage (rather than ContextVar) because some frameworks like LangChain use `copy_context().run()` which isolates ContextVar changes. See [taint-tracking.md](/docs/developer-guide/taint-tracking.md#why-a-stack-langchain-example) for a detailed example.
 
-There are some more caveats here, which can be best understood by looking at the code in [AST helpers](/src/server/ast_helpers.py). For example:
+There are some more caveats here, which can be best understood by looking at the code in [AST helpers](/src/server/taint_ops.py). For example:
  - Some functions (e.g, `list.append()`, `dotenv.load_dotenv()`, etc) are treated specially.
  - We *de-intern* strings: Python has a perf opt that makes that `id("hello") == id("hello")` for short strings. This is a problem since the two `"hello"` strings may have been produced by different LLM calls (or one may have been produced by no LLM call at all). We enforce that Python gives a unique id to each string by encoding and decoding it:
 ```

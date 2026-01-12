@@ -88,8 +88,7 @@ See `src/server/database_backends/sqlite.py` for the sqlite DB schema. Schemas m
 ### Key Concepts
 
 - **`input_hash`** - LLM calls are cached based on a hash of their inputs, not node IDs (since the graph structure may change)
-- **`CacheManager`** - Handles cache lookups
-- **`EditManager`** - Manages user modifications
+- **`DatabaseManager`** - Handles all cache operations and user edit storage (see `database_manager.py`)
 
 ### Graph Topology Storage
 

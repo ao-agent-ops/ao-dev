@@ -20,7 +20,7 @@ AO goes beyond being a simple observability tool:
 - **Visualize agent traces as a DAG** - See how data flows between LLM and tool calls in your application
 - **Edit inputs and outputs** - Modify LLM and tool call inputs/outputs and **re-run** with changes, where previous nodes in the DAG are cached
 - **Debug dataflow** - Track how LLM outputs propagate through your code
-- **Automatically improve any agent** - AO is also an MCP tool, enabling observaility and fast debugging for your favorite coding agent like [Claude Code](https://claude.com/product/claude-code)
+- **Automatically improve any agent** - AO is also an MCP tool, enabling observability and fast debugging for your favorite coding agent like [Claude Code](https://claude.com/product/claude-code)
 
 ## How to use
 
@@ -49,13 +49,13 @@ This feels *exactly* the same as running Python but also analyzes your code and 
 - Program prints/reads to/from the same terminal, crashes the same, etc.
 - You can use the VS Code debugger normally
 
-For running evaluations or batch processing, use the `ao_subrun` context manager to create separate traces for each sample:
+For running evaluations or batch processing, use the `launch` context manager to create separate traces for each sample:
 
 ```
-from ao import ao_subrun
+from ao import launch
 
 for sample in samples:
-    with ao_subrun(f"sample-{sample.id}"):
+    with launch(f"sample-{sample.id}"):
         result = evaluate(sample)
 ```
 
@@ -68,4 +68,4 @@ for sample in samples:
 ## Further Resources
 
 - [Join our Discord server](https://discord.gg/fjsNSa6TAh)
-- [GitHub Repository](https://github.com/agent-ops-project/agops-platform)
+- [GitHub Repository](https://github.com/ao-agent-ops/ao-dev)

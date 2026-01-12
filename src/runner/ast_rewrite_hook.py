@@ -17,7 +17,7 @@ def get_user_module_files() -> list:
     """
     Return list of user module file paths.
 
-    Used by ast_helpers._is_user_function() to check if a function is user code.
+    Used by taint_ops._is_user_function() to check if a function is user code.
     This dict is populated dynamically as modules are imported via the import hook.
     """
     return list(_module_to_user_file.values())

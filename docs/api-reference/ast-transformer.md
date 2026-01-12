@@ -24,7 +24,7 @@ Transform and compile Python source with AST rewrites:
 
 Execute a function with taint propagation:
 
-::: ao.server.ast_helpers.exec_func
+::: ao.server.taint_ops.exec_func
     options:
       show_root_heading: true
       show_source: true
@@ -35,7 +35,7 @@ Execute a function with taint propagation:
 
 Taint-aware replacement for f-string concatenation:
 
-::: ao.server.ast_helpers.taint_fstring_join
+::: ao.server.taint_ops.taint_fstring_join
     options:
       show_root_heading: true
       show_source: true
@@ -44,7 +44,7 @@ Taint-aware replacement for f-string concatenation:
 
 Taint-aware replacement for `.format()` calls:
 
-::: ao.server.ast_helpers.taint_format_string
+::: ao.server.taint_ops.taint_format_string
     options:
       show_root_heading: true
       show_source: true
@@ -53,7 +53,7 @@ Taint-aware replacement for `.format()` calls:
 
 Taint-aware replacement for `%` formatting:
 
-::: ao.server.ast_helpers.taint_percent_format
+::: ao.server.taint_ops.taint_percent_format
     options:
       show_root_heading: true
       show_source: true

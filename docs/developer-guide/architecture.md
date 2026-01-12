@@ -89,7 +89,7 @@ src/
 ├── runner/                 # Runtime execution
 │   ├── agent_runner.py     # Main runner (setup + execution)
 │   ├── ast_rewrite_hook.py # Import hook for AST-rewritten .pyc
-│   ├── taint_dict.py       # Thread-safe taint storage
+│   ├── taint_containers.py # Thread-safe taint storage
 │   ├── context_manager.py  # Session management
 │   └── monkey_patching/    # API interception
 │       ├── apply_monkey_patches.py
@@ -97,7 +97,7 @@ src/
 ├── server/                 # Core server
 │   ├── main_server.py      # Main server logic
 │   ├── ast_transformer.py  # AST rewriting
-│   ├── ast_helpers.py      # Taint propagation functions
+│   ├── taint_ops.py      # Taint propagation functions
 │   ├── file_watcher.py     # File monitoring + git versioning
 │   └── database_manager.py # Caching/storage
 └── user_interfaces/        # UI components

@@ -8,7 +8,7 @@
 ## Quick Install (pip)
 
 ```bash
-pip install ao-agent-dev
+pip install ao-dev
 ```
 
 ## Verifying Installation
@@ -73,14 +73,6 @@ Some Python linters may incorrectly report that modules inside the codebase can'
 
 ```bash
 ln -s src ao
-```
-
-### Fetching Large Files
-
-The repository uses Git LFS for large files (videos, etc.). After cloning, fetch them with:
-
-```bash
-git lfs pull
 ```
 
 ## Next Steps

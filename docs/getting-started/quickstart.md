@@ -41,7 +41,7 @@ cd my-agent
 python openai_example.py
 ```
 
-The output should be `88` (42 + 1 = 43, 42 + 2 = 44, 43 + 44 = 87... well, roughly 88 depending on the model).
+The output should be `87` (42 + 1 = 43, 42 + 2 = 44, 43 + 44 = 87).
 
 ## Step 2: Configure AO
 

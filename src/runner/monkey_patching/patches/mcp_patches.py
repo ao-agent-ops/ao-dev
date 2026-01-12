@@ -5,11 +5,6 @@ from ao.common.logger import logger
 import builtins
 
 
-# ===========================================================
-# Patches for MCP ClientSession
-# ===========================================================
-
-
 def mcp_patch():
     try:
         from mcp.client.session import ClientSession
@@ -30,37 +25,30 @@ def mcp_patch():
 
 
 def patch_mcp_send_request(bound_obj, bound_cls):
-    # bound_obj has a send_request method, which we are patching
     original_function = bound_obj.send_request
 
     @wraps(original_function)
     async def patched_function(self, *args, **kwargs):
         api_type = "MCP.ClientSession.send_request"
 
-        # 2. Get full input dict.
         input_dict = get_input_dict(original_function, *args, **kwargs)
-
-        # 3. Get taint origins from TAINT_STACK (set by exec_func)
         taint_origins = builtins.TAINT_STACK.read()
 
         # Check if this is a tools/call request
-        # The method is at input_dict["request"].root.method
         request = input_dict.get("request")
         method = getattr(getattr(request, "root", None), "method", None) if request else None
-
         if method != "tools/call":
-            result = await original_function(*args, **kwargs)
-            return result  # No wrapping here, exec_func will use existing escrow
+            return await original_function(*args, **kwargs)
 
-        # 4. Get result from cache or call tool.
+        # Get result from cache or call tool
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
-            result = await original_function(**cache_output.input_dict)
+            result = await original_function(**cache_output.input_dict)  # Call tool
             DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
         else:
             cache_output.output = input_dict["result_type"].model_validate(cache_output.output)
 
-        # 5. Tell server that this tool call happened.
+        # Send graph node to server
         send_graph_node_and_edges(
             node_id=cache_output.node_id,
             input_dict=cache_output.input_dict,
@@ -69,8 +57,8 @@ def patch_mcp_send_request(bound_obj, bound_cls):
             api_type=api_type,
         )
 
-        # 6. Set the new taint in escrow for exec_func to wrap with.
+        # Update TAINT_STACK so exec_func applies this node's taint to result
         builtins.TAINT_STACK.update([cache_output.node_id])
-        return cache_output.output  # No wrapping here, exec_func will wrap
+        return cache_output.output
 
     bound_obj.send_request = patched_function.__get__(bound_obj, bound_cls)

@@ -575,7 +575,7 @@ class TaintPropagationTransformer(ast.NodeTransformer):
 
         safe_import_code = """
 import operator
-from ao.server.ast_helpers import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, taint_assign, get_attr, get_item, set_attr
+from ao.server.taint_ops import exec_func, exec_setitem, exec_delitem, exec_inplace_binop, taint_fstring_join, taint_format_string, taint_percent_format, taint_open, taint_assign, get_attr, get_item, set_attr
 """
 
         safe_import_tree = ast.parse(safe_import_code)

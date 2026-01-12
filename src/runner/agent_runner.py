@@ -29,7 +29,7 @@ from ao.cli.ao_server import launch_daemon_server
 from ao.runner.ast_rewrite_hook import install_patch_hook
 from ao.runner.context_manager import set_parent_session_id, set_server_connection
 from ao.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
-from ao.server.ast_helpers import (
+from ao.server.taint_ops import (
     taint_fstring_join,
     taint_format_string,
     taint_percent_format,
@@ -46,7 +46,7 @@ from ao.server.ast_helpers import (
     get_taint,
 )
 from ao.server.database_manager import DB
-from ao.runner.taint_dict import TaintStack
+from ao.runner.taint_containers import TaintStack
 
 
 def _log_error(context: str, exception: Exception) -> None:
@@ -428,7 +428,7 @@ class AgentRunner:
         builtins.TAINT_STACK = TaintStack()
 
         # Register TAINT_DICT (id-based dict) as single source of truth for taint
-        from ao.runner.taint_dict import ThreadSafeTaintDict
+        from ao.runner.taint_containers import ThreadSafeTaintDict
 
         builtins.TAINT_DICT = ThreadSafeTaintDict()
 
