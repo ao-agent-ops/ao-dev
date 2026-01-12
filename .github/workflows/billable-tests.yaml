@@ -72,10 +72,11 @@ jobs:
   edits:
     name: Edits
     needs: permission-check
-    # Run if permission-check passed OR if this is a workflow_dispatch
+    # Run if permission-check passed OR if this is a workflow_dispatch (permission-check is skipped)
     if: |
-      (needs.permission-check.result == 'success' && needs.permission-check.outputs.has_permission == 'true') ||
-      github.event_name == 'workflow_dispatch'
+      always() &&
+      ((needs.permission-check.result == 'success' && needs.permission-check.outputs.has_permission == 'true') ||
+       (github.event_name == 'workflow_dispatch' && needs.permission-check.result == 'skipped'))
     runs-on: ubuntu-latest
 
     steps:
@@ -120,10 +121,11 @@ jobs:
   caching:
     name: Caching
     needs: permission-check
-    # Run if permission-check passed OR if this is a workflow_dispatch
+    # Run if permission-check passed OR if this is a workflow_dispatch (permission-check is skipped)
     if: |
-      (needs.permission-check.result == 'success' && needs.permission-check.outputs.has_permission == 'true') ||
-      github.event_name == 'workflow_dispatch'
+      always() &&
+      ((needs.permission-check.result == 'success' && needs.permission-check.outputs.has_permission == 'true') ||
+       (github.event_name == 'workflow_dispatch' && needs.permission-check.result == 'skipped'))
     runs-on: ubuntu-latest
 
     steps:
