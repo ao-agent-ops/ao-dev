@@ -1,41 +1,37 @@
 """
-Ollama Debate Example
+Ollama Native Client Debate Example
 
-This example demonstrates using Ollama's OpenAI-compatible API.
+This example demonstrates using Ollama's native Python client.
 
 Installation:
-    # macOS
-    brew install ollama
-
-    # Linux
-    curl -fsSL https://ollama.com/install.sh | sh
-
+    # Install Ollama
+    # macOS: brew install ollama
+    # Linux: curl -fsSL https://ollama.com/install.sh | sh
     # Windows: Download from https://ollama.com/download
+
+    # Install the Python client
+    pip install ollama
 
 Usage:
     # Start the Ollama server
     ollama serve
 
-    # Pull a small model (in another terminal)
+    # Pull a model (in another terminal)
     ollama pull llama3.2:1b
 
     # Run this example
-    ao-record ./example_workflows/debug_examples/ollama_add_numbers.py
+    ao-record ./example_workflows/debug_examples/ollama_native_debate.py
 """
 
-from openai import OpenAI
+import ollama
 
 
 def main():
     model = "llama3.2:1b"
-    # Connect to Ollama using OpenAI-compatible API
-    client = OpenAI(
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",  # Required by client but not used by Ollama
-    )
 
     # First LLM: Generate a yes/no question
-    question_response = client.chat.completions.create(
+    print("Step 1: Generating a debate question...")
+    question_response = ollama.chat(
         model=model,
         messages=[
             {
@@ -43,42 +39,37 @@ def main():
                 "content": "Come up with a simple question where there is a pro and contra opinion. Only output the question and nothing else.",
             }
         ],
-        max_tokens=100,
-        temperature=0.7,
     )
-    question = question_response.choices[0].message.content
+    question = question_response.message.content.strip()
+    print(f"Question: {question}")
 
     # Second LLM: Argue "yes"
+    print("\nStep 2: Arguing 'yes'...")
     yes_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'yes'"
-    yes_response = client.chat.completions.create(
+    yes_response = ollama.chat(
         model=model,
         messages=[{"role": "user", "content": yes_prompt}],
-        max_tokens=200,
-        temperature=0.7,
     )
+    yes_text = yes_response.message.content.strip()
 
     # Third LLM: Argue "no"
+    print("Step 3: Arguing 'no'...")
     no_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'no'"
-    no_response = client.chat.completions.create(
+    no_response = ollama.chat(
         model=model,
         messages=[{"role": "user", "content": no_prompt}],
-        max_tokens=200,
-        temperature=0.7,
     )
+    no_text = no_response.message.content.strip()
 
     # Fourth LLM: Judge who won
-    yes_text = yes_response.choices[0].message.content
-    no_text = no_response.choices[0].message.content
+    print("\nStep 4: Judging the argument...")
     judge_prompt = f"Consider the following two paragraphs:\n1. {yes_text}\n2. {no_text}\nWho won the argument?"
-    judge_response = client.chat.completions.create(
+    judge_response = ollama.chat(
         model=model,
         messages=[{"role": "user", "content": judge_prompt}],
-        max_tokens=200,
-        temperature=0.7,
     )
 
-    print(f"Question: {question}")
-    print(f"\nJudge's verdict: {judge_response.choices[0].message.content}")
+    print(f"\nJudge's verdict: {judge_response.message.content.strip()}")
 
 
 if __name__ == "__main__":
