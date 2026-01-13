@@ -77,17 +77,7 @@ python openai_example.py
 ao-record openai_example.py
 ```
 
-<<<<<<< HEAD
 This should show you the agent's trajectory graph like in the video above. You can edit inputs and outputs in the graph and rerun.
-=======
-Or with uv:
-
-```bash
-uv run ao-record openai_example.py
-```
-
-This should show you the example's graph (like in the video above) where you can edit inputs and outputs and rerun.
->>>>>>> main
 
 ## Documentation
 
