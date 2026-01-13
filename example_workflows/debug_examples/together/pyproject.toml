@@ -1,0 +1,12 @@
+[project]
+name = "ao-examples-together"
+version = "0.1.0"
+description = "AO debug examples for Together AI"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "together",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

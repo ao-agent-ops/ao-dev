@@ -27,20 +27,16 @@ jobs:
 
     - name: Launch main server
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
         export DB_PATH="$HOME/.cache/ao/tests/non-billable"
         export PYTHON_PORT=5959
-        source $HOME/miniconda/bin/activate ao
-        ao-server start
+        uv run ao-server start
 
     - name: Run tests
       env:
         DB_PATH: ~/.cache/ao/tests/non-billable
         PYTHON_PORT: 5959
       run: |
-        export PATH="$HOME/miniconda/bin:$PATH"
-        source $HOME/miniconda/bin/activate ao
-        pytest -v -s tests/non_billable/
+        uv run pytest -v -s tests/non_billable/
 
     - name: Clean up
       if: always()

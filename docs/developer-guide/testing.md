@@ -4,66 +4,163 @@ This guide covers how to run AO's test suite and write new tests.
 
 ## Running Tests
 
-### Basic Test Run
+### With uv (Recommended)
+
+If you installed with uv, run tests using `uv run`:
 
 ```bash
-# Run all tests
-python -m pytest
-
-# Run with verbose output
-python -m pytest -v
+# Run all non-billable tests
+uv run pytest tests/non_billable/ -v
 
 # Run specific test file
-python -m pytest tests/test_specific.py
+uv run pytest tests/non_billable/test_example.py -v
 
 # Run tests matching a pattern
-python -m pytest -k "test_cache"
+uv run pytest -k "test_pattern" -v
+
+# Run with full output
+uv run pytest -v -s tests/non_billable/
+```
+
+### With Conda/pip
+
+If you installed with conda, activate the environment first:
+
+```bash
+conda activate ao
+
+# Run all non-billable tests
+pytest tests/non_billable/ -v
+
+# Run specific test file
+pytest tests/non_billable/test_example.py -v
+
+# Run tests matching a pattern
+pytest -k "test_pattern" -v
 ```
 
 ## Test Categories
 
 ### Non-Billable Tests
 
-Tests that don't make actual LLM API calls (no cost):
+Tests that don't make real API calls. These are safe to run frequently:
 
 ```bash
-python -m pytest tests/non_billable/
+uv run pytest tests/non_billable/ -v
 ```
+
+Includes:
+
+- **Unit tests** - Test individual components in isolation
+- **Integration tests** - Test component interactions
 
 ### Billable Tests
 
-Tests that make actual LLM API calls (costs money):
+Tests that make real LLM API calls. These cost money and should be run sparingly:
 
 ```bash
-python -m pytest tests/billable/
+# Run a single billable test (requires API keys)
+uv run pytest -v -s "tests/billable/test_caching.py::test_debug_examples[./example_workflows/debug_examples/anthropic/debate.py]"
+
+# Run all billable tests (expensive!)
+uv run pytest tests/billable/ -v -s
 ```
 
-## Special Test Cases
+!!! warning "API Keys Required"
+    Billable tests require environment variables for API keys:
+    `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TOGETHER_API_KEY`, etc.
 
-### test_api_calls.py
-
-For API call tests, the user program executes as a replay by the server. To see the output:
-
-```bash
-ao-server logs
-```
-
-This shows the output of the user program, including any crash information.
-
-### Edge Detection Tests
-
-Tests for content-based edge detection verify that dataflow edges are correctly detected when LLM outputs appear in subsequent LLM inputs:
-
-```bash
-python -m pytest tests/billable/ -k "edge"
-```
+!!! note "Quoting in zsh"
+    If using zsh, quote test paths with brackets to prevent shell expansion:
+    ```bash
+    uv run pytest "tests/billable/test_caching.py::test_debug_examples[./example_workflows/debug_examples/anthropic/debate.py]"
+    ```
 
 ## Writing New Tests
+
+### Adding a New Billable Test Case
+
+Billable tests run example scripts that make real LLM API calls. Each provider has its own folder with a `pyproject.toml` and `uv.lock` for isolated dependencies.
+
+**1. Create or navigate to the provider folder:**
+
+```
+example_workflows/debug_examples/<provider>/
+```
+
+Existing providers: `anthropic`, `openai`, `langchain`, `together`, `google`, `mcp`, `subruns`
+
+**2. Add your test script:**
+
+```python
+# example_workflows/debug_examples/openai/my_new_test.py
+from openai import OpenAI
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
+```
+
+**3. If adding a new provider, create the folder structure:**
+
+```bash
+mkdir -p example_workflows/debug_examples/newprovider
+```
+
+Create `pyproject.toml`:
+
+```toml
+[project]
+name = "ao-examples-newprovider"
+version = "0.1.0"
+description = "AO debug examples for NewProvider"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "newprovider-sdk",  # The provider's SDK
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }
+```
+
+Generate `uv.lock`:
+
+```bash
+cd example_workflows/debug_examples/newprovider
+uv sync
+```
+
+This creates `uv.lock` which should be committed to the repository for reproducible CI builds.
+
+**4. Add the test case to `test_caching.py`:**
+
+```python
+@pytest.mark.parametrize(
+    "script_path",
+    [
+        # ... existing tests ...
+        "./example_workflows/debug_examples/newprovider/my_new_test.py",
+    ],
+)
+def test_debug_examples(script_path: str):
+    run_data_obj = asyncio.run(run_test(script_path=script_path))
+    caching_asserts(run_data_obj)
+```
+
+**5. Run your test locally:**
+
+```bash
+uv run pytest -v -s "tests/billable/test_caching.py::test_debug_examples[./example_workflows/debug_examples/newprovider/my_new_test.py]"
+```
 
 ### Standard Test
 
 ```python
-# tests/test_my_feature.py
+# tests/non_billable/test_my_feature.py
 import pytest
 
 def test_my_feature():
@@ -73,15 +170,10 @@ def test_my_feature():
 
 ### API Patch Test
 
-API patch tests are in `tests/billable/` since they typically make actual API calls. For unit testing patches without API calls, use mocks:
-
 ```python
-# tests/billable/test_caching.py
-def test_llm_caching():
-    # These tests verify that LLM calls are cached correctly
-    # See existing tests for patterns
-    pass
-```
+# tests/non_billable/test_api_patches.py
+import pytest
+from unittest.mock import MagicMock
 
 ### Edge Detection Test
 
@@ -104,7 +196,16 @@ def test_edge_detection():
 
 Common test helpers are defined in `tests/utils.py`, including:
 
-- `setup_test_session` - Helper to create database records for testing
+```python
+@pytest.fixture
+def tainted_string():
+    return TaintStr("test", taint_origin=["test_origin"])
+
+@pytest.fixture
+def server_connection():
+    # Setup server connection for integration tests
+    pass
+```
 
 ## Debugging Failed Tests
 
@@ -117,23 +218,50 @@ ao-server logs
 ### Run with Debug Output
 
 ```bash
-python -m pytest -v --tb=long tests/test_failing.py
+uv run pytest -v --tb=long tests/non_billable/test_failing.py
 ```
 
 ### Run Single Test
 
 ```bash
-python -m pytest -v tests/test_file.py::test_specific_function
+uv run pytest -v "tests/non_billable/test_file.py::test_specific_function"
 ```
 
-## CI/CD Considerations
+### API Call Tests
 
-The test suite runs in GitHub Actions. Key considerations:
+For API call tests, the user program executes as a replay by the server. To see the output:
+
+```bash
+ao-server logs
+```
+
+This shows the output of the user program, including any crash information.
+
+## CI/CD
+
+### Running Tests Locally Before Push
+
+```bash
+# Run all non-billable tests
+uv run pytest tests/non_billable/ -v
+
+# Run with coverage
+uv run pytest tests/non_billable/ --cov=ao --cov-report=html
+```
+
+### Billable Tests in CI
+
+Billable tests run in GitHub Actions when triggered by a `/run-billable-tests` comment on a PR. They require:
+
+- Write permission on the repository
+- Configured API key secrets
+
+Key considerations:
 
 - Tests must be deterministic (use fixed random seeds)
-- API tests should use mocks or replay mode
+- API tests should use mocks or replay mode when possible
 
 ## Next Steps
 
 - [Architecture](architecture.md) - Understand the system design
-- [API patching](api-patching.md) - Write patches for new LLM APIs
+- [API Patching](api-patching.md) - Write patches for new LLM APIs

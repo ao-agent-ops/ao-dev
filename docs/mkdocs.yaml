@@ -1,10 +1,8 @@
 site_name: AO
 site_description: A development tool for LLM call visualization and debugging
-docs_dir: .
-site_dir: ../site
-site_url: https://agent-ops-project.github.io/agops-platform/
+site_url: https://ao-agent-ops.github.io/ao-dev/
 repo_url: https://github.com/ao-agent-ops/ao-dev
-repo_name: ao
+repo_name: ao-dev
 
 theme:
   name: material
@@ -81,6 +79,7 @@ nav:
       - Overview: api-reference/index.md
       - CLI: api-reference/cli.md
   - Developer Guide:
+      - Installation: developer-guide/installation.md
       - Architecture: developer-guide/architecture.md
       - Server: developer-guide/server.md
       - Edge Detection: developer-guide/edge-detection.md

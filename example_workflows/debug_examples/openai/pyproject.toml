@@ -1,0 +1,14 @@
+[project]
+name = "ao-examples-openai"
+version = "0.1.0"
+description = "AO debug examples for OpenAI"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "openai",
+    "openai-agents",
+    "e2b-code-interpreter",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

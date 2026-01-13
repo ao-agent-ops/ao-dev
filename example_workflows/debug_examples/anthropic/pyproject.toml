@@ -1,0 +1,12 @@
+[project]
+name = "ao-examples-anthropic"
+version = "0.1.0"
+description = "AO debug examples for Anthropic"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "anthropic",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

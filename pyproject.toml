@@ -53,6 +53,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "uv",
     "black==25.1.0",
     "pytest",
     "pre-commit",

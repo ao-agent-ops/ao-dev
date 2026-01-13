@@ -11,6 +11,20 @@
 pip install ao-dev
 ```
 
+## Quick Install (uv)
+
+If you use [uv](https://docs.astral.sh/uv/) for package management, add `ao-dev` to your project's dependencies:
+
+```bash
+uv add ao-dev
+```
+
+Then run your scripts with:
+
+```bash
+uv run ao-record script.py
+```
+
 ## Verifying Installation
 
 After installation, verify that the CLI commands are available:
