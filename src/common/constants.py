@@ -53,7 +53,6 @@ PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
 ORPHAN_POLL_INTERVAL = 60  # Interval in seconds for checking if parent process died
 SERVER_INACTIVITY_TIMEOUT = 1200  # Shutdown server after 20 min of inactivity
-SERVER_START_WAIT = 1
 SOCKET_TIMEOUT = 1
 SHUTDOWN_WAIT = 2
 

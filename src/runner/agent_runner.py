@@ -7,6 +7,7 @@ import json
 import shlex
 import random
 import threading
+import traceback
 import queue
 import time
 import psutil
@@ -21,7 +22,6 @@ from ao.common.constants import (
     PORT,
     CONNECTION_TIMEOUT,
     SERVER_START_TIMEOUT,
-    SERVER_START_WAIT,
     MESSAGE_POLL_INTERVAL,
 )
 from ao.cli.ao_server import launch_daemon_server
@@ -32,8 +32,6 @@ from ao.server.database_manager import DB
 
 def _log_error(context: str, exception: Exception) -> None:
     """Centralized error logging utility."""
-    import traceback
-
     logger.error(f"[AgentRunner] {context}: {exception}")
     logger.debug(f"[AgentRunner] Traceback: {traceback.format_exc()}")
 
@@ -425,7 +423,8 @@ class AgentRunner:
         except SystemExit as e:
             return e.code if e.code is not None else 0
         except Exception as e:
-            _log_error("Error executing user code", e)
+            # Print traceback to stderr so user sees it (regardless of logger level)
+            traceback.print_exc()
             return 1
 
     def _run_debug_mode(self) -> int:

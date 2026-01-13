@@ -110,7 +110,7 @@ Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billab
 3. ‼️ Set the `logger` level (not `server_logger`) to `CRITICAL` [here](/src/common/logger.py). The server_logger can stay at `DEBUG`.
 4. Install `pip install build twine` if you haven't already.
 5. Run `python -m build` in root dir. This wil create a `dist/` dir.
-6. Test install locally: `pip install dist/ao-dev-0.0.1-py3-none-any.whl` (you need to check the name of the `.whl` file).
+6. Test install locally: `pip install dist/ao_dev-0.0.5-py3-none-any.whl` (you need to check the name of the `.whl` file).
 7. Do a test upload, it's worth it:
    1. Publish to TestPyPI first: `python -m twine upload --repository testpypi dist/*`. Then try to install from TestPyPi. Ask Ferdi if you don't have the key to our TestPyPI account.
    2. When installing from TestPyPI, do the following (just swap out the package name at the end of the command): `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ ao-dev==0.0.1`
@@ -126,7 +126,7 @@ Our CI test suit comprises of ["non_billable"](/tests/non_billable) and ["billab
 3. Install `npm install -g @vscode/vsce` if you haven't already.
 4. Create VSIX package: `cd src/user_interfaces/vscode_extension` and run `./build-vsix.sh`.
 5. Try to install the VSIX locally to see if it works: Go to the marketplace, click the three dots at the top right of the panel, click "Install from VSIX...".
-6. Publish to store: `vsce publish` or upload via https://marketplace.visualstudio.com/manage/. Ask Ferdi for a personal access token / log in if you don't have it.
+6. Publish to store: Upload via https://marketplace.visualstudio.com/manage/. Ask Ferdi for log-in if you don't have it.
 
 ### Hosted web app
 
