@@ -1,6 +1,7 @@
 from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from ao.runner.string_matching import find_source_nodes, store_output_strings
+from ao.runner.context_manager import get_session_id
 from ao.server.database_manager import DB
 from ao.common.logger import logger
 
@@ -39,6 +40,10 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         if method != "tools/call":
             return await original_function(*args, **kwargs)
 
+        # Content-based edge detection BEFORE get_in_out (uses original input)
+        session_id = get_session_id()
+        source_node_ids = find_source_nodes(session_id, input_dict, api_type)
+
         # Get result from cache or call tool
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
@@ -47,10 +52,7 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         else:
             cache_output.output = input_dict["result_type"].model_validate(cache_output.output)
 
-        # Content-based edge detection
-        source_node_ids = find_source_nodes(
-            cache_output.session_id, cache_output.input_dict, api_type
-        )
+        # Store output strings for future matching
         store_output_strings(
             cache_output.session_id, cache_output.node_id, cache_output.output, api_type
         )

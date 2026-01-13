@@ -1,6 +1,7 @@
 from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from ao.runner.string_matching import find_source_nodes, store_output_strings
+from ao.runner.context_manager import get_session_id
 from ao.server.database_manager import DB
 from ao.common.logger import logger
 from ao.common.utils import is_whitelisted_endpoint
@@ -41,16 +42,17 @@ def patch_requests_send(bound_obj, bound_cls):
         if not is_whitelisted_endpoint(url, path):
             return original_function(*args, **kwargs)
 
+        # Content-based edge detection BEFORE get_in_out (uses original input)
+        session_id = get_session_id()
+        source_node_ids = find_source_nodes(session_id, input_dict, api_type)
+
         # Get result from cache or call LLM
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = original_function(**cache_output.input_dict)  # Call LLM
             DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
-        # Content-based edge detection
-        source_node_ids = find_source_nodes(
-            cache_output.session_id, cache_output.input_dict, api_type
-        )
+        # Store output strings for future matching
         store_output_strings(
             cache_output.session_id, cache_output.node_id, cache_output.output, api_type
         )

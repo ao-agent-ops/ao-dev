@@ -15,15 +15,15 @@ Over 30 simple workflows for testing different LLM providers and frameworks:
 
 | Provider/Framework | Examples |
 |-------------------|----------|
-| OpenAI | `openai_add_numbers.py`, `openai_async_add_numbers.py`, etc. |
-| Anthropic | `anthropic_add_numbers.py`, `anthropic_document_query.py`, etc. |
-| Google GenAI | `genai_add_numbers.py` |
+| OpenAI | `openai_debate.py`, `openai_async_debate.py`, etc. |
+| Anthropic | `anthropic_debate.py`, `anthropic_document_query.py`, etc. |
+| Google GenAI | `genai_debate.py` |
 | CrewAI | `crewai_research_writer.py`, `crewai_multi_tool.py`, etc. |
-| LangChain | `langchain_add_numbers.py`, `langchain_tools.py`, etc. |
+| LangChain | `langchain_debate.py`, `langchain_tools.py`, etc. |
 
 ```bash
 # Run an example
-ao-record ./example_workflows/debug_examples/openai_add_numbers.py
+ao-record ./example_workflows/debug_examples/openai_debate.py
 ```
 
 These examples are included directly in the repository and don't require additional setup.

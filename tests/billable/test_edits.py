@@ -205,7 +205,7 @@ def test_cache_edit_timing():
     - Run 2: All cached - should be ≤10% of T
     - Run 3: Edit last node - should be ~1/3 of T (between 1/9 and 5/9)
     """
-    script_path = "./example_workflows/debug_examples/anthropic_add_numbers.py"
+    script_path = "./example_workflows/debug_examples/anthropic_debate.py"
 
     restart_server()
     DB.switch_mode("local")

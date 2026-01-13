@@ -17,31 +17,43 @@ pip install ao-dev
 
 **Then, give it a spin:**
 
-1. Create some little agent program that you want to run (or use your existing agent!). In the video above we use the little OpenAI example below (you can find many further example scripts in our [examples folder](/example_workflows/debug_examples/)):
+1. Create some little agent program that you want to run (or use your existing agent!). For example, you can try this little OpenAI example below (or find many further example scripts in our [examples folder](/example_workflows/debug_examples/)):
 
 ```python
 from openai import OpenAI
 
+
 def main():
     client = OpenAI()
 
-    response = client.responses.create(
+    # First LLM: Generate a yes/no question
+    question_response = client.responses.create(
         model="gpt-4o-mini",
-        input="Output the number 42 and nothing else",
-        temperature=0
+        input="Come up with a simple question where there is a pro and contra opinion. Only output the question and nothing else.",
+        temperature=0,
     )
-    number = response.output_text
+    question = question_response.output_text
 
-    prompt_add_1 = f"Add 1 to {number} and just output the result."
-    prompt_add_2 = f"Add 2 to {number} and just output the result."
+    # Second LLM: Argue "yes"
+    yes_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'yes'"
+    yes_response = client.responses.create(
+        model="gpt-4o-mini", input=yes_prompt, temperature=0
+    )
 
-    response1 = client.responses.create(model="gpt-4o-mini", input=prompt_add_1, temperature=0)
-    response2 = client.responses.create(model="gpt-4o-mini", input=prompt_add_2, temperature=0)
+    # Third LLM: Argue "no"
+    no_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'no'"
+    no_response = client.responses.create(
+        model="gpt-4o-mini", input=no_prompt, temperature=0
+    )
 
-    sum_prompt = f"Add these two numbers together and just output the result: {response1.output_text} + {response2.output_text}"
-    final_sum = client.responses.create(model="gpt-4o-mini", input=sum_prompt, temperature=0)
+    # Fourth LLM: Judge who won
+    judge_prompt = f"Consider the following two paragraphs:\n1. {yes_response.output_text}\n2. {no_response.output_text}\nWho won the argument?"
+    judge_response = client.responses.create(
+        model="gpt-4o-mini", input=judge_prompt, temperature=0
+    )
 
-    print(f"Final sum: {final_sum.output_text}")
+    print(f"Question: {question}")
+    print(f"\nJudge's verdict: {judge_response.output_text}")
 
 if __name__ == "__main__":
     main()

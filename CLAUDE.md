@@ -1,6 +1,16 @@
 # AO - LLM Dataflow Graph System
 
-AO is a development tool that creates interactive dataflow graphs of LLM calls, enabling visualization, editing, and debugging of data flow in agentic AI applications.
+AO is a development tool that creates interactive dataflow graphs of LLM calls, enabling visualization, editing, and debugging of data flow in agentic AI applications. Each node in the data flow graph is an LLM or tool call and edges denote the output of one LLM/tool call forming part of the input of another.
+
+## Edit & Rerun
+
+The core goal is **interactive debugging of LLM workflows**:
+1. Run your script once to capture the dataflow graph
+2. Inspect any node's input/output in the UI
+3. Edit an LLM's input or output directly
+4. Rerun to see how changes propagate through the graph
+
+On rerun, cached outputs are returned for unchanged inputs, and edited values are respected. This enables rapid iteration without re-calling LLMs unnecessarily.
 
 ## Quick File References
 
@@ -15,12 +25,6 @@ Core system files:
 - @src/runner/string_matching.py - Content-based edge detection algorithm
 - @src/runner/monkey_patching/patches/httpx_patch.py - LLM API interception example
 - @src/runner/README.md - Overall runner system documentation
-
-## System Overview
-
-The system creates dataflow graphs through two integrated layers:
-1. **Monkey Patching**: Intercepts LLM API calls to build graph nodes
-2. **Content Matching**: Detects edges by checking if previous LLM outputs appear in new inputs
 
 ## How It Works
 
@@ -41,7 +45,6 @@ source ~/miniforge3/bin/activate ao && pip install -e .
 # Running (replace python with ao-record)
 ao-record script.py
 ~/miniforge3/envs/ao/bin/python -m ao.cli.ao_record script.py  # For Claude Code
-# Note sometimes, the conda env is also called ao-dev
 
 # Server management
 ao-server start/stop/restart/clear/logs
@@ -62,12 +65,8 @@ python -m pytest -v tests/billable/  # Tests that make LLM API calls
 - @example_workflows/ - AI workflow examples (bird-bench, human_eval, swe_bench, debug_examples, etc.)
 - @docs/ - Documentation for mkdocs site
 
-## Code Style & Guidelines
-
-- **Follow monkey patching pattern** from @src/runner/monkey_patching/patches/httpx_patch.py
-
 ## Do Not
 
-- **Do NOT** overcomplicate the system. Simplicity is a code concern of the code base. Instead of writing complicated code, tell the user what you want to change, why and explain how this fits into the rest of the code base.
+- **Do NOT** overcomplicate the system. Simplicity is a core concern of the code base. When you make changes, explain me why this is the most straight-forward way to implement something and how it fits into the rest of the code base and (if applicable) matches existing patterns.
 - **Do NOT** consider backwards compatability. The code has no users yet, which allows you to write cleaner, more concise code.
 - Remain critical and skeptical about my thinking at all times. Maintain consistent intellectual standards throughout our conversation. Don't lower your bar for evidence or reasoning quality just because we've been talking longer or because I seem frustrated. If I'm making weak arguments, keep pointing that out even if I've made good ones before.
