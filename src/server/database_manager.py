@@ -10,7 +10,7 @@ import uuid
 import json
 import random
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, List, Dict
 
 from ao.common.logger import logger
 
@@ -73,6 +73,10 @@ class DatabaseManager:
 
         self.cache_attachments = True
         self.attachment_cache_dir = ATTACHMENT_CACHE
+
+        # Content registry for content-based edge detection
+        # Maps session_id -> {node_id -> [output_strings]}
+        self._content_registry: Dict[str, Dict[str, List[str]]] = {}
 
         logger.info(f"DatabaseManager initialized with backend: {self.get_current_mode()}")
 
@@ -151,14 +155,6 @@ class DatabaseManager:
     def execute(self, query, params=None):
         """Execute query without returning results."""
         return self.backend.execute(query, params or ())
-
-    def store_taint_info(self, session_id, file_path, line_number, taint_nodes):
-        """Store taint tracking information."""
-        return self.backend.store_taint_info(session_id, file_path, line_number, taint_nodes)
-
-    def get_taint_info(self, file_path, line_number):
-        """Retrieve taint tracking information."""
-        return self.backend.get_taint_info(file_path, line_number)
 
     # NOTE: Auth disabled - user management methods commented out
     # def upsert_user(self, google_id, email, name, picture):
@@ -605,6 +601,76 @@ class DatabaseManager:
     def get_next_run_index(self):
         """Get the next run index based on how many runs already exist."""
         return self.backend.get_next_run_index_query()
+
+    # =========================================================================
+    # Content Registry for Content-based Edge Detection
+    # =========================================================================
+
+    def store_llm_output(self, session_id: str, node_id: str, output_strings: List[str]) -> None:
+        """
+        Store LLM output strings for content-based edge detection.
+
+        Args:
+            session_id: The session this output belongs to
+            node_id: The node ID that produced this output
+            output_strings: List of text strings from the LLM output
+        """
+        if session_id not in self._content_registry:
+            self._content_registry[session_id] = {}
+        self._content_registry[session_id][node_id] = output_strings
+        logger.info(
+            f"[DEBUG] store_llm_output: session={session_id[:8]}, node={node_id[:8]}, strings={output_strings}"
+        )
+
+    def find_content_matches(self, session_id: str, input_text: str) -> List[str]:
+        """
+        Find node_ids whose outputs appear in the given input text.
+
+        This is the core of content-based edge detection. For now, uses
+        simple exact substring matching. Can be refined later with more
+        sophisticated heuristics (rarity weighting, LCS, etc.).
+
+        Args:
+            session_id: The session to search within
+            input_text: The input text to search for matches
+
+        Returns:
+            List of node_ids whose outputs are substrings of input_text
+        """
+        logger.info(
+            f"[DEBUG] find_content_matches: session={session_id[:8] if session_id else 'None'}, input_text={input_text[:200] if input_text else 'None'}..."
+        )
+        if session_id not in self._content_registry:
+            logger.info(f"[DEBUG] find_content_matches: session not in registry, returning []")
+            return []
+
+        matches = []
+        for node_id, output_strings in self._content_registry[session_id].items():
+            # Check each output string independently
+            for output_str in output_strings:
+                # Simple exact substring match for now
+                # TODO: Add minimum length threshold, rarity weighting, etc.
+                if output_str and output_str in input_text:
+                    logger.info(
+                        f"[DEBUG] find_content_matches: MATCH! node={node_id[:8]}, matched string='{output_str}'"
+                    )
+                    matches.append(node_id)
+                    break  # Only add node once even if multiple strings match
+
+        logger.info(f"[DEBUG] find_content_matches: returning {len(matches)} matches: {matches}")
+        return matches
+
+    def clear_content_registry(self, session_id: str) -> None:
+        """
+        Clear the content registry for a session.
+
+        Called when a session is erased or restarted.
+
+        Args:
+            session_id: The session to clear
+        """
+        if session_id in self._content_registry:
+            del self._content_registry[session_id]
 
 
 # Create singleton instance following the established pattern

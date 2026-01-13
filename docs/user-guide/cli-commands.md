@@ -67,9 +67,6 @@ ao-server clear
 # View server logs
 ao-server logs
 
-# View file watcher (AST rewrite) logs
-ao-server rewrite-logs
-
 # View git versioning logs
 ao-server git-logs
 
@@ -83,8 +80,7 @@ ao-server clear-logs
 - If you make changes to server code, run `ao-server restart` to apply them
 - Log files are stored in `~/.cache/ao/logs/`:
   - `main_server.log` - Main server logs
-  - `file_watcher.log` - AST rewrite logs
-  - `git_versioner.log` - Git versioning logs
+  - `file_watcher.log` - File watcher / git versioning logs
 
 ### Troubleshooting
 

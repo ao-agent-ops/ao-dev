@@ -80,11 +80,10 @@ nav:
   - API Reference:
       - Overview: api-reference/index.md
       - CLI: api-reference/cli.md
-      - AST Transformer: api-reference/ast-transformer.md
   - Developer Guide:
       - Architecture: developer-guide/architecture.md
       - Server: developer-guide/server.md
-      - Taint Tracking: developer-guide/taint-tracking.md
+      - Edge Detection: developer-guide/edge-detection.md
       - API Patching: developer-guide/api-patching.md
       - Testing: developer-guide/testing.md
 

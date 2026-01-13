@@ -123,4 +123,4 @@ ao-record ./example_workflows/EXAMPLE_NAME/script.py
 ## Next Steps
 
 - [Understand the architecture](../developer-guide/architecture.md)
-- [Learn about taint tracking](../developer-guide/taint-tracking.md)
+- [Learn about edge detection](../developer-guide/edge-detection.md)

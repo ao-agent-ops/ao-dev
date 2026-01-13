@@ -559,17 +559,6 @@ class MainServer:
                 session.command = command
                 DB.update_command(session_id, command)
 
-    def handle_watch_file(self, msg: dict) -> None:
-        """
-        Forward a newly discovered file to FileWatcher via Queue.
-
-        Called by import hook when it discovers a file that should be AST-rewritten.
-        """
-        file_path = msg.get("path")
-        if file_path:
-            self.file_watch_queue.put(file_path)
-            logger.debug(f"Forwarded watch_file to FileWatcher: {file_path}")
-
     def handle_get_graph(self, msg: dict, conn: socket.socket) -> None:
         session_id = msg["session_id"]
 
@@ -806,8 +795,6 @@ class MainServer:
             self.handle_get_all_experiments(conn)
         elif msg_type == "update_command":
             self.handle_update_command(msg)
-        elif msg_type == "watch_file":
-            self.handle_watch_file(msg)
         else:
             logger.error(f"Unknown message type. Message:\n{msg}")
 

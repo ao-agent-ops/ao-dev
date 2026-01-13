@@ -1,4 +1,6 @@
+import json
 import inspect
+from typing import Any, Dict, List
 from ao.runner.context_manager import get_session_id
 from ao.common.constants import CERTAINTY_UNKNOWN
 from ao.common.utils import send_to_server, get_node_label, get_raw_model_name
@@ -101,3 +103,143 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
         send_to_server(node_msg)
     except Exception as e:
         logger.error(f"Failed to send add_node: {e}")
+
+
+# ===========================================================
+# Text extraction for content-based edge detection
+# ===========================================================
+
+
+def _extract_all_strings(obj: Any) -> list:
+    """Recursively extract all string values from a JSON-like object."""
+    strings = []
+    if isinstance(obj, str):
+        strings.append(obj)
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            strings.extend(_extract_all_strings(value))
+    elif isinstance(obj, list):
+        for item in obj:
+            strings.extend(_extract_all_strings(item))
+    return strings
+
+
+def extract_input_text(input_dict: Dict[str, Any], api_type: str) -> str:
+    """
+    Extract textual content from an LLM input for content matching.
+
+    Returns a single concatenated string for searching (we search if any
+    stored output string appears in this input text).
+    """
+    try:
+        if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+            request = input_dict.get("request")
+            if request is not None:
+                body = request.content
+                if body:
+                    body_str = body.decode("utf-8")
+                    try:
+                        body_json = json.loads(body_str)
+                        strings = _extract_all_strings(body_json)
+                        return "\n".join(strings)
+                    except json.JSONDecodeError:
+                        return body_str
+            return ""
+
+        elif api_type == "requests.Session.send":
+            request = input_dict.get("request")
+            if request is not None and hasattr(request, "body") and request.body:
+                try:
+                    body_json = json.loads(request.body)
+                    strings = _extract_all_strings(body_json)
+                    return "\n".join(strings)
+                except (json.JSONDecodeError, TypeError):
+                    return str(request.body) if request.body else ""
+            return ""
+
+        elif api_type == "MCP.ClientSession.send_request":
+            request = input_dict.get("request")
+            if request is not None:
+                try:
+                    if hasattr(request, "model_dump"):
+                        request_dict = request.model_dump()
+                    elif hasattr(request, "dict"):
+                        request_dict = request.dict()
+                    else:
+                        request_dict = {"request": str(request)}
+                    strings = _extract_all_strings(request_dict)
+                    return "\n".join(strings)
+                except Exception:
+                    return str(request)
+            return ""
+
+        elif api_type == "genai.BaseApiClient.async_request":
+            request_dict = input_dict.get("request_dict", {})
+            strings = _extract_all_strings(request_dict)
+            return "\n".join(strings)
+
+        else:
+            logger.warning(f"Unknown API type for text extraction: {api_type}")
+            return ""
+
+    except Exception as e:
+        logger.error(f"Error extracting input text: {e}")
+        return ""
+
+
+def extract_output_text(output_obj: Any, api_type: str) -> List[str]:
+    """
+    Extract textual content from an LLM output for content matching.
+
+    Returns a list of strings - each will be checked independently for
+    substring matches in future inputs.
+    """
+    try:
+        if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
+            if output_obj is not None and hasattr(output_obj, "content"):
+                try:
+                    content_json = json.loads(output_obj.content.decode("utf-8"))
+                    return _extract_all_strings(content_json)
+                except (json.JSONDecodeError, AttributeError):
+                    return []
+            return []
+
+        elif api_type == "requests.Session.send":
+            if output_obj is not None:
+                try:
+                    content_json = output_obj.json()
+                    return _extract_all_strings(content_json)
+                except (json.JSONDecodeError, AttributeError):
+                    return []
+            return []
+
+        elif api_type == "MCP.ClientSession.send_request":
+            if output_obj is not None:
+                try:
+                    if hasattr(output_obj, "model_dump"):
+                        output_dict = output_obj.model_dump()
+                    elif hasattr(output_obj, "dict"):
+                        output_dict = output_obj.dict()
+                    else:
+                        output_dict = {"output": str(output_obj)}
+                    return _extract_all_strings(output_dict)
+                except Exception:
+                    return [str(output_obj)]
+            return []
+
+        elif api_type == "genai.BaseApiClient.async_request":
+            if output_obj is not None and hasattr(output_obj, "body"):
+                try:
+                    body_json = json.loads(output_obj.body)
+                    return _extract_all_strings(body_json)
+                except (json.JSONDecodeError, AttributeError):
+                    return []
+            return []
+
+        else:
+            logger.warning(f"Unknown API type for text extraction: {api_type}")
+            return []
+
+    except Exception as e:
+        logger.error(f"Error extracting output text: {e}")
+        return []

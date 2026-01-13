@@ -70,7 +70,7 @@ ln -s src ao
 
 Our code base is structured into the following components:
 
-1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py`. Under the hood the `ao-record` command installs monkey patches for certain functions and rewrites the user program's AST in order to log events like LLM calls to the `main server`. Monkey patches are installed to detect events like LLM calls, AST rewrites happen in order to trace dataflow ("taint") between LLM calls. [Code](/src/runner/)
+1. Run user program (green): The users launch processes of their program by running `ao-record their_script.py` which feels exactly like running their script normally with `python their_script.py`. Under the hood the `ao-record` command installs monkey patches to intercept LLM calls and log them to the `main server`. Dataflow between LLM calls is detected using content-based matching: we check if previous LLM outputs appear as substrings in new LLM inputs. User code runs completely unmodified. [Code](/src/runner/)
 2. Develop server (blue): The `main server` is the core of the system and responsbible for all analysis. It receives the logs from the user process and updates the UI according to its analyses. All communication to/from the `main server` happens over one TCP socket (default: 5959). [Code](/src/server/)
 3. UI (red): We currently implement the UI as VS Code extension and web app, where most webview components between the two are shared. The UI gets updated by the `main server`. [Code](/src/user_interfaces/)
 
@@ -90,11 +90,10 @@ Upon running `ao-record` or actions in the UI, the server will be started automa
 
 If you want to clear all recorded runs and cached LLM calls (i.e., clear the DB), do `ao-server clear`.
 
-The server spawns a [file watcher](/src/server/file_watcher.py) process that AST-rewrites user files, compiles the rewritten files and stores them in `~/.cache/ao/logs`. The file watcher also performs git versioning on the files, so we can display fine-grained file versions to the user (upon them changing files, not only upon them committing using their own git). To see logs of the three, use these commands:
+The server spawns a [file watcher](/src/server/file_watcher.py) process that handles git versioning of user files, so we can display fine-grained file versions to the user (upon them changing files, not only upon them committing using their own git). To see logs, use these commands:
 
  - Logs of the main server: `ao-server logs`
- - Logs of the file watcher: `ao-server rewrite-logs`
- - Logs of the git versioning: `ao-server git-logs`
+ - Logs of the file watcher (git versioning): `ao-server git-logs`
 
 Note that all server logs are printed to files and not visible from any terminal.
 

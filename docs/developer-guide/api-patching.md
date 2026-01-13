@@ -1,6 +1,6 @@
 # API Patching
 
-AO uses monkey patching to intercept LLM API calls, record their inputs/outputs, and taint their responses.
+AO uses monkey patching to intercept LLM API calls and record their inputs/outputs for building dataflow graphs.
 
 ## Overview
 
@@ -9,7 +9,7 @@ When you import an LLM SDK (like OpenAI or Anthropic), AO patches the relevant m
 1. Record the call inputs
 2. Execute the original API call
 3. Record the outputs
-4. Wrap outputs with taint information
+4. Detect dataflow edges using content-based matching
 5. Report the call to the server
 
 ## Supported APIs
@@ -44,35 +44,46 @@ When you `import httpx`, AO's import hook triggers `httpx_patch()` before return
 
 A typical patch follows this pattern (see `httpx_patch.py` for a complete example):
 
-```
+```python
+from ao.runner.string_matching import find_source_nodes, store_output_strings
+
 def patched_function(self, *args, **kwargs):
     api_type = "my_api.method"
 
     # 1. Build input dict from args/kwargs
     input_dict = get_input_dict(original_function, *args, **kwargs)
 
-    # 2. Read taint origins from the stack
-    taint_origins = builtins.TAINT_STACK.read()
-
-    # 3. Check cache or call the LLM
+    # 2. Check cache or call the LLM
     cache_output = DB.get_in_out(input_dict, api_type)
     if cache_output.output is None:
         result = original_function(**cache_output.input_dict)
         DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+
+    # 3. Find edges using content-based matching
+    source_node_ids = find_source_nodes(cache_output.session_id, cache_output.input_dict, api_type)
+    store_output_strings(cache_output.session_id, cache_output.node_id, cache_output.output, api_type)
 
     # 4. Report node and edges to server
     send_graph_node_and_edges(
         node_id=cache_output.node_id,
         input_dict=cache_output.input_dict,
         output_obj=cache_output.output,
-        source_node_ids=taint_origins,
+        source_node_ids=source_node_ids,
         api_type=api_type,
     )
 
-    # 5. Update taint stack with this node's ID
-    builtins.TAINT_STACK.update([cache_output.node_id])
     return cache_output.output
 ```
+
+## Content-Based Edge Detection
+
+AO detects dataflow between LLM calls using content-based matching:
+
+1. **Store outputs**: When an LLM call completes, all text strings from the response are stored
+2. **Match inputs**: When a new LLM call is made, we check if any stored output strings appear in the input
+3. **Create edges**: If a match is found, an edge is created from the source node to the current node
+
+This approach is simple and robust - user code runs completely unmodified, and edges are detected automatically.
 
 ## Writing New Patches
 
@@ -89,12 +100,12 @@ client.chat.completions.create(...)
 
 Add a new file in `src/runner/monkey_patching/patches/`:
 
-```
+```python
 # src/runner/monkey_patching/patches/my_api_patch.py
 
 from functools import wraps
-import builtins
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
+from ao.runner.string_matching import find_source_nodes, store_output_strings
 from ao.server.database_manager import DB
 
 def patch_my_api_send(original_send):
@@ -146,7 +157,7 @@ The patch will be applied automatically when users `import my_api`.
 
 Here's a simplified view of how the httpx patch works (used by OpenAI, Anthropic, etc.):
 
-```
+```python
 def patch_httpx_send(bound_obj, bound_cls):
     original_function = bound_obj.send
 
@@ -154,7 +165,6 @@ def patch_httpx_send(bound_obj, bound_cls):
     def patched_function(self, *args, **kwargs):
         api_type = "httpx.Client.send"
         input_dict = get_input_dict(original_function, *args, **kwargs)
-        taint_origins = builtins.TAINT_STACK.read()
 
         # Check if URL is whitelisted (LLM endpoint)
         request = input_dict["request"]
@@ -167,9 +177,12 @@ def patch_httpx_send(bound_obj, bound_cls):
             result = original_function(**cache_output.input_dict)
             DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
-        # Report to server and update taint stack
+        # Content-based edge detection
+        source_node_ids = find_source_nodes(cache_output.session_id, cache_output.input_dict, api_type)
+        store_output_strings(cache_output.session_id, cache_output.node_id, cache_output.output, api_type)
+
+        # Report to server
         send_graph_node_and_edges(...)
-        builtins.TAINT_STACK.update([cache_output.node_id])
         return cache_output.output
 
     bound_obj.send = patched_function.__get__(bound_obj, bound_cls)
@@ -179,7 +192,7 @@ def patch_httpx_send(bound_obj, bound_cls):
 
 Many LLM APIs are async. Patches must handle both sync and async methods:
 
-```
+```python
 def patch_method(original):
     if asyncio.iscoroutinefunction(original):
         @wraps(original)
@@ -219,5 +232,6 @@ LLM APIs change frequently. To detect API changes:
 
 ## Next Steps
 
+- [Edge Detection](edge-detection.md) - How dataflow edges are detected
 - [Testing](testing.md) - Running the test suite
 - [Architecture](architecture.md) - System overview

@@ -1,8 +1,8 @@
 from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
+from ao.runner.string_matching import find_source_nodes, store_output_strings
 from ao.server.database_manager import DB
 from ao.common.logger import logger
-import builtins
 
 
 def mcp_patch():
@@ -32,7 +32,6 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         api_type = "MCP.ClientSession.send_request"
 
         input_dict = get_input_dict(original_function, *args, **kwargs)
-        taint_origins = builtins.TAINT_STACK.read()
 
         # Check if this is a tools/call request
         request = input_dict.get("request")
@@ -48,17 +47,23 @@ def patch_mcp_send_request(bound_obj, bound_cls):
         else:
             cache_output.output = input_dict["result_type"].model_validate(cache_output.output)
 
+        # Content-based edge detection
+        source_node_ids = find_source_nodes(
+            cache_output.session_id, cache_output.input_dict, api_type
+        )
+        store_output_strings(
+            cache_output.session_id, cache_output.node_id, cache_output.output, api_type
+        )
+
         # Send graph node to server
         send_graph_node_and_edges(
             node_id=cache_output.node_id,
             input_dict=cache_output.input_dict,
             output_obj=cache_output.output,
-            source_node_ids=taint_origins,
+            source_node_ids=source_node_ids,
             api_type=api_type,
         )
 
-        # Update TAINT_STACK so exec_func applies this node's taint to result
-        builtins.TAINT_STACK.update([cache_output.node_id])
         return cache_output.output
 
     bound_obj.send_request = patched_function.__get__(bound_obj, bound_cls)

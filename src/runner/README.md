@@ -7,13 +7,11 @@ When the user runs `ao-record script.py` (instead of `python script.py`), they c
 
 This is the wrapper around the user's python command. It works like this:
 
-1. Set up environment: 
-   1. To track taint (dataflow) through the python program, we rewrite its AST (see server readme). The [file watcher](/src/server/file_watcher.py) performs these rewrites, compiles the resulting AST ("code") and stores the binaries at `~/.cache/ao/pyc`. The [AST rewrite hook](/src/runner/ast_rewrite_hook.py) then makes sure that the code imports the rewritten binaries. Think: python caches binaries in `__pycache__` and loads these pre-compiled binaries if they exist; the AST rewrite hook achieves that the rewritten binaries in `~/.cache/ao/pyc` are loaded and, if a requested binary does not exist, it rewrites the requested code file itself, compiles it, adds it to `~/.cache/ao/pyc`, and loads it for the user. See more below.
-   2. There are functions and variables that are used throughout the rewritten user code. They are made importable by adding them to `builtins` module.
-2. Connects to the main server. If it isn't running already, it starts it.
-3. Starts a thread to listen to `kill` messages from the server (if the user kills/reruns before the user program finished).
-4. The "rerun command" is used by the server to issue to the same command the user issued to trigger the current run. It also transmits working dir, env vars, etc. We send it async because it takes long to generate the command and don't want it to be on the critical path.
-5. It starts the user program.
+1. **Set up environment**: Sets random seed for reproducibility.
+2. **Connect to server**: Connects to the main server. If it isn't running already, it starts it.
+3. **Listen for messages**: Starts a thread to listen to `kill` messages from the server (if the user kills/reruns before the user program finished).
+4. **Send restart command**: The "rerun command" is used by the server to issue the same command the user issued to trigger the current run. It also transmits working dir, env vars, etc. We send it async because it takes long to generate the command and don't want it to be on the critical path.
+5. **Run user program**: Starts the user program unmodified.
 
 ## context_manager.py
 
@@ -29,50 +27,30 @@ for sample in samples:
 
 This can also be used to run many samples concurrently (see examples in `example_workflows/debug_examples/`).
 
-## ast_rewrite_hook.py
+## string_matching.py
 
-> [!NOTE]
-> We only rewrite "user code". I.e., we blacklist certain modules (e.g., ones defined in `site-packages`) because rewritten code incurs larger import times. This is a pure performance optimization as third-party library imports (`import os`, `import openai`, etc) often import many files. For "third-party functions", we just assume the taint of its inputs is also the taint of its outputs. See [AST transformer](/src/server/ast_transformer.py) and [AST helpers](/src/server/taint_ops.py) for more details (there are some edge cases).
+Implements content-based edge detection. When an LLM call is made, we check if any previous LLM outputs appear in the current input. If so, we create an edge between those nodes.
 
-The import hook is needed because: 
-1. **Custom cache location:** The .pyc files are stored in `~/.cache/ao/pyc/` with hashed filenames, not the standard `__pycache__` directory. Python's default import machinery won't find them there.
-2. **Fallback compilation:** If the .pyc is missing or stale, the hook compiles on-demand via `rewrite_source_to_code()`.
-3. **User code tracking:** It populates `_module_to_user_file` as modules are imported, which the taint system uses to distinguish user code from third-party code.
-4. FileWatcher notification: When a file is compiled on-demand (cache miss), it notifies the FileWatcher to start monitoring that file.                                                  
-        
-The flow is: `ASTImportFinder.find_spec()` → checks if module should be rewritten → `ASTImportLoader.source_to_code()` → tries cached .pyc first → falls back to `rewrite_source_to_code()` if cache miss.
+This module provides:
+- `find_source_nodes(session_id, input_dict, api_type)` - Find which previous outputs appear in this input
+- `store_output_strings(session_id, node_id, output_obj, api_type)` - Store output strings for future matching
 
 ## Computing data flow (graph edges)
 
-To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we use two mechanisms:
+We detect dataflow between LLM calls using **content-based matching**:
 
-1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls (and MCP tool invocations, ...). When the user imports a package (e.g., `import openai`), patched methods (i) log LLM calls to the server, and (ii) check if input variables have been produced by another LLM and make sure that the output variables are marked (tainted) to be from the current LLM call.
+1. **Record LLM outputs**: When an LLM call completes, we extract all text strings from the response and store them.
 
-2. **Propagating taint:** For each variable in the user's program, we store if it has been produced by an LLM call (and by which one). We do this inside a globally available `TAINT_DICT` (defined [here](/src/runner/taint_containers.py)) where we map `id(var)` -> `[list of llm origins]`. Inside the rewritten "user code", we rewrite each operation and function call such that taint is propagated. For example, consider the following program:
+2. **Match on input**: When a new LLM call is made, we extract all text from the input and check if any previously stored output strings appear as substrings.
 
-```python
-a = llm_call("hello")
-b = llm_call("bye")
-c = a + b
-c += "hello"
-d = llm_call(c)
-```
+3. **Create edges**: If a match is found, we create an edge from the source node (whose output matched) to the current node.
 
-Its functions and operations (e.g., `+`) will be wrapped such that taint is propagated: `a`, `b`, `c` and `d` will all have an entry in `TAINT_DICT`. `a`'s entry will record that `a` was produced by the first LLM call, `b` by the second, `c`'s entry will be a list with both origins, etc.
+This approach is simple and robust:
+- User code runs completely unmodified (no AST rewrites)
+- Works with any LLM library that uses httpx/requests under the hood
+- No risk of crashing user code
 
-We don't rewrite "third-party functions" (e.g., `llm_call()`) for performance reasons. Instead, we use `TAINT_STACK` to pass taint through third-party code boundaries. Before calling a third-party function, `exec_func` pushes the collected input taint onto the stack. Patches can `read()` the stack to discover input origins (for graph edges) and `update()` it with their own node_id. After the call returns, `exec_func` pops the stack and applies the resulting taint to outputs.
-
-We use a stack (rather than a single value) to handle nested calls correctly (e.g., LangChain calls LLM #1, then user's tool function, then LLM #2 - each level needs its own taint context preserved), and we use task-keyed storage (rather than ContextVar) because some frameworks like LangChain use `copy_context().run()` which isolates ContextVar changes. See [taint-tracking.md](/docs/developer-guide/taint-tracking.md#why-a-stack-langchain-example) for a detailed example.
-
-There are some more caveats here, which can be best understood by looking at the code in [AST helpers](/src/server/taint_ops.py). For example:
- - Some functions (e.g, `list.append()`, `dotenv.load_dotenv()`, etc) are treated specially.
- - We *de-intern* strings: Python has a perf opt that makes that `id("hello") == id("hello")` for short strings. This is a problem since the two `"hello"` strings may have been produced by different LLM calls (or one may have been produced by no LLM call at all). We enforce that Python gives a unique id to each string by encoding and decoding it:
-```
-def _de_intern_string(s):
-    """Create a copy of string s with a unique id (not interned)."""
-    return s.encode("utf-8").decode("utf-8")
-```
- - We keep a reference to each variable in the user code (even if it goes out of scope). The reason is that python will reuse ids if the original objects was garbage collected.
+The matching algorithm is implemented in [string_matching.py](/src/runner/string_matching.py).
 
 ## Intercepting LLM call events (graph nodes)
 
@@ -92,7 +70,9 @@ When an LLM call is intercepted (e.g., in [httpx_patch.py](/src/runner/monkey_pa
    - Call the actual LLM with the (possibly overwritten) input
    - Store the result via `DB.cache_output()` for future runs
 
-4. **Graph update**: `send_graph_node_and_edges()` notifies the server to update the UI with the node and its edges (from taint tracking).
+4. **Edge detection**: `find_source_nodes()` checks if any previous outputs appear in this input.
+
+5. **Graph update**: `send_graph_node_and_edges()` notifies the server to update the UI with the node and its edges.
 
 **Reruns work deterministically** because:
 - The same `session_id` (inherited from parent) means cache lookups find previous entries

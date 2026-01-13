@@ -51,7 +51,6 @@ CONNECTION_TIMEOUT = 5
 SERVER_START_TIMEOUT = 2
 PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
-FILE_POLL_INTERVAL = 1  # Interval in seconds for polling file changes for AST recompilation
 ORPHAN_POLL_INTERVAL = 60  # Interval in seconds for checking if parent process died
 SERVER_INACTIVITY_TIMEOUT = 1200  # Shutdown server after 20 min of inactivity
 SERVER_START_WAIT = 1
@@ -90,11 +89,6 @@ AO_CACHE = os.path.expandvars(
 )
 os.makedirs(AO_CACHE, exist_ok=True)
 
-# Centralized cache for AST-rewritten .pyc files
-# All compiled user code goes here (hidden from user, no cleanup needed)
-AO_CACHE_DIR = os.path.join(AO_HOME, "pyc")
-os.makedirs(AO_CACHE_DIR, exist_ok=True)
-
 # Git repository for code versioning (separate from user's git)
 default_git_path = os.path.join(AO_HOME, "git")
 GIT_DIR = os.path.expandvars(
@@ -132,8 +126,7 @@ AO_LOG_DIR = os.path.expandvars(
 )
 os.makedirs(AO_LOG_DIR, exist_ok=True)
 MAIN_SERVER_LOG = os.path.join(AO_LOG_DIR, "main_server.log")
-FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")
-GIT_VERSIONER_LOG = os.path.join(AO_LOG_DIR, "git_versioner.log")
+FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")  # Git versioning logs
 
 default_attachment_cache = os.path.join(AO_CACHE, "attachments")
 ATTACHMENT_CACHE = os.path.expandvars(
@@ -177,8 +170,7 @@ WHITELIST_ENDPOINT_PATTERNS = [
     (r".*api\.parallel\.ai", r"/v1beta/search"),  # ParallelSearchTool
 ]
 COMPILED_ENDPOINT_PATTERNS = [
-    (re.compile(url_pat), re.compile(path_pat))
-    for url_pat, path_pat in WHITELIST_ENDPOINT_PATTERNS
+    (re.compile(url_pat), re.compile(path_pat)) for url_pat, path_pat in WHITELIST_ENDPOINT_PATTERNS
 ]
 
 # List of regexes that exclude patterns from being displayed in edit IO

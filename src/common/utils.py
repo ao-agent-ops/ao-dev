@@ -4,19 +4,16 @@ import json
 import os
 import re
 import sys
-import site
-import sysconfig
 import importlib
 from pathlib import Path
 import threading
 from typing import Optional, Union, Dict, Any
 from ao.common.constants import (
-    AO_INSTALL_DIR,
     COMPILED_ENDPOINT_PATTERNS,
     COMPILED_URL_PATTERN_TO_NODE_NAME,
     NO_LABEL,
     COMPILED_MODEL_NAME_PATTERNS,
-    INVALID_LABEL_CHARS
+    INVALID_LABEL_CHARS,
 )
 from ao.common.logger import logger
 
@@ -175,57 +172,6 @@ def get_node_label(input_dict: Dict[str, Any], api_type: str) -> str:
     return _sanitize_for_display(raw_name) if raw_name else NO_LABEL
 
 
-# ==============================================================================
-# Blacklist heuristic for determining what code to AST-rewrite
-# ==============================================================================
-def _get_third_party_roots():
-    """Get all directories where third-party/stdlib code lives."""
-    roots = set()
-
-    # Site-packages (covers conda, homebrew, pyenv, venv, etc.)
-    try:
-        roots.update(site.getsitepackages())
-    except AttributeError:
-        pass
-    try:
-        roots.add(site.getusersitepackages())  # ~/.local/lib/...
-    except AttributeError:
-        pass
-
-    # Stdlib location
-    stdlib_path = sysconfig.get_path("stdlib")
-    if stdlib_path:
-        roots.add(stdlib_path)
-
-    # Python installation prefix (catches anything else in the interpreter tree)
-    roots.add(sys.prefix)
-    roots.add(sys.base_prefix)  # Different from prefix in venvs
-
-    # Also add AO_INSTALL_DIR to avoid rewriting our own code
-    roots.add(AO_INSTALL_DIR)
-
-    return {os.path.realpath(r) for r in roots if r}
-
-
-_THIRD_PARTY_ROOTS = _get_third_party_roots()
-
-
-def should_rewrite(file_path: str) -> bool:
-    """
-    Return True if file should be AST-rewritten (not third-party).
-
-    Uses blacklist heuristic: rewrites everything except files in:
-    - site-packages / dist-packages
-    - Python stdlib
-    - Python installation prefix
-    - AO install directory
-    """
-    if not file_path or not file_path.endswith(".py"):
-        return False
-    real_path = os.path.realpath(file_path)
-    return not any(real_path.startswith(root) for root in _THIRD_PARTY_ROOTS)
-
-
 def is_whitelisted_endpoint(url: str, path: str) -> bool:
     """Check if a URL and path match any of the whitelist (url_regex, path_regex) tuples."""
     for url_pattern, path_pattern in COMPILED_ENDPOINT_PATTERNS:
@@ -254,29 +200,6 @@ def set_seed(node_id: str) -> None:
     """Set the seed based on the node_id."""
     seed = int(hashlib.sha256(node_id.encode()).hexdigest(), 16) % (2**32)
     random.seed(seed)
-
-
-def get_ao_py_files():
-    """
-    Get a list of all .py files in the AO_INSTALL_DIR.
-
-    Returns:
-        list: List of absolute paths to all Python files in the ao directory
-    """
-    py_files = []
-
-    # Standard directories to exclude
-    exclude_dirs = {".git", ".venv", "__pycache__", ".pytest_cache", "node_modules", ".mypy_cache"}
-
-    for dirpath, dirnames, filenames in os.walk(AO_INSTALL_DIR, followlinks=True):
-        # Remove excluded directories from dirnames to prevent os.walk from entering them
-        dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
-
-        for filename in filenames:
-            if filename.endswith(".py"):
-                py_files.append(os.path.join(dirpath, filename))
-
-    return py_files
 
 
 def is_valid_mod(mod_name: str):

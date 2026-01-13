@@ -5,11 +5,9 @@ SQLite database backend for workflow experiments.
 import os
 import sqlite3
 import threading
-import json
 
 from ao.common.logger import logger
 from ao.common.constants import DB_PATH
-from ao.common.utils import hash_input
 
 
 # Global lock among concurrent threads: Threads within a process share a single
@@ -101,17 +99,13 @@ def _init_db(conn):
         )
     """
     )
-    # Create attachments table
+    # Create attachments table (for caching file attachments like images)
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS attachments (
             file_id TEXT PRIMARY KEY,
-            session_id TEXT,
-            line_no INTEGER,
             content_hash TEXT,
-            file_path TEXT,
-            taint TEXT,
-            FOREIGN KEY (session_id) REFERENCES experiments (session_id)
+            file_path TEXT
         )
     """
     )
@@ -157,38 +151,6 @@ def execute(sql, params=()):
         c.execute(sql, params)
         conn.commit()
         return c.lastrowid
-
-
-def store_taint_info(session_id, file_path, line_no, taint_nodes):
-    """Store taint information for a line in a file"""
-    file_id = f"{session_id}:{file_path}:{line_no}"
-    content_hash = hash_input(f"{file_path}:{line_no}")
-    taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
-
-    execute(
-        """
-        INSERT OR REPLACE INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (file_id, session_id, line_no, content_hash, file_path, taint_json),
-    )
-
-
-def get_taint_info(file_path, line_no):
-    """Get taint information for a specific line in a file from any previous session"""
-    row = query_one(
-        """
-        SELECT session_id, taint FROM attachments 
-        WHERE file_path = ? AND line_no = ?
-        ORDER BY rowid DESC
-        LIMIT 1
-        """,
-        (file_path, line_no),
-    )
-    if row:
-        taint_nodes = json.loads(row["taint"]) if row["taint"] else []
-        return row["session_id"], taint_nodes
-    return None, []
 
 
 def clear_connections():

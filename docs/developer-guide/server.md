@@ -15,19 +15,15 @@ The server (`main_server.py`) handles:
 
 ## Server Processes
 
-The server spawns two processes:
+The server spawns a background process:
 
-### 1. Main Server
+### Main Server
 
 Receives all UI and runner messages and forwards them. Core forwarding logic.
 
-### 2. File Watcher
+### File Watcher
 
-The file watcher has two responsibilities:
-
-- **Pre-compiles all files in user's project:** Reads code, AST-transforms it, stores compiled binary in `~/.cache/ao/pyc`. It polls files to detect user edits and recompile. This is purely a performance optimization so files don't need to be rewritten upon `ao-record`.
-
-- **Git versioning:** On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version timestamp to the run, so the user knows what version of the code they ran. This git versioner is completely independent of any git operations the user performs. It is saved in `~/.cache/ao/git`. We expect it to commit more frequently than the user, as it commits on any file change once the user runs `ao-record`.
+The file watcher handles **git versioning**: On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version timestamp to the run, so the user knows what version of the code they ran. This git versioner is completely independent of any git operations the user performs. It is saved in `~/.cache/ao/git`. We expect it to commit more frequently than the user, as it commits on any file change once the user runs `ao-record`.
 
 ## Server Commands
 
@@ -48,9 +44,8 @@ ao-server clear    # Clear all cached data and DB
 All server logs are written to files (not visible in any terminal). Use these commands to view them:
 
 ```bash
-ao-server logs          # Main server logs
-ao-server rewrite-logs  # File watcher (AST rewrite) logs
-ao-server git-logs      # Git versioning logs
+ao-server logs      # Main server logs
+ao-server git-logs  # Git versioning logs (file_watcher.py)
 ```
 
 ## Debugging the Server
@@ -66,14 +61,6 @@ Check which processes are using the port:
 ```bash
 lsof -i :5959
 ```
-
-To see the rewritten Python code (not just the binary):
-
-```bash
-export DEBUG_AST_REWRITES=1
-```
-
-This will store `.ao_rewritten.py` files next to the original ones that are rewritten.
 
 ## Database
 
@@ -93,6 +80,22 @@ See `src/server/database_backends/sqlite.py` for the sqlite DB schema. Schemas m
 ### Graph Topology Storage
 
 The `graph_topology` column in the `experiments` table stores a dictionary representation of the graph. This allows the server to reconstruct in-memory graph representations for past runs.
+
+## Edge Detection via Content Matching
+
+The server stores a content registry for detecting dataflow edges:
+
+```python
+# In-memory registry: session_id -> {node_id -> [output_strings]}
+_content_registry: Dict[str, Dict[str, List[str]]] = {}
+```
+
+When an LLM call is made:
+1. We extract all text strings from the input
+2. We check if any previously stored output strings appear as substrings
+3. If a match is found, we create an edge from the source node to the current node
+
+This approach runs user code completely unmodified and works with any LLM library.
 
 ## Editing and Caching
 
@@ -141,5 +144,5 @@ When modifying server code:
 
 ## Next Steps
 
-- [Taint tracking](taint-tracking.md) - How data flow is tracked
+- [Edge detection](edge-detection.md) - How dataflow edges are detected
 - [API patching](api-patching.md) - How LLM APIs are intercepted
