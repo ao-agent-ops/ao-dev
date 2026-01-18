@@ -47,7 +47,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                 retainContextWhenHidden: true,
                 localResourceRoots: [
                     this._extensionUri,
-                    vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                    vscode.Uri.joinPath(this._extensionUri, 'dist')
                 ]
             }
         );
@@ -191,7 +191,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                 retainContextWhenHidden: true,
                 localResourceRoots: [
                     this._extensionUri,
-                    vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                    vscode.Uri.joinPath(this._extensionUri, 'dist')
                 ]
             }
         );
@@ -311,7 +311,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
     private _getHtmlForWebview(webview: vscode.Webview, sessionId: string): string {
         const path = require('path');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
         
         const templatePath = path.join(
             this._extensionUri.fsPath,
@@ -367,7 +367,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
 
     private _getHtmlForLessonsWebview(webview: vscode.Webview): string {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
 
         const html = `
 <!DOCTYPE html>
@@ -457,7 +457,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
             enableScripts: true,
             localResourceRoots: [
                 this._extensionUri,
-                vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                vscode.Uri.joinPath(this._extensionUri, 'dist')
             ]
         };
 

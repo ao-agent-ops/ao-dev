@@ -103,8 +103,7 @@ _context: vscode.WebviewViewResolveContext,
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                this._extensionUri,
-                vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                this._extensionUri
             ]
         };
 
@@ -268,7 +267,7 @@ _context: vscode.WebviewViewResolveContext,
     private _getHtmlForWebview(webview: vscode.Webview) {
         const path = require('path');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
         const templatePath = path.join(
             this._extensionUri.fsPath,
             'src',
