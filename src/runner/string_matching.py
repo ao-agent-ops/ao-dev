@@ -19,7 +19,7 @@ from ao.common.logger import logger
 # ===========================================================
 
 # Minimum contiguous match length (in words) to create an edge
-MIN_MATCH_WORDS = 10
+MIN_MATCH_WORDS = 3
 
 # Coverage threshold: output_coverage * input_coverage must exceed this
 # coverage = (match_len / output_len) * (match_len / input_len)
@@ -369,16 +369,18 @@ def is_content_match(
     match_len = compute_longest_match(output_words, input_words)
 
     # Criterion 1: Absolute match length
-    if match_len >= MIN_MATCH_WORDS:
-        coverage = (match_len / len(output_words)) * (match_len / len(input_words))
-        return True, "absolute", match_len, coverage
+    # if match_len >= MIN_MATCH_WORDS:
+    #     coverage = (match_len / len(output_words)) * (match_len / len(input_words))
+    #     return True, "absolute", match_len, coverage
 
     # Criterion 2: Coverage-based match
     if match_len > 0 and len(output_words) > 0 and len(input_words) > 0:
         output_coverage = match_len / len(output_words)
         input_coverage = match_len / len(input_words)
         coverage_product = output_coverage * input_coverage
-        if coverage_product >= MIN_COVERAGE_PRODUCT:
+        # if coverage_product >= MIN_COVERAGE_PRODUCT:
+        #     return True, "coverage", match_len, coverage_product
+        if output_coverage > 0.5 and match_len > MIN_MATCH_WORDS:
             return True, "coverage", match_len, coverage_product
 
     return False, "", match_len, 0.0
