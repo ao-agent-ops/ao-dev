@@ -218,7 +218,7 @@ _context: vscode.WebviewViewResolveContext,
                 //     break;
                 case 'navigateToCode':
                     // Handle code navigation
-                    const { filePath, line } = this._parseCodeLocation(data.payload.codeLocation);
+                    const { filePath, line } = this._parseStackTrace(data.payload.stack_trace);
                     if (filePath && line) {
                         vscode.workspace.openTextDocument(filePath).then(document => {
                             vscode.window.showTextDocument(document, {
@@ -292,8 +292,15 @@ _context: vscode.WebviewViewResolveContext,
         return html;
     }
 
-    private _parseCodeLocation(codeLocation: string): { filePath: string | undefined; line: number | undefined } {
-        const match = codeLocation.match(/(.+):(\d+)/);
+    private _parseStackTrace(stackTrace: string): { filePath: string | undefined; line: number | undefined } {
+        // Parse Python stack trace format: File "/path/to/file.py", line 42, in function_name
+        // Returns the first (most recent user code) file and line number
+        if (!stackTrace) {
+            return { filePath: undefined, line: undefined };
+        }
+
+        // Match Python traceback format
+        const match = stackTrace.match(/File "([^"]+)", line (\d+)/);
         if (match) {
             const [, filePath, lineStr] = match;
             return {

@@ -1,5 +1,6 @@
 import json
 import inspect
+import traceback
 from typing import Any, Dict, List
 from ao.runner.context_manager import get_session_id
 from ao.common.constants import CERTAINTY_UNKNOWN
@@ -10,6 +11,34 @@ from ao.common.logger import logger
 # ===========================================================
 # Generic wrappers for caching and server notification
 # ===========================================================
+
+
+def capture_stack_trace() -> str:
+    """Capture the current stack trace, showing only user code.
+
+    Removes ao infrastructure frames:
+    - Beginning: everything up to and including ao/runner/agent_runner.py
+    - End: everything from and including ao/server/database_manager.py
+    """
+    stack_lines = traceback.format_stack()
+
+    # Find the start index: skip frames up to and including agent_runner.py
+    start_idx = 0
+    for i, line in enumerate(stack_lines):
+        if "ao/runner/agent_runner.py" in line or "ao\\runner\\agent_runner.py" in line:
+            start_idx = i + 1  # Start after this frame
+
+    # Find the end index: stop before database_manager.py
+    end_idx = len(stack_lines)
+    for i, line in enumerate(stack_lines):
+        if "ao/server/database_manager.py" in line or "ao\\server\\database_manager.py" in line:
+            end_idx = i
+            break
+
+    # Extract only user code frames
+    user_frames = stack_lines[start_idx:end_idx]
+
+    return "".join(user_frames).rstrip()
 
 
 def get_input_dict(func, *args, **kwargs):
@@ -65,13 +94,11 @@ def get_input_dict(func, *args, **kwargs):
     return input_dict
 
 
-def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
+def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type, stack_trace=None):
     """Send graph node and edge updates to the server."""
-    frame = inspect.currentframe()
-    user_program_frame = inspect.getouterframes(frame)[2]
-    line_no = user_program_frame.lineno
-    file_name = user_program_frame.filename
-    codeLocation = f"{file_name}:{line_no}"
+    # Use provided stack_trace or capture a new one
+    if stack_trace is None:
+        stack_trace = capture_stack_trace()
 
     # Import here to avoid circular import
     from ao.runner.monkey_patching.api_parser import func_kwargs_to_json_str, api_obj_to_json_str
@@ -92,7 +119,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
             "output": output_string,
             "border_color": CERTAINTY_UNKNOWN,
             "label": label,
-            "codeLocation": codeLocation,
+            "stack_trace": stack_trace,
             "model": model,
             "attachments": attachments,
         },

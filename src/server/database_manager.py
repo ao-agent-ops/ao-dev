@@ -41,6 +41,7 @@ class CacheOutput:
         input_pickle: Serialized input data for caching purposes
         input_hash: Hash of the input for efficient cache lookups
         session_id: The session ID associated with this cache operation
+        stack_trace: Python stack trace at the point of the LLM call
     """
 
     input_dict: dict
@@ -49,6 +50,7 @@ class CacheOutput:
     input_pickle: bytes
     input_hash: str
     session_id: str
+    stack_trace: Optional[str] = None
 
 
 class DatabaseManager:
@@ -420,6 +422,10 @@ class DatabaseManager:
         """Get input/output for LLM call, handling caching and overwrites."""
         from ao.runner.context_manager import get_session_id
         from ao.common.utils import hash_input, set_seed
+        from ao.runner.monkey_patching.patching_utils import capture_stack_trace
+
+        # Capture stack trace early (before any internal calls pollute it)
+        stack_trace = capture_stack_trace()
 
         # Pickle input object.
         api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
@@ -449,6 +455,7 @@ class DatabaseManager:
                 input_pickle=input_pickle,
                 input_hash=input_hash,
                 session_id=session_id,
+                stack_trace=stack_trace,
             )
 
         # Use data from previous LLM call.
@@ -485,6 +492,7 @@ class DatabaseManager:
             input_pickle=input_pickle,
             input_hash=input_hash,
             session_id=session_id,
+            stack_trace=stack_trace,
         )
 
     def cache_output(
@@ -523,6 +531,7 @@ class DatabaseManager:
                 node_id,
                 api_type,
                 output_json_str,
+                cache_result.stack_trace,
             )
         else:
             logger.warning(f"Node {node_id} response not OK.")
@@ -597,6 +606,19 @@ class DatabaseManager:
     def get_next_run_index(self):
         """Get the next run index based on how many runs already exist."""
         return self.backend.get_next_run_index_query()
+
+    # Probe-related methods for ao-tool
+    def get_experiment_metadata(self, session_id):
+        """Get experiment metadata for probe command."""
+        return self.backend.get_experiment_metadata_query(session_id)
+
+    def get_llm_calls_for_session(self, session_id):
+        """Get all LLM calls for a session."""
+        return self.backend.get_llm_calls_for_session_query(session_id)
+
+    def get_llm_call_full(self, session_id, node_id):
+        """Get full LLM call data including input, output, and overwrites."""
+        return self.backend.get_llm_call_full_query(session_id, node_id)
 
 
 # Create singleton instance following the established pattern

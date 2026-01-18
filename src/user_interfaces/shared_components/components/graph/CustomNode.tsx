@@ -89,7 +89,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
       // case "seeInCode":
       //   data.messageSender.send({
       //     type: "navigateToCode",
-      //     payload: { codeLocation: data.codeLocation }
+      //     payload: { stack_trace: data.stack_trace }
       //   });
       //   break;
     }

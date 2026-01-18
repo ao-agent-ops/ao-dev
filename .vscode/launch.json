@@ -39,6 +39,15 @@
       "justMyCode": false
     },
     {
+      "name": "ao-tool rerun",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ao.cli.ao_tool",
+      "args": ["rerun"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "ao-record",
       "type": "debugpy",
       "request": "launch",

@@ -23,7 +23,7 @@ provider.addNode({
     id: 'unique-id',
     input: 'Input text',
     output: 'Output text',
-    codeLocation: 'file.ts:line',
+    stack_trace: 'File "/path/to/file.py", line 42, in main',
     label: 'Node Label'
 });
 ```

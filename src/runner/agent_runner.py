@@ -296,11 +296,12 @@ class AgentRunner:
     def _generate_restart_command(self) -> str:
         """Generate the appropriate command for restarting the script."""
         original_command = " ".join(shlex.quote(arg) for arg in sys.argv)
+        python_executable = sys.executable
 
         if not self._is_debugpy_session():
-            return original_command
-
-        python_executable = sys.executable
+            # Always include python executable to ensure command is runnable
+            # sys.argv[0] may be a .py file path which isn't directly executable
+            return f"{python_executable} {original_command}"
         parent_cmdline = self._get_parent_cmdline()
 
         if not parent_cmdline:
@@ -373,6 +374,15 @@ class AgentRunner:
                     DB.switch_mode(database_mode)
                     logger.debug(f"Using database mode: {database_mode}")
                 logger.info(f"Registered with session_id: {self.session_id}")
+
+                # Write session info to file for ao-tool IPC
+                session_file = os.environ.get("AO_SESSION_FILE")
+                if session_file:
+                    try:
+                        with open(session_file, "w") as f:
+                            json.dump({"session_id": self.session_id, "pid": self.process_id}, f)
+                    except Exception as e:
+                        logger.warning(f"Failed to write session file: {e}")
         except Exception as e:
             _log_error("Server communication failed", e)
             raise

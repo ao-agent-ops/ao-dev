@@ -2,7 +2,7 @@ export interface GraphNode {
     id: string;
     input: string;
     output: string;
-    codeLocation: string;
+    stack_trace: string;
     label: string;
     position?: { x: number; y: number };
     border_color?: string;

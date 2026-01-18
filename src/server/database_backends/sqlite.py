@@ -93,6 +93,7 @@ def _init_db(conn):
             color TEXT,
             label TEXT,
             api_type TEXT,
+            stack_trace TEXT,
             timestamp TIMESTAMP DEFAULT (datetime('now')),
             PRIMARY KEY (session_id, node_id),
             FOREIGN KEY (session_id) REFERENCES experiments (session_id)
@@ -331,17 +332,17 @@ def get_llm_call_by_session_and_hash_query(session_id, input_hash):
 
 
 def insert_llm_call_with_output_query(
-    session_id, input_pickle, input_hash, node_id, api_type, output_pickle
+    session_id, input_pickle, input_hash, node_id, api_type, output_pickle, stack_trace=None
 ):
     """Insert new LLM call record with output in a single operation (upsert)."""
     execute(
         """
-        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output, stack_trace)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (session_id, node_id)
-        DO UPDATE SET output = excluded.output
+        DO UPDATE SET output = excluded.output, stack_trace = excluded.stack_trace
         """,
-        (session_id, input_pickle, input_hash, node_id, api_type, output_pickle),
+        (session_id, input_pickle, input_hash, node_id, api_type, output_pickle, stack_trace),
     )
 
 
@@ -461,3 +462,32 @@ def get_next_run_index_query():
     if row:
         return row["count"] + 1
     return 1
+
+
+# Probe-related queries for ao-tool
+def get_experiment_metadata_query(session_id):
+    """Get experiment metadata for probe command."""
+    return query_one(
+        """SELECT session_id, parent_session_id, name, timestamp, success, notes, log,
+                  graph_topology, version_date
+           FROM experiments WHERE session_id=?""",
+        (session_id,),
+    )
+
+
+def get_llm_calls_for_session_query(session_id):
+    """Get all LLM calls for a session."""
+    return query_all(
+        """SELECT node_id, input, input_overwrite, output, api_type, label, timestamp
+           FROM llm_calls WHERE session_id=?""",
+        (session_id,),
+    )
+
+
+def get_llm_call_full_query(session_id, node_id):
+    """Get full LLM call data including input, output, overwrites, and stack_trace."""
+    return query_one(
+        """SELECT node_id, input, input_hash, input_overwrite, output, api_type, label, timestamp, stack_trace
+           FROM llm_calls WHERE session_id=? AND node_id=?""",
+        (session_id, node_id),
+    )

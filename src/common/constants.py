@@ -127,6 +127,10 @@ os.makedirs(AO_LOG_DIR, exist_ok=True)
 MAIN_SERVER_LOG = os.path.join(AO_LOG_DIR, "main_server.log")
 FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")  # Git versioning logs
 
+# ao-tool run logs directory
+AO_TOOL_LOG_DIR = os.path.join(AO_LOG_DIR, "runs")
+os.makedirs(AO_TOOL_LOG_DIR, exist_ok=True)
+
 default_attachment_cache = os.path.join(AO_CACHE, "attachments")
 ATTACHMENT_CACHE = os.path.expandvars(
     os.path.expanduser(

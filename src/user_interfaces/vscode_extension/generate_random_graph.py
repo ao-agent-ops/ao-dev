@@ -63,7 +63,7 @@ def generate_random_dag(num_nodes: int, num_edges: int, seed: int = None) -> Dic
             "output": random.choice(sample_outputs),
             "border_color": "#FFC000",
             "label": "undefined_model",
-            "codeLocation": f"/path/to/code/node_{i+1}.py:{random.randint(10, 100)}",
+            "stack_trace": f'File "/path/to/code/node_{i+1}.py", line {random.randint(10, 100)}, in main',
             "model": "undefined_model",
             "attachments": [],
         }
