@@ -82,25 +82,25 @@ export const GraphHeader: React.FC<GraphHeaderProps> = ({
               gap: '8px',
               cursor: onNavigateToLessons ? 'pointer' : 'default',
               fontSize: '15px',
-              color: isDarkTheme ? '#aeaeae' : '#666666',
+              color: isDarkTheme ? '#4da6ff' : '#007acc',
               fontWeight: 400,
               transition: 'color 0.2s',
             }}
             onClick={onNavigateToLessons}
             onMouseEnter={(e) => {
               if (onNavigateToLessons) {
-                e.currentTarget.style.color = isDarkTheme ? '#cecece' : '#333333';
+                e.currentTarget.style.color = isDarkTheme ? '#6bb8ff' : '#005a9e';
               }
             }}
             onMouseLeave={(e) => {
               if (onNavigateToLessons) {
-                e.currentTarget.style.color = isDarkTheme ? '#aeaeae' : '#666666';
+                e.currentTarget.style.color = isDarkTheme ? '#4da6ff' : '#007acc';
               }
             }}
             title="View lessons"
           >
             <span>{lessonsExtractedFrom} lesson{lessonsExtractedFrom !== 1 ? 's' : ''} extracted</span>
-            <span style={{ color: isDarkTheme ? '#555555' : '#c0c0c0' }}>|</span>
+            <span style={{ color: isDarkTheme ? '#3c7ab8' : '#99c9e8' }}>|</span>
             <span>{lessonsAppliedTo} lesson{lessonsAppliedTo !== 1 ? 's' : ''} applied</span>
           </div>
         )}

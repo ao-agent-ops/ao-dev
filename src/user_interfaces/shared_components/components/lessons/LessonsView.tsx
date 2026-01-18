@@ -108,10 +108,10 @@ export const LessonsView: React.FC<LessonsViewProps> = ({
                 fontSize: '12px',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#0062a3';
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#1176ba' : '#0062a3';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#0f6caa' : '#007acc';
               }}
             >
               + Add Lesson
