@@ -13,6 +13,7 @@ interface GraphTabAppProps {
   messageSender: MessageSender;
   isDarkTheme: boolean;
   onNodeUpdate: (nodeId: string, field: string, value: string, sessionId?: string, attachments?: any) => void;
+  headerContent?: React.ReactNode;
 }
 
 export const GraphTabApp: React.FC<GraphTabAppProps> = ({
@@ -22,6 +23,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
   messageSender,
   isDarkTheme,
   onNodeUpdate,
+  headerContent,
 }) => {
   const [showNodeEditModal, setShowNodeEditModal] = useState(false);
   const [nodeEditData, setNodeEditData] = useState<{ nodeId: string; field: 'input' | 'output'; label: string; value: string } | null>(null);
@@ -132,12 +134,11 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                 onNodeUpdate(nodeId, field, value, sessionId, attachments);
               }}
               session_id={sessionId}
-              experiment={experiment}
               messageSender={messageSender}
               isDarkTheme={isDarkTheme}
               metadataPanel={experiment ? (
                 <WorkflowRunDetailsPanel
-                  runName={experiment.run_name || experiment.session_id}
+                  runName={experiment.run_name || ''}
                   result={experiment.result || ''}
                   notes={experiment.notes || ''}
                   log={experiment.log || ''}
@@ -147,6 +148,15 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   messageSender={messageSender}
                 />
               ) : undefined}
+              currentResult={experiment?.result || ''}
+              onResultChange={(result) => {
+                messageSender.send({
+                  type: 'update_result',
+                  session_id: sessionId,
+                  result: result,
+                });
+              }}
+              headerContent={headerContent}
             />
           </div>
         </div>

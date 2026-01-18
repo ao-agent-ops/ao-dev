@@ -124,6 +124,42 @@ def _init_db(conn):
         CREATE INDEX IF NOT EXISTS experiments_timestamp_idx ON experiments(timestamp DESC)
     """
     )
+
+    # Create lessons table
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lessons (
+            lesson_id TEXT PRIMARY KEY,
+            from_session_id TEXT,
+            from_node_id TEXT,
+            lesson_text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT (datetime('now')),
+            updated_at TIMESTAMP DEFAULT (datetime('now')),
+            FOREIGN KEY (from_session_id) REFERENCES experiments (session_id)
+        )
+    """
+    )
+
+    # Create lessons_applied table
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lessons_applied (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            node_id TEXT,
+            applied_at TIMESTAMP DEFAULT (datetime('now')),
+            FOREIGN KEY (lesson_id) REFERENCES lessons (lesson_id),
+            FOREIGN KEY (session_id) REFERENCES experiments (session_id),
+            UNIQUE (lesson_id, session_id, node_id)
+        )
+    """
+    )
+    c.execute(
+        """
+        CREATE INDEX IF NOT EXISTS lessons_applied_lesson_idx ON lessons_applied(lesson_id)
+    """
+    )
     conn.commit()
 
 
@@ -461,3 +497,91 @@ def get_next_run_index_query():
     if row:
         return row["count"] + 1
     return 1
+
+
+# ============================================================
+# Lessons queries
+# ============================================================
+
+
+def get_all_lessons_query():
+    """Get all lessons with their extracted_from and applied_to information."""
+    # Get all lessons
+    lessons = query_all(
+        """
+        SELECT l.lesson_id, l.lesson_text, l.from_session_id, l.from_node_id,
+               e.name as from_run_name
+        FROM lessons l
+        LEFT JOIN experiments e ON l.from_session_id = e.session_id
+        ORDER BY l.created_at DESC
+        """,
+        (),
+    )
+    return lessons
+
+
+def get_lessons_applied_query(lesson_id):
+    """Get all sessions/nodes where a lesson was applied."""
+    return query_all(
+        """
+        SELECT la.session_id, la.node_id, e.name as run_name
+        FROM lessons_applied la
+        LEFT JOIN experiments e ON la.session_id = e.session_id
+        WHERE la.lesson_id = ?
+        ORDER BY la.applied_at DESC
+        """,
+        (lesson_id,),
+    )
+
+
+def insert_lesson_query(lesson_id, lesson_text, from_session_id=None, from_node_id=None):
+    """Insert a new lesson."""
+    execute(
+        """
+        INSERT INTO lessons (lesson_id, lesson_text, from_session_id, from_node_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (lesson_id, lesson_text, from_session_id, from_node_id),
+    )
+
+
+def update_lesson_query(lesson_id, lesson_text):
+    """Update an existing lesson's text."""
+    execute(
+        """
+        UPDATE lessons SET lesson_text = ?, updated_at = datetime('now')
+        WHERE lesson_id = ?
+        """,
+        (lesson_text, lesson_id),
+    )
+
+
+def delete_lesson_query(lesson_id):
+    """Delete a lesson and its applied records."""
+    execute("DELETE FROM lessons_applied WHERE lesson_id = ?", (lesson_id,))
+    execute("DELETE FROM lessons WHERE lesson_id = ?", (lesson_id,))
+
+
+def add_lesson_applied_query(lesson_id, session_id, node_id=None):
+    """Record that a lesson was applied to a session/node."""
+    execute(
+        """
+        INSERT OR IGNORE INTO lessons_applied (lesson_id, session_id, node_id)
+        VALUES (?, ?, ?)
+        """,
+        (lesson_id, session_id, node_id),
+    )
+
+
+def remove_lesson_applied_query(lesson_id, session_id, node_id=None):
+    """Remove a lesson application record."""
+    if node_id:
+        execute(
+            "DELETE FROM lessons_applied WHERE lesson_id = ? AND session_id = ? AND node_id = ?",
+            (lesson_id, session_id, node_id),
+        )
+    else:
+        execute(
+            "DELETE FROM lessons_applied WHERE lesson_id = ? AND session_id = ? AND node_id IS NULL",
+            (lesson_id, session_id),
+        )

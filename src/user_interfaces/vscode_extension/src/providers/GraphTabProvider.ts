@@ -2,25 +2,18 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { RunDetailsDialogProvider } from './RunDetailsDialogProvider';
 import { PythonServerClient } from './PythonServerClient';
-import { ProcessInfo } from '../../../../shared_components/types';
+import { ProcessInfo } from '../../../shared_components/types';
 
 export class GraphTabProvider implements vscode.WebviewPanelSerializer {
     public static readonly viewType = 'graphExtension.graphTab';
     private _panels: Map<string, vscode.WebviewPanel> = new Map();
-    private _runDetailsDialogProvider?: RunDetailsDialogProvider;
     private _pythonClient: PythonServerClient | null = null;
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Initialize Python client
         this._pythonClient = PythonServerClient.getInstance();
         this._pythonClient.ensureConnected(); // async but don't await in constructor
-    }
-
-
-    public setRunDetailsDialogProvider(provider: RunDetailsDialogProvider): void {
-        this._runDetailsDialogProvider = provider;
     }
 
     public async createOrShowGraphTab(experiment: ProcessInfo): Promise<void> {
@@ -114,12 +107,6 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                         });
                     }
                     break;
-                case 'showRunDetailsDialog':
-                    console.log('Run details dialog requested:', data.payload);
-                    if (this._runDetailsDialogProvider && data.payload.experiment) {
-                        this._runDetailsDialogProvider.show(data.payload.experiment);
-                    }
-                    break;
                 case 'update_node':
                 case 'edit_input':
                 case 'edit_output':
@@ -147,6 +134,16 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                         targetPanel.title = `Graph: ${title}`;
                     }
                     break;
+                case 'get_lessons':
+                    // Forward get_lessons request to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
+                    break;
+                case 'openLessonsTab':
+                    // Open the lessons tab
+                    this.createOrShowLessonsTab();
+                    break;
                 case 'openDocument':
                     this._handleOpenDocument(data.payload, panel);
                     break;
@@ -160,6 +157,121 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         this._sendThemeToPanel(panel);
         vscode.window.onDidChangeActiveColorTheme(() => {
             this._sendThemeToPanel(panel);
+        });
+    }
+
+    public async createOrShowLessonsTab(): Promise<void> {
+        const lessonsTabId = 'lessons';
+        const columnToShowIn = vscode.window.activeTextEditor ?
+            vscode.ViewColumn.Beside :
+            vscode.ViewColumn.One;
+
+        // Check if we already have a lessons panel
+        let panel = this._panels.get(lessonsTabId);
+
+        if (panel) {
+            // Check if panel is disposed
+            if ((panel as any)._disposed || (panel as any).disposed) {
+                this._panels.delete(lessonsTabId);
+                panel = undefined;
+            } else {
+                // Panel exists and is not disposed, just reveal it
+                panel.reveal(columnToShowIn);
+                return;
+            }
+        }
+
+        // Create new panel for lessons
+        panel = vscode.window.createWebviewPanel(
+            GraphTabProvider.viewType,
+            'LLM Lessons',
+            columnToShowIn,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    this._extensionUri,
+                    vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                ]
+            }
+        );
+
+        // Set up the webview content for lessons
+        panel.webview.html = this._getHtmlForLessonsWebview(panel.webview);
+
+        // Store panel reference
+        this._panels.set(lessonsTabId, panel);
+
+        // Handle panel disposal
+        panel.onDidDispose(() => {
+            this._panels.delete(lessonsTabId);
+        }, null);
+
+        // Handle messages from the webview
+        panel.webview.onDidReceiveMessage(data => {
+            switch (data.type) {
+                case 'ready':
+                    // Ensure Python client is available
+                    if (!this._pythonClient) {
+                        this._pythonClient = PythonServerClient.getInstance();
+                        this._pythonClient.ensureConnected();
+                    }
+                    // Request lessons data
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
+                    break;
+                case 'add_lesson':
+                case 'update_lesson':
+                case 'delete_lesson':
+                    // Forward lesson CRUD operations to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
+                    break;
+                case 'navigateToRun':
+                    // Navigate to a specific run's graph - handled by opening a new graph tab
+                    if (data.sessionId) {
+                        // We need to get the experiment info to open the graph tab
+                        // For now, create a minimal experiment object
+                        const experiment = {
+                            session_id: data.sessionId,
+                            run_name: data.sessionId.substring(0, 8) + '...',
+                        };
+                        this.createOrShowGraphTab(experiment as any);
+                    }
+                    break;
+            }
+        });
+
+        // Set up message forwarding for lessons
+        this._setupLessonsMessageForwarding(panel);
+
+        // Send theme info
+        this._sendThemeToPanel(panel);
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            this._sendThemeToPanel(panel);
+        });
+    }
+
+    private _setupLessonsMessageForwarding(panel: vscode.WebviewPanel): void {
+        if (!this._pythonClient) {
+            console.warn('[GraphTabProvider] No Python client available for lessons message forwarding');
+            return;
+        }
+
+        const messageHandler = (msg: any) => {
+            // Forward lessons_list messages to the lessons panel
+            if (msg.type === 'lessons_list') {
+                panel.webview.postMessage(msg);
+            }
+        };
+
+        this._pythonClient.onMessage(messageHandler);
+
+        // Clean up when panel is disposed
+        panel.onDidDispose(() => {
+            this._pythonClient?.removeMessageListener(messageHandler);
         });
     }
 
@@ -250,6 +362,44 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         html = html.replace(/{{codiconsUri}}/g, codiconsUri.toString());
         html = html.replace(/{{sessionId}}/g, sessionId);
         
+        return html;
+    }
+
+    private _getHtmlForLessonsWebview(webview: vscode.Webview): string {
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Lessons</title>
+    <link rel="stylesheet" href="${codiconsUri}">
+    <script>
+        window.process = {
+            env: {},
+            platform: 'browser',
+            version: '',
+            versions: {},
+            type: 'renderer',
+            arch: 'x64'
+        };
+    </script>
+</head>
+<body>
+    <div id="lessons-root"></div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        window.vscode = vscode;
+        window.isLessonsView = true;
+    </script>
+    <script src="${scriptUri}"></script>
+</body>
+</html>
+        `;
+
         return html;
     }
 

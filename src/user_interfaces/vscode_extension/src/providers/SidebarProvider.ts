@@ -132,6 +132,10 @@ _context: vscode.WebviewViewResolveContext,
                 case 'edit_output':
                 case 'get_graph':
                 case 'erase':
+                case 'get_lessons':
+                case 'add_lesson':
+                case 'update_lesson':
+                case 'delete_lesson':
                     this._pythonClient?.sendMessage(data);
                     break;
                 case 'setDatabaseMode':
@@ -232,6 +236,13 @@ _context: vscode.WebviewViewResolveContext,
                         this._graphTabProvider.createOrShowGraphTab(data.payload.experiment);
                     } else {
                         console.warn('[GraphViewProvider] No GraphTabProvider available or missing experiment data');
+                    }
+                    break;
+                case 'openLessonsTab':
+                    if (this._graphTabProvider) {
+                        this._graphTabProvider.createOrShowLessonsTab();
+                    } else {
+                        console.warn('[GraphViewProvider] No GraphTabProvider available for lessons');
                     }
                     break;
                 case 'requestExperimentRefresh':

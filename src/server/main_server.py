@@ -580,6 +580,56 @@ class MainServer:
         # Then send the experiment list
         self.broadcast_experiment_list_to_uis(conn)
 
+    def handle_get_lessons(self, conn: socket.socket) -> None:
+        """Handle request for LLM lessons list."""
+        lessons = DB.get_all_lessons()
+        send_json(conn, {"type": "lessons_list", "lessons": lessons})
+
+    def handle_add_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to add a new lesson."""
+        lesson_id = msg.get("lesson_id")
+        lesson_text = msg.get("lesson_text", "")
+        from_session_id = msg.get("from_session_id")
+        from_node_id = msg.get("from_node_id")
+
+        if not lesson_id:
+            logger.error("add_lesson: Missing lesson_id")
+            return
+
+        DB.add_lesson(lesson_id, lesson_text, from_session_id, from_node_id)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def handle_update_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to update a lesson's text."""
+        lesson_id = msg.get("lesson_id")
+        lesson_text = msg.get("lesson_text")
+
+        if not lesson_id or lesson_text is None:
+            logger.error(f"update_lesson: Missing required fields: lesson_id={lesson_id}")
+            return
+
+        DB.update_lesson(lesson_id, lesson_text)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def handle_delete_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to delete a lesson."""
+        lesson_id = msg.get("lesson_id")
+
+        if not lesson_id:
+            logger.error("delete_lesson: Missing lesson_id")
+            return
+
+        DB.delete_lesson(lesson_id)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def _broadcast_lessons_to_uis(self) -> None:
+        """Broadcast updated lessons list to all UI connections."""
+        lessons = DB.get_all_lessons()
+        self.broadcast_to_all_uis({"type": "lessons_list", "lessons": lessons})
+
     # NOTE: Auth disabled - handle_auth method commented out
     # def handle_auth(self, msg: dict, conn: socket.socket) -> None:
     #     """Handle auth messages from UI clients: attach user_id to connection and store current user."""
@@ -795,6 +845,16 @@ class MainServer:
             self.handle_get_all_experiments(conn)
         elif msg_type == "update_command":
             self.handle_update_command(msg)
+        elif msg_type == "watch_file":
+            self.handle_watch_file(msg)
+        elif msg_type == "get_lessons":
+            self.handle_get_lessons(conn)
+        elif msg_type == "add_lesson":
+            self.handle_add_lesson(msg, conn)
+        elif msg_type == "update_lesson":
+            self.handle_update_lesson(msg, conn)
+        elif msg_type == "delete_lesson":
+            self.handle_delete_lesson(msg, conn)
         else:
             logger.error(f"Unknown message type. Message:\n{msg}")
 

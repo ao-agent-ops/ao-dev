@@ -598,6 +598,76 @@ class DatabaseManager:
         """Get the next run index based on how many runs already exist."""
         return self.backend.get_next_run_index_query()
 
+    # ============================================================
+    # Lessons operations
+    # ============================================================
+
+    def get_all_lessons(self):
+        """
+        Get all lessons with their extracted_from and applied_to information.
+
+        Returns:
+            List of lesson dicts with structure:
+            {
+                "id": str,
+                "content": str,
+                "extractedFrom": {"sessionId": str, "nodeId": str, "runName": str} | None,
+                "appliedTo": [{"sessionId": str, "nodeId": str, "runName": str}, ...]
+            }
+        """
+        lessons_rows = self.backend.get_all_lessons_query()
+        lessons = []
+
+        for row in lessons_rows:
+            lesson = {
+                "id": row["lesson_id"],
+                "content": row["lesson_text"],
+            }
+
+            # Add extractedFrom if present
+            if row["from_session_id"]:
+                lesson["extractedFrom"] = {
+                    "sessionId": row["from_session_id"],
+                    "nodeId": row["from_node_id"],
+                    "runName": row["from_run_name"] or "Unknown Run",
+                }
+
+            # Get applied_to records
+            applied_rows = self.backend.get_lessons_applied_query(row["lesson_id"])
+            if applied_rows:
+                lesson["appliedTo"] = [
+                    {
+                        "sessionId": applied["session_id"],
+                        "nodeId": applied["node_id"],
+                        "runName": applied["run_name"] or "Unknown Run",
+                    }
+                    for applied in applied_rows
+                ]
+
+            lessons.append(lesson)
+
+        return lessons
+
+    def add_lesson(self, lesson_id, lesson_text, from_session_id=None, from_node_id=None):
+        """Add a new lesson."""
+        self.backend.insert_lesson_query(lesson_id, lesson_text, from_session_id, from_node_id)
+
+    def update_lesson(self, lesson_id, lesson_text):
+        """Update an existing lesson's text."""
+        self.backend.update_lesson_query(lesson_id, lesson_text)
+
+    def delete_lesson(self, lesson_id):
+        """Delete a lesson and its applied records."""
+        self.backend.delete_lesson_query(lesson_id)
+
+    def add_lesson_applied(self, lesson_id, session_id, node_id=None):
+        """Record that a lesson was applied to a session/node."""
+        self.backend.add_lesson_applied_query(lesson_id, session_id, node_id)
+
+    def remove_lesson_applied(self, lesson_id, session_id, node_id=None):
+        """Remove a lesson application record."""
+        self.backend.remove_lesson_applied_query(lesson_id, session_id, node_id)
+
 
 # Create singleton instance following the established pattern
 DB = DatabaseManager()

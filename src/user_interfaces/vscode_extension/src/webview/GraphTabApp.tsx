@@ -3,6 +3,8 @@ import { GraphTabApp as SharedGraphTabApp } from '../../../shared_components/com
 import { GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
+import { GraphHeader } from '../../../shared_components/components/graph/GraphHeader';
+import { Lesson } from '../../../shared_components/components/lessons/LessonsView';
 import { DocumentContextProvider, useDocumentContext } from '../../../shared_components/contexts/DocumentContext';
 
 // Global type augmentation for window.vscode
@@ -21,6 +23,7 @@ const GraphTabAppInner: React.FC = () => {
   const [experiment, setExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const isDarkTheme = useIsVsCodeDarkTheme();
   const { setDocumentOpened } = useDocumentContext();
 
@@ -131,6 +134,9 @@ const GraphTabAppInner: React.FC = () => {
         case 'vscode-theme-change':
           // Theme changes are handled by the useIsVsCodeDarkTheme hook
           break;
+        case 'lessons_list':
+          // Update lessons for header stats
+          setLessons(message.lessons || []);
         case 'documentOpened':
           // Track opened document path for UI update
           if (message.payload?.documentKey && message.payload?.path) {
@@ -143,8 +149,10 @@ const GraphTabAppInner: React.FC = () => {
     window.addEventListener('message', handleMessage);
 
     // Send ready message to indicate the webview is loaded
+    // Also request lessons data for header stats
     if (window.vscode) {
       window.vscode.postMessage({ type: 'ready' });
+      window.vscode.postMessage({ type: 'get_lessons' });
     }
 
     return () => {
@@ -185,17 +193,26 @@ const GraphTabAppInner: React.FC = () => {
     }
   };
 
+  const handleNavigateToLessons = () => {
+    // Open lessons tab in VSCode
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'openLessonsTab' });
+    }
+  };
+
   return (
     <div
       style={{
         width: "100%",
-        minHeight: "100vh",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         background: isDarkTheme ? "#252525" : "#F0F0F0",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
-      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
         <SharedGraphTabApp
           experiment={experiment}
           graphData={graphData}
@@ -203,6 +220,15 @@ const GraphTabAppInner: React.FC = () => {
           messageSender={messageSender}
           isDarkTheme={isDarkTheme}
           onNodeUpdate={handleNodeUpdate}
+          headerContent={experiment && graphData ? (
+            <GraphHeader
+              runName={experiment.run_name || ''}
+              isDarkTheme={isDarkTheme}
+              sessionId={sessionId || undefined}
+              lessons={lessons}
+              onNavigateToLessons={handleNavigateToLessons}
+            />
+          ) : undefined}
         />
       </div>
     </div>
