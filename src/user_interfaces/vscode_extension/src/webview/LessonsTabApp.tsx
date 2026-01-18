@@ -47,7 +47,46 @@ export const LessonsTabApp: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      <LessonsView lessons={lessons} isDarkTheme={isDarkTheme} />
+      <LessonsView
+        lessons={lessons}
+        isDarkTheme={isDarkTheme}
+        onAddLesson={() => {
+          // Add a new lesson via postMessage to backend
+          const newLessonId = `lesson-${Date.now()}`;
+          if (window.vscode) {
+            window.vscode.postMessage({
+              type: 'add_lesson',
+              lesson_id: newLessonId,
+              lesson_text: 'New lesson - click to edit',
+            });
+          }
+        }}
+        onLessonUpdate={(id, content) => {
+          // Update lesson via postMessage to backend
+          if (window.vscode) {
+            window.vscode.postMessage({
+              type: 'update_lesson',
+              lesson_id: id,
+              lesson_text: content,
+            });
+          }
+        }}
+        onLessonDelete={(id) => {
+          // Delete lesson via postMessage to backend
+          if (window.vscode) {
+            window.vscode.postMessage({
+              type: 'delete_lesson',
+              lesson_id: id,
+            });
+          }
+        }}
+        onNavigateToRun={(sessionId, nodeId) => {
+          // Navigate to the run - open graph tab (optionally focus on node)
+          if (window.vscode) {
+            window.vscode.postMessage({ type: 'navigateToRun', sessionId, nodeId });
+          }
+        }}
+      />
     </div>
   );
 };

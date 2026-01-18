@@ -6,6 +6,7 @@ import { GraphTabApp } from "../../../shared_components/components/GraphTabApp";
 import { ExperimentsView} from "../../../shared_components/components/experiment/ExperimentsView";
 import type { MessageSender } from "../../../shared_components/types/MessageSender";
 import { LessonsView, type Lesson } from "../../../shared_components/components/lessons/LessonsView";
+import { GraphHeader } from "../../../shared_components/components/graph/GraphHeader";
 
 interface Experiment {
   session_id: string;
@@ -149,8 +150,9 @@ function App() {
       // with role: "ui" and user_id from the URL query parameter.
       // We should NOT send our own handshake here.
 
-      // Request the experiment list
+      // Request the experiment list and lessons
       socket.send(JSON.stringify({ type: "get_all_experiments" }));
+      socket.send(JSON.stringify({ type: "get_lessons" }));
     };
 
     socket.onmessage = (event: MessageEvent) => {
@@ -429,23 +431,61 @@ function App() {
 
       <div className="graph-container" ref={graphContainerRef}>
         {showLessons ? (
-          <LessonsView lessons={lessons} isDarkTheme={isDarkTheme} />
+          <LessonsView
+            lessons={lessons}
+            isDarkTheme={isDarkTheme}
+            onAddLesson={() => {
+              // Add a new lesson via WebSocket
+              const newLessonId = `lesson-${Date.now()}`;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: "add_lesson",
+                  lesson_id: newLessonId,
+                  lesson_text: 'New lesson - click to edit',
+                }));
+              }
+            }}
+            onLessonUpdate={(id, content) => {
+              // Update lesson via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: "update_lesson",
+                  lesson_id: id,
+                  lesson_text: content,
+                }));
+              }
+            }}
+            onLessonDelete={(id) => {
+              // Delete lesson via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: "delete_lesson",
+                  lesson_id: id,
+                }));
+              }
+            }}
+            onNavigateToRun={(sessionId, nodeId) => {
+              // Navigate to the run (and optionally focus on a specific node)
+              const experiment = experiments.find(e => e.session_id === sessionId);
+              if (experiment) {
+                setShowLessons(false);
+                setSelectedExperiment(experiment);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: "get_graph", session_id: sessionId }));
+                }
+              }
+            }}
+          />
         ) : selectedExperiment && graphData ? (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             {/* Graph Title Header */}
-            <div
-              style={{
-                padding: "12px 20px",
-                borderBottom: `1px solid ${isDarkTheme ? "#3c3c3c" : "#e0e0e0"}`,
-                backgroundColor: isDarkTheme ? "#1e1e1e" : "#ffffff",
-                color: isDarkTheme ? "#e5e5e5" : "#333333",
-                fontSize: "16px",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {selectedExperiment.run_name || 'Untitled'}
-            </div>
+            <GraphHeader
+              runName={selectedExperiment.run_name || ''}
+              sessionId={selectedExperiment.session_id}
+              lessons={lessons}
+              isDarkTheme={isDarkTheme}
+              onNavigateToLessons={() => setShowLessons(true)}
+            />
             {/* Graph */}
             <div style={{ flex: 1, minHeight: 0 }}>
               <GraphTabApp

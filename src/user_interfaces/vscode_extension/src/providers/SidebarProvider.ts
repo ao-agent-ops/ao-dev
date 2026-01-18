@@ -133,6 +133,9 @@ _context: vscode.WebviewViewResolveContext,
                 case 'get_graph':
                 case 'erase':
                 case 'get_lessons':
+                case 'add_lesson':
+                case 'update_lesson':
+                case 'delete_lesson':
                     this._pythonClient?.sendMessage(data);
                     break;
                 case 'setDatabaseMode':

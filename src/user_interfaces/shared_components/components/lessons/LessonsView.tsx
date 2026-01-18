@@ -1,193 +1,353 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export interface Lesson {
   id: string;
-  title: string;
-  category: string;
-  description: string;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
-  tags: string[];
+  content: string;
+  extractedFrom?: { sessionId: string; nodeId?: string; runName: string };
+  appliedTo?: { sessionId: string; nodeId?: string; runName: string }[];
 }
 
 interface LessonsViewProps {
   lessons: Lesson[];
   isDarkTheme: boolean;
+  onLessonUpdate?: (id: string, content: string) => void;
+  onLessonDelete?: (id: string) => void;
+  onNavigateToRun?: (sessionId: string, nodeId?: string) => void;
+  onAddLesson?: () => void;
 }
 
-function getCategoryColor(category: string): string {
-  const categoryColors: Record<string, string> = {
-    'Basics': '#4a9eff',
-    'Prompting': '#7fc17b',
-    'Optimization': '#d4a825',
-    'Advanced Techniques': '#c586c0',
-    'Best Practices': '#4ec9b0',
+export const LessonsView: React.FC<LessonsViewProps> = ({
+  lessons,
+  isDarkTheme,
+  onLessonUpdate,
+  onLessonDelete,
+  onNavigateToRun,
+  onAddLesson,
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+
+  const filteredLessons = lessons.filter((lesson) =>
+    lesson.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleStartEdit = (lesson: Lesson) => {
+    setEditingId(lesson.id);
+    setEditContent(lesson.content);
   };
-  return categoryColors[category] || '#888888';
-}
 
-export const LessonsView: React.FC<LessonsViewProps> = ({ lessons, isDarkTheme }) => {
+  const handleSaveEdit = (id: string) => {
+    if (onLessonUpdate) {
+      onLessonUpdate(id, editContent);
+    }
+    setEditingId(null);
+    setEditContent('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditContent('');
+  };
+
+  const buttonStyle = (isDark: boolean, variant: 'primary' | 'secondary' = 'secondary') => ({
+    padding: '4px 10px',
+    fontSize: '11px',
+    fontWeight: 500 as const,
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    backgroundColor: variant === 'primary'
+      ? (isDark ? '#0e639c' : '#007acc')
+      : (isDark ? '#3c3c3c' : '#e8e8e8'),
+    color: variant === 'primary'
+      ? '#ffffff'
+      : (isDark ? '#cccccc' : '#333333'),
+    transition: 'background-color 0.15s ease',
+  });
+
   return (
     <div
       style={{
-        width: "100%",
-        height: "100%",
-        backgroundColor: isDarkTheme ? "#1e1e1e" : "#ffffff",
-        color: isDarkTheme ? "#e5e5e5" : "#333333",
+        width: '100%',
+        height: '100%',
+        backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+        color: isDarkTheme ? '#e5e5e5' : '#333333',
         fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      {/* Header */}
+      {/* Header with Search */}
       <div
         style={{
-          padding: "20px 24px",
-          borderBottom: `1px solid ${isDarkTheme ? "#3c3c3c" : "#e0e0e0"}`,
-          backgroundColor: isDarkTheme ? "#1e1e1e" : "#ffffff",
+          padding: '16px 20px',
+          borderBottom: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
+          backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
           flexShrink: 0,
         }}
       >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "20px",
-            fontWeight: 600,
-            color: isDarkTheme ? "#e5e5e5" : "#333333",
-          }}
-        >
-          LLM Lessons & Best Practices
-        </h2>
-        <p
-          style={{
-            margin: "8px 0 0 0",
-            fontSize: "13px",
-            color: isDarkTheme ? "#a0a0a0" : "#666666",
-          }}
-        >
-          Learn best practices for working with Large Language Models
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: '18px',
+              fontWeight: 600,
+              color: isDarkTheme ? '#e5e5e5' : '#333333',
+            }}
+          >
+            Lessons
+          </h2>
+          {onAddLesson && (
+            <button
+              onClick={onAddLesson}
+              style={{
+                ...buttonStyle(isDarkTheme, 'primary'),
+                padding: '6px 12px',
+                fontSize: '12px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#0062a3';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+              }}
+            >
+              + Add Lesson
+            </button>
+          )}
+        </div>
+
+        {/* Search Bar */}
+        <div style={{ position: 'relative' }}>
+          <svg
+            style={{
+              position: 'absolute',
+              left: '10px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: '14px',
+              height: '14px',
+              fill: isDarkTheme ? '#888888' : '#666666',
+            }}
+            viewBox="0 0 16 16"
+          >
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search lessons..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px 8px 32px',
+              fontSize: '13px',
+              border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#d0d0d0'}`,
+              borderRadius: '4px',
+              backgroundColor: isDarkTheme ? '#2d2d2d' : '#ffffff',
+              color: isDarkTheme ? '#e5e5e5' : '#333333',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = isDarkTheme ? '#0e639c' : '#007acc';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = isDarkTheme ? '#3c3c3c' : '#d0d0d0';
+            }}
+          />
+        </div>
       </div>
 
       {/* Lessons List */}
-      <div style={{ flex: 1, overflow: "auto", padding: "20px" }}>
-        {lessons.length === 0 ? (
+      <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+        {filteredLessons.length === 0 ? (
           <div
             style={{
-              textAlign: "center",
-              padding: "40px 20px",
-              color: isDarkTheme ? "#888888" : "#666666",
+              textAlign: 'center',
+              padding: '40px 20px',
+              color: isDarkTheme ? '#888888' : '#666666',
             }}
           >
-            No lessons available
+            {searchQuery ? 'No lessons match your search' : 'No lessons yet'}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {lessons.map((lesson) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {filteredLessons.map((lesson) => (
               <div
                 key={lesson.id}
                 style={{
-                  backgroundColor: isDarkTheme ? "#252525" : "#ffffff",
-                  border: `1px solid ${isDarkTheme ? "#3c3c3c" : "#e0e0e0"}`,
-                  borderRadius: "6px",
-                  padding: "18px 20px",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isDarkTheme ? "#2d2d2d" : "#f9f9f9";
-                  e.currentTarget.style.borderColor = isDarkTheme ? "#555" : "#ccc";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isDarkTheme ? "#252525" : "#ffffff";
-                  e.currentTarget.style.borderColor = isDarkTheme ? "#3c3c3c" : "#e0e0e0";
+                  backgroundColor: isDarkTheme ? '#252525' : '#fafafa',
+                  border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
+                  borderRadius: '6px',
+                  padding: '14px 16px',
                 }}
               >
-                {/* Title and Category */}
-                <div style={{ marginBottom: "8px" }}>
-                  <h3
-                    style={{
-                      margin: "0 0 6px 0",
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      color: isDarkTheme ? "#e5e5e5" : "#333333",
-                    }}
-                  >
-                    {lesson.title}
-                  </h3>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span
+                {/* Content - Editable */}
+                {editingId === lesson.id ? (
+                  <div style={{ marginBottom: '12px' }}>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
                       style={{
-                        fontSize: "11px",
-                        fontWeight: "600",
-                        padding: "3px 8px",
-                        borderRadius: "3px",
-                        backgroundColor: getCategoryColor(lesson.category),
-                        color: "#ffffff",
+                        width: '100%',
+                        minHeight: '80px',
+                        padding: '10px',
+                        fontSize: '13px',
+                        lineHeight: '1.5',
+                        border: `1px solid ${isDarkTheme ? '#0e639c' : '#007acc'}`,
+                        borderRadius: '4px',
+                        backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+                        color: isDarkTheme ? '#e5e5e5' : '#333333',
+                        resize: 'vertical',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        fontFamily: 'inherit',
                       }}
-                    >
-                      {lesson.category}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: "500",
-                        padding: "3px 8px",
-                        borderRadius: "3px",
-                        backgroundColor:
-                          lesson.difficulty === 'Beginner'
-                            ? 'rgba(127, 193, 123, 0.15)'
-                            : lesson.difficulty === 'Intermediate'
-                            ? 'rgba(212, 168, 37, 0.15)'
-                            : 'rgba(224, 82, 82, 0.15)',
-                        color:
-                          lesson.difficulty === 'Beginner'
-                            ? '#7fc17b'
-                            : lesson.difficulty === 'Intermediate'
-                            ? '#d4a825'
-                            : '#e05252',
-                      }}
-                    >
-                      {lesson.difficulty}
-                    </span>
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        onClick={() => handleSaveEdit(lesson.id)}
+                        style={buttonStyle(isDarkTheme, 'primary')}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#0062a3';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        style={buttonStyle(isDarkTheme)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#d0d0d0';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#3c3c3c' : '#e8e8e8';
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p
+                    style={{
+                      margin: '0 0 12px 0',
+                      fontSize: '13px',
+                      lineHeight: '1.6',
+                      color: isDarkTheme ? '#d4d4d4' : '#444444',
+                      cursor: 'text',
+                    }}
+                    onClick={() => handleStartEdit(lesson)}
+                    title="Click to edit"
+                  >
+                    {lesson.content}
+                  </p>
+                )}
 
-                {/* Description */}
-                <p
-                  style={{
-                    margin: "0 0 12px 0",
-                    fontSize: "13px",
-                    lineHeight: "1.6",
-                    color: isDarkTheme ? "#cccccc" : "#555555",
-                  }}
-                >
-                  {lesson.description}
-                </p>
-
-                {/* Tags */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                  }}
-                >
-                  {lesson.tags.map((tag: string) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontSize: "11px",
-                        padding: "3px 8px",
-                        borderRadius: "10px",
-                        backgroundColor: isDarkTheme ? "#3c3c3c" : "#e8e8e8",
-                        color: isDarkTheme ? "#aaaaaa" : "#555555",
+                {/* Action Buttons */}
+                {editingId !== lesson.id && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => handleStartEdit(lesson)}
+                      style={buttonStyle(isDarkTheme)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#d0d0d0';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = isDarkTheme ? '#3c3c3c' : '#e8e8e8';
                       }}
                     >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                      Edit
+                    </button>
+
+                    {/* Delete Button */}
+                    {onLessonDelete && (
+                      <button
+                        onClick={() => onLessonDelete(lesson.id)}
+                        style={{
+                          ...buttonStyle(isDarkTheme),
+                          color: isDarkTheme ? '#f48771' : '#d32f2f',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#d0d0d0';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#3c3c3c' : '#e8e8e8';
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
+
+                    {/* Extracted From Button */}
+                    {lesson.extractedFrom && (
+                      <button
+                        onClick={() => onNavigateToRun?.(lesson.extractedFrom!.sessionId, lesson.extractedFrom!.nodeId)}
+                        style={{
+                          ...buttonStyle(isDarkTheme),
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#d0d0d0';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isDarkTheme ? '#3c3c3c' : '#e8e8e8';
+                        }}
+                        title={`Go to: ${lesson.extractedFrom.runName}`}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-3a.5.5 0 0 1 1 0v3A2.5 2.5 0 0 1 11.5 14h-7A2.5 2.5 0 0 1 2 11.5v-7A2.5 2.5 0 0 1 4.5 2h3a.5.5 0 0 1 0 1h-3z"/>
+                          <path d="M10 2a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V2.707l-5.146 5.147a.5.5 0 0 1-.708-.708L13.293 2H10.5A.5.5 0 0 1 10 1.5z"/>
+                        </svg>
+                        Extracted from: {lesson.extractedFrom.runName}
+                      </button>
+                    )}
+
+                    {/* Applied To Buttons */}
+                    {lesson.appliedTo && lesson.appliedTo.length > 0 && (
+                      <>
+                        <span style={{ fontSize: '11px', color: isDarkTheme ? '#888888' : '#888888' }}>
+                          Applied to:
+                        </span>
+                        {lesson.appliedTo.map((target, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => onNavigateToRun?.(target.sessionId, target.nodeId)}
+                            style={{
+                              ...buttonStyle(isDarkTheme),
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = isDarkTheme ? '#4a4a4a' : '#d0d0d0';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isDarkTheme ? '#3c3c3c' : '#e8e8e8';
+                            }}
+                            title={`Go to: ${target.runName}`}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                              <path d="M4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-3a.5.5 0 0 1 1 0v3A2.5 2.5 0 0 1 11.5 14h-7A2.5 2.5 0 0 1 2 11.5v-7A2.5 2.5 0 0 1 4.5 2h3a.5.5 0 0 1 0 1h-3z"/>
+                              <path d="M10 2a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V2.707l-5.146 5.147a.5.5 0 0 1-.708-.708L13.293 2H10.5A.5.5 0 0 1 10 1.5z"/>
+                            </svg>
+                            {target.runName}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

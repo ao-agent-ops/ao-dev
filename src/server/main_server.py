@@ -593,96 +593,53 @@ class MainServer:
 
     def handle_get_lessons(self, conn: socket.socket) -> None:
         """Handle request for LLM lessons list."""
-        lessons = self.get_llm_lessons()
+        lessons = DB.get_all_lessons()
         send_json(conn, {"type": "lessons_list", "lessons": lessons})
 
-    def get_llm_lessons(self) -> list:
-        """Return a list of LLM best practices and lessons.
+    def handle_add_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to add a new lesson."""
+        lesson_id = msg.get("lesson_id")
+        lesson_text = msg.get("lesson_text", "")
+        from_session_id = msg.get("from_session_id")
+        from_node_id = msg.get("from_node_id")
 
-        This is a simple dummy implementation that returns static lessons.
-        """
-        return [
-            {
-                "id": "1",
-                "title": "Understanding Temperature",
-                "category": "Basics",
-                "description": "Temperature controls randomness in responses. Lower values (0.1-0.3) make outputs more focused and deterministic, while higher values (0.7-1.0) make them more creative and diverse.",
-                "difficulty": "Beginner",
-                "tags": ["parameters", "temperature", "basics"],
-            },
-            {
-                "id": "2",
-                "title": "Effective Prompt Engineering",
-                "category": "Prompting",
-                "description": "Clear, specific prompts yield better results. Include context, specify the desired format, provide examples, and break complex tasks into steps.",
-                "difficulty": "Beginner",
-                "tags": ["prompting", "best-practices"],
-            },
-            {
-                "id": "3",
-                "title": "Managing Context Windows",
-                "category": "Optimization",
-                "description": "LLMs have token limits. Prioritize relevant context, use summarization for long histories, and consider chunking large documents for processing.",
-                "difficulty": "Intermediate",
-                "tags": ["context", "tokens", "optimization"],
-            },
-            {
-                "id": "4",
-                "title": "Chain of Thought Reasoning",
-                "category": "Advanced Techniques",
-                "description": "Ask the model to think step-by-step before answering. Prefix prompts with 'Let's think through this step by step' to improve reasoning quality.",
-                "difficulty": "Intermediate",
-                "tags": ["reasoning", "prompting", "techniques"],
-            },
-            {
-                "id": "5",
-                "title": "Handling Hallucinations",
-                "category": "Best Practices",
-                "description": "LLMs can generate false information. Mitigate by requesting citations, using retrieval-augmented generation (RAG), and validating critical outputs.",
-                "difficulty": "Intermediate",
-                "tags": ["hallucinations", "accuracy", "rag"],
-            },
-            {
-                "id": "6",
-                "title": "Few-Shot Learning",
-                "category": "Advanced Techniques",
-                "description": "Provide 2-5 examples in your prompt to demonstrate the desired output format and style. This dramatically improves consistency.",
-                "difficulty": "Intermediate",
-                "tags": ["few-shot", "examples", "prompting"],
-            },
-            {
-                "id": "7",
-                "title": "System Message Design",
-                "category": "Prompting",
-                "description": "System messages set the assistant's behavior. Use them to define role, tone, constraints, and output format preferences.",
-                "difficulty": "Beginner",
-                "tags": ["system-message", "setup", "configuration"],
-            },
-            {
-                "id": "8",
-                "title": "Token Economics",
-                "category": "Optimization",
-                "description": "Tokens include both input and output. Optimize prompts for brevity, cache common prefixes, and use cheaper models for simple tasks.",
-                "difficulty": "Advanced",
-                "tags": ["cost", "tokens", "efficiency"],
-            },
-            {
-                "id": "9",
-                "title": "Error Handling and Retries",
-                "category": "Best Practices",
-                "description": "Implement exponential backoff for rate limits, validate responses, and have fallback strategies for API failures.",
-                "difficulty": "Intermediate",
-                "tags": ["errors", "reliability", "production"],
-            },
-            {
-                "id": "10",
-                "title": "JSON Mode and Structured Outputs",
-                "category": "Advanced Techniques",
-                "description": "Use JSON mode to enforce structured outputs. Provide a schema in your prompt and validate the response format.",
-                "difficulty": "Advanced",
-                "tags": ["json", "structured-data", "parsing"],
-            },
-        ]
+        if not lesson_id:
+            logger.error("add_lesson: Missing lesson_id")
+            return
+
+        DB.add_lesson(lesson_id, lesson_text, from_session_id, from_node_id)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def handle_update_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to update a lesson's text."""
+        lesson_id = msg.get("lesson_id")
+        lesson_text = msg.get("lesson_text")
+
+        if not lesson_id or lesson_text is None:
+            logger.error(f"update_lesson: Missing required fields: lesson_id={lesson_id}")
+            return
+
+        DB.update_lesson(lesson_id, lesson_text)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def handle_delete_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Handle request to delete a lesson."""
+        lesson_id = msg.get("lesson_id")
+
+        if not lesson_id:
+            logger.error("delete_lesson: Missing lesson_id")
+            return
+
+        DB.delete_lesson(lesson_id)
+        # Broadcast updated lessons list to all UIs
+        self._broadcast_lessons_to_uis()
+
+    def _broadcast_lessons_to_uis(self) -> None:
+        """Broadcast updated lessons list to all UI connections."""
+        lessons = DB.get_all_lessons()
+        self.broadcast_to_all_uis({"type": "lessons_list", "lessons": lessons})
 
     # NOTE: Auth disabled - handle_auth method commented out
     # def handle_auth(self, msg: dict, conn: socket.socket) -> None:
@@ -903,6 +860,12 @@ class MainServer:
             self.handle_watch_file(msg)
         elif msg_type == "get_lessons":
             self.handle_get_lessons(conn)
+        elif msg_type == "add_lesson":
+            self.handle_add_lesson(msg, conn)
+        elif msg_type == "update_lesson":
+            self.handle_update_lesson(msg, conn)
+        elif msg_type == "delete_lesson":
+            self.handle_delete_lesson(msg, conn)
         else:
             logger.error(f"Unknown message type. Message:\n{msg}")
 

@@ -145,6 +145,16 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                         targetPanel.title = `Graph: ${title}`;
                     }
                     break;
+                case 'get_lessons':
+                    // Forward get_lessons request to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
+                    break;
+                case 'openLessonsTab':
+                    // Open the lessons tab
+                    this.createOrShowLessonsTab();
+                    break;
             }
         });
 
@@ -217,6 +227,26 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                     // Request lessons data
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
+                    break;
+                case 'add_lesson':
+                case 'update_lesson':
+                case 'delete_lesson':
+                    // Forward lesson CRUD operations to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
+                    break;
+                case 'navigateToRun':
+                    // Navigate to a specific run's graph - handled by opening a new graph tab
+                    if (data.sessionId) {
+                        // We need to get the experiment info to open the graph tab
+                        // For now, create a minimal experiment object
+                        const experiment = {
+                            session_id: data.sessionId,
+                            run_name: data.sessionId.substring(0, 8) + '...',
+                        };
+                        this.createOrShowGraphTab(experiment as any);
                     }
                     break;
             }

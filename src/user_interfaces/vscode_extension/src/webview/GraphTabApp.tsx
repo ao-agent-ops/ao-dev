@@ -3,6 +3,8 @@ import { GraphTabApp as SharedGraphTabApp } from '../../../shared_components/com
 import { GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
+import { GraphHeader } from '../../../shared_components/components/graph/GraphHeader';
+import { Lesson } from '../../../shared_components/components/lessons/LessonsView';
 
 // Global type augmentation for window.vscode
 declare global {
@@ -19,6 +21,7 @@ export const GraphTabApp: React.FC = () => {
   const [experiment, setExperiment] = useState<ProcessInfo | null>(null);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const isDarkTheme = useIsVsCodeDarkTheme();
 
   // Override body overflow to allow scrolling
@@ -128,14 +131,20 @@ export const GraphTabApp: React.FC = () => {
         case 'vscode-theme-change':
           // Theme changes are handled by the useIsVsCodeDarkTheme hook
           break;
+        case 'lessons_list':
+          // Update lessons for header stats
+          setLessons(message.lessons || []);
+          break;
       }
     };
 
     window.addEventListener('message', handleMessage);
 
     // Send ready message to indicate the webview is loaded
+    // Also request lessons data for header stats
     if (window.vscode) {
       window.vscode.postMessage({ type: 'ready' });
+      window.vscode.postMessage({ type: 'get_lessons' });
     }
 
     return () => {
@@ -176,6 +185,13 @@ export const GraphTabApp: React.FC = () => {
     }
   };
 
+  const handleNavigateToLessons = () => {
+    // Open lessons tab in VSCode
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'openLessonsTab' });
+    }
+  };
+
   return (
     <div
       style={{
@@ -186,6 +202,16 @@ export const GraphTabApp: React.FC = () => {
         background: isDarkTheme ? "#252525" : "#F0F0F0",
       }}
     >
+      {/* Graph Header with lesson stats */}
+      {experiment && sessionId && (
+        <GraphHeader
+          runName={experiment.run_name || ''}
+          sessionId={sessionId}
+          lessons={lessons}
+          isDarkTheme={isDarkTheme}
+          onNavigateToLessons={handleNavigateToLessons}
+        />
+      )}
       <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
         <SharedGraphTabApp
           experiment={experiment}
