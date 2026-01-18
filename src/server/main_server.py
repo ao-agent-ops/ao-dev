@@ -650,7 +650,7 @@ class MainServer:
     def handle_add_subrun(self, msg: dict, conn: socket.socket) -> None:
         # If rerun, use previous session_id. Else, assign new one.
         prev_session_id = msg.get("prev_session_id")
-        if prev_session_id is not None:
+        if prev_session_id:
             session_id = prev_session_id
         else:
             session_id = str(uuid.uuid4())
@@ -876,7 +876,7 @@ class MainServer:
             if role == "agent-runner":
                 # If rerun, use previous session_id. Else, assign new one.
                 prev_session_id = handshake.get("prev_session_id")
-                if prev_session_id is not None:
+                if prev_session_id:
                     session_id = prev_session_id
                 else:
                     session_id = str(uuid.uuid4())

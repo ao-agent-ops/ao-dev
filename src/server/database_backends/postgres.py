@@ -510,6 +510,19 @@ def get_experiment_exec_info_query(session_id):
     )
 
 
+# Copy queries
+def copy_llm_calls_query(old_session_id, new_session_id):
+    """Copy all llm_calls from one session to another with a new session_id."""
+    execute(
+        """
+        INSERT INTO llm_calls (session_id, node_id, input, input_hash, input_overwrite, output, color, label, api_type, stack_trace, timestamp)
+        SELECT %s, node_id, input, input_hash, input_overwrite, output, color, label, api_type, stack_trace, timestamp
+        FROM llm_calls WHERE session_id=%s
+        """,
+        (new_session_id, old_session_id),
+    )
+
+
 # Database cleanup queries
 def delete_all_experiments_query():
     """Delete all records from experiments table."""

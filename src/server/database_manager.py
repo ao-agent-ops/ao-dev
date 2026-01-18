@@ -10,7 +10,7 @@ import uuid
 import json
 import random
 from dataclasses import dataclass
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any
 
 from ao.common.logger import logger
 
@@ -619,6 +619,11 @@ class DatabaseManager:
     def get_llm_call_full(self, session_id, node_id):
         """Get full LLM call data including input, output, and overwrites."""
         return self.backend.get_llm_call_full_query(session_id, node_id)
+
+    def copy_llm_calls(self, old_session_id, new_session_id):
+        """Copy all LLM calls from one session to another."""
+        self.backend.copy_llm_calls_query(old_session_id, new_session_id)
+
     # ============================================================
     # Lessons operations
     # ============================================================

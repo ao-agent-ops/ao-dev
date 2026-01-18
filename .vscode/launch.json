@@ -48,6 +48,22 @@
       "justMyCode": false
     },
     {
+      "name": "ao-tool edit-and-rerun",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ao.cli.ao_tool",
+      "args": [
+        "edit-and-rerun",
+        "--output",
+        "{\"content.content\": [{\"text\": \"Is pineapple an acceptable pizza topping?\"}], \"content.role\": \"assistant\"}",
+        "--wait",
+        "d485e4f2-49db-43cb-aa23-91c515e0499b",
+        "c504dbef-16a8-4869-8478-1a31b8f73c4d",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "ao-record",
       "type": "debugpy",
       "request": "launch",

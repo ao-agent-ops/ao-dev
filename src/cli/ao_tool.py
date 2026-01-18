@@ -555,6 +555,59 @@ def rerun_command(args) -> None:
     output_json(result)
 
 
+def _copy_experiment(session_id: str, run_name: str | None = None) -> str | dict:
+    """
+    Clones the experiment and llm-calls entries for the given session_id in the DB
+    and writes them into new entries in the DB with a new session id we generate here.
+    Returns the new session id, or an error dict if the session doesn't exist.
+
+    Args:
+        session_id: The session to copy
+        run_name: Optional name for the new run. If None, defaults to "Edit of <original name>"
+    """
+    from datetime import datetime
+
+    # Get the original experiment metadata
+    experiment = DB.get_experiment_metadata(session_id)
+    if not experiment:
+        return {"status": "error", "error": f"Session not found: {session_id}"}
+
+    # Get execution info (cwd, command, environment)
+    cwd, command, environment = DB.get_exec_command(session_id)
+    if not command:
+        return {"status": "error", "error": f"No command stored for session: {session_id}"}
+
+    # Generate new session ID
+    new_session_id = str(uuid.uuid4())
+
+    # Determine run name
+    if run_name is None:
+        run_name = f"Edit of {experiment['name']}"
+
+    # Create new experiment with copied data but new session_id and timestamp
+    DB.add_experiment(
+        session_id=new_session_id,
+        name=run_name,
+        timestamp=datetime.now(),
+        cwd=cwd,
+        command=command,
+        environment=environment,
+        parent_session_id=new_session_id,  # Self-referential for new top-level run
+        user_id=None,
+        version_date=experiment["version_date"],
+    )
+
+    # Copy graph topology from original
+    if experiment["graph_topology"]:
+        graph = json.loads(experiment["graph_topology"])
+        DB.update_graph_topology(new_session_id, graph)
+
+    # Copy all LLM calls to new session
+    DB.copy_llm_calls(session_id, new_session_id)
+
+    return new_session_id
+
+
 def edit_and_rerun_command(args) -> None:
     """Edit a node and immediately rerun the session."""
     session_id = args.session_id
@@ -567,6 +620,12 @@ def edit_and_rerun_command(args) -> None:
     else:
         field = "output"
         value = args.output
+
+    if args.as_new_run:
+        result = _copy_experiment(session_id, args.run_name)
+        if isinstance(result, dict):
+            output_json(result)
+        session_id = result
 
     # Step 1: Apply the edit
     edit_result = _apply_edit(session_id, node_id, field, value)
@@ -739,6 +798,15 @@ def create_parser() -> ArgumentParser:
         type=float,
         default=None,
         help="Timeout in seconds when using --wait",
+    )
+    edit_and_rerun.add_argument(
+        "--as-new-run",
+        action="store_true",
+        help="Create a new session instead of reusing the existing one",
+    )
+    edit_and_rerun.add_argument(
+        "--run-name",
+        help="Name for the new run (only used with --as-new-run). Defaults to 'Edit of <original name>'",
     )
 
     return parser
