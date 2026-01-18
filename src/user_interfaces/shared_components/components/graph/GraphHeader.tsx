@@ -32,67 +32,79 @@ export const GraphHeader: React.FC<GraphHeaderProps> = ({
         position: 'sticky',
         top: 0,
         zIndex: 150,
-        backgroundColor: isDarkTheme ? '#252525' : '#F0F0F0',
-        padding: '16px 24px 12px 24px',
+        height: 0,
+        overflow: 'visible',
       }}
     >
-      {/* Run Name */}
+      {/* Content wrapper with background */}
       <div
         style={{
-          fontSize: '18px',
-          fontWeight: 600,
-          color: isDarkTheme ? '#e5e5e5' : '#333333',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          position: 'absolute',
+          top: '12px',
+          left: '16px',
+          backgroundColor: isDarkTheme ? '#252525' : '#F0F0F0',
+          padding: '12px 16px',
+          borderRadius: '8px',
         }}
       >
-        {runName || 'Untitled'}
-      </div>
-
-      {/* Horizontal Line */}
-      {sessionId && (
+        {/* Run Name */}
         <div
           style={{
-            width: '270px',
-            height: '1px',
-            backgroundColor: isDarkTheme ? '#3c3c3c' : '#d0d0d0',
-            margin: '8px 0',
+            fontSize: '18px',
+            fontWeight: 600,
+            color: isDarkTheme ? '#e5e5e5' : '#333333',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
-        />
-      )}
-
-      {/* Lesson Stats */}
-      {sessionId && (
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: onNavigateToLessons ? 'pointer' : 'default',
-            fontSize: '15px',
-            color: isDarkTheme ? '#9d9d9d' : '#666666',
-            fontWeight: 400,
-            transition: 'color 0.2s',
-          }}
-          onClick={onNavigateToLessons}
-          onMouseEnter={(e) => {
-            if (onNavigateToLessons) {
-              e.currentTarget.style.color = isDarkTheme ? '#e5e5e5' : '#333333';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (onNavigateToLessons) {
-              e.currentTarget.style.color = isDarkTheme ? '#9d9d9d' : '#666666';
-            }
-          }}
-          title="View lessons"
         >
-          <span>{lessonsExtractedFrom} lesson{lessonsExtractedFrom !== 1 ? 's' : ''} extracted</span>
-          <span style={{ color: isDarkTheme ? '#555555' : '#c0c0c0' }}>|</span>
-          <span>{lessonsAppliedTo} lesson{lessonsAppliedTo !== 1 ? 's' : ''} applied</span>
+          {runName || 'Untitled'}
         </div>
-      )}
+
+        {/* Horizontal Line */}
+        {sessionId && (
+          <div
+            style={{
+              width: '280px',
+              height: '1.5px',
+              backgroundColor: isDarkTheme ? '#3c3c3c' : '#d0d0d0',
+              margin: '8px 0',
+            }}
+          />
+        )}
+
+        {/* Lesson Stats */}
+        {sessionId && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: onNavigateToLessons ? 'pointer' : 'default',
+              fontSize: '15px',
+              color: isDarkTheme ? '#aeaeae' : '#666666',
+              fontWeight: 400,
+              transition: 'color 0.2s',
+            }}
+            onClick={onNavigateToLessons}
+            onMouseEnter={(e) => {
+              if (onNavigateToLessons) {
+                e.currentTarget.style.color = isDarkTheme ? '#cecece' : '#333333';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (onNavigateToLessons) {
+                e.currentTarget.style.color = isDarkTheme ? '#aeaeae' : '#666666';
+              }
+            }}
+            title="View lessons"
+          >
+            <span>{lessonsExtractedFrom} lesson{lessonsExtractedFrom !== 1 ? 's' : ''} extracted</span>
+            <span style={{ color: isDarkTheme ? '#555555' : '#c0c0c0' }}>|</span>
+            <span>{lessonsAppliedTo} lesson{lessonsAppliedTo !== 1 ? 's' : ''} applied</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
