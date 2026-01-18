@@ -116,6 +116,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleLessonsClick = () => {
+    // Open lessons in a separate tab (like graphs)
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'openLessonsTab' });
+    }
+  };
+
   const handleDatabaseModeChange = (mode: 'Local' | 'Remote') => {
     // Update local state immediately for responsive UI
     setDatabaseMode(mode);
@@ -198,20 +205,21 @@ export const App: React.FC = () => {
             finishedProcesses={finishedExperiments}
             onCardClick={handleExperimentCardClick}
             isDarkTheme={isDarkTheme}
-            user={user || undefined}
-            onLogin={() => {
-              if (window.vscode) {
-                window.vscode.postMessage({ type: 'signIn' });
-              }
-            }}
-            onLogout={() => {
-              if (window.vscode) {
-                window.vscode.postMessage({ type: 'signOut' });
-              }
-            }}
+            // user={user || undefined}
+            // onLogin={() => {
+            //   if (window.vscode) {
+            //     window.vscode.postMessage({ type: 'signIn' });
+            //   }
+            // }}
+            // onLogout={() => {
+            //   if (window.vscode) {
+            //     window.vscode.postMessage({ type: 'signOut' });
+            //   }
+            // }}
             showHeader={true}
             onModeChange={handleDatabaseModeChange}
             currentMode={databaseMode}
+            onLessonsClick={handleLessonsClick}
           />
         ) : activeTab === "experiment-graph" && selectedExperiment && !showDetailsPanel ? (
           <GraphView

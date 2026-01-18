@@ -19,6 +19,7 @@ interface ExperimentsViewProps {
   showHeader?: boolean;
   onModeChange?: (mode: 'Local' | 'Remote') => void;
   currentMode?: 'Local' | 'Remote' | null;
+  onLessonsClick?: () => void;
 }
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
@@ -33,6 +34,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   showHeader = false,
   onModeChange,
   currentMode = null,
+  onLessonsClick,
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
@@ -612,6 +614,48 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           </div>
         ) : null}
       </div> */}
+
+      {/* Lessons Button */}
+      {onLessonsClick && (
+        <div
+          style={{
+            padding: '12px 16px',
+            borderTop: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
+            backgroundColor: isDarkTheme ? '#252525' : '#F0F0F0',
+          }}
+        >
+          <button
+            onClick={onLessonsClick}
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              backgroundColor: isDarkTheme ? '#0e639c' : '#007acc',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#005a9e';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8.5 1a.5.5 0 0 0-1 0v1.5a.5.5 0 0 0 1 0V1zM3.5 4a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-5a.5.5 0 0 0-.5-.5h-9zM4 5h8v4H4V5zm8.5 6a.5.5 0 0 1 .5.5v1.5a.5.5 0 0 1-1 0v-1.5a.5.5 0 0 1 .5-.5zm-9 0a.5.5 0 0 1 .5.5v1.5a.5.5 0 0 1-1 0v-1.5a.5.5 0 0 1 .5-.5zM6 13.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z"/>
+            </svg>
+            Lessons
+          </button>
+        </div>
+      )}
     </div>
   );
 };

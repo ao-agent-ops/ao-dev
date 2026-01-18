@@ -12,6 +12,18 @@ The core goal is **interactive debugging of LLM workflows**:
 
 On rerun, cached outputs are returned for unchanged inputs, and edited values are respected. This enables rapid iteration without re-calling LLMs unnecessarily.
 
+## Project Structure
+
+- @src/cli/ - CLI tools (`ao-record`, `ao-server`, `ao-config`)
+- @src/common/ - Shared utilities (config, constants, logger, utils)
+- @src/server/ - Core server (main_server, file_watcher, database_manager)
+- @src/runner/ - Runtime execution (agent_runner, string_matching, context_manager)
+- @src/runner/monkey_patching/ - API interception (patches/, api_parsers/)
+- @src/user_interfaces/ - VS Code extension and web app
+- @tests/billable/ - Tests that make LLM API calls
+- @example_workflows/ - AI workflow examples (bird-bench, human_eval, swe_bench, debug_examples, etc.)
+- @docs/ - Documentation for mkdocs site
+
 ## Quick File References
 
 VSCode extension files:
@@ -29,19 +41,15 @@ Core system files:
 ## How It Works
 
 1. **Runtime Setup**: @src/runner/agent_runner.py establishes server connection and applies monkey patches
-2. **User Code Runs Unmodified**: No AST rewrites - user code executes normally
-3. **LLM Interception**: @src/runner/monkey_patching/patches/ intercept API calls (httpx, requests, etc.)
-4. **Edge Detection**: @src/runner/string_matching.py checks if previous outputs appear in current input
-5. **Visualization**: Interactive graph shows LLM calls as nodes and content matches as edges
+2. **LLM Interception**: @src/runner/monkey_patching/patches/ intercept API calls (httpx, requests, etc.)
+3. **Edge Detection**: @src/runner/string_matching.py checks if previous outputs appear in current input
+4. **Visualization**: Interactive graph shows LLM calls as nodes and content matches as edges
 
 ## Installation & Setup
 
 ## Key Commands
 
 ```bash
-# Installation
-source ~/miniforge3/bin/activate ao && pip install -e .
-
 # Running (replace python with ao-record)
 ao-record script.py
 ~/miniforge3/envs/ao/bin/python -m ao.cli.ao_record script.py  # For Claude Code
@@ -53,20 +61,7 @@ ao-server start/stop/restart/clear/logs
 python -m pytest -v tests/billable/  # Tests that make LLM API calls
 ```
 
-## Project Structure
-
-- @src/cli/ - CLI tools (`ao-record`, `ao-server`, `ao-config`)
-- @src/common/ - Shared utilities (config, constants, logger, utils)
-- @src/server/ - Core server (main_server, file_watcher, database_manager)
-- @src/runner/ - Runtime execution (agent_runner, string_matching, context_manager)
-- @src/runner/monkey_patching/ - API interception (patches/, api_parsers/)
-- @src/user_interfaces/ - VS Code extension and web app
-- @tests/billable/ - Tests that make LLM API calls
-- @example_workflows/ - AI workflow examples (bird-bench, human_eval, swe_bench, debug_examples, etc.)
-- @docs/ - Documentation for mkdocs site
-
-## Do Not
-
-- **Do NOT** overcomplicate the system. Simplicity is a core concern of the code base. When you make changes, explain me why this is the most straight-forward way to implement something and how it fits into the rest of the code base and (if applicable) matches existing patterns.
+## Dos and Do Nots
+- The code base implements several interacting components. Keeping their interfaces, structuring and implementations lean, simple and clean is an absolute core concer when writing code. When you make changes, explain me why this is the most straight-forward way to implement something and how it fits into the rest of the code base and (if applicable) matches existing patterns. When refining code iteratively (including the user asking to add things on top of existing code), always revise your changes and make sure that they lead to the simplest implementation overall. This might involve removing or modifying existing code, e.g., as the requested changes may present opportunities to simplify existing code.
 - **Do NOT** consider backwards compatability. The code has no users yet, which allows you to write cleaner, more concise code.
 - Remain critical and skeptical about my thinking at all times. Maintain consistent intellectual standards throughout our conversation. Don't lower your bar for evidence or reasoning quality just because we've been talking longer or because I seem frustrated. If I'm making weak arguments, keep pointing that out even if I've made good ones before.

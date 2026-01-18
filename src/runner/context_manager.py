@@ -106,7 +106,10 @@ def log(entry=None, success=None):
 
 def get_session_id():
     sid = current_session_id.get()
-    assert sid is not None
+    if sid is None:
+        # Fall back to parent_session_id for worker threads where
+        # the context var may not have been properly inherited
+        sid = parent_session_id
     return sid
 
 

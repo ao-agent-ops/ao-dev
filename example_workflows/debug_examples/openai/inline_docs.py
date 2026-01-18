@@ -16,8 +16,8 @@ model = "gpt-4o"
 
 # Load example files
 current_dir = os.path.dirname(os.path.abspath(__file__))
-JPEG_PATH = os.path.join(current_dir, "user_files", "sample_program.jpg")
-PNG_PATH = os.path.join(current_dir, "user_files", "example.png")
+JPEG_PATH = os.path.join(current_dir, "../user_files", "sample_program.jpg")
+PNG_PATH = os.path.join(current_dir, "../user_files", "example.png")
 
 # Read and encode the JPEG
 with open(JPEG_PATH, "rb") as f:

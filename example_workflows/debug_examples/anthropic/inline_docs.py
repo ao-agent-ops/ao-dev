@@ -16,9 +16,9 @@ model = "claude-sonnet-4-5"
 
 # Load example files
 current_dir = os.path.dirname(os.path.abspath(__file__))
-JPEG_PATH = os.path.join(current_dir, "user_files", "sample_program.jpg")
-PNG_PATH = os.path.join(current_dir, "user_files", "example.png")
-PDF_PATH = os.path.join(current_dir, "user_files", "example.pdf")
+JPEG_PATH = os.path.join(current_dir, "../user_files", "sample_program.jpg")
+PNG_PATH = os.path.join(current_dir, "../user_files", "example.png")
+PDF_PATH = os.path.join(current_dir, "../user_files", "example.pdf")
 
 # Read and encode all files
 with open(JPEG_PATH, "rb") as f:

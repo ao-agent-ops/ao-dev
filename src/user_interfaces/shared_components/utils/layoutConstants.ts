@@ -1,3 +1,7 @@
+// Layout mode: 'grid' (multi-column) or 'stack' (single-column chronological)
+export type LayoutMode = 'grid' | 'stack';
+export const LAYOUT_MODE: LayoutMode = 'stack';
+
 // Node dimensions
 export const NODE_WIDTH = 150;
 export const NODE_HEIGHT = 70;
@@ -6,7 +10,8 @@ export const NODE_HEIGHT = 70;
 export const NODE_BORDER_WIDTH = 2;
 
 // Layout spacing
-export const LAYER_SPACING = 150;
+export const LAYER_SPACING = 0;  // Grid layout
+export const STACK_LAYER_SPACING = 40;  // Stack layout (~1.5x NODE_HEIGHT)
 export const NODE_SPACING = 20;
 export const BAND_SPACING = 15;
 

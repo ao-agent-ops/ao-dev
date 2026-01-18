@@ -30,10 +30,10 @@ cp -r dist "$TEMP_DIR/extension/"
 mkdir -p "$TEMP_DIR/extension/src/webview"
 cp -r src/webview/templates "$TEMP_DIR/extension/src/webview/"
 
-# Copy codicons (referenced from ../node_modules/@vscode/codicons/)
-mkdir -p "$TEMP_DIR/node_modules/@vscode/codicons/dist"
-cp ../node_modules/@vscode/codicons/dist/codicon.css "$TEMP_DIR/node_modules/@vscode/codicons/dist/"
-cp ../node_modules/@vscode/codicons/dist/codicon.ttf "$TEMP_DIR/node_modules/@vscode/codicons/dist/"
+# Copy codicons to dist/ (vsce excludes node_modules, so we put them in dist/)
+mkdir -p "$TEMP_DIR/extension/dist/codicons"
+cp ../node_modules/@vscode/codicons/dist/codicon.css "$TEMP_DIR/extension/dist/codicons/"
+cp ../node_modules/@vscode/codicons/dist/codicon.ttf "$TEMP_DIR/extension/dist/codicons/"
 
 # Copy package.json and remove prepublish script (we already built)
 python3 << EOF

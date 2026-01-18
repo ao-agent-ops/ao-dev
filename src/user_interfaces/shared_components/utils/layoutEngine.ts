@@ -1,12 +1,13 @@
-import { GraphNode, GraphEdge, LayerInfo, GraphLayout, LayoutNode } from '../types';
+import { GraphNode, GraphEdge, LayerInfo, GraphLayout, LayoutNode, RoutedEdge } from '../types';
 import { applyCenterBandCascade } from './layout/logic/collisions';
 import { convertToLayoutNodes } from './layout/core/convert';
 import { calculateLogicalLayers } from './layout/logic/layers';
 import { calculateVisualLayers } from './layout/logic/visualLayers';
 import { calculateEdges } from './layout/logic/edges';
 import { calculateDimensions } from './layout/logic/dimensions';
-import { NODE_WIDTH, NODE_HEIGHT, LAYER_SPACING, NODE_SPACING, BAND_SPACING } from './layoutConstants';
+import { NODE_WIDTH, NODE_HEIGHT, LAYER_SPACING, STACK_LAYER_SPACING, NODE_SPACING, BAND_SPACING, LAYOUT_MODE } from './layoutConstants';
 import { calculateBands as calculateBandsMod } from './layout/logic/bandsCalc';
+import { calculateStackLayout } from './layout/logic/stackLayout';
 
 export class LayoutEngine {
   private nodeWidth = NODE_WIDTH;
@@ -20,22 +21,63 @@ export class LayoutEngine {
     const width = containerWidth || 800; // Default fallback
 
     // Convert workflow-extension data to LayoutEngine format
-    const LayoutNodes = this.convertToLayoutEngineFormat(nodes, edges);
+    const layoutNodes = this.convertToLayoutEngineFormat(nodes, edges);
 
-    // Apply Graph layout algorithm
-    const layers = this.calculateLayers(LayoutNodes);
-  const visualLayers = calculateVisualLayers(layers, width, { nodeWidth: this.nodeWidth, nodeHeight: this.nodeHeight, layerSpacing: this.layerSpacing, nodeSpacing: this.nodeSpacing });
+    // Branch based on layout mode
+    if (LAYOUT_MODE === 'stack') {
+      return this.layoutStack(layoutNodes, width);
+    }
+    return this.layoutGrid(layoutNodes, width);
+  }
 
-  // NEW (modular): cascade drop for internal nodes with skip-layer children
-  applyCenterBandCascade(visualLayers, width, this.nodeWidth, this.nodeHeight, this.nodeSpacing, this.layerSpacing);
+  private layoutStack(layoutNodes: LayoutNode[], containerWidth: number): GraphLayout {
+    // Stack layout: single column, chronological order
+    const stackSpacing = STACK_LAYER_SPACING;
+    const { layers, bands } = calculateStackLayout(layoutNodes, {
+      nodeWidth: this.nodeWidth,
+      nodeHeight: this.nodeHeight,
+      layerSpacing: stackSpacing,
+      bandSpacing: this.bandSpacing,
+      containerWidth
+    });
 
-  const bands = calculateBandsMod(LayoutNodes, visualLayers, { nodeWidth: this.nodeWidth, nodeHeight: this.nodeHeight, nodeSpacing: this.nodeSpacing, layerSpacing: this.layerSpacing, bandSpacing: this.bandSpacing, containerWidth: width });
-  const routedEdges = calculateEdges(LayoutNodes, bands, width, this.layerSpacing, this.nodeHeight, this.nodeSpacing);
-  const { width: totalWidth, height } = calculateDimensions(visualLayers, bands);
+    const routedEdges = calculateEdges(layoutNodes, bands, containerWidth, stackSpacing, this.nodeHeight, this.nodeSpacing);
+    const { width: totalWidth, height } = calculateDimensions(layers, bands);
 
+    return this.buildResult(layoutNodes, routedEdges, totalWidth, height);
+  }
+
+  private layoutGrid(layoutNodes: LayoutNode[], containerWidth: number): GraphLayout {
+    // Grid layout: multi-column, parent-grouped layers
+    const layers = this.calculateLayers(layoutNodes);
+    const visualLayers = calculateVisualLayers(layers, containerWidth, {
+      nodeWidth: this.nodeWidth,
+      nodeHeight: this.nodeHeight,
+      layerSpacing: this.layerSpacing,
+      nodeSpacing: this.nodeSpacing
+    });
+
+    // Cascade drop for internal nodes with skip-layer children
+    applyCenterBandCascade(visualLayers, containerWidth, this.nodeWidth, this.nodeHeight, this.nodeSpacing, this.layerSpacing);
+
+    const bands = calculateBandsMod(layoutNodes, visualLayers, {
+      nodeWidth: this.nodeWidth,
+      nodeHeight: this.nodeHeight,
+      nodeSpacing: this.nodeSpacing,
+      layerSpacing: this.layerSpacing,
+      bandSpacing: this.bandSpacing,
+      containerWidth
+    });
+    const routedEdges = calculateEdges(layoutNodes, bands, containerWidth, this.layerSpacing, this.nodeHeight, this.nodeSpacing);
+    const { width: totalWidth, height } = calculateDimensions(visualLayers, bands);
+
+    return this.buildResult(layoutNodes, routedEdges, totalWidth, height);
+  }
+
+  private buildResult(layoutNodes: LayoutNode[], routedEdges: RoutedEdge[], totalWidth: number, height: number): GraphLayout {
     // Convert back to workflow-extension format
     const positions = new Map<string, { x: number; y: number }>();
-    LayoutNodes.forEach(node => {
+    layoutNodes.forEach(node => {
       // Validate node position before adding
       if (node.x !== undefined && node.y !== undefined &&
         !isNaN(node.x) && !isNaN(node.y) &&

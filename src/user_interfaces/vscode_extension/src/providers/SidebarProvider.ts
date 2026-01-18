@@ -103,8 +103,7 @@ _context: vscode.WebviewViewResolveContext,
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                this._extensionUri,
-                vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules')
+                this._extensionUri
             ]
         };
 
@@ -132,6 +131,10 @@ _context: vscode.WebviewViewResolveContext,
                 case 'edit_output':
                 case 'get_graph':
                 case 'erase':
+                case 'get_lessons':
+                case 'add_lesson':
+                case 'update_lesson':
+                case 'delete_lesson':
                     this._pythonClient?.sendMessage(data);
                     break;
                 case 'setDatabaseMode':
@@ -234,6 +237,13 @@ _context: vscode.WebviewViewResolveContext,
                         console.warn('[GraphViewProvider] No GraphTabProvider available or missing experiment data');
                     }
                     break;
+                case 'openLessonsTab':
+                    if (this._graphTabProvider) {
+                        this._graphTabProvider.createOrShowLessonsTab();
+                    } else {
+                        console.warn('[GraphViewProvider] No GraphTabProvider available for lessons');
+                    }
+                    break;
                 case 'requestExperimentRefresh':
                     // ExperimentsView has mounted and is ready to display data - request experiment list
                     if (this._pythonClient) {
@@ -257,7 +267,7 @@ _context: vscode.WebviewViewResolveContext,
     private _getHtmlForWebview(webview: vscode.Webview) {
         const path = require('path');
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
-        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, '..', 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
         const templatePath = path.join(
             this._extensionUri.fsPath,
             'src',
