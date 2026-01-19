@@ -361,6 +361,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
+                enableFindWidget: true,
                 localResourceRoots: [
                     this._extensionUri,
                     vscode.Uri.joinPath(this._extensionUri, 'dist')
