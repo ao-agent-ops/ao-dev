@@ -48,8 +48,16 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
             }
         }
 
-        // If we have an existing graph panel, open in same column; otherwise open Beside (creates new group)
-        const columnToShowIn = existingGraphColumn || vscode.ViewColumn.Beside;
+        // If we have an existing graph panel, open in same column
+        // If there's an active editor, open beside it; otherwise open in column One
+        let columnToShowIn: vscode.ViewColumn;
+        if (existingGraphColumn) {
+            columnToShowIn = existingGraphColumn;
+        } else if (vscode.window.activeTextEditor) {
+            columnToShowIn = vscode.ViewColumn.Beside;
+        } else {
+            columnToShowIn = vscode.ViewColumn.One;
+        }
 
         // Create new panel
         panel = vscode.window.createWebviewPanel(
@@ -211,8 +219,11 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
             this._sendThemeToPanel(panel);
         });
 
-        // Lock the editor group so new files don't open here
-        await vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+        // Only lock the editor group if we opened beside an existing editor
+        // (i.e., we created a new split). Don't lock if it's the only tab.
+        if (columnToShowIn === vscode.ViewColumn.Beside) {
+            await vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+        }
     }
 
     public async createOrShowLessonsTab(): Promise<void> {
@@ -461,6 +472,20 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit: ${escapedLabel}</title>
     <link rel="stylesheet" href="${codiconsUri}">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+        }
+        #node-editor-root {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
     <script>
         window.process = {
             env: {},
