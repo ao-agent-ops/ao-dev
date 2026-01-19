@@ -237,7 +237,7 @@ src/static_analysis/CodeQL-Analyst/databases
 *.vsix
 
 # sim link
-ao
+/ao
 
 # Claude local
 CLAUDE.local.md

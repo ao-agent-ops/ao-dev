@@ -530,31 +530,6 @@ def terminate_command(args) -> None:
         output_json({"status": "terminated", "pid": pid})
 
 
-def edit_command(args) -> None:
-    """Edit a node's input or output."""
-    result = _apply_edit(args.session_id, args.node_id, args.field, args.value)
-    output_json(result)
-
-
-def rerun_command(args) -> None:
-    """Re-run an existing session using cached/edited values."""
-    spawn_result = _spawn_rerun(args.session_id)
-
-    # Check for error
-    if isinstance(spawn_result, dict):
-        output_json(spawn_result)
-
-    # Handle completion
-    result = _handle_process_completion(
-        spawn_result.process,
-        spawn_result.session_id,
-        spawn_result.log_file,
-        args.wait,
-        args.timeout,
-    )
-    output_json(result)
-
-
 def _copy_experiment(session_id: str, run_name: str | None = None) -> str | dict:
     """
     Clones the experiment and llm-calls entries for the given session_id in the DB
@@ -741,36 +716,6 @@ def create_parser() -> ArgumentParser:
     )
     terminate.add_argument("pid", type=int, help="Process ID to terminate")
 
-    # edit subcommand
-    edit = subparsers.add_parser(
-        "edit",
-        help="Edit a node's input or output",
-        description="Edit a node's input or output value. The value should be a JSON object representing the to_show structure.",
-    )
-    edit.add_argument("session_id", help="Session ID containing the node")
-    edit.add_argument("node_id", help="Node ID to edit")
-    edit.add_argument("field", choices=["input", "output"], help="Field to edit")
-    edit.add_argument("value", help="New value as JSON (the to_show structure)")
-
-    # rerun subcommand
-    rerun = subparsers.add_parser(
-        "rerun",
-        help="Re-run an existing session",
-        description="Re-execute a session using cached/edited values.",
-    )
-    rerun.add_argument("session_id", help="Session ID to re-run")
-    rerun.add_argument(
-        "--wait",
-        action="store_true",
-        help="Block until execution completes instead of returning immediately",
-    )
-    rerun.add_argument(
-        "--timeout",
-        type=float,
-        default=None,
-        help="Timeout in seconds when using --wait",
-    )
-
     # edit-and-rerun subcommand
     edit_and_rerun = subparsers.add_parser(
         "edit-and-rerun",
@@ -824,10 +769,6 @@ def main():
         experiments_command(args)
     elif args.command == "terminate":
         terminate_command(args)
-    elif args.command == "edit":
-        edit_command(args)
-    elif args.command == "rerun":
-        rerun_command(args)
     elif args.command == "edit-and-rerun":
         edit_and_rerun_command(args)
 

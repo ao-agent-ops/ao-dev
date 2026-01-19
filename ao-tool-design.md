@@ -199,29 +199,52 @@ ao-tool terminate <pid>
 
 ---
 
-### 4. `ao-tool edit`
+### 4. `ao-tool edit-and-rerun`
 
-**Purpose**: Modify the input or output of a specific node.
+**Purpose**: Edit a node's input or output and immediately rerun the session. This is the primary command for interactive debugging - editing without rerunning, or rerunning without editing, are not supported as separate operations.
 
 **Usage**:
 ```bash
-ao-tool edit <session_id> <node_id> input '<json_string>'
-ao-tool edit <session_id> <node_id> output '<json_string>'
+ao-tool edit-and-rerun <session_id> <node_id> --input '<json>'
+ao-tool edit-and-rerun <session_id> <node_id> --output '<json>'
+ao-tool edit-and-rerun <session_id> <node_id> --output '<json>' --as-new-run
+ao-tool edit-and-rerun <session_id> <node_id> --output '<json>' --as-new-run --run-name "My experiment"
 ```
 
 **Arguments**:
 - `session_id`: Session ID containing the node
 - `node_id`: Node ID to edit
-- `field`: Either `input` or `output`
-- `value`: New value as JSON (the `to_show` structure)
 
-**Output**:
+**Options**:
+- `--input <json>`: New input value as JSON (the `to_show` structure) - mutually exclusive with `--output`
+- `--output <json>`: New output value as JSON (the `to_show` structure) - mutually exclusive with `--input`
+- `--as-new-run`: Create a new session (copy of original) instead of modifying in place
+- `--run-name <name>`: Name for the new run (only with `--as-new-run`). Defaults to "Edit of <original name>"
+- `--wait`: Block until execution completes
+- `--timeout <seconds>`: Timeout when using `--wait`
+
+**Output (started)**:
 ```json
 {
-  "status": "success",
+  "status": "started",
   "session_id": "uuid",
   "node_id": "node-uuid",
-  "field": "input|output"
+  "edited_field": "output",
+  "pid": 12347,
+  "log_file": "/path/to/log"
+}
+```
+
+**Output (with `--wait`)**:
+```json
+{
+  "status": "completed",
+  "session_id": "uuid",
+  "node_id": "node-uuid",
+  "edited_field": "output",
+  "exit_code": 0,
+  "duration_seconds": 45.2,
+  "log_file": "/path/to/log"
 }
 ```
 
@@ -234,90 +257,16 @@ ao-tool edit <session_id> <node_id> output '<json_string>'
 ```
 
 **Implementation notes**:
-- Calls existing `DB.set_input_overwrite()` or `DB.set_output_overwrite()`
-- Validates JSON can be parsed
-- Validates the `to_show` structure can be merged with existing `raw` structure
+- Validates JSON can be parsed and merged with existing `raw` structure
 - For output edits, validates result can be converted to API object type
 - The edit is stored as an "overwrite" - original is preserved
-
----
-
-### 5. `ao-tool rerun`
-
-**Purpose**: Re-execute a session, using cached/edited values.
-
-**Usage**:
-```bash
-ao-tool rerun <session_id>
-ao-tool rerun <session_id> --as-new-run
-```
-
-**Options**:
-- `--as-new-run`: Create a new session instead of updating the existing one
-- `--wait`: Block until execution completes
-- `--name <name>`: Name for the new run (only with `--as-new-run`)
-
-**Output**:
-```json
-{
-  "status": "started",
-  "session_id": "uuid-of-run",
-  "is_new_run": false,
-  "pid": 12346
-}
-```
-
-**With `--as-new-run`**:
-```json
-{
-  "status": "started",
-  "session_id": "new-uuid",
-  "parent_session_id": "original-uuid",
-  "is_new_run": true,
-  "pid": 12346
-}
-```
-
-**Implementation notes**:
-- Retrieve the original command/cwd/environment from DB
-- Set `AO_SESSION_ID` environment variable for rerun (if not `--as-new-run`)
-- With `--as-new-run`, create new session but reference parent for cache lookups
-
----
-
-### 6. `ao-tool edit-and-rerun`
-
-**Purpose**: Combine edit and rerun in a single atomic operation.
-
-**Usage**:
-```bash
-ao-tool edit-and-rerun <session_id> <node_id> --input '<json>' [--as-new-run]
-ao-tool edit-and-rerun <session_id> <node_id> --output '<json>' [--as-new-run]
-```
-
-**Options**:
-- Same as `edit` and `rerun` combined
-- `--wait`: Block until execution completes
-
-**Output**:
-```json
-{
-  "status": "started",
-  "session_id": "uuid",
-  "node_id": "node-uuid",
-  "edited_field": "input",
-  "is_new_run": false,
-  "pid": 12347
-}
-```
-
-**Implementation notes**:
-- Apply edit first, then trigger rerun
+- With `--as-new-run`: copies the experiment and all LLM calls to a new session before applying edits
+- Retrieves original command/cwd/environment from DB for rerun
 - Atomic from the agent's perspective (one command, one result)
 
 ---
 
-### 7. `ao-tool experiments`
+### 5. `ao-tool experiments`
 
 **Purpose**: List experiments from the database with optional filtering.
 
@@ -358,13 +307,7 @@ ao-tool experiments --regex "eval.*"
 
 ## Open Design Questions
 
-### 1. `--as-new-run` semantics
-When creating a new run from edits, should:
-- The new run copy the original's edits as its baseline?
-- The new run start fresh but use parent's cache for LLM calls that weren't edited?
-- Both (with a flag)?
-
-### 2. Tool description system prompt
+### 1. Tool description system prompt
 Should this be:
 - A separate command `ao-tool describe` that outputs the full tool documentation
 - A static file that Claude Code reads once
@@ -414,9 +357,8 @@ ao-tool probe <session_id>              # Full session info
 ao-tool probe <session_id> --topology   # Just graph structure
 ao-tool probe <session_id> --node <id>  # Single node details
 
-### Modify and rerun
-ao-tool edit <session_id> <node_id> --output '{"content": "new response"}'
-ao-tool rerun <session_id>
+### Edit and rerun
+ao-tool edit-and-rerun <session_id> <node_id> --output '{"content": "new response"}'
 ao-tool edit-and-rerun <session_id> <node_id> --output '...' --as-new-run
 
 ### Other commands
@@ -429,12 +371,11 @@ ao-tool terminate <pid>         # Stop a running process
 1. ao-tool record agent.py
 2. ao-tool probe <session_id> --topology  # See the graph
 3. ao-tool probe <session_id> --node <failing_node>  # Inspect the failure
-4. ao-tool edit <session_id> <node_id> --output '...'  # Fix the output
-5. ao-tool rerun <session_id>  # See if downstream succeeds
+4. ao-tool edit-and-rerun <session_id> <node_id> --output '...'  # Fix and rerun
 
 ### A/B test a prompt change
 1. Run original: ao-tool record agent.py
-2. Edit the input of an LLM node
+2. ao-tool probe <session_id> --node <node_id>  # Inspect the node to edit
 3. ao-tool edit-and-rerun <session_id> <node_id> --input '...' --as-new-run
 4. Compare the two sessions
 
