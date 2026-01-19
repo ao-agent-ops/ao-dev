@@ -63,24 +63,24 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
     switch (action) {
       case "editInput":
         data.messageSender.send({
-          type: "showNodeEditModal",
-          payload: {
-            nodeId: id,
-            field: "input",
-            value: data.input,
-            label: data.label || "Node",
-          }
+          type: "openNodeEditorTab",
+          nodeId: id,
+          sessionId: data.session_id,
+          field: "input",
+          label: data.label || "Node",
+          inputValue: data.input,
+          outputValue: data.output,
         });
         break;
       case "editOutput":
         data.messageSender.send({
-          type: "showNodeEditModal",
-          payload: {
-            nodeId: id,
-            field: "output",
-            value: data.output,
-            label: data.label || "Node",
-          }
+          type: "openNodeEditorTab",
+          nodeId: id,
+          sessionId: data.session_id,
+          field: "output",
+          label: data.label || "Node",
+          inputValue: data.input,
+          outputValue: data.output,
         });
         break;
       case "changeLabel":
@@ -131,8 +131,8 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         boxSizing: "border-box",
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
-        background: isDarkTheme ? "#3c3c3c" : "#F5F5F5",
-        border: `${NODE_BORDER_WIDTH}px solid ${data.border_color}`,
+        background: "#313131",
+        border: `${NODE_BORDER_WIDTH}px solid #CCCCCC`,
         borderRadius: 8,
         padding: 2,
         position: "relative",
@@ -252,9 +252,10 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           opacity: isEditingLabel ? 0 : 1,
           color: isDarkTheme ? "#cccccc" : "#303030",
           textAlign: "center",
-          padding: "0 4px",
-          wordBreak: "break-word",
-          lineHeight: "1.3",
+          padding: "0 8px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
         title={data.label}
       >

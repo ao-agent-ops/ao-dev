@@ -384,7 +384,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            paddingTop: headerContent ? "20px" : "120px",
+            paddingTop: headerContent ? "8px" : "120px",
           }}
         >
           <ReactFlowProvider>
@@ -552,18 +552,16 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 <button
                   style={{
                     ...restartButtonStyle,
-                    width: '24px',
-                    height: '24px',
                     marginBottom: "4px",
                     background: currentResult === 'Satisfactory'
                       ? '#4caf50'
                       : (isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)"),
-                    border: `2px solid #4caf50`,
+                    border: `1px solid ${isDarkTheme ? "#555" : "#ddd"}`,
                   }}
                   onClick={() => onResultChange(currentResult === 'Satisfactory' ? '' : 'Satisfactory')}
                   onMouseEnter={(e) => {
                     if (currentResult !== 'Satisfactory') {
-                      e.currentTarget.style.background = 'rgba(76, 175, 80, 0.25)';
+                      e.currentTarget.style.background = isDarkTheme ? "rgba(80, 80, 80, 0.8)" : "rgba(255, 255, 255, 1)";
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -572,9 +570,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
                     }
                   }}
                 >
-                  {/* Checkmark icon */}
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill={currentResult === 'Satisfactory' ? '#ffffff' : '#4caf50'}>
-                    <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                  {/* Codicon pass icon */}
+                  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill={currentResult === 'Satisfactory' ? '#ffffff' : '#4caf50'}>
+                    <path d="M10.6484 5.64648C10.8434 5.45148 11.1605 5.45148 11.3555 5.64648C11.5498 5.84137 11.5499 6.15766 11.3555 6.35254L7.35547 10.3525C7.25747 10.4495 7.12898 10.499 7.00098 10.499C6.87299 10.499 6.74545 10.4505 6.64746 10.3525L4.64746 8.35254C4.45247 8.15754 4.45248 7.84148 4.64746 7.64648C4.84246 7.45148 5.15949 7.45148 5.35449 7.64648L7 9.29199L10.6465 5.64648H10.6484Z"/>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M8 1C11.86 1 15 4.14 15 8C15 11.86 11.86 15 8 15C4.14 15 1 11.86 1 8C1 4.14 4.14 1 8 1ZM8 2C4.691 2 2 4.691 2 8C2 11.309 4.691 14 8 14C11.309 14 14 11.309 14 8C14 4.691 11.309 2 8 2Z"/>
                   </svg>
                 </button>
               </Tooltip>
@@ -582,17 +581,15 @@ export const GraphView: React.FC<GraphViewProps> = ({
                 <button
                   style={{
                     ...restartButtonStyle,
-                    width: '24px',
-                    height: '24px',
                     background: currentResult === 'Failed'
                       ? '#f44336'
                       : (isDarkTheme ? "rgba(60, 60, 60, 0.6)" : "rgba(255, 255, 255, 0.8)"),
-                    border: `2px solid #f44336`,
+                    border: `1px solid ${isDarkTheme ? "#555" : "#ddd"}`,
                   }}
                   onClick={() => onResultChange(currentResult === 'Failed' ? '' : 'Failed')}
                   onMouseEnter={(e) => {
                     if (currentResult !== 'Failed') {
-                      e.currentTarget.style.background = 'rgba(244, 67, 54, 0.25)';
+                      e.currentTarget.style.background = isDarkTheme ? "rgba(80, 80, 80, 0.8)" : "rgba(255, 255, 255, 1)";
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -601,9 +598,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
                     }
                   }}
                 >
-                  {/* X icon */}
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill={currentResult === 'Failed' ? '#ffffff' : '#f44336'}>
-                    <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/>
+                  {/* Codicon error icon */}
+                  <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill={currentResult === 'Failed' ? '#ffffff' : '#f44336'}>
+                    <path d="M8 1C4.14 1 1 4.14 1 8C1 11.86 4.14 15 8 15C11.86 15 15 11.86 15 8C15 4.14 11.86 1 8 1ZM8 14C4.691 14 2 11.309 2 8C2 4.691 4.691 2 8 2C11.309 2 14 4.691 14 8C14 11.309 11.309 14 8 14ZM10.854 5.854L8.708 8L10.854 10.146C11.049 10.341 11.049 10.658 10.854 10.853C10.756 10.951 10.628 10.999 10.5 10.999C10.372 10.999 10.244 10.95 10.146 10.853L8 8.707L5.854 10.853C5.756 10.951 5.628 10.999 5.5 10.999C5.372 10.999 5.244 10.95 5.146 10.853C4.951 10.658 4.951 10.341 5.146 10.146L7.292 8L5.146 5.854C4.951 5.659 4.951 5.342 5.146 5.147C5.341 4.952 5.658 4.952 5.853 5.147L7.999 7.293L10.145 5.147C10.34 4.952 10.657 4.952 10.852 5.147C11.047 5.342 11.047 5.659 10.852 5.854H10.854Z"/>
                   </svg>
                 </button>
               </Tooltip>

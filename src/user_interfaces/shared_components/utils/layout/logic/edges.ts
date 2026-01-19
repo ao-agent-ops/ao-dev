@@ -1,7 +1,6 @@
 import { LayoutNode, BandInfo, RoutedEdge } from '../core/types';
 import { createDirectPath } from '../paths/direct';
 import { createBandPath, createBandPathWithHorizontalConnector } from '../paths/bands';
-import { BAND_ENTRY_STAGGER_STEP, BAND_ENTRY_STAGGER_CLAMP } from '../../layoutConstants';
 import { wouldDirectLineCrossNodes, hasNodesBetweenInVisualLayers } from './collisions';
 
 interface BandEdgeCandidate {
@@ -97,7 +96,7 @@ export function calculateEdges(nodes: LayoutNode[], bands: BandInfo[], container
     });
   });
 
-  // Build band edges with ordered vertical offsets (smallest band number highest)
+  // Build band edges - all arrows to a target from the same side share the same entry point
   const bandEdges: RoutedEdge[] = [];
   bandCandidatesByTarget.forEach((candidates, targetId) => {
     if (!candidates.length) return;
@@ -108,28 +107,24 @@ export function calculateEdges(nodes: LayoutNode[], bands: BandInfo[], container
       if (ra !== rb) return ra - rb;
       return a.order - b.order;
     });
-    const total = candidates.length;
-    const span = total > 1 ? Math.min(BAND_ENTRY_STAGGER_CLAMP * 2, Math.max(BAND_ENTRY_STAGGER_STEP, (total - 1) * BAND_ENTRY_STAGGER_STEP)) : 0;
-    const step = total > 1 ? span / (total - 1) : 0;
-    candidates.forEach((cand, index) => {
-      const entryOffset = total > 1 ? (-span / 2 + index * step) : 0;
+
+    // All arrows enter at the same centered position (no staggering)
+    candidates.forEach((cand) => {
       const { source, target, band, needsHorizontal, childNodes } = cand;
-      
-      // Use centered positioning for single arrows
-      const isSingleArrow = total === 1;
-      const useCenteredTarget = isSingleArrow;
-      
-      // Create points with centered target option
+
+      // All arrows use centered target position (same entry point)
+      const entryOffset = 0;
+      const useCenteredTarget = true;
+
+      // Create points with centered target
       const points = needsHorizontal
         ? createBandPathWithHorizontalConnector(source, target, band.x, band.side, childNodes, entryOffset, useCenteredTarget)
         : createBandPath(source, target, band.x, band.side, entryOffset, useCenteredTarget);
-      
+
       if (!points.length) return;
-      
-      const targetHandle = isSingleArrow 
-        ? (band.side === 'right' ? 'left-center' : 'right-center')
-        : 'top';
-      
+
+      const targetHandle = band.side === 'right' ? 'left-center' : 'right-center';
+
       bandEdges.push({
         id: cand.id,
         source: source.id,

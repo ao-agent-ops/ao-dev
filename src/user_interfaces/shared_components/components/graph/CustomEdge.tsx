@@ -60,25 +60,11 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
     });
   }
 
-  const stroke = data?.color || '#e0e0e0';
-  
-  // Determine arrow direction based on the final arrow segment direction
-  let arrowType = 'vertical'; // default to vertical
-  
-  if (data?.points && data.points.length >= 2) {
-    // Use the last two points to determine the final arrow direction
-    const lastTwoPoints = data.points.slice(-2);
-    const dx = lastTwoPoints[1].x - lastTwoPoints[0].x;
-    const dy = lastTwoPoints[1].y - lastTwoPoints[0].y;
-    arrowType = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-  } else {
-    // Fallback to source/target comparison for simple paths
-    const isHorizontal = Math.abs(targetX - sourceX) > Math.abs(targetY - sourceY);
-    arrowType = isHorizontal ? 'horizontal' : 'vertical';
-  }
-  
-  const markerId = `chevron-arrowhead-${arrowType}-${id}`;
-  
+  // All edges are white
+  const stroke = '#FFFFFF';
+
+  const markerId = `arrow-${id}`;
+
   return (
     <svg style={{ overflow: 'visible', position: 'absolute' }}>
       <defs>
@@ -86,17 +72,14 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
           id={markerId}
           markerWidth="6"
           markerHeight="6"
-          refX={arrowType === 'horizontal' ? "4.8" : "2"}
+          refX="5"
           refY="3"
           orient="auto"
-          markerUnits="strokeWidth"
+          markerUnits="userSpaceOnUse"
         >
-          <polyline
-            points="0,0 3,3 0,6"
-            fill="none"
-            stroke={stroke}
-            strokeWidth="1"
-            strokeLinecap="round"
+          <polygon
+            points="0,0 6,3 0,6"
+            fill={stroke}
           />
         </marker>
       </defs>
@@ -105,7 +88,7 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
         className="react-flow__edge-path"
         d={d}
         markerEnd={`url(#${markerId})`}
-        style={{ stroke, strokeWidth: 2, fill: 'none' }}
+        style={{ stroke, strokeWidth: 1, fill: 'none' }}
       />
     </svg>
   );
