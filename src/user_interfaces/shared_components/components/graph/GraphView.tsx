@@ -14,7 +14,7 @@ import { GraphNode, GraphEdge } from '../../types';
 import { LayoutEngine } from '../../utils/layoutEngine';
 import { MessageSender } from '../../types/MessageSender';
 import styles from './GraphView.module.css';
-import { NODE_WIDTH } from '../../utils/layoutConstants';
+import { NODE_WIDTH, getBandColor } from '../../utils/layoutConstants';
 import { Tooltip } from '../common/Tooltip';
 
 interface GraphViewProps {
@@ -184,12 +184,25 @@ export const GraphView: React.FC<GraphViewProps> = ({
       };
     });
 
+    // Assign colors by source node so all edges from the same node have the same color
+    const sourceNodeColorMap = new Map<string, number>();
+    let colorIndex = 0;
+    layout.edges.forEach(edge => {
+      if (!sourceNodeColorMap.has(edge.source)) {
+        sourceNodeColorMap.set(edge.source, colorIndex++);
+      }
+    });
+
     const flowEdges: Edge[] = layout.edges.map((edge) => {
       // Adjust edge points if needed
       const adjustedPoints = edge.points.map(point => ({
         x: point.x + xOffset,
         y: point.y
       }));
+
+      // Use source node's color index so all edges from same node share color
+      const sourceColorIndex = sourceNodeColorMap.get(edge.source) ?? 0;
+      const color = getBandColor(sourceColorIndex, isDarkTheme);
 
       return {
         id: edge.id,
@@ -198,7 +211,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
         type: "custom",
-        data: { points: adjustedPoints, color: edge.color },
+        data: { points: adjustedPoints, color },
         animated: false,
       };
     });

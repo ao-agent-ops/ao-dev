@@ -239,6 +239,80 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     r"^content\.total_duration$",
 ]
 
+STRING_MATCH_EXCLUDE_PATTERNS = [
+    # Identifiers & timestamps
+    r".*id$",
+    r".*object$",
+    r".*created_at$",
+    r".*completed_at$",
+    r".*responseId$",
+    r".*previous_response_id$",
+    r".*prompt_cache_key$",
+    r".*safety_identifier$",
+    # Model & config
+    r".*model$",
+    r".*modelVersion$",
+    r".*role$",
+    r".*type$",
+    r".*status$",
+    r".*background$",
+    r".*temperature$",
+    r".*top_p$",
+    r".*top_k$",
+    r".*top_logprobs$",
+    r".*frequency_penalty$",
+    r".*presence_penalty$",
+    r".*max_output_tokens$",
+    r".*max_tokens$",
+    r".*max_tool_calls$",
+    r".*n$",
+    r".*service_tier$",
+    r".*store$",
+    r".*truncation$",
+    # Tool-related
+    r".*tool_choice$",
+    r".*tools$",
+    r".*parallel_tool_calls$",
+    # Stop conditions
+    r".*stop_reason$",
+    r".*stop_sequence$",
+    r".*stop$",
+    r".*finish_reason$",
+    r".*finishReason$",
+    # Usage/billing (entire subtrees)
+    r".*usage$",
+    r".*usageMetadata$",
+    r".*billing$",
+    # Other metadata
+    r".*error$",
+    r".*incomplete_details$",
+    r".*instructions$",
+    r".*reasoning$",
+    r".*metadata$",
+    r".*user$",
+    r".*index$",
+    r".*logprobs$",
+    r".*annotations$",
+    r".*payer$",
+    r".*verbosity$",
+    r".*format$",
+    r".*effort$",
+    r".*summary$",
+    # Cache-related
+    r".*prompt_cache_retention$",
+    r".*cache_creation$",
+    r".*cache_creation_input_tokens$",
+    r".*cache_read_input_tokens$",
+    # Additional patterns
+    r".*url$",
+    r".*reasoning_effort$",
+    r".*native_finish_reason$",
+    r".*provider$",
+]
+COMPILED_STRING_MATCH_EXCLUDE_PATTERNS = [
+    re.compile(p) for p in STRING_MATCH_EXCLUDE_PATTERNS
+]
+
 # Regex patterns to look up display names for nodes in the graph
 # Each key is a regex pattern that matches URLs, value is the display name
 URL_PATTERN_TO_NODE_NAME = [

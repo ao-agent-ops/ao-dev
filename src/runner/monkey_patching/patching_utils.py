@@ -1,6 +1,5 @@
-import json
 import inspect
-from typing import Any, Dict, List
+from collections import defaultdict
 from ao.runner.context_manager import get_session_id
 from ao.common.constants import CERTAINTY_UNKNOWN
 from ao.common.utils import send_to_server, get_node_label, get_raw_model_name
@@ -11,6 +10,9 @@ from ao.common.logger import logger
 # Generic wrappers for caching and server notification
 # ===========================================================
 
+# str -> {str -> set(str)}
+# if we add a -> b, we go through every element. If a is in the set, we add b to the
+_graph_reachable_set = defaultdict(lambda: defaultdict(set))
 
 def get_input_dict(func, *args, **kwargs):
     # Arguments are normalized to the function's parameter order.
@@ -81,11 +83,33 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
     output_string = api_obj_to_json_str(output_obj, api_type)
     model = get_raw_model_name(input_dict, api_type)
     label = get_node_label(input_dict, api_type)
+    session_id = get_session_id()
+
+    for source_node_id in source_node_ids:
+        _graph_reachable_set[session_id][source_node_id].add(node_id)
+
+    for reachable_by_a in _graph_reachable_set[session_id].values():
+        if any(source_node_id in reachable_by_a for source_node_id in source_node_ids):
+            reachable_by_a.add(node_id)
+
+    # Store input for this node (needed for containment checks)
+    from ao.runner.string_matching import store_input_strings, output_contained_in_input
+    store_input_strings(session_id, node_id, input_dict, api_type)
+
+    # Filter redundant source nodes: if node_b is reachable from node_a and node_a's output
+    # is contained in node_b's input, remove node_a (its content already flows through node_b)
+    nodes_to_remove = set()
+    for node_a in source_node_ids:
+        for node_b in source_node_ids:
+            if node_a != node_b and node_b in _graph_reachable_set[session_id][node_a]:
+                if output_contained_in_input(session_id, node_a, node_b):
+                    nodes_to_remove.add(node_a)
+    source_node_ids = [n for n in source_node_ids if n not in nodes_to_remove]
 
     # Send node
     node_msg = {
         "type": "add_node",
-        "session_id": get_session_id(),
+        "session_id": session_id,
         "node": {
             "id": node_id,
             "input": input_string,

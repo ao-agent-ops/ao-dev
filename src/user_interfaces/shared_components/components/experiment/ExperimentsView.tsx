@@ -120,7 +120,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    backgroundColor: isDarkTheme ? '#1e1e1e' : '#F0F2F0',
+    backgroundColor: 'var(--vscode-sideBar-background, var(--vscode-editor-background))',
     color: 'var(--vscode-foreground)',
     fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
@@ -257,7 +257,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
       fontWeight: 700,
       letterSpacing: '0.5px',
       textTransform: 'uppercase',
-      color: isDarkTheme ? '#cccccc' : '#616161',
+      color: 'var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground))',
       cursor: 'pointer',
       userSelect: 'none',
       fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
@@ -290,7 +290,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
       alignItems: 'center',
       padding: '2px 16px 2px 24px',
       fontSize: '13px',
-      color: isDarkTheme ? '#cccccc' : '#333333',
+      color: 'var(--vscode-foreground)',
       cursor: 'pointer',
       userSelect: 'none',
       fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
@@ -301,7 +301,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     const emptyMessageStyle: React.CSSProperties = {
       padding: '8px 16px 8px 24px',
       fontSize: '12px',
-      color: isDarkTheme ? '#858585' : '#8e8e8e',
+      color: 'var(--vscode-descriptionForeground)',
       fontStyle: 'italic',
       fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
     };
@@ -310,7 +310,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
       height: '4px',
       cursor: 'ns-resize',
       backgroundColor: 'transparent',
-      borderTop: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
+      borderTop: '1px solid var(--vscode-panel-border)',
       transition: 'background-color 0.1s',
     };
 
@@ -380,7 +380,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
                       style={{
                         ...listItemStyle,
                         backgroundColor: isHovered
-                          ? (isDarkTheme ? '#2a2d2e' : '#e8e8e8')
+                          ? 'var(--vscode-list-hoverBackground)'
                           : 'transparent',
                       }}
                       onClick={() => onCardClick && onCardClick(process)}
@@ -429,7 +429,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
             style={resizeHandleStyle}
             onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running', e)}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = isDarkTheme ? '#007acc' : '#0078d4';
+              e.currentTarget.style.backgroundColor = 'var(--vscode-focusBorder)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -444,7 +444,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: `1px solid ${isDarkTheme ? '#2b2b2b' : '#e5e5e5'}`,
+    borderBottom: '1px solid var(--vscode-panel-border)',
     padding: '8px 16px',
     flexShrink: 0,
   };
@@ -456,9 +456,9 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   const dropdownButtonStyle: React.CSSProperties = {
     padding: '4px 8px',
     fontSize: '12px',
-    backgroundColor: isDarkTheme ? '#3c3c3c' : '#f3f3f3',
-    color: isDarkTheme ? '#cccccc' : '#333333',
-    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    backgroundColor: 'var(--vscode-dropdown-background)',
+    color: 'var(--vscode-dropdown-foreground)',
+    border: '1px solid var(--vscode-dropdown-border)',
     borderRadius: '4px',
     cursor: 'pointer',
     display: 'flex',
@@ -472,8 +472,8 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     top: '100%',
     right: 0,
     marginTop: '4px',
-    backgroundColor: isDarkTheme ? '#3c3c3c' : '#ffffff',
-    border: `1px solid ${isDarkTheme ? '#555555' : '#cccccc'}`,
+    backgroundColor: 'var(--vscode-dropdown-background)',
+    border: '1px solid var(--vscode-dropdown-border)',
     borderRadius: '4px',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
     zIndex: 1000,
@@ -483,7 +483,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   const dropdownItemStyle: React.CSSProperties = {
     padding: '6px 12px',
     fontSize: '12px',
-    color: isDarkTheme ? '#cccccc' : '#333333',
+    color: 'var(--vscode-dropdown-foreground)',
     cursor: 'pointer',
     fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
   };
@@ -538,7 +538,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           <div
             style={{
               ...dropdownItemStyle,
-              backgroundColor: currentMode === 'Local' ? (isDarkTheme ? '#094771' : '#e3f2fd') : 'transparent',
+              backgroundColor: currentMode === 'Local' ? 'var(--vscode-list-activeSelectionBackground)' : 'transparent',
             }}
             onClick={() => handleModeChange('Local')}
           >

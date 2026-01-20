@@ -45,8 +45,8 @@
       "module": "ao.cli.ao_record",
       // Anthropic examples
       // "args": ["./example_workflows/debug_examples/anthropic/async_debate.py"],
-      "args": ["./example_workflows/debug_examples/anthropic/debate.py"],
-      // "args": ["./example_workflows/debug_examples/anthropic/document_query.py"],
+      // "args": ["./example_workflows/debug_examples/anthropic/debate.py"],
+      "args": ["./example_workflows/debug_examples/anthropic/document_query.py"],
       // "args": ["./example_workflows/debug_examples/anthropic/image_tool_call.py"],
       // "args": ["./example_workflows/debug_examples/anthropic/inline_docs.py"],
       // Langchain examples

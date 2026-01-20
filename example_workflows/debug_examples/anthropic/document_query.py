@@ -6,7 +6,7 @@ client = anthropic.Anthropic()
 model = "claude-sonnet-4-5"
 
 # Example files.
-current_dir = os.path.dirname(os.path.abspath(__file__))
+current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PDF_PATH = os.path.join(current_dir, "user_files", "example.pdf")
 PNG_PATH = os.path.join(current_dir, "user_files", "example.png")
 DOCX_PATH = os.path.join(current_dir, "user_files", "example.docx")
