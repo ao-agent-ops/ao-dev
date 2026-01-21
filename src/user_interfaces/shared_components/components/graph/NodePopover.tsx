@@ -5,7 +5,7 @@ interface NodePopoverProps {
     onAction: (action: string) => void;
     onMouseEnter: () => void;
     onMouseLeave: () => void;
-    position?: 'above' | 'below';
+    position?: 'above' | 'below' | 'left';
     top?: number;
     left?: number;
     isDarkTheme?: boolean;
@@ -32,11 +32,13 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
         { id: 'changeLabel', label: 'Change label' },
     ];
 
+    const isLeft = position === 'left';
+
     const popoverStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: top !== undefined ? (top + 4) : undefined, // Add gap directly to top
+        position: 'fixed',
+        top: top !== undefined ? (isLeft ? top : top + 4) : undefined,
         left: left !== undefined ? left : undefined,
-        transform: 'translateX(-50%)', // Only horizontal centering
+        transform: isLeft ? 'translateX(-100%) translateY(-50%)' : 'translateX(-50%)',
         background: popoverBg,
         border: `1px solid ${popoverBorder}`,
         borderRadius: '6px',
@@ -47,11 +49,22 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
         // Animation properties
         opacity: 0,
         scale: '0.95',
-        transformOrigin: 'top center',
-        animation: 'popoverFadeIn 0.2s ease-out forwards',
+        transformOrigin: isLeft ? 'right center' : 'top center',
+        animation: isLeft ? 'popoverFadeInLeft 0.2s ease-out forwards' : 'popoverFadeIn 0.2s ease-out forwards',
     };
 
-    const arrowStyle: React.CSSProperties = {
+    const arrowStyle: React.CSSProperties = isLeft ? {
+        position: 'absolute',
+        top: '47.5%',
+        right: '-5px',
+        transform: 'translateY(-50%)',
+        width: 0,
+        height: 0,
+        borderTop: '5px solid transparent',
+        borderBottom: '5px solid transparent',
+        borderLeft: `5px solid ${arrowColor}`,
+        filter: `drop-shadow(1px 0 0 ${popoverBorder})`,
+    } : {
         position: 'absolute',
         top: '-5px',
         left: '50%',
@@ -61,7 +74,6 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
         borderLeft: '5px solid transparent',
         borderRight: '5px solid transparent',
         borderBottom: `5px solid ${arrowColor}`,
-        // Add a subtle border to match the popover border
         filter: `drop-shadow(0 -1px 0 ${popoverBorder})`,
     };
 
@@ -77,6 +89,16 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
                     100% {
                         opacity: 1;
                         transform: translateX(-50%) scale(1);
+                    }
+                }
+                @keyframes popoverFadeInLeft {
+                    0% {
+                        opacity: 0;
+                        transform: translateX(-100%) translateY(-50%) scale(0.95);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: translateX(-100%) translateY(-50%) scale(1);
                     }
                 }
             `}</style>

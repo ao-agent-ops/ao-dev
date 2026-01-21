@@ -5,7 +5,7 @@ import { Point } from '../../types';
 
 interface CustomEdgeData {
   points?: Point[];
-  color?: string;
+  isHighlighted?: boolean;
 }
 
 export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
@@ -45,8 +45,9 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
     });
   }
 
-  // Use edge color from data, fallback to light gray
-  const stroke = data?.color || '#e0e0e0';
+  const defaultStroke = 'var(--vscode-foreground, #CCCCCC)';
+  const isHighlighted = data?.isHighlighted ?? false;
+  const highlightColor = '#43884e';
 
   const markerId = `arrow-${id}`;
 
@@ -64,17 +65,45 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
         >
           <polygon
             points="0,0 6,3 0,6"
-            fill={stroke}
+            fill={isHighlighted ? highlightColor : defaultStroke}
             stroke="none"
           />
         </marker>
       </defs>
+      {/* Glow layers - only rendered when highlighted */}
+      {isHighlighted && (
+        <>
+          <path
+            d={d}
+            style={{
+              stroke: highlightColor,
+              strokeWidth: 8,
+              fill: 'none',
+              opacity: 0.15,
+            }}
+          />
+          <path
+            d={d}
+            style={{
+              stroke: highlightColor,
+              strokeWidth: 5,
+              fill: 'none',
+              opacity: 0.3,
+            }}
+          />
+        </>
+      )}
+      {/* Main edge path */}
       <path
         id={id}
         className="react-flow__edge-path"
         d={d}
         markerEnd={`url(#${markerId})`}
-        style={{ stroke, strokeWidth: 1, fill: 'none' }}
+        style={{
+          stroke: isHighlighted ? highlightColor : defaultStroke,
+          strokeWidth: isHighlighted ? 2 : 1,
+          fill: 'none',
+        }}
       />
     </svg>
   );

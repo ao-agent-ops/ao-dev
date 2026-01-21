@@ -14,7 +14,7 @@ import { GraphNode, GraphEdge } from '../../types';
 import { LayoutEngine } from '../../utils/layoutEngine';
 import { MessageSender } from '../../types/MessageSender';
 import styles from './GraphView.module.css';
-import { NODE_WIDTH, getBandColor } from '../../utils/layoutConstants';
+import { NODE_WIDTH } from '../../utils/layoutConstants';
 import { Tooltip } from '../common/Tooltip';
 
 interface GraphViewProps {
@@ -104,6 +104,28 @@ export const GraphView: React.FC<GraphViewProps> = ({
   const [containerHeight, setContainerHeight] = useState(1500);
   const [viewport, setViewport] = useState<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: 1 });
   const [isMetadataPanelOpen, setIsMetadataPanelOpen] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+  // Compute connected nodes and edges for highlighting
+  const { highlightedNodes, highlightedEdges } = useMemo(() => {
+    if (!hoveredNodeId) {
+      return { highlightedNodes: new Set<string>(), highlightedEdges: new Set<string>() };
+    }
+
+    const connectedNodes = new Set<string>([hoveredNodeId]);
+    const connectedEdges = new Set<string>();
+
+    initialEdges.forEach(edge => {
+      if (edge.source === hoveredNodeId || edge.target === hoveredNodeId) {
+        connectedNodes.add(edge.target);
+        connectedNodes.add(edge.source);
+        // Use layout engine edge ID format: `${source}-${target}` (no 'e' prefix)
+        connectedEdges.add(`${edge.source}-${edge.target}`);
+      }
+    });
+
+    return { highlightedNodes: connectedNodes, highlightedEdges: connectedEdges };
+  }, [hoveredNodeId, initialEdges]);
 
   // Create layout engine instance using useMemo to prevent recreation
   const layoutEngine = useMemo(() => new LayoutEngine(), []);
@@ -180,17 +202,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
           session_id,
           messageSender,
           isDarkTheme,
+          onHover: setHoveredNodeId,
+          isHighlighted: highlightedNodes.has(node.id),
         },
       };
-    });
-
-    // Assign colors by source node so all edges from the same node have the same color
-    const sourceNodeColorMap = new Map<string, number>();
-    let colorIndex = 0;
-    layout.edges.forEach(edge => {
-      if (!sourceNodeColorMap.has(edge.source)) {
-        sourceNodeColorMap.set(edge.source, colorIndex++);
-      }
     });
 
     const flowEdges: Edge[] = layout.edges.map((edge) => {
@@ -200,10 +215,6 @@ export const GraphView: React.FC<GraphViewProps> = ({
         y: point.y
       }));
 
-      // Use source node's color index so all edges from same node share color
-      const sourceColorIndex = sourceNodeColorMap.get(edge.source) ?? 0;
-      const color = getBandColor(sourceColorIndex, isDarkTheme);
-
       return {
         id: edge.id,
         source: edge.source,
@@ -211,7 +222,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
         type: "custom",
-        data: { points: adjustedPoints, color },
+        data: { points: adjustedPoints },
         animated: false,
       };
     });
@@ -314,6 +325,31 @@ export const GraphView: React.FC<GraphViewProps> = ({
   useEffect(() => {
     updateViewport();
   }, [updateViewport]);
+
+  // Update highlight state when hoveredNodeId changes (without recalculating layout)
+  useEffect(() => {
+    setNodes(currentNodes => currentNodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        isHighlighted: highlightedNodes.has(node.id),
+        onHover: setHoveredNodeId,
+      },
+    })));
+    // Update edge styles - React Flow watches the style prop for changes
+    setEdges(currentEdges => currentEdges.map(edge => {
+      const isHighlighted = highlightedEdges.has(edge.id);
+      return {
+        ...edge,
+        // Use style prop to trigger React Flow re-render, pass isHighlighted via strokeWidth
+        style: { strokeWidth: isHighlighted ? 2 : 1 },
+        data: {
+          ...edge.data,
+          isHighlighted,
+        },
+      };
+    }));
+  }, [highlightedNodes, highlightedEdges, setNodes, setEdges]);
 
   // Handle container width changes for viewport adjustments
   useEffect(() => {
