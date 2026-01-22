@@ -88,14 +88,6 @@ Coding Agents already accelerate generic coding quite successfully. By augmentin
   <img src="docs/media/cc_and_ao.png" alt="AO x Claude Code" width="80%">
 </p>
 
-AO integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to accelerate agent development. Instead of manually inspecting logs or stepping through debuggers, Claude Code can directly query your agent's dataflow graph, understand what happened, and help you iterate faster.
-
-**Why use this integration?**
-
-- **Keep context clean**: Agent runs produce verbose logs that quickly pollute Claude's context window. With `ao-tool`, Claude queries only the specific nodes it needs.
-- **Structured access**: Claude gets structured JSON data (inputs, outputs, graph topology) rather than parsing raw logs.
-- **Edit and rerun**: Claude can programmatically edit an LLM's input or output and trigger a rerun to test hypotheses.
-
 **Setup:**
 
 ```bash
@@ -106,14 +98,13 @@ This interactive command will:
 1. Copy the AO skill file to your project's `.claude/skills/ao/` directory
 2. Add Bash permissions so Claude Code can run `ao-tool` commands without prompts
 
-After setup, restart Claude Code. Claude will now have access to the `ao` skill and can use commands like:
+After setup, restart Claude Code and ask "What skills are available?". The ao skill should now show up, and you can start developing/improving your agent as you would normally do.
 
-```bash
-ao-tool record agent.py              # Record an agent run
-ao-tool probe <session_id> --topology  # Query graph structure
-ao-tool probe <session_id> --node <id> # Inspect specific node
-ao-tool edit-and-rerun <session_id> <node_id> --output '{"new": "value"}'
-```
+**Why use this integration?**
+
+- **Keep context clean**: Agent runs produce verbose logs that quickly pollute Claude's context window. With `ao-tool`, Claude queries only the specific nodes it needs.
+- **Structured access**: Claude gets structured JSON data (inputs, outputs, graph topology) rather than parsing raw logs.
+- **Edit and rerun**: Claude can programmatically edit an LLM's input or output and trigger a rerun to test hypotheses.
 
 ## Documentation
 
