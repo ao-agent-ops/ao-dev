@@ -45,6 +45,15 @@ def _extract_model_from_body(input_dict: Dict[str, Any], api_type: str) -> Optio
         elif api_type == "MCP.ClientSession.send_request":
             return input_dict["request"].root.params.name
 
+        elif api_type in [
+            "langchain.BaseTool.run",
+            "langchain.BaseTool.arun",
+            "langchain.BaseTool.invoke",
+            "langchain.BaseTool.ainvoke",
+        ]:
+            # For langchain tools, the tool name is stored in input_dict
+            return input_dict.get("tool_name")
+
     except (KeyError, json.JSONDecodeError, UnicodeDecodeError, AttributeError, TypeError):
         pass
 
@@ -69,6 +78,14 @@ def _extract_name_from_url(input_dict: Dict[str, Any], api_type: str) -> Optiona
             url = path  # genai doesn't have full URL
         elif api_type == "MCP.ClientSession.send_request":
             # MCP doesn't have URL-based fallback traditionally, but we can try
+            return None
+        elif api_type in [
+            "langchain.BaseTool.run",
+            "langchain.BaseTool.arun",
+            "langchain.BaseTool.invoke",
+            "langchain.BaseTool.ainvoke",
+        ]:
+            # Langchain tools don't have URLs
             return None
         else:
             return None

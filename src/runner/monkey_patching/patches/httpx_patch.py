@@ -1,7 +1,12 @@
 from functools import wraps
 from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
 from ao.runner.string_matching import find_source_nodes, store_output_strings
-from ao.runner.context_manager import get_session_id
+from ao.runner.context_manager import (
+    get_session_id,
+    get_langchain_pending_llm_parent,
+    set_langchain_pending_llm_parent,
+    set_langchain_pending_tool_parent,
+)
 from ao.server.database_manager import DB
 from ao.common.logger import logger
 from ao.common.utils import is_whitelisted_endpoint
@@ -41,7 +46,6 @@ def patch_httpx_send(bound_obj, bound_cls):
 
     @wraps(original_function)
     def patched_function(self, *args, **kwargs):
-
         api_type = "httpx.Client.send"
 
         input_dict = get_input_dict(original_function, *args, **kwargs)
@@ -52,9 +56,15 @@ def patch_httpx_send(bound_obj, bound_cls):
         if not is_whitelisted_endpoint(url, path):
             return original_function(*args, **kwargs)
 
-        # Content-based edge detection BEFORE get_in_out (uses original input)
+        # Content-based edge detection
         session_id = get_session_id()
         source_node_ids = find_source_nodes(session_id, input_dict, api_type)
+
+        # Check for langchain tool parent (explicit dataflow edge from tool → LLM)
+        tool_parent = get_langchain_pending_llm_parent()
+        if tool_parent and tool_parent not in source_node_ids:
+            source_node_ids.append(tool_parent)
+            set_langchain_pending_llm_parent(None)  # Clear after use
 
         # Get result from cache or call LLM
         cache_output = DB.get_in_out(input_dict, api_type)
@@ -66,6 +76,9 @@ def patch_httpx_send(bound_obj, bound_cls):
         store_output_strings(
             cache_output.session_id, cache_output.node_id, cache_output.output, api_type
         )
+
+        # Set this LLM as potential parent for langchain tool calls (LLM → tool edge)
+        set_langchain_pending_tool_parent(cache_output.node_id)
 
         # Send graph node to server
         send_graph_node_and_edges(
@@ -86,7 +99,6 @@ def patch_async_httpx_send(bound_obj, bound_cls):
 
     @wraps(original_function)
     async def patched_function(self, *args, **kwargs):
-
         api_type = "httpx.AsyncClient.send"
 
         input_dict = get_input_dict(original_function, *args, **kwargs)
@@ -97,9 +109,15 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         if not is_whitelisted_endpoint(url, path):
             return await original_function(*args, **kwargs)
 
-        # Content-based edge detection BEFORE get_in_out (uses original input)
+        # Content-based edge detection
         session_id = get_session_id()
         source_node_ids = find_source_nodes(session_id, input_dict, api_type)
+
+        # Check for langchain tool parent (explicit dataflow edge from tool → LLM)
+        tool_parent = get_langchain_pending_llm_parent()
+        if tool_parent and tool_parent not in source_node_ids:
+            source_node_ids.append(tool_parent)
+            set_langchain_pending_llm_parent(None)  # Clear after use
 
         # Get result from cache or call LLM
         cache_output = DB.get_in_out(input_dict, api_type)
@@ -111,6 +129,9 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         store_output_strings(
             cache_output.session_id, cache_output.node_id, cache_output.output, api_type
         )
+
+        # Set this LLM as potential parent for langchain tool calls (LLM → tool edge)
+        set_langchain_pending_tool_parent(cache_output.node_id)
 
         # Send graph node to server
         send_graph_node_and_edges(

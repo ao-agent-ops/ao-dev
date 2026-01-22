@@ -13,6 +13,7 @@ LAZY_PATCHES = {
     "torch": ("ao.runner.monkey_patching.patches.randomness_patch", "torch_seed_patch"),
     "uuid": ("ao.runner.monkey_patching.patches.randomness_patch", "uuid_patch"),
     "httpx": ("ao.runner.monkey_patching.patches.httpx_patch", "httpx_patch"),
+    "langchain_core": ("ao.runner.monkey_patching.patches.langchain_patch", "langchain_patch"),
 }
 
 # Track which patches have been applied
