@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graph Tab</title>
     <link rel="stylesheet" href="{{codiconsUri}}">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+        }
+        #graph-tab-root {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
     <script>
         // Polyfill process for browser environment
         window.process = {

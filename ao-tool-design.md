@@ -80,14 +80,18 @@ ao-tool record -m <module_name> [module_args...]
 ao-tool probe <session_id>
 ao-tool probe <session_id> --topology
 ao-tool probe <session_id> --node <node_id>
+ao-tool probe <session_id> --node <node_id> --preview
+ao-tool probe <session_id> --node <node_id> --output
 ao-tool probe <session_id> --nodes <node_id1,node_id2,...>
 ```
 
 **Options**:
 - `--topology`: Return only the graph structure (nodes and edges, no content)
-- `--node <node_id>`: Return detailed info for a single node
+- `--node <node_id>`: Return detailed info for a single node (includes full input/output by default)
 - `--nodes <node_ids>`: Return detailed info for multiple nodes (comma-separated)
-- `--include-content`: When probing nodes, include full input/output content (default: summary only)
+- `--preview`: Truncate all string values to 20 characters for a compact overview
+- `--input`: Only show input content (omit output)
+- `--output`: Only show output content (omit input)
 
 **Output - Full probe (default)**:
 ```json
@@ -353,9 +357,12 @@ ao-tool record <script.py> [args...]
 Returns: {"status": "started", "session_id": "...", "pid": ...}
 
 ### Inspect a session
-ao-tool probe <session_id>              # Full session info
-ao-tool probe <session_id> --topology   # Just graph structure
-ao-tool probe <session_id> --node <id>  # Single node details
+ao-tool probe <session_id>                      # Full session info
+ao-tool probe <session_id> --topology           # Just graph structure
+ao-tool probe <session_id> --node <id>          # Single node with full I/O
+ao-tool probe <session_id> --node <id> --preview   # Truncated strings (20 chars)
+ao-tool probe <session_id> --node <id> --output    # Only show output
+ao-tool probe <session_id> --node <id> --input     # Only show input
 
 ### Edit and rerun
 ao-tool edit-and-rerun <session_id> <node_id> --output '{"content": "new response"}'

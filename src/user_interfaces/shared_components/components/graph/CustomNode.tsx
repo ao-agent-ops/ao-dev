@@ -28,6 +28,8 @@ interface CustomNodeData extends GraphNode {
   session_id?: string;
   messageSender: MessageSender;
   isDarkTheme?: boolean;
+  onHover?: (nodeId: string | null) => void;
+  isHighlighted?: boolean;
 }
 
 export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
@@ -63,24 +65,24 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
     switch (action) {
       case "editInput":
         data.messageSender.send({
-          type: "showNodeEditModal",
-          payload: {
-            nodeId: id,
-            field: "input",
-            value: data.input,
-            label: data.label || "Node",
-          }
+          type: "openNodeEditorTab",
+          nodeId: id,
+          sessionId: data.session_id,
+          field: "input",
+          label: data.label || "Node",
+          inputValue: data.input,
+          outputValue: data.output,
         });
         break;
       case "editOutput":
         data.messageSender.send({
-          type: "showNodeEditModal",
-          payload: {
-            nodeId: id,
-            field: "output",
-            value: data.output,
-            label: data.label || "Node",
-          }
+          type: "openNodeEditorTab",
+          nodeId: id,
+          sessionId: data.session_id,
+          field: "output",
+          label: data.label || "Node",
+          inputValue: data.input,
+          outputValue: data.output,
         });
         break;
       case "changeLabel":
@@ -101,23 +103,18 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   };  
 
   const isDarkTheme = data.isDarkTheme ?? false;
-  
+  const isHighlighted = data.isHighlighted ?? false;
+
   const nodeRef = useRef<HTMLDivElement>(null);
   const [popoverCoords, setPopoverCoords] = useState<{top: number, left: number} | null>(null);
 
   useEffect(() => {
     if (showPopover && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      // Always position popover below the node, centered precisely
-      const top = rect.bottom + window.scrollY;
-      // Calculate exact center point of the node, with slight left adjustment
-      const centerX = rect.left + (rect.width / 2) - 3; // Move 3px to the left
-      const left = centerX + window.scrollX;
-      
-      // Debug logging to check values
-      console.log('Node rect:', { left: rect.left, width: rect.width, centerX });
-      console.log('Popover position:', { top, left });
-      
+      // Position popover to the left of the node, vertically centered
+      const top = rect.top + (rect.height / 2);
+      const left = rect.left - 12;
+
       setPopoverCoords({ top, left });
     } else if (!showPopover) {
       setPopoverCoords(null);
@@ -131,11 +128,15 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         boxSizing: "border-box",
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
-        background: isDarkTheme ? "#3c3c3c" : "#F5F5F5",
-        border: `${NODE_BORDER_WIDTH}px solid ${data.border_color}`,
+        background: "var(--vscode-input-background)",
+        border: `${NODE_BORDER_WIDTH}px solid var(--vscode-foreground, #CCCCCC)`,
         borderRadius: 8,
         padding: 2,
         position: "relative",
+        boxShadow: isHighlighted
+          ? `0 0 8px 2px ${isDarkTheme ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)'}`
+          : 'none',
+        transition: 'box-shadow 0.15s ease-out',
       }}
       onMouseEnter={() => {
         if (leaveTimeoutRef.current) {
@@ -144,7 +145,8 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         }
         enterTimeoutRef.current = window.setTimeout(() => {
           setShowPopover(true);
-        }, 150);
+        }, 0);
+        data.onHover?.(id);
       }}
       onMouseLeave={() => {
         if (enterTimeoutRef.current) {
@@ -153,7 +155,8 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         }
         leaveTimeoutRef.current = window.setTimeout(() => {
           setShowPopover(false);
-        }, 150);
+        }, 0);
+        data.onHover?.(null);
       }}
     >
       {showPopover && !isEditingLabel && popoverCoords && (
@@ -161,7 +164,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           onAction={handleAction}
           onMouseEnter={() => setShowPopover(true)}
           onMouseLeave={() => setShowPopover(false)}
-          position="below"
+          position="left"
           top={popoverCoords.top}
           left={popoverCoords.left}
           isDarkTheme={isDarkTheme}
@@ -250,11 +253,12 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
           justifyContent: "center",
           height: "100%",
           opacity: isEditingLabel ? 0 : 1,
-          color: isDarkTheme ? "#cccccc" : "#303030",
+          color: "var(--vscode-foreground)",
           textAlign: "center",
-          padding: "0 4px",
-          wordBreak: "break-word",
-          lineHeight: "1.3",
+          padding: "0 8px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}
         title={data.label}
       >

@@ -81,5 +81,5 @@ def main(
 
 if __name__ == "__main__":
     main(
-        task="Find recent news about OpenAI."
+        task="Find out who works at 1816 Divina AG in Zurich, Switzerland."
     )

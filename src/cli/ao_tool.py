@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import shlex
+import shutil
 import uuid
 import time
 import signal
@@ -10,6 +11,7 @@ import tempfile
 import subprocess
 from argparse import ArgumentParser, REMAINDER
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from ao.common.constants import AO_TOOL_LOG_DIR
@@ -21,7 +23,7 @@ TERMINATE_TIMEOUT = 5  # Seconds to wait for graceful exit before force kill
 
 def output_json(data: dict) -> None:
     """Print JSON to stdout and exit with appropriate code."""
-    print(json.dumps(data))
+    print(json.dumps(data, indent=2))
     sys.exit(0 if data.get("status") != "error" else 1)
 
 
@@ -256,8 +258,9 @@ def record_command(args) -> None:
 
     atexit.register(cleanup_session_file)
 
-    # 3. Create log file
-    log_file = os.path.join(AO_TOOL_LOG_DIR, f"run-{run_id}.log")
+    # 3. Create log files for stdout and stderr
+    stdout_file = os.path.join(AO_TOOL_LOG_DIR, f"run-{run_id}.out")
+    stderr_file = os.path.join(AO_TOOL_LOG_DIR, f"run-{run_id}.err")
 
     # 4. Build command: python -m ao.cli.ao_record [options] script_path [args...]
     cmd = [sys.executable, "-m", "ao.cli.ao_record"]
@@ -272,17 +275,18 @@ def record_command(args) -> None:
     env = os.environ.copy()
     env["AO_SESSION_FILE"] = session_file
 
-    # 6. Spawn process with stdout/stderr redirected to log file
-    with open(log_file, "w") as log_handle:
-        process = subprocess.Popen(
-            cmd,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            close_fds=True,
-            start_new_session=True,
-        )
+    # 6. Spawn process with stdout/stderr redirected to separate files
+    stdout_handle = open(stdout_file, "w")
+    stderr_handle = open(stderr_file, "w")
+    process = subprocess.Popen(
+        cmd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=stdout_handle,
+        stderr=stderr_handle,
+        close_fds=True,
+        start_new_session=True,
+    )
 
     # 7. Wait for session_id from agent_runner (written after handshake)
     session_data = wait_for_session_file(session_file, SESSION_WAIT_TIMEOUT)
@@ -296,7 +300,8 @@ def record_command(args) -> None:
             "status": "error",
             "error": "Timeout waiting for session_id from agent runner",
             "pid": process.pid,
-            "log_file": log_file,
+            "stdout_file": stdout_file,
+            "stderr_file": stderr_file,
         })
 
     session_id = session_data["session_id"]
@@ -307,20 +312,32 @@ def record_command(args) -> None:
         try:
             exit_code = process.wait(timeout=args.timeout)
             duration = time.time() - start_time
-            output_json({
+            result = {
                 "status": "completed" if exit_code == 0 else "failed",
                 "session_id": session_id,
                 "exit_code": exit_code,
                 "duration_seconds": round(duration, 2),
-                "log_file": log_file,
-            })
+                "stdout_file": stdout_file,
+                "stderr_file": stderr_file,
+            }
+            # On failure, include the last part of stderr to show the error
+            if exit_code != 0:
+                try:
+                    with open(stderr_file, "r") as f:
+                        err_content = f.read()
+                        # Get last 2000 chars to capture the traceback
+                        result["error"] = err_content[-2000:] if len(err_content) > 2000 else err_content
+                except Exception:
+                    pass
+            output_json(result)
         except subprocess.TimeoutExpired:
             process.terminate()
             output_json({
                 "status": "timeout",
                 "session_id": session_id,
                 "pid": process.pid,
-                "log_file": log_file,
+                "stdout_file": stdout_file,
+                "stderr_file": stderr_file,
             })
     else:
         # Return immediately with started status
@@ -328,8 +345,51 @@ def record_command(args) -> None:
             "status": "started",
             "session_id": session_id,
             "pid": process.pid,
-            "log_file": log_file,
+            "stdout_file": stdout_file,
+            "stderr_file": stderr_file,
         })
+
+
+def _truncate_strings(obj, max_len: int = 20):
+    """Recursively truncate all string values in a JSON-like structure."""
+    if isinstance(obj, str):
+        if len(obj) > max_len:
+            return obj[:max_len] + "..."
+        return obj
+    elif isinstance(obj, dict):
+        return {k: _truncate_strings(v, max_len) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_truncate_strings(item, max_len) for item in obj]
+    else:
+        return obj
+
+
+def _filter_by_key_regex(obj, pattern: str):
+    """
+    Filter a JSON-like structure by regex pattern on flattened keys.
+
+    Uses flatten_json to create keys like "content.0.hello.key" for nested structures,
+    filters by regex match, then unflattens back to nested structure.
+    """
+    import re
+    from flatten_json import flatten, unflatten_list
+
+    if obj is None:
+        return None
+
+    try:
+        regex = re.compile(pattern)
+    except re.error as e:
+        raise ValueError(f"Invalid regex pattern: {e}")
+
+    # Flatten the dict with "." separator (lists become content.0.key)
+    flattened = flatten(obj, ".")
+
+    # Filter keys that match the regex
+    filtered = {k: v for k, v in flattened.items() if regex.search(k)}
+
+    # Unflatten back to nested structure
+    return unflatten_list(filtered, ".")
 
 
 def probe_command(args) -> None:
@@ -378,6 +438,29 @@ def probe_command(args) -> None:
                 # output_data has {raw: {...}, to_show: {...}}
                 output_to_show = output_data.get("to_show")
 
+            # Apply key regex filter if requested
+            if args.key_regex:
+                try:
+                    input_to_show = _filter_by_key_regex(input_to_show, args.key_regex)
+                    output_to_show = _filter_by_key_regex(output_to_show, args.key_regex)
+                except ValueError as e:
+                    output_json({"status": "error", "error": str(e)})
+
+            # Apply preview truncation if requested
+            if args.preview:
+                input_to_show = _truncate_strings(input_to_show)
+                output_to_show = _truncate_strings(output_to_show)
+
+            # Determine which content to include based on --input/--output flags
+            # If neither specified, include both; if one specified, include only that one
+            show_input = not args.show_output or args.show_input
+            show_output = not args.show_input or args.show_output
+
+            # Split stack trace into list of lines for readability
+            stack_trace = llm_call["stack_trace"]
+            if stack_trace:
+                stack_trace = [line.strip() for line in stack_trace.split("\n") if line.strip()]
+
             node_info = {
                 "node_id": llm_call["node_id"],
                 "session_id": session_id,
@@ -387,12 +470,12 @@ def probe_command(args) -> None:
                 "parent_ids": parent_ids.get(node_id.strip(), []),
                 "child_ids": child_ids.get(node_id.strip(), []),
                 "has_input_overwrite": llm_call["input_overwrite"] is not None,
-                "stack_trace": llm_call["stack_trace"],
+                "stack_trace": stack_trace,
             }
 
-            # Include content if requested or default for single node
-            if args.include_content or args.node:
+            if show_input:
                 node_info["input"] = input_to_show
+            if show_output:
                 node_info["output"] = output_to_show
 
             nodes_data.append(node_info)
@@ -632,6 +715,88 @@ def edit_and_rerun_command(args) -> None:
     output_json(result)
 
 
+def install_skill_command() -> None:
+    """Install the ao skill to a project's .claude/skills/ao/ directory."""
+    from ao.common.config import _ask_field, _convert_to_valid_path
+
+    # Ask for target path with tab-completion
+    default_path = os.getcwd()
+    target_root_str = _ask_field(
+        f"Target project directory [{default_path}]\n> ",
+        _convert_to_valid_path,
+        default=default_path,
+        error_message="Please enter a valid directory path.",
+    )
+    target_root = Path(target_root_str).resolve()
+    target_dir = target_root / ".claude" / "skills" / "ao"
+    target_file = target_dir / "SKILL.md"
+
+    # Find the source SKILL.md relative to this package
+    # ao package is at ao-dev/ao/, SKILL.md is at ao-dev/SKILL.md
+    import ao
+    ao_package_dir = Path(ao.__file__).parent  # ao-dev/ao/
+    skill_source = ao_package_dir.parent / "SKILL.md"  # Go up to repo root
+
+    if not skill_source.exists():
+        print(f"Error: SKILL.md not found at {skill_source}", file=sys.stderr)
+        sys.exit(1)
+
+    # Create target directory
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy the file
+    shutil.copy2(skill_source, target_file)
+    print(f"\033[32mSkill installed to {target_file}\033[0m")
+
+    # Ask about adding Bash permissions
+    settings_file = target_root / ".claude" / "settings.local.json"
+    print(f"\nAdd ao-tool Bash permissions to Claude Code settings?")
+    print(f"This allows Claude to run ao-tool commands without asking for permission.")
+    print(f"Target: {settings_file}")
+    response = input("Add permissions? [Y/n]: ").strip().lower()
+
+    if response in ("", "y", "yes"):
+        _add_ao_permissions(settings_file)
+        print("\033[32mPermissions added.\033[0m")
+    else:
+        print("Skipped adding permissions.")
+
+    print("\nMake sure to re-open Claude Code for changes to take effect.")
+
+
+def _add_ao_permissions(settings_file: Path) -> None:
+    """Add ao-tool Bash permissions to a Claude settings file."""
+    ao_permissions = [
+        "Bash(*ao.cli.ao_tool*)",
+        "Bash(*ao-tool*)",
+    ]
+
+    # Load existing settings or create new
+    if settings_file.exists():
+        with open(settings_file, "r") as f:
+            settings = json.load(f)
+    else:
+        settings = {}
+
+    # Ensure permissions.allow exists
+    if "permissions" not in settings:
+        settings["permissions"] = {}
+    if "allow" not in settings["permissions"]:
+        settings["permissions"]["allow"] = []
+
+    # Add new permissions (avoid duplicates)
+    existing = set(settings["permissions"]["allow"])
+    for perm in ao_permissions:
+        if perm not in existing:
+            settings["permissions"]["allow"].append(perm)
+
+    # Create directory if needed and write file
+    settings_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(settings_file, "w") as f:
+        json.dump(settings, f, indent=2)
+        f.write("\n")
+
+
 def create_parser() -> ArgumentParser:
     """Create the argument parser with subcommands."""
     parser = ArgumentParser(
@@ -646,8 +811,6 @@ def create_parser() -> ArgumentParser:
         help="Start recording a script execution",
         description="Spawn ao-record as a background process and return session_id.",
     )
-    record.add_argument("script_path", help="Script to execute (or module name with -m)")
-    record.add_argument("script_args", nargs=REMAINDER, help="Arguments to pass to the script")
     record.add_argument(
         "-m", "--module",
         action="store_true",
@@ -665,6 +828,9 @@ def create_parser() -> ArgumentParser:
         default=None,
         help="Timeout in seconds when using --wait",
     )
+    # Positional args must come after options to avoid REMAINDER capturing them
+    record.add_argument("script_path", help="Script to execute (or module name with -m)")
+    record.add_argument("script_args", nargs=REMAINDER, help="Arguments to pass to the script")
 
     # probe subcommand
     probe = subparsers.add_parser(
@@ -687,9 +853,25 @@ def create_parser() -> ArgumentParser:
         help="Return detailed info for multiple nodes (comma-separated IDs)",
     )
     probe.add_argument(
-        "--include-content",
+        "--preview",
         action="store_true",
-        help="Include full input/output content when probing multiple nodes",
+        help="Truncate string values to 20 characters for a compact overview",
+    )
+    probe.add_argument(
+        "--input",
+        dest="show_input",
+        action="store_true",
+        help="Only show input content (omit output)",
+    )
+    probe.add_argument(
+        "--output",
+        dest="show_output",
+        action="store_true",
+        help="Only show output content (omit input)",
+    )
+    probe.add_argument(
+        "--key-regex",
+        help="Filter keys using regex pattern on flattened keys (e.g., 'messages.*content'). Lists use index notation: content.0.hello",
     )
 
     # experiments subcommand
@@ -754,6 +936,13 @@ def create_parser() -> ArgumentParser:
         help="Name for the new run (only used with --as-new-run). Defaults to 'Edit of <original name>'",
     )
 
+    # install-skill subcommand
+    subparsers.add_parser(
+        "install-skill",
+        help="Install the ao skill to a project",
+        description="Interactive setup: copies SKILL.md and adds Claude Code permissions.",
+    )
+
     return parser
 
 
@@ -771,6 +960,8 @@ def main():
         terminate_command(args)
     elif args.command == "edit-and-rerun":
         edit_and_rerun_command(args)
+    elif args.command == "install-skill":
+        install_skill_command()
 
 
 if __name__ == "__main__":

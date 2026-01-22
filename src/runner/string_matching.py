@@ -10,8 +10,11 @@ Uses word-level longest contiguous match via difflib.SequenceMatcher.
 import re
 import json
 from difflib import SequenceMatcher
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any
+from flatten_json import flatten
 from ao.common.logger import logger
+from ao.common.constants import COMPILED_STRING_MATCH_EXCLUDE_PATTERNS
+from ao.runner.monkey_patching.api_parser import func_kwargs_to_json_str, api_obj_to_json_str
 
 
 # ===========================================================
@@ -30,6 +33,16 @@ MIN_COVERAGE_PRODUCT = 0.1
 # ===========================================================
 # Tokenization
 # ===========================================================
+
+
+def get_graph_topology(session_id: str):
+    import json
+    from ao.server.database_manager import DB
+
+    row = DB.get_graph(session_id=session_id)
+    if row:
+        return json.loads(row["graph_topology"])
+    return None
 
 
 def split_html_content(text: str) -> List[str]:
@@ -85,121 +98,16 @@ def compute_longest_match(output_words: List[str], input_words: List[str]) -> in
 
 
 # ===========================================================
-# Blacklist for content-based edge detection
-# ===========================================================
-
-# Keys to skip entirely when extracting strings for content matching.
-# These are metadata/config fields that don't contain actual LLM content.
-BLACKLIST_KEYS_EXACT: Set[str] = {
-    # Identifiers & timestamps
-    "id",
-    "object",
-    "created_at",
-    "completed_at",
-    "responseId",
-    "previous_response_id",
-    "prompt_cache_key",
-    "safety_identifier",
-    # Model & config
-    "model",
-    "modelVersion",
-    "role",
-    "type",
-    "status",
-    "background",
-    "temperature",
-    "top_p",
-    "top_k",
-    "top_logprobs",
-    "frequency_penalty",
-    "presence_penalty",
-    "max_output_tokens",
-    "max_tokens",
-    "max_tool_calls",
-    "n",
-    "service_tier",
-    "store",
-    "truncation",
-    # Tool-related
-    "tool_choice",
-    "tools",
-    "parallel_tool_calls",
-    # Stop conditions
-    "stop_reason",
-    "stop_sequence",
-    "stop",
-    "finish_reason",
-    "finishReason",
-    # Usage/billing (entire subtrees)
-    "usage",
-    "usageMetadata",
-    "billing",
-    # Other metadata
-    "error",
-    "incomplete_details",
-    "instructions",
-    "reasoning",
-    "metadata",
-    "user",
-    "index",
-    "logprobs",
-    "annotations",
-    "payer",
-    "verbosity",
-    "format",
-    "effort",
-    "summary",
-    # Cache-related
-    "prompt_cache_retention",
-    "cache_creation",
-    "cache_creation_input_tokens",
-    "cache_read_input_tokens",
-}
-
-# Regex patterns for keys to skip (checked if not in exact set)
-BLACKLIST_KEYS_PATTERNS = [
-    re.compile(r".*_tokens$"),  # input_tokens, output_tokens, cached_tokens, etc.
-    re.compile(r".*_tokens_details$"),
-    re.compile(r".*_at$"),  # created_at, completed_at, etc.
-    re.compile(r".*_id$"),  # session_id, response_id, etc.
-    re.compile(r".*_count$"),  # promptTokenCount, totalTokenCount, etc.
-    re.compile(r".*Count$"),  # camelCase versions
-    re.compile(r".*_tier$"),
-]
-
-
-def _is_blacklisted_key(key: str) -> bool:
-    """Check if a dict key should be skipped during string extraction."""
-    if key in BLACKLIST_KEYS_EXACT:
-        return True
-    for pattern in BLACKLIST_KEYS_PATTERNS:
-        if pattern.match(key):
-            return True
-    return False
-
-
-# ===========================================================
 # String extraction
 # ===========================================================
 
 
-def _extract_all_strings(obj: Any) -> List[str]:
-    """
-    Recursively extract all string values from a JSON-like object.
-    Skips dict keys that match the blacklist to filter out metadata.
-    """
-    strings = []
-    if isinstance(obj, str):
-        strings.append(obj)
-    elif isinstance(obj, dict):
-        for key, value in obj.items():
-            if _is_blacklisted_key(key):
-                continue
-            strings.extend(_extract_all_strings(value))
-    elif isinstance(obj, list):
-        for item in obj:
-            strings.extend(_extract_all_strings(item))
-    return strings
+def _filter_excluded_keys(flattened: Dict[str, Any]) -> List[str]:
+    """Filter out keys matching STRING_MATCH_ADDITIONAL_EXCLUDE_PATTERNS."""
+    return [
+        v for k, v in flattened.items()
+        if isinstance(v, str) and not any(p.match(k) for p in COMPILED_STRING_MATCH_EXCLUDE_PATTERNS)
+    ]
 
 
 def extract_input_text(input_dict: Dict[str, Any], api_type: str) -> str:
@@ -210,56 +118,9 @@ def extract_input_text(input_dict: Dict[str, Any], api_type: str) -> str:
     stored output string appears in this input text).
     """
     try:
-        if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
-            request = input_dict.get("request")
-            if request is not None:
-                body = request.content
-                if body:
-                    body_str = body.decode("utf-8")
-                    try:
-                        body_json = json.loads(body_str)
-                        strings = _extract_all_strings(body_json)
-                        return "\n".join(strings)
-                    except json.JSONDecodeError:
-                        return body_str
-            return ""
-
-        elif api_type == "requests.Session.send":
-            request = input_dict.get("request")
-            if request is not None and hasattr(request, "body") and request.body:
-                try:
-                    body_json = json.loads(request.body)
-                    strings = _extract_all_strings(body_json)
-                    return "\n".join(strings)
-                except (json.JSONDecodeError, TypeError):
-                    return str(request.body) if request.body else ""
-            return ""
-
-        elif api_type == "MCP.ClientSession.send_request":
-            request = input_dict.get("request")
-            if request is not None:
-                try:
-                    if hasattr(request, "model_dump"):
-                        request_dict = request.model_dump()
-                    elif hasattr(request, "dict"):
-                        request_dict = request.dict()
-                    else:
-                        request_dict = {"request": str(request)}
-                    strings = _extract_all_strings(request_dict)
-                    return "\n".join(strings)
-                except Exception:
-                    return str(request)
-            return ""
-
-        elif api_type == "genai.BaseApiClient.async_request":
-            request_dict = input_dict.get("request_dict", {})
-            strings = _extract_all_strings(request_dict)
-            return "\n".join(strings)
-
-        else:
-            logger.warning(f"Unknown API type for text extraction: {api_type}")
-            return ""
-
+        flattened = flatten(json.loads(func_kwargs_to_json_str(input_dict, api_type)[0])["to_show"], ".")
+        strings = _filter_excluded_keys(flattened)
+        return "\n".join(strings)
     except Exception as e:
         logger.error(f"Error extracting input text: {e}")
         return ""
@@ -274,56 +135,11 @@ def extract_output_text(output_obj: Any, api_type: str) -> List[str]:
     exclude metadata fields that would cause spurious matches.
     """
     try:
-        if api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
-            if output_obj is not None and hasattr(output_obj, "content"):
-                try:
-                    content_json = json.loads(output_obj.content.decode("utf-8"))
-                    logger.info(f"[DEBUG extract_output_text] content_json: {content_json}")
-                    return _extract_all_strings(content_json)
-                except (json.JSONDecodeError, AttributeError):
-                    return []
-            return []
-
-        elif api_type == "requests.Session.send":
-            if output_obj is not None:
-                try:
-                    content_json = output_obj.json()
-                    return _extract_all_strings(content_json)
-                except (json.JSONDecodeError, AttributeError):
-                    return []
-            return []
-
-        elif api_type == "MCP.ClientSession.send_request":
-            if output_obj is not None:
-                try:
-                    if hasattr(output_obj, "model_dump"):
-                        output_dict = output_obj.model_dump()
-                    elif hasattr(output_obj, "dict"):
-                        output_dict = output_obj.dict()
-                    else:
-                        output_dict = {"output": str(output_obj)}
-                    return _extract_all_strings(output_dict)
-                except Exception:
-                    return [str(output_obj)]
-            return []
-
-        elif api_type == "genai.BaseApiClient.async_request":
-            if output_obj is not None and hasattr(output_obj, "body"):
-                try:
-                    body_json = json.loads(output_obj.body)
-                    return _extract_all_strings(body_json)
-                except (json.JSONDecodeError, AttributeError):
-                    return []
-            return []
-
-        else:
-            logger.warning(f"Unknown API type for text extraction: {api_type}")
-            return []
-
+        flattened = flatten(json.loads(api_obj_to_json_str(output_obj, api_type))["to_show"], ".")
+        return _filter_excluded_keys(flattened)
     except Exception as e:
         logger.error(f"Error extracting output text: {e}")
         return []
-
 
 # ===========================================================
 # Session Data Management
@@ -333,6 +149,10 @@ def extract_output_text(output_obj: Any, api_type: str) -> List[str]:
 # Structure: {session_id: {node_id: [[word_lists]]}}
 _session_outputs: Dict[str, Dict[str, List[List[str]]]] = {}
 
+# In-memory storage for session inputs
+# Structure: {session_id: {node_id: [word_list]}}
+_session_inputs: Dict[str, Dict[str, List[str]]] = {}
+
 
 def _get_session_outputs(session_id: str) -> Dict[str, List[List[str]]]:
     """Get or create output storage for a session."""
@@ -341,10 +161,19 @@ def _get_session_outputs(session_id: str) -> Dict[str, List[List[str]]]:
     return _session_outputs[session_id]
 
 
+def _get_session_inputs(session_id: str) -> Dict[str, List[str]]:
+    """Get or create input storage for a session."""
+    if session_id not in _session_inputs:
+        _session_inputs[session_id] = {}
+    return _session_inputs[session_id]
+
+
 def clear_session_data(session_id: str) -> None:
     """Clear session data when a session is erased or restarted."""
     if session_id in _session_outputs:
         del _session_outputs[session_id]
+    if session_id in _session_inputs:
+        del _session_inputs[session_id]
 
 
 # ===========================================================
@@ -432,7 +261,34 @@ def find_source_nodes(
                 matches.append(node_id)
                 break  # Only add node once even if multiple outputs match
 
+    get_graph_topology(session_id=session_id)
+
     return matches
+
+
+def store_input_strings(
+    session_id: str,
+    node_id: str,
+    input_dict: Dict[str, Any],
+    api_type: str,
+) -> None:
+    """
+    Store input strings from an LLM call for future containment checks.
+
+    Args:
+        session_id: The session this input belongs to
+        node_id: The node ID that received this input
+        input_dict: The input dictionary for the LLM call
+        api_type: The API type identifier
+    """
+    input_text = extract_input_text(input_dict, api_type)
+    if not input_text:
+        return
+
+    input_words = tokenize(input_text)
+    if input_words:
+        session_inputs = _get_session_inputs(session_id)
+        session_inputs[node_id] = input_words
 
 
 def store_output_strings(
@@ -474,3 +330,36 @@ def store_output_strings(
 
     if word_lists:
         session_outputs[node_id] = word_lists
+
+
+def output_contained_in_input(session_id: str, node_a_id: str, node_b_id: str) -> bool:
+    """
+    We have A -> B -> C
+            A ------> C
+
+    We need to check if the output of A is subset of input to B. If so,
+    we don't need A -> C.
+    
+    Args:
+        session_id: The session to search within
+        output_node_id: The node whose output might be contained
+        input_node_id: The node whose input might contain the output
+
+    Returns:
+        True if output_node's output is contained in input_node's input
+    """
+    session_outputs = _get_session_outputs(session_id)
+    session_inputs = _get_session_inputs(session_id)
+
+    output_a = session_outputs.get(node_a_id, [])
+    input_b = session_inputs.get(node_b_id, [])
+
+    if not output_a or not input_b:
+        return False
+
+    total_match_len = sum(compute_longest_match(out_a, input_b) for out_a in output_a)
+    total_output_len = sum(len(out_a) for out_a in output_a)
+    coverage = total_match_len / total_output_len
+    if total_output_len > 0 and coverage >= 0.9:
+        return True
+    return False

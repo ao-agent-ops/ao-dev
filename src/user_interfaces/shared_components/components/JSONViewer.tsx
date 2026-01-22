@@ -35,31 +35,20 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
   // Get opened document paths from context
   const { openedPaths } = useDocumentContext();
 
-  const colors = isDarkTheme
-    ? {
-        key: '#9cdcfe',
-        string: '#ce9178',
-        number: '#b5cea8',
-        boolean: '#569cd6',
-        null: '#569cd6',
-        bracket: '#d4d4d4',
-        background: '#1e1e1e',
-        hoverBackground: '#2a2a2a',
-        inputBackground: '#2d2d2d',
-        inputBorder: '#3c3c3c',
-      }
-    : {
-        key: '#0451a5',
-        string: '#a31515',
-        number: '#098658',
-        boolean: '#0000ff',
-        null: '#0000ff',
-        bracket: '#333333',
-        background: '#ffffff',
-        hoverBackground: '#f3f3f3',
-        inputBackground: '#ffffff',
-        inputBorder: '#d0d0d0',
-      };
+  // Use VS Code CSS variables for theme-aware colors
+  // Syntax highlighting colors use VS Code's token colors with fallbacks
+  const colors = {
+    key: 'var(--vscode-symbolIcon-propertyForeground, #9cdcfe)',
+    string: 'var(--vscode-debugTokenExpression-string, #ce9178)',
+    number: 'var(--vscode-debugTokenExpression-number, #b5cea8)',
+    boolean: 'var(--vscode-debugTokenExpression-boolean, #569cd6)',
+    null: 'var(--vscode-debugTokenExpression-boolean, #569cd6)',
+    bracket: 'var(--vscode-foreground)',
+    background: 'var(--vscode-editor-background)',
+    hoverBackground: 'var(--vscode-list-hoverBackground)',
+    inputBackground: 'var(--vscode-input-background)',
+    inputBorder: 'var(--vscode-input-border, var(--vscode-panel-border))',
+  };
 
   const indent = depth * 15;
 
@@ -528,7 +517,7 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
       height: '100%',
       overflow: 'auto',
       padding: '12px',
-      backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+      backgroundColor: 'var(--vscode-editor-background)',
     }}>
       {(isObject || isArray) ? (
         // Render children directly, starting at depth -1 so first level is depth 0

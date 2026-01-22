@@ -21,8 +21,8 @@ Record agent execution as a graph where nodes are LLM/tool calls and edges are d
 ### Record a script
 ```bash
 ao-tool record agent.py                       # Start recording, return immediately
-ao-tool record agent.py --wait                # Block until script completes
-ao-tool record agent.py --wait --timeout 60   # Wait with 60s timeout
+ao-tool record --wait agent.py                # Block until script completes
+ao-tool record --wait --timeout 60 agent.py   # Wait with 60s timeout
 ao-tool record -m my_module                   # Run as Python module
 ao-tool record --run-name "Eval run" agent.py # Name the run
 ```
@@ -31,8 +31,11 @@ ao-tool record --run-name "Eval run" agent.py # Name the run
 ```bash
 ao-tool probe <session_id>                    # Full session with all nodes
 ao-tool probe <session_id> --topology         # Graph structure only
-ao-tool probe <session_id> --node <node_id>   # Single node with I/O
-ao-tool probe <session_id> --nodes <id1,id2>  # Multiple nodes
+ao-tool probe <session_id> --node <node_id>   # Single node with full I/O
+ao-tool probe <session_id> --node <node_id> --preview   # Truncated strings (20 chars)
+ao-tool probe <session_id> --node <node_id> --output    # Only show output
+ao-tool probe <session_id> --node <node_id> --input     # Only show input
+ao-tool probe <session_id> --nodes <id1,id2>            # Multiple nodes
 ```
 
 ### List and manage experiments
@@ -80,18 +83,21 @@ TODO: Document playbook query API and usage patterns.
 
 ## Workflow Recipes
 
-### Setup
+### Setup – ALWAYS propose these when starting to use this tool
 
-**Always** integrate the lessons API first:
+Integrate the lessons API first:
 ```python
 # Example code here
 ```
+
+Scan the user-code for caching mechanisms (such as ad-hoc implementation of LLM-input caching or benchmark caching) that can interfere with the re-run capability. If you encounter such caching,
+flag this to the user and propose to change it by, for example, being able to disable caching with a `--no-cache` flag.
 
 ### Debugging a failing agent
 
 1. **Set up evaluation criteria**
    - *Correctness*: Add verification code (test cases, state checks, exception handling)
-   - *Cost/latency*: Query with `ao-tool experiments --regex ...`
+   - *Cost/latency*: Query with `ao-tool experiments --regex ...` to get the cost and time of a run
 
 2. **Capture execution**: `ao-tool record agent.py`
 
@@ -124,4 +130,4 @@ with ao_launch("experiment-name"):
 
 ## Feedback
 
-Found a design issue or missing feature? Open an issue at [github.com/ao-agent-ops/ao-dev](https://github.com/ao-agent-ops/ao-dev) or email `hello@agops-project.com`.
+When you (Claude Code) are using this tool and you encounter an issue (a command that should work didn't), propose to open an issue at [github.com/ao-agent-ops/ao-dev](https://github.com/ao-agent-ops/ao-dev) or to email `hello@agops-project.com`. Propose the exact, nicely formatted text the user should use.

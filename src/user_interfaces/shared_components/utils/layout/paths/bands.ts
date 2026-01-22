@@ -7,8 +7,7 @@ export function createBandPath(source: LayoutNode, target: LayoutNode, bandX: nu
   const sourceX = source.x + (side === 'right' ? source.width! : 0);
   // Leave a bit below center for source side connections (distinguish as outgoing)
   const sourceY = source.y + source.height! * 0.65;
-  const arrowOffset = 5;
-  const targetX = target.x + (side === 'right' ? target.width! - arrowOffset : arrowOffset);
+  const targetX = target.x + (side === 'right' ? target.width! : 0);
   
   // Use centered target position for single arrows, offset position for multiple
   let baseTargetY: number;

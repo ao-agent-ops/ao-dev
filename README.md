@@ -79,6 +79,40 @@ ao-record openai_example.py
 
 This should show you the agent's trajectory graph like in the video above. You can edit inputs and outputs in the graph and rerun.
 
+## Integration with Coding Agents
+Coding Agents already accelerate generic coding quite successfully. By augmenting them with `ao`, you can supercharge your agent development while making sure you adhere to state-of-the-art coding practices for enterprise-grade agents.
+
+### Claude Code
+
+![AO x Claude Code](docs/media/ao-x-cc.png)
+
+AO integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to accelerate agent development. Instead of manually inspecting logs or stepping through debuggers, Claude Code can directly query your agent's dataflow graph, understand what happened, and help you iterate faster.
+
+**Why use this integration?**
+
+- **Keep context clean**: Agent runs produce verbose logs that quickly pollute Claude's context window. With `ao-tool`, Claude queries only the specific nodes it needs.
+- **Structured access**: Claude gets structured JSON data (inputs, outputs, graph topology) rather than parsing raw logs.
+- **Edit and rerun**: Claude can programmatically edit an LLM's input or output and trigger a rerun to test hypotheses.
+
+**Setup:**
+
+```bash
+ao-tool install-skill
+```
+
+This interactive command will:
+1. Copy the AO skill file to your project's `.claude/skills/ao/` directory
+2. Add Bash permissions so Claude Code can run `ao-tool` commands without prompts
+
+After setup, restart Claude Code. Claude will now have access to the `ao` skill and can use commands like:
+
+```bash
+ao-tool record agent.py              # Record an agent run
+ao-tool probe <session_id> --topology  # Query graph structure
+ao-tool probe <session_id> --node <id> # Inspect specific node
+ao-tool edit-and-rerun <session_id> <node_id> --output '{"new": "value"}'
+```
+
 ## Documentation
 
 For complete documentation, installation guides, and tutorials, visit our **[Documentation Site](https://ao-agent-ops.github.io/ao-dev/)**.

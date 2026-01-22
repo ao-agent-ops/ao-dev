@@ -101,7 +101,8 @@ const webviewConfig = {
     new CopyPlugin({
       patterns: [
         { from: '../node_modules/@vscode/codicons/dist/codicon.css', to: 'codicons/' },
-        { from: '../node_modules/@vscode/codicons/dist/codicon.ttf', to: 'codicons/' }
+        { from: '../node_modules/@vscode/codicons/dist/codicon.ttf', to: 'codicons/' },
+        { from: 'icon.png', to: 'icon.png' }
       ]
     })
   ],
