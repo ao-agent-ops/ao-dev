@@ -84,7 +84,9 @@ Coding Agents already accelerate generic coding quite successfully. By augmentin
 
 ### Claude Code
 
-<img src="docs/media/ao-x-cc.png" alt="AO x Claude Code" width="75%">
+<p align="center">
+  <img src="docs/media/cc_and_ao.png" alt="AO x Claude Code" width="75%">
+</p>
 
 AO integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to accelerate agent development. Instead of manually inspecting logs or stepping through debuggers, Claude Code can directly query your agent's dataflow graph, understand what happened, and help you iterate faster.
 

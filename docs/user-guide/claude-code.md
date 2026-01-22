@@ -2,7 +2,7 @@
 
 AO integrates with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to accelerate agent development. Instead of manually inspecting logs or stepping through debuggers, Claude Code can directly query your agent's dataflow graph, understand what happened, and help you iterate faster.
 
-![AO x Claude Code](../media/ao-x-cc.png)
+![AO x Claude Code](../media/cc_and_ao.png)
 
 ## Why Use This Integration?
 
