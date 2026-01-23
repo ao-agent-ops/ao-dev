@@ -10,7 +10,7 @@ description: ao helps you develop and maintain adaptable agentic systems. It ext
 - **Integrated Observability** – Record agent traces as dataflow graphs with zero code changes
 - **Accelerated A/B Testing** – Edit node inputs/outputs and rerun to see how changes propagate
 - **Lessons** – Inject learned lessons into agent context dynamically at runtime
-- **Design Playbook** – Query curated agent development techniques
+- **Design Guide** – Query curated agent development techniques with problems you are encountering
 
 ---
 
@@ -88,7 +88,23 @@ TODO: Document lesson injection API, lesson authoring, and storage.
 
 ## Design Playbook
 
-TODO: Document playbook query API and usage patterns.
+Query curated agent development techniques when encountering design problems.
+
+### Start the playbook server
+```bash
+ao-tool playbook start-server  # Required once per session
+```
+
+### Query the design guide
+```bash
+ao-tool playbook design-guide-query --query 'The model does not follow output schemas.'
+ao-tool playbook design-guide-query --query 'How to handle JSON extraction from LLM outputs?' --top-k 5
+```
+
+| Option | Description |
+|--------|-------------|
+| `--query`, `-q` | The problem or question to search for (required) |
+| `--top-k`, `-k` | Number of results to return (default: 3) |
 
 ---
 
@@ -96,12 +112,17 @@ TODO: Document playbook query API and usage patterns.
 
 ### Setup – ALWAYS propose these when starting to use this tool
 
-Integrate the lessons API first:
-```python
-# Example code here
-```
+1. **Start the playbook server** (for design guide queries):
+   ```bash
+   ao-tool playbook start-server
+   ```
 
-Scan the user-code for caching mechanisms (such as ad-hoc implementation of LLM-input caching or benchmark caching) that can interfere with the re-run capability. If you encounter such caching, flag this to the user and propose to change it by, for example, being able to disable caching with a `--no-cache` flag. **NOTE:** Caching that happens at the API provider level, for example using `cache_control` in the Anthropic API is OK!
+2. **Integrate the lessons API**:
+   ```python
+   # Example code here
+   ```
+
+3. **Check for caching conflicts**: Scan the user-code for caching mechanisms (such as ad-hoc implementation of LLM-input caching or benchmark caching) that can interfere with the re-run capability. If you encounter such caching, flag this to the user and propose to change it by, for example, being able to disable caching with a `--no-cache` flag. **NOTE:** Caching that happens at the API provider level, for example using `cache_control` in the Anthropic API is OK!
 
 ### Debugging a failing agent
 
@@ -120,7 +141,11 @@ Scan the user-code for caching mechanisms (such as ad-hoc implementation of LLM-
 
 - **Simple, generic errors**: Modify the system prompt directly
 - **Context-dependent errors** (company policy, ambiguous cases): Draft a lesson, get human review, then add to platform
-- **Fundamental issues**: Query the playbook, evaluate proposals, implement suitable ones
+- **Fundamental design issues**: Query the design guide for curated techniques:
+  ```bash
+  ao-tool playbook design-guide-query --query 'The model does not follow JSON schemas'
+  ```
+  Evaluate the returned techniques and implement suitable ones
 
 ### Verifying a fix
 

@@ -19,6 +19,8 @@ from ao.server.database_manager import DB
 
 SESSION_WAIT_TIMEOUT = 5  # Max seconds to wait for session_id from agent_runner
 TERMINATE_TIMEOUT = 5  # Seconds to wait for graceful exit before force kill
+PLAYBOOK_SERVER_URL = "http://127.0.0.1:5960"
+PLAYBOOK_SERVER_TIMEOUT = 30  # Seconds to wait for server startup
 
 
 def output_json(data: dict) -> None:
@@ -797,6 +799,119 @@ def _add_ao_permissions(settings_file: Path) -> None:
         f.write("\n")
 
 
+# ===========================================================
+# Playbook commands
+# ===========================================================
+
+
+def _is_playbook_server_running() -> bool:
+    """Check if the playbook server is already running."""
+    import urllib.request
+    import urllib.error
+
+    try:
+        req = urllib.request.Request(f"{PLAYBOOK_SERVER_URL}/health", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as response:
+            return response.status == 200
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return False
+
+
+def playbook_start_server_command(args) -> None:
+    """Start the ao-playbook-server daemon."""
+    # Check if already running
+    if _is_playbook_server_running():
+        output_json({
+            "status": "success",
+            "message": "Playbook server is already running",
+            "url": PLAYBOOK_SERVER_URL,
+        })
+
+    # Run the server start command (it handles its own daemonization)
+    cmd = ["uv", "run", "ao-playbook-server", "start"]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=PLAYBOOK_SERVER_TIMEOUT)
+        if result.returncode == 0:
+            output_json({
+                "status": "success",
+                "message": "Playbook server started successfully",
+                "url": PLAYBOOK_SERVER_URL,
+            })
+        else:
+            output_json({
+                "status": "error",
+                "error": result.stderr or result.stdout or "Unknown error starting server",
+            })
+    except FileNotFoundError:
+        output_json({
+            "status": "error",
+            "error": "uv command not found. Please install uv or ensure it's in PATH.",
+        })
+    except subprocess.TimeoutExpired:
+        output_json({
+            "status": "error",
+            "error": f"Server start command timed out after {PLAYBOOK_SERVER_TIMEOUT}s",
+        })
+    except Exception as e:
+        output_json({
+            "status": "error",
+            "error": f"Failed to start playbook server: {e}",
+        })
+
+
+def playbook_design_guide_query_command(args) -> None:
+    """Query the design guide for agent development techniques."""
+    import urllib.request
+    import urllib.error
+
+    query = args.query
+    top_k = args.top_k
+
+    # Check if server is running
+    if not _is_playbook_server_running():
+        output_json({
+            "status": "error",
+            "error": "Playbook server is not running. Start it first with: ao-tool playbook start-server",
+        })
+
+    # Make the query request
+    url = f"{PLAYBOOK_SERVER_URL}/api/v1/query/design-guide"
+    data = json.dumps({"query": query, "top_k": top_k}).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            output_json({
+                "status": "success",
+                "query": query,
+                "results": result,
+            })
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.fp else str(e)
+        output_json({
+            "status": "error",
+            "error": f"HTTP {e.code}: {error_body}",
+        })
+    except urllib.error.URLError as e:
+        output_json({
+            "status": "error",
+            "error": f"Connection failed: {e.reason}",
+        })
+    except json.JSONDecodeError as e:
+        output_json({
+            "status": "error",
+            "error": f"Invalid JSON response: {e}",
+        })
+
+
 def create_parser() -> ArgumentParser:
     """Create the argument parser with subcommands."""
     parser = ArgumentParser(
@@ -943,6 +1058,39 @@ def create_parser() -> ArgumentParser:
         description="Interactive setup: copies SKILL.md and adds Claude Code permissions.",
     )
 
+    # playbook subcommand with nested subcommands
+    playbook = subparsers.add_parser(
+        "playbook",
+        help="Design playbook commands",
+        description="Query the ao design guide for agent development techniques.",
+    )
+    playbook_subparsers = playbook.add_subparsers(dest="playbook_command", required=True)
+
+    # playbook start-server
+    playbook_subparsers.add_parser(
+        "start-server",
+        help="Start the playbook server",
+        description="Start the ao-playbook-server daemon for design guide queries.",
+    )
+
+    # playbook design-guide-query
+    design_guide = playbook_subparsers.add_parser(
+        "design-guide-query",
+        help="Query the design guide",
+        description="Query the design guide for agent development techniques and best practices.",
+    )
+    design_guide.add_argument(
+        "--query", "-q",
+        required=True,
+        help="The problem or question to query the design guide with",
+    )
+    design_guide.add_argument(
+        "--top-k", "-k",
+        type=int,
+        default=3,
+        help="Number of results to return (default: 3)",
+    )
+
     return parser
 
 
@@ -962,6 +1110,11 @@ def main():
         edit_and_rerun_command(args)
     elif args.command == "install-skill":
         install_skill_command()
+    elif args.command == "playbook":
+        if args.playbook_command == "start-server":
+            playbook_start_server_command(args)
+        elif args.playbook_command == "design-guide-query":
+            playbook_design_guide_query_command(args)
 
 
 if __name__ == "__main__":

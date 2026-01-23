@@ -308,6 +308,90 @@ ao-tool experiments --regex "eval.*"
 
 ---
 
+### 6. `ao-tool playbook`
+
+**Purpose**: Access the ao design playbook for agent development techniques.
+
+**Subcommands**:
+
+#### `ao-tool playbook start-server`
+
+**Purpose**: Start the ao-playbook-server daemon for design guide queries.
+
+**Usage**:
+```bash
+ao-tool playbook start-server
+```
+
+**Behavior**:
+- Runs `uv run ao-playbook-server start`
+- If server is already running, returns success immediately
+- Blocks until server is started or timeout
+
+**Output (success)**:
+```json
+{
+  "status": "success",
+  "message": "Playbook server started successfully",
+  "url": "http://127.0.0.1:5960"
+}
+```
+
+**Output (already running)**:
+```json
+{
+  "status": "success",
+  "message": "Playbook server is already running",
+  "url": "http://127.0.0.1:5960"
+}
+```
+
+#### `ao-tool playbook design-guide-query`
+
+**Purpose**: Query the design guide for agent development techniques and best practices.
+
+**Usage**:
+```bash
+ao-tool playbook design-guide-query --query 'The model does not follow output schemas.'
+ao-tool playbook design-guide-query --query 'How to handle JSON extraction?' --top-k 5
+```
+
+**Options**:
+- `--query, -q <text>`: The problem or question to search for (required)
+- `--top-k, -k <int>`: Number of results to return (default: 3)
+
+**Output (success)**:
+```json
+{
+  "status": "success",
+  "query": "The model does not follow output schemas.",
+  "results": {
+    "matches": [
+      {
+        "title": "Structured Output Enforcement",
+        "content": "...",
+        "relevance_score": 0.95
+      }
+    ]
+  }
+}
+```
+
+**Output (server not running)**:
+```json
+{
+  "status": "error",
+  "error": "Playbook server is not running. Start it first with: ao-tool playbook start-server"
+}
+```
+
+**Implementation notes**:
+- Checks server health via `GET /health` endpoint
+- Queries design guide via `POST /api/v1/query/design-guide` with JSON body
+- Uses `urllib.request` (standard library) to avoid new dependencies
+
+---
+
 
 ## Open Design Questions
 
@@ -371,6 +455,11 @@ ao-tool edit-and-rerun <session_id> <node_id> --output '...' --as-new-run
 ### Other commands
 ao-tool experiments             # List recent sessions
 ao-tool terminate <pid>         # Stop a running process
+
+### Design playbook
+ao-tool playbook start-server   # Start the playbook server (once per session)
+ao-tool playbook design-guide-query --query 'The model does not follow output schemas.'
+ao-tool playbook design-guide-query --query 'How to handle JSON extraction?' --top-k 5
 
 ## Workflow Recipes
 
