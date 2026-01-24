@@ -111,9 +111,9 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   useEffect(() => {
     if (showPopover && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      // Position popover to the left of the node, vertically centered
-      const top = rect.top + (rect.height / 2);
-      const left = rect.left - 12;
+      // Position popover below the node, horizontally centered
+      const top = rect.bottom + 8;
+      const left = rect.left + (rect.width / 2);
 
       setPopoverCoords({ top, left });
     } else if (!showPopover) {
@@ -155,16 +155,22 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         }
         leaveTimeoutRef.current = window.setTimeout(() => {
           setShowPopover(false);
-        }, 0);
+        }, 150);
         data.onHover?.(null);
       }}
     >
       {showPopover && !isEditingLabel && popoverCoords && (
         <NodePopover
           onAction={handleAction}
-          onMouseEnter={() => setShowPopover(true)}
+          onMouseEnter={() => {
+            if (leaveTimeoutRef.current) {
+              clearTimeout(leaveTimeoutRef.current);
+              leaveTimeoutRef.current = null;
+            }
+            setShowPopover(true);
+          }}
           onMouseLeave={() => setShowPopover(false)}
-          position="left"
+          position="below"
           top={popoverCoords.top}
           left={popoverCoords.left}
           isDarkTheme={isDarkTheme}
