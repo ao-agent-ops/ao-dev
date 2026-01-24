@@ -39,7 +39,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
 }) => {
   const [showPopover, setShowPopover] = useState(false);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
-  const enterTimeoutRef = useRef<number | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const leaveTimeoutRef = useRef<number | null>(null);
 
   const handleStyle: React.CSSProperties = {
@@ -133,26 +133,27 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         borderRadius: 8,
         padding: 2,
         position: "relative",
+        cursor: "pointer",
+        filter: isHovered ? (isDarkTheme ? 'brightness(1.2)' : 'brightness(0.9)') : 'none',
+        transition: 'filter 0.1s ease-out',
         // boxShadow: isHighlighted
         //   ? `0 0 8px 2px ${isDarkTheme ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)'}`
         //   : 'none',
         // transition: 'box-shadow 0.15s ease-out',
       }}
+      onClick={() => {
+        setShowPopover(true);
+      }}
       onMouseEnter={() => {
+        setIsHovered(true);
         if (leaveTimeoutRef.current) {
           clearTimeout(leaveTimeoutRef.current);
           leaveTimeoutRef.current = null;
         }
-        enterTimeoutRef.current = window.setTimeout(() => {
-          setShowPopover(true);
-        }, 300);
         data.onHover?.(id);
       }}
       onMouseLeave={() => {
-        if (enterTimeoutRef.current) {
-          clearTimeout(enterTimeoutRef.current);
-          enterTimeoutRef.current = null;
-        }
+        setIsHovered(false);
         leaveTimeoutRef.current = window.setTimeout(() => {
           setShowPopover(false);
         }, 150);
