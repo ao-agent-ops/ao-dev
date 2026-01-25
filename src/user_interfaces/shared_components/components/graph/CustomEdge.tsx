@@ -47,7 +47,7 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
 
   const defaultStroke = 'var(--vscode-foreground, #CCCCCC)';
   const isHighlighted = data?.isHighlighted ?? false;
-  const highlightColor = '#4a90d9';
+  const highlightColor = '#43884e';
 
   const markerId = `arrow-${id}`;
 
@@ -70,29 +70,6 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
           />
         </marker>
       </defs>
-      {/* Glow layers - only rendered when highlighted */}
-      {isHighlighted && (
-        <>
-          <path
-            d={d}
-            style={{
-              stroke: highlightColor,
-              strokeWidth: 8,
-              fill: 'none',
-              opacity: 0.15,
-            }}
-          />
-          <path
-            d={d}
-            style={{
-              stroke: highlightColor,
-              strokeWidth: 5,
-              fill: 'none',
-              opacity: 0.3,
-            }}
-          />
-        </>
-      )}
       {/* Main edge path */}
       <path
         id={id}
@@ -101,7 +78,7 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
         markerEnd={`url(#${markerId})`}
         style={{
           stroke: isHighlighted ? highlightColor : defaultStroke,
-          strokeWidth: isHighlighted ? 2 : 1,
+          strokeWidth: isHighlighted ? 3 : 1,
           fill: 'none',
         }}
       />
