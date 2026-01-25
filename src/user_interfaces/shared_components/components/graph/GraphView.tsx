@@ -337,6 +337,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
       },
     })));
     // Update edge styles - React Flow watches the style prop for changes
+    // Sort edges so highlighted ones render last (on top)
     setEdges(currentEdges => currentEdges.map(edge => {
       const isHighlighted = highlightedEdges.has(edge.id);
       return {
@@ -348,6 +349,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
           isHighlighted,
         },
       };
+    }).sort((a, b) => {
+      const aHighlighted = a.data?.isHighlighted ? 1 : 0;
+      const bHighlighted = b.data?.isHighlighted ? 1 : 0;
+      return aHighlighted - bHighlighted;
     }));
   }, [highlightedNodes, highlightedEdges, setNodes, setEdges]);
 

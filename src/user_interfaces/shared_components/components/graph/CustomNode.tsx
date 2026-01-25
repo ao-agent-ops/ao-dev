@@ -39,7 +39,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
 }) => {
   const [showPopover, setShowPopover] = useState(false);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
-  const enterTimeoutRef = useRef<number | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const leaveTimeoutRef = useRef<number | null>(null);
 
   const handleStyle: React.CSSProperties = {
@@ -103,7 +103,7 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   };  
 
   const isDarkTheme = data.isDarkTheme ?? false;
-  const isHighlighted = data.isHighlighted ?? false;
+  // const isHighlighted = data.isHighlighted ?? false;
 
   const nodeRef = useRef<HTMLDivElement>(null);
   const [popoverCoords, setPopoverCoords] = useState<{top: number, left: number} | null>(null);
@@ -111,9 +111,9 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   useEffect(() => {
     if (showPopover && nodeRef.current) {
       const rect = nodeRef.current.getBoundingClientRect();
-      // Position popover to the left of the node, vertically centered
-      const top = rect.top + (rect.height / 2);
-      const left = rect.left - 12;
+      // Position popover below the node, horizontally centered
+      const top = rect.bottom + 8;
+      const left = rect.left + (rect.width / 2);
 
       setPopoverCoords({ top, left });
     } else if (!showPopover) {
@@ -133,38 +133,45 @@ export const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
         borderRadius: 8,
         padding: 2,
         position: "relative",
-        boxShadow: isHighlighted
-          ? `0 0 8px 2px ${isDarkTheme ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)'}`
-          : 'none',
-        transition: 'box-shadow 0.15s ease-out',
+        cursor: "pointer",
+        filter: isHovered ? (isDarkTheme ? 'brightness(1.2)' : 'brightness(0.9)') : 'none',
+        transition: 'filter 0.1s ease-out',
+        // boxShadow: isHighlighted
+        //   ? `0 0 8px 2px ${isDarkTheme ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.4)'}`
+        //   : 'none',
+        // transition: 'box-shadow 0.15s ease-out',
+      }}
+      onClick={() => {
+        setShowPopover(true);
       }}
       onMouseEnter={() => {
+        setIsHovered(true);
         if (leaveTimeoutRef.current) {
           clearTimeout(leaveTimeoutRef.current);
           leaveTimeoutRef.current = null;
         }
-        enterTimeoutRef.current = window.setTimeout(() => {
-          setShowPopover(true);
-        }, 0);
         data.onHover?.(id);
       }}
       onMouseLeave={() => {
-        if (enterTimeoutRef.current) {
-          clearTimeout(enterTimeoutRef.current);
-          enterTimeoutRef.current = null;
-        }
+        setIsHovered(false);
         leaveTimeoutRef.current = window.setTimeout(() => {
           setShowPopover(false);
-        }, 0);
+        }, 150);
         data.onHover?.(null);
       }}
     >
       {showPopover && !isEditingLabel && popoverCoords && (
         <NodePopover
           onAction={handleAction}
-          onMouseEnter={() => setShowPopover(true)}
+          onMouseEnter={() => {
+            if (leaveTimeoutRef.current) {
+              clearTimeout(leaveTimeoutRef.current);
+              leaveTimeoutRef.current = null;
+            }
+            setShowPopover(true);
+          }}
           onMouseLeave={() => setShowPopover(false)}
-          position="left"
+          position="below"
           top={popoverCoords.top}
           left={popoverCoords.left}
           isDarkTheme={isDarkTheme}
