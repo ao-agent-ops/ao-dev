@@ -209,7 +209,7 @@ def is_content_match(
         coverage_product = output_coverage * input_coverage
         # if coverage_product >= MIN_COVERAGE_PRODUCT:
         #     return True, "coverage", match_len, coverage_product
-        if output_coverage > 0.5 and match_len > MIN_MATCH_WORDS:
+        if (output_coverage > 0.5 and match_len > MIN_MATCH_WORDS) or input_coverage < 0.5:
             return True, "coverage", match_len, coverage_product
 
     return False, "", match_len, 0.0
@@ -321,6 +321,13 @@ def store_output_strings(
         # Split HTML into separate content chunks (each becomes its own word list)
         chunks = split_html_content(output_str)
         for chunk in chunks:
+            # If chunk looks like JSON, parse it to extract only string values (filters out keys)
+            try:
+                parsed = json.loads(chunk)
+                extracted = _extract_all_strings(parsed)
+                chunk = " ".join(extracted)
+            except json.JSONDecodeError:
+                pass
             words = tokenize(chunk)
             if words:
                 word_lists.append(words)

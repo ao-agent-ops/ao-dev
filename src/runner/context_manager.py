@@ -11,6 +11,35 @@ from ao.common.utils import send_to_server, send_to_server_and_receive
 current_session_id = contextvars.ContextVar("session_id", default=None)
 parent_session_id = None
 
+# Track explicit langchain dataflow for edge creation (instead of content matching).
+# When LLM outputs tool_calls, store its node_id so tool nodes can link back to it.
+# When tool completes, store its node_id so the next LLM call can link to it.
+#
+# NOTE: We use simple module-level variables instead of context variables because
+# context variables set inside a generator are not visible to code called from
+# outside the generator (e.g., tool.run() called by AgentExecutor).
+_langchain_pending_tool_parent = None
+_langchain_pending_llm_parent = None
+
+
+def set_langchain_pending_tool_parent(node_id):
+    global _langchain_pending_tool_parent
+    _langchain_pending_tool_parent = node_id
+
+
+def get_langchain_pending_tool_parent():
+    return _langchain_pending_tool_parent
+
+
+def set_langchain_pending_llm_parent(node_id):
+    global _langchain_pending_llm_parent
+    _langchain_pending_llm_parent = node_id
+
+
+def get_langchain_pending_llm_parent():
+    return _langchain_pending_llm_parent
+
+
 # Connection to server, which is shared throughout the process.
 server_conn = None
 server_file = None

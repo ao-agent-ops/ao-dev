@@ -45,10 +45,13 @@ def func_kwargs_to_json_str_httpx(input_dict: Dict[str, Any]):
         body_json = ""
 
     url = str(input_dict["request"].url)
-    json_str = json.dumps({
-        "url": url,
-        "body": body_json,
-    }, sort_keys=True)
+    json_str = json.dumps(
+        {
+            "url": url,
+            "body": body_json,
+        },
+        sort_keys=True,
+    )
 
     return json_str, []
 
@@ -62,6 +65,13 @@ def api_obj_to_json_str_httpx(obj: Any) -> str:
 
     out_dict = {}
     encoding = obj.encoding if hasattr(obj, "encoding") else "utf-8"
+
+    # Ensure the response body has been read (handles streaming responses)
+    # Check if content has already been read by checking the private _content attribute
+    if not hasattr(obj, "_content") or obj._content is None:
+        # Response hasn't been read yet - read it now
+        obj.read()
+
     out_bytes = dill.dumps(obj)
     out_dict["_obj_str"] = base64.b64encode(out_bytes).decode(encoding)
     out_dict["_encoding"] = encoding
