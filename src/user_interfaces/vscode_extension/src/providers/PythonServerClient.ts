@@ -15,6 +15,8 @@ export class PythonServerClient {
     private serverUrl?: string;
     private useWebSocket = false;
     private reconnectTimer: NodeJS.Timeout | undefined;
+    private _playbookUrl?: string;
+    private _playbookApiKey?: string;
 
     private constructor() {
         // Read server configuration from VSCode settings
@@ -34,6 +36,22 @@ export class PythonServerClient {
 
     public setUserId(userId: string | undefined) {
         this.userId = userId;
+    }
+
+    public setPlaybookUrl(url: string | undefined) {
+        this._playbookUrl = url;
+    }
+
+    public getPlaybookUrl(): string | undefined {
+        return this._playbookUrl;
+    }
+
+    public setPlaybookApiKey(key: string | undefined) {
+        this._playbookApiKey = key;
+    }
+
+    public getPlaybookApiKey(): string | undefined {
+        return this._playbookApiKey;
     }
 
     public async ensureConnected() {

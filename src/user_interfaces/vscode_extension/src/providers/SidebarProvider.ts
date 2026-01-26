@@ -46,6 +46,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
 
     public setGraphTabProvider(provider: GraphTabProvider): void {
         this._graphTabProvider = provider;
+        // Give GraphTabProvider a reference back to this sidebar
+        provider.setSidebarProvider(this);
+    }
+
+    // Called by GraphTabProvider when a lesson is updated in the editor
+    public refreshLessons(): void {
+        if (this._view) {
+            this._view.webview.postMessage({ type: 'refreshLessons' });
+        }
     }
 
     // Robustly show or reveal the webview
@@ -154,22 +163,30 @@ _context: vscode.WebviewViewResolveContext,
                         });
                         // Create message handler and store reference for cleanup
                         this._messageHandler = (msg) => {
-                            // Intercept session_id message to set up config management
-                            if (msg.type === 'session_id' && msg.config_path) {
-                                try {
-                                    configManager.setConfigPath(msg.config_path);
+                            // Intercept session_id message to set up config management and playbook URL
+                            if (msg.type === 'session_id') {
+                                if (msg.config_path) {
+                                    try {
+                                        configManager.setConfigPath(msg.config_path);
 
-                                    // Set up config forwarding to webview
-                                    configManager.onConfigChange((config) => {
-                                        if (this._view) {
-                                            this._view.webview.postMessage({
-                                                type: 'configUpdate',
-                                                detail: config
-                                            });
-                                        }
-                                    });
-                                } catch (e) {
-                                    console.warn('[SidebarProvider] Error setting config_path:', e);
+                                        // Set up config forwarding to webview
+                                        configManager.onConfigChange((config) => {
+                                            if (this._view) {
+                                                this._view.webview.postMessage({
+                                                    type: 'configUpdate',
+                                                    detail: config
+                                                });
+                                            }
+                                        });
+                                    } catch (e) {
+                                        console.warn('[SidebarProvider] Error setting config_path:', e);
+                                    }
+                                }
+                                if (msg.playbook_url) {
+                                    this._pythonClient?.setPlaybookUrl(msg.playbook_url);
+                                }
+                                if (msg.playbook_api_key) {
+                                    this._pythonClient?.setPlaybookApiKey(msg.playbook_api_key);
                                 }
                             }
                             if (this._view) {
@@ -242,6 +259,18 @@ _context: vscode.WebviewViewResolveContext,
                         this._graphTabProvider.createOrShowLessonsTab();
                     } else {
                         console.warn('[GraphViewProvider] No GraphTabProvider available for lessons');
+                    }
+                    break;
+                case 'openLessonEditorTab':
+                    if (this._graphTabProvider && data.lessonId) {
+                        this._graphTabProvider.createOrShowLessonEditorTab(data.lessonId, data.lessonName || 'Lesson');
+                    } else {
+                        console.warn('[GraphViewProvider] No GraphTabProvider available for lesson editor or missing lessonId');
+                    }
+                    break;
+                case 'closeLessonEditorTab':
+                    if (this._graphTabProvider) {
+                        this._graphTabProvider.closeLessonEditorTab();
                     }
                     break;
                 case 'requestExperimentRefresh':

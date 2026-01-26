@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { ProcessInfo } from '../../types';
+import { ProcessInfo, LessonSummary } from '../../types';
 
 // interface UserInfo {
 //   displayName?: string;
@@ -11,7 +11,11 @@ interface ExperimentsViewProps {
   similarProcesses: ProcessInfo[];
   runningProcesses: ProcessInfo[];
   finishedProcesses: ProcessInfo[];
+  lessons?: LessonSummary[];
   onCardClick?: (process: ProcessInfo) => void;
+  onLessonClick?: (lesson: LessonSummary) => void;
+  onLessonDelete?: (lessonId: string) => void;
+  onCreateLesson?: () => void;
   isDarkTheme?: boolean;
   // user?: UserInfo;
   // onLogout?: () => void;
@@ -20,13 +24,18 @@ interface ExperimentsViewProps {
   onModeChange?: (mode: 'Local' | 'Remote') => void;
   currentMode?: 'Local' | 'Remote' | null;
   onLessonsClick?: () => void;
+  onRefresh?: () => void;
 }
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   similarProcesses,
   runningProcesses,
   finishedProcesses,
+  lessons = [],
   onCardClick,
+  onLessonClick,
+  onLessonDelete,
+  onCreateLesson,
   isDarkTheme = false,
   // user,
   // onLogout,
@@ -35,16 +44,19 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   onModeChange,
   currentMode = null,
   onLessonsClick,
+  onRefresh,
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished', 'lessons']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Section sizes (percentages of available height)
+  // Running takes runningSizePercent, Finished takes finishedSizePercent, Lessons takes the rest
   const [runningSizePercent, setRunningSizePercent] = useState(20);
-  // finishedSizePercent is calculated as: 100 - runningSizePercent
+  const [finishedSizePercent, setFinishedSizePercent] = useState(50);
+  // lessonsSizePercent is calculated as: 100 - runningSizePercent - finishedSizePercent
 
-  const [resizing, setResizing] = useState<'running' | null>(null);
+  const [resizing, setResizing] = useState<'running' | 'finished' | null>(null);
   const [startY, setStartY] = useState(0);
   const [startSize, setStartSize] = useState(0);
 
@@ -74,11 +86,11 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   }, []); // Empty dependency array - only runs once on mount
 
   // Handle resize dragging
-  const handleMouseDown = (section: 'running', e: React.MouseEvent) => {
+  const handleMouseDown = (section: 'running' | 'finished', e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(section);
     setStartY(e.clientY);
-    setStartSize(runningSizePercent);
+    setStartSize(section === 'running' ? runningSizePercent : finishedSizePercent);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -89,8 +101,15 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     const deltaPercent = (deltaY / containerHeight) * 100;
 
     if (resizing === 'running') {
-      const newSize = Math.max(10, Math.min(80, startSize + deltaPercent));
+      // Running section: constrain so finished + lessons still have space
+      const maxRunning = 100 - finishedSizePercent - 10; // Leave at least 10% for lessons
+      const newSize = Math.max(10, Math.min(maxRunning, startSize + deltaPercent));
       setRunningSizePercent(newSize);
+    } else if (resizing === 'finished') {
+      // Finished section: constrain so lessons still has space
+      const maxFinished = 100 - runningSizePercent - 10; // Leave at least 10% for lessons
+      const newSize = Math.max(10, Math.min(maxFinished, startSize + deltaPercent));
+      setFinishedSizePercent(newSize);
     }
   };
 
@@ -427,7 +446,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         {showResizeHandle && isExpanded && (
           <div
             style={resizeHandleStyle}
-            onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running', e)}
+            onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running' | 'finished', e)}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--vscode-focusBorder)';
             }}
@@ -553,11 +572,219 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   // Show lock screen if in Remote mode without user
   // const showLockScreen = currentMode === 'Remote' && !user;
 
+  const truncateName = (name: string, maxLength: number = 20): string => {
+    if (name.length <= maxLength) return name;
+    return name.slice(0, maxLength) + '...';
+  };
+
+  const renderLessonsSection = (sizePercent: number) => {
+    const isExpanded = expandedSections.has('lessons');
+
+    const sectionHeaderStyle: React.CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '4px 16px',
+      fontSize: '11px',
+      fontWeight: 700,
+      letterSpacing: '0.5px',
+      textTransform: 'uppercase',
+      color: 'var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground))',
+      cursor: 'pointer',
+      userSelect: 'none',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    };
+
+    const chevronStyle: React.CSSProperties = {
+      fontSize: '16px',
+      transition: 'transform 0.1s ease',
+      display: 'flex',
+      alignItems: 'center',
+    };
+
+    const listContainerStyle: React.CSSProperties = {
+      display: 'flex',
+      flexDirection: 'column',
+      flex: isExpanded ? sizePercent : 'none',
+      minHeight: isExpanded ? 0 : undefined,
+      overflow: 'hidden',
+    };
+
+    const listItemsStyle: React.CSSProperties = {
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      flex: 1,
+      paddingBottom: '12px',
+    };
+
+    const listItemStyle: React.CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '2px 16px 2px 24px',
+      fontSize: '13px',
+      color: 'var(--vscode-foreground)',
+      cursor: 'pointer',
+      userSelect: 'none',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+      height: '22px',
+      lineHeight: '22px',
+    };
+
+    const emptyMessageStyle: React.CSSProperties = {
+      padding: '8px 16px 8px 24px',
+      fontSize: '12px',
+      color: 'var(--vscode-descriptionForeground)',
+      fontStyle: 'italic',
+      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
+    };
+
+    return (
+      <div style={listContainerStyle}>
+        <div
+          style={sectionHeaderStyle}
+        >
+          <div
+            onClick={() => toggleSection('lessons')}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}
+          >
+            <i
+              className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
+              style={chevronStyle}
+            />
+            <span>Lessons</span>
+          </div>
+          {onCreateLesson && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateLesson();
+              }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--vscode-foreground)',
+                opacity: 0.7,
+                borderRadius: '4px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="Create new lesson"
+            >
+              <i className="codicon codicon-add" style={{ fontSize: '14px' }} />
+            </button>
+          )}
+        </div>
+        {isExpanded && (
+          <div style={listItemsStyle}>
+            {lessons.length > 0 ? (
+              lessons.map((lesson) => {
+                const cardId = `lesson-${lesson.id}`;
+                const isHovered = hoveredCards.has(cardId);
+
+                return (
+                  <div
+                    key={lesson.id}
+                    style={{
+                      ...listItemStyle,
+                      backgroundColor: isHovered
+                        ? 'var(--vscode-list-hoverBackground)'
+                        : 'transparent',
+                    }}
+                    onClick={() => onLessonClick && onLessonClick(lesson)}
+                    onMouseEnter={() => handleCardHover(cardId, true)}
+                    onMouseLeave={() => handleCardHover(cardId, false)}
+                  >
+                    <i className="codicon codicon-lightbulb" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.7 }} />
+                    <span style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1,
+                    }}>
+                      {truncateName(lesson.name)}
+                    </span>
+                    {isHovered && onLessonDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLessonDelete(lesson.id);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#e05252',
+                          marginLeft: '4px',
+                        }}
+                        title="Delete lesson"
+                      >
+                        <i className="codicon codicon-trash" style={{ fontSize: '14px' }} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div style={emptyMessageStyle}>
+                No lessons
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={containerStyle}>
       {showHeader && (
         <div style={headerStyle}>
-          <h3 style={headerTitleStyle}>Agent Runs</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={headerTitleStyle}>Agent Runs</h3>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--vscode-foreground)',
+                  opacity: 0.7,
+                  borderRadius: '4px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0.7';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Refresh"
+              >
+                <i className="codicon codicon-refresh" style={{ fontSize: '14px' }} />
+              </button>
+            )}
+          </div>
           {renderDropdown()}
         </div>
       )}
@@ -570,7 +797,8 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         // marginBottom: `${footerHeight}px`
       }}>
         {renderExperimentSection(runningProcesses, 'Running', 'running', runningSizePercent, true)}
-        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', 100 - runningSizePercent, false)}
+        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', finishedSizePercent, lessons.length > 0)}
+        {renderLessonsSection(100 - runningSizePercent - finishedSizePercent)}
       </div>
 
       {/* User Section commented out - auth disabled */}

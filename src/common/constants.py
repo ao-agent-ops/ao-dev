@@ -47,7 +47,7 @@ REMOTE_DATABASE_URL = os.environ.get("DB_URL", "Unavailable")
 # server-related constants
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PYTHON_PORT", 5959))
-CONNECTION_TIMEOUT = 5
+CONNECTION_TIMEOUT = 20
 SERVER_START_TIMEOUT = 2
 PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
@@ -127,9 +127,6 @@ os.makedirs(AO_LOG_DIR, exist_ok=True)
 MAIN_SERVER_LOG = os.path.join(AO_LOG_DIR, "main_server.log")
 FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")  # Git versioning logs
 
-# ao-tool run logs directory
-AO_TOOL_LOG_DIR = os.path.join(AO_LOG_DIR, "runs")
-os.makedirs(AO_TOOL_LOG_DIR, exist_ok=True)
 
 default_attachment_cache = os.path.join(AO_CACHE, "attachments")
 ATTACHMENT_CACHE = os.path.expandvars(
@@ -414,3 +411,10 @@ COMPILED_MODEL_NAME_PATTERNS = [
 ]
 
 INVALID_LABEL_CHARS = set("{[<>%$#@")
+
+# Playbook server constants
+PLAYBOOK_SERVER_URL = os.environ.get(
+    "PLAYBOOK_SERVER_URL", "https://ao-playbook-732575904722.us-central1.run.app"
+)
+PLAYBOOK_SERVER_TIMEOUT = 30  # Seconds to wait for server startup
+PLAYBOOK_API_KEY = os.environ.get("AO_API_KEY", "")

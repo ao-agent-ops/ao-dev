@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ExperimentsView } from '../../../shared_components/components/experiment/ExperimentsView';
 import { GraphView } from '../../../shared_components/components/graph/GraphView';
 import { WorkflowRunDetailsPanel } from '../../../shared_components/components/experiment/WorkflowRunDetailsPanel';
-import { GraphNode, GraphEdge, GraphData, ProcessInfo } from '../../../shared_components/types';
+import { GraphNode, GraphEdge, GraphData, ProcessInfo, LessonSummary } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
-
 
 // Add global type augmentation for window.vscode
 declare global {
@@ -16,8 +15,19 @@ declare global {
   }
 }
 
+// Helper to build headers with optional API key
+const buildHeaders = (apiKey?: string | null, contentType?: string): HeadersInit => {
+  const headers: HeadersInit = {};
+  if (contentType) headers['Content-Type'] = contentType;
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  return headers;
+};
+
 export const App: React.FC = () => {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
+  const [lessons, setLessons] = useState<LessonSummary[]>([]);
+  const [playbookUrl, setPlaybookUrl] = useState<string | null>(null);
+  const [playbookApiKey, setPlaybookApiKey] = useState<string | null>(null);
   const [databaseMode, setDatabaseMode] = useState<'Local' | 'Remote' | null>(null);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'experiments' | 'experiment-graph'>('experiments');
@@ -26,16 +36,58 @@ export const App: React.FC = () => {
   const [allGraphs, setAllGraphs] = useState<Record<string, GraphData>>({});
   const isDarkTheme = useIsVsCodeDarkTheme();
 
+  // Refs to track current playbook config for use in message handlers
+  const playbookUrlRef = useRef<string | null>(null);
+  const playbookApiKeyRef = useRef<string | null>(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    playbookUrlRef.current = playbookUrl;
+    playbookApiKeyRef.current = playbookApiKey;
+  }, [playbookUrl, playbookApiKey]);
+
+  // Fetch lessons from playbook server
+  const fetchLessons = async (url: string, apiKey: string | null) => {
+    try {
+      const response = await fetch(`${url}/api/v1/lessons`, {
+        headers: buildHeaders(apiKey),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLessons(data);
+      } else {
+        setLessons([]); // Clear on non-ok response
+      }
+    } catch (error) {
+      // Server not running or unreachable - clear lessons
+      setLessons([]);
+      console.debug('Playbook server not available:', error);
+    }
+  };
+
+  // Fetch lessons when playbook URL or API key is set
+  useEffect(() => {
+    if (playbookUrl) {
+      fetchLessons(playbookUrl, playbookApiKey);
+    }
+  }, [playbookUrl, playbookApiKey]);
+
   // Listen for backend messages and update state
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       switch (message.type) {
         case "session_id":
-          // Handle initial connection message with database mode
+          // Handle initial connection message with database mode and playbook URL
           if (message.database_mode) {
             const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
             setDatabaseMode(mode);
+          }
+          if (message.playbook_url) {
+            setPlaybookUrl(message.playbook_url);
+          }
+          if (message.playbook_api_key) {
+            setPlaybookApiKey(message.playbook_api_key);
           }
           break;
         case "database_mode_changed":
@@ -43,6 +95,12 @@ export const App: React.FC = () => {
           if (message.database_mode) {
             const mode = message.database_mode === 'local' ? 'Local' : 'Remote';
             setDatabaseMode(mode);
+          }
+          break;
+        case "refreshLessons":
+          // Refresh lessons when notified by lesson editor (use refs for current values)
+          if (playbookUrlRef.current) {
+            fetchLessons(playbookUrlRef.current, playbookApiKeyRef.current);
           }
           break;
         case "authStateChanged":
@@ -120,6 +178,56 @@ export const App: React.FC = () => {
     // Open lessons in a separate tab (like graphs)
     if (window.vscode) {
       window.vscode.postMessage({ type: 'openLessonsTab' });
+    }
+  };
+
+  const handleRefresh = () => {
+    // Refresh experiments from backend
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'requestExperimentRefresh' });
+    }
+    // Refresh lessons from playbook server
+    if (playbookUrl) {
+      fetchLessons(playbookUrl, playbookApiKey);
+    }
+  };
+
+  const handleLessonDelete = async (lessonId: string) => {
+    if (!playbookUrl) return;
+    try {
+      const response = await fetch(`${playbookUrl}/api/v1/lessons/${lessonId}`, {
+        method: 'DELETE',
+        headers: buildHeaders(playbookApiKey),
+      });
+      if (response.ok) {
+        // Close editor tab if this lesson is open
+        if (window.vscode) {
+          window.vscode.postMessage({ type: 'closeLessonEditorTab', lessonId });
+        }
+        fetchLessons(playbookUrl, playbookApiKey); // Refresh list
+      }
+    } catch (error) {
+      console.error('Failed to delete lesson:', error);
+    }
+  };
+
+  const handleLessonClick = (lesson: LessonSummary) => {
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'openLessonEditorTab',
+        lessonId: lesson.id,
+        lessonName: lesson.name
+      });
+    }
+  };
+
+  const handleCreateLesson = () => {
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'openLessonEditorTab',
+        lessonId: 'new',
+        lessonName: 'New Lesson'
+      });
     }
   };
 
@@ -203,6 +311,7 @@ export const App: React.FC = () => {
             similarProcesses={similarExperiments ? [similarExperiments] : []}
             runningProcesses={runningExperiments}
             finishedProcesses={finishedExperiments}
+            lessons={lessons}
             onCardClick={handleExperimentCardClick}
             isDarkTheme={isDarkTheme}
             // user={user || undefined}
@@ -220,6 +329,10 @@ export const App: React.FC = () => {
             onModeChange={handleDatabaseModeChange}
             currentMode={databaseMode}
             onLessonsClick={handleLessonsClick}
+            onRefresh={handleRefresh}
+            onLessonDelete={handleLessonDelete}
+            onLessonClick={handleLessonClick}
+            onCreateLesson={handleCreateLesson}
           />
         ) : activeTab === "experiment-graph" && selectedExperiment && !showDetailsPanel ? (
           <GraphView

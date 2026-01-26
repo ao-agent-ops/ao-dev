@@ -18,6 +18,8 @@ from ao.common.constants import (
     HOST,
     PORT,
     SERVER_INACTIVITY_TIMEOUT,
+    PLAYBOOK_SERVER_URL,
+    PLAYBOOK_API_KEY,
 )
 from ao.server.database_manager import DB
 from ao.server.file_watcher import run_file_watcher_process
@@ -575,6 +577,8 @@ class MainServer:
                 "session_id": None,
                 "config_path": AO_CONFIG,
                 "database_mode": DB.get_current_mode(),
+                "playbook_url": PLAYBOOK_SERVER_URL,
+                "playbook_api_key": PLAYBOOK_API_KEY,
             },
         )
         # Then send the experiment list
@@ -949,6 +953,8 @@ class MainServer:
                         "session_id": None,
                         "config_path": AO_CONFIG,
                         "database_mode": DB.get_current_mode(),
+                        "playbook_url": PLAYBOOK_SERVER_URL,
+                        "playbook_api_key": PLAYBOOK_API_KEY,
                     },
                 )
                 # Experiment list will be sent when UI explicitly requests it

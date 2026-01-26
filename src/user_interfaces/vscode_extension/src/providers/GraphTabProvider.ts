@@ -9,6 +9,11 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
     public static readonly viewType = 'graphExtension.graphTab';
     private _panels: Map<string, vscode.WebviewPanel> = new Map();
     private _pythonClient: PythonServerClient | null = null;
+    private _sidebarProvider: { refreshLessons: () => void } | null = null;
+
+    public setSidebarProvider(provider: { refreshLessons: () => void }): void {
+        this._sidebarProvider = provider;
+    }
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Initialize Python client
@@ -724,6 +729,150 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         }
     }
 
+
+    public closeLessonEditorTab(): void {
+        const panel = this._panels.get('lesson-editor');
+        if (panel && !(panel as any)._disposed && !(panel as any).disposed) {
+            panel.dispose();
+        }
+        this._panels.delete('lesson-editor');
+    }
+
+    public async createOrShowLessonEditorTab(
+        lessonId: string,
+        lessonName: string
+    ): Promise<void> {
+        // Single reusable tab for lesson editor (updates content when switching lessons)
+        const tabId = 'lesson-editor';
+        const columnToShowIn = vscode.ViewColumn.One;
+
+        // Check if we already have a lesson editor panel
+        let panel = this._panels.get(tabId);
+
+        if (panel) {
+            // Check if panel is disposed
+            if ((panel as any)._disposed || (panel as any).disposed) {
+                this._panels.delete(tabId);
+                panel = undefined;
+            } else {
+                // Panel exists - send message to update its content with new lesson data
+                panel.webview.postMessage({
+                    type: 'updateLessonData',
+                    payload: { lessonId, lessonName }
+                });
+                panel.title = `Lesson: ${lessonName.substring(0, 20)}${lessonName.length > 20 ? '...' : ''}`;
+                panel.reveal();
+                return;
+            }
+        }
+
+        // Create new panel for lesson editor
+        panel = vscode.window.createWebviewPanel(
+            GraphTabProvider.viewType,
+            `Lesson: ${lessonName.substring(0, 20)}${lessonName.length > 20 ? '...' : ''}`,
+            columnToShowIn,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    this._extensionUri,
+                    vscode.Uri.joinPath(this._extensionUri, 'dist')
+                ]
+            }
+        );
+
+        // Set tab icon
+        panel.iconPath = this._iconPath;
+
+        // Set up the webview content for lesson editor
+        panel.webview.html = this._getHtmlForLessonEditorWebview(panel.webview, lessonId, lessonName);
+
+        // Store panel reference
+        this._panels.set(tabId, panel);
+
+        // Handle panel disposal
+        panel.onDidDispose(() => {
+            this._panels.delete(tabId);
+        }, null);
+
+        // Handle messages from the webview
+        panel.webview.onDidReceiveMessage(data => {
+            switch (data.type) {
+                case 'ready':
+                    // Lesson editor fetches its own data via HTTP
+                    break;
+                case 'lessonUpdated':
+                    // Notify sidebar to refresh lessons list
+                    this._sidebarProvider?.refreshLessons();
+                    break;
+            }
+        });
+
+        // Send theme info
+        this._sendThemeToPanel(panel);
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            this._sendThemeToPanel(panel);
+        });
+    }
+
+    private _getHtmlForLessonEditorWebview(
+        webview: vscode.Webview,
+        lessonId: string,
+        lessonName: string
+    ): string {
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
+
+        const escapedLessonId = lessonId.replace(/'/g, "\\'");
+        const escapedLessonName = lessonName.replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const playbookUrl = this._pythonClient?.getPlaybookUrl() || '';
+        const playbookApiKey = this._pythonClient?.getPlaybookApiKey() || '';
+
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Editor</title>
+    <link rel="stylesheet" href="${codiconsUri}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+    <script>
+        window.process = {
+            env: {},
+            platform: 'browser',
+            version: '',
+            versions: {},
+            type: 'renderer',
+            arch: 'x64'
+        };
+    </script>
+</head>
+<body>
+    <div id="lesson-editor-root"></div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        window.vscode = vscode;
+        window.lessonEditorContext = {
+            lessonId: '${escapedLessonId}',
+            lessonName: '${escapedLessonName}',
+            playbookUrl: '${playbookUrl}',
+            playbookApiKey: '${playbookApiKey}'
+        };
+    </script>
+    <script src="${scriptUri}"></script>
+</body>
+</html>
+        `;
+
+        return html;
+    }
 
     public async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any): Promise<void> {
         // This method is called when VS Code restarts and needs to restore the panel

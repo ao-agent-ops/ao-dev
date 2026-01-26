@@ -73,6 +73,12 @@ export interface ProcessInfo {
     version_date?: string;
 }
 
+export interface LessonSummary {
+    id: string;
+    name: string;
+    summary: string;
+}
+
 export interface WorkflowRunDetailsPanelProps {
   runName?: string;
   result?: string;

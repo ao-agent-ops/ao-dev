@@ -10,17 +10,11 @@ import signal
 import tempfile
 import subprocess
 from argparse import ArgumentParser, REMAINDER
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
-from ao.common.constants import AO_TOOL_LOG_DIR
+from ao.common.constants import PLAYBOOK_SERVER_URL, PLAYBOOK_SERVER_TIMEOUT
 from ao.server.database_manager import DB
 
 SESSION_WAIT_TIMEOUT = 5  # Max seconds to wait for session_id from agent_runner
-TERMINATE_TIMEOUT = 5  # Seconds to wait for graceful exit before force kill
-PLAYBOOK_SERVER_URL = "http://127.0.0.1:5960"
-PLAYBOOK_SERVER_TIMEOUT = 30  # Seconds to wait for server startup
 
 
 def output_json(data: dict) -> None:
@@ -29,28 +23,43 @@ def output_json(data: dict) -> None:
     sys.exit(0 if data.get("status") != "error" else 1)
 
 
+def format_timestamp(ts) -> str | None:
+    """Format a timestamp to ISO 8601 without microseconds."""
+    if ts is None:
+        return None
+    from datetime import datetime
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts)
+    return ts.strftime("%Y-%m-%d %H:%M:%S")
+
+
 # ===========================================================
 # Shared helpers for reusable logic
 # ===========================================================
 
 
-@dataclass
-class SpawnResult:
-    """Result of spawning a subprocess."""
-    process: subprocess.Popen
-    session_id: str
-    log_file: str
+def _resolve_value(value: str) -> str:
+    """Resolve a value argument: if it's a path to an existing file, read the file contents."""
+    if os.path.isfile(value):
+        with open(value, "r") as f:
+            return f.read()
+    return value
 
 
-def _apply_edit(session_id: str, node_id: str, field: str, new_value: str) -> dict:
+def _apply_edit(session_id: str, node_id: str, field: str, key: str, value: str) -> dict:
     """
-    Apply an edit to a node's input or output.
+    Apply an edit to a single key in a node's input or output.
+
+    The key is a flattened dot-notation key (e.g., "messages.0.content")
+    matching the keys from probe output. The value can be a literal string
+    or a path to a file whose contents will be used.
 
     Returns dict with status info. Does NOT call output_json or exit.
-    On success: {"status": "success", "session_id": ..., "node_id": ..., "field": ...}
-    On error: {"status": "error", "error": "..."}
     """
-    # Get the node's current data to get api_type and raw dict
+    from flatten_json import flatten as flatten_complete
+    from ao.runner.monkey_patching.api_parser import merge_filtered_into_raw, json_str_to_api_obj
+
+    # Get the node's current data
     if field == "input":
         row = DB.query_one_llm_call_input(session_id, node_id)
     else:
@@ -61,34 +70,43 @@ def _apply_edit(session_id: str, node_id: str, field: str, new_value: str) -> di
 
     api_type = row["api_type"]
 
-    # Parse the current stored data to get the raw dict
+    # Parse the current stored data to get raw and to_show
     if field == "input":
         current_data = json.loads(row["input"])
-        # Input format: {"input": "<json with raw/to_show>", "attachments": [...], "model": "..."}
-        inner_json = current_data.get("input", "{}")
-        inner_data = json.loads(inner_json)
+        inner_data = json.loads(current_data.get("input", "{}"))
     else:
         inner_data = json.loads(row["output"])
 
     raw_dict = inner_data.get("raw", {})
+    to_show = inner_data.get("to_show", {})
 
-    # Try to parse the new value as JSON (this is the new to_show)
+    # Flatten to_show completely to match probe output format
+    flat_to_show = flatten_complete(to_show, ".") if isinstance(to_show, dict) else {}
+
+    # Validate the key exists
+    if key not in flat_to_show:
+        return {"status": "error", "error": f"Key '{key}' not found. Available keys: {list(flat_to_show.keys())}"}
+
+    # Resolve value (read file if path, otherwise use as-is)
+    value = _resolve_value(value)
+
+    # Parse value: try JSON first (handles numbers, booleans, null), fall back to string
     try:
-        new_to_show = json.loads(new_value)
-    except json.JSONDecodeError as e:
-        return {"status": "error", "error": f"Invalid JSON: {e}"}
+        parsed_value = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        parsed_value = value
 
-    # Validate by attempting to merge and parse
-    from ao.runner.monkey_patching.api_parser import merge_filtered_into_raw, json_str_to_api_obj
+    # Update the single key
+    flat_to_show[key] = parsed_value
 
+    # Validate by merging into raw
     try:
-        # Validate by merging - this ensures the to_show keys are compatible with raw
-        merge_filtered_into_raw(raw_dict, new_to_show)
+        merge_filtered_into_raw(raw_dict, flat_to_show)
     except Exception as e:
         return {"status": "error", "error": f"Failed to merge edit: {e}"}
 
-    # Build the new complete structure (keep raw unchanged, store new to_show)
-    new_complete = {"raw": raw_dict, "to_show": new_to_show}
+    # Build the new complete structure
+    new_complete = {"raw": raw_dict, "to_show": flat_to_show}
     new_json_str = json.dumps(new_complete, sort_keys=True)
 
     # For output, validate it can be converted to API object
@@ -109,14 +127,16 @@ def _apply_edit(session_id: str, node_id: str, field: str, new_value: str) -> di
         "session_id": session_id,
         "node_id": node_id,
         "field": field,
+        "key": key,
     }
 
 
-def _spawn_rerun(session_id: str) -> SpawnResult | dict:
+def _spawn_rerun(session_id: str, timeout: float | None = None) -> dict:
     """
-    Spawn a rerun process for a session.
+    Spawn a rerun process for a session and block until completion.
 
-    Returns SpawnResult on success, or error dict on failure.
+    Consistent with record_command: stdout/stderr pass through to terminal.
+    Returns result dict with status, session_id, exit_code, etc.
     """
     # Get the original command, cwd, and environment from DB
     cwd, command, environment = DB.get_exec_command(session_id)
@@ -137,9 +157,6 @@ def _spawn_rerun(session_id: str) -> SpawnResult | dict:
 
     atexit.register(cleanup_session_file)
 
-    # Create log file
-    log_file = os.path.join(AO_TOOL_LOG_DIR, f"rerun-{run_id}.log")
-
     # Set up environment: restore original env + set rerun session ID
     env = os.environ.copy()
     env.update(environment)
@@ -149,18 +166,12 @@ def _spawn_rerun(session_id: str) -> SpawnResult | dict:
     # Parse and execute the original command
     cmd_parts = shlex.split(command)
 
-    # Spawn process with stdout/stderr redirected to log file
-    with open(log_file, "w") as log_handle:
-        process = subprocess.Popen(
-            cmd_parts,
-            cwd=cwd,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            close_fds=True,
-            start_new_session=True,
-        )
+    process = subprocess.Popen(
+        cmd_parts,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+    )
 
     # Wait for session_id from agent_runner (confirms handshake)
     session_data = wait_for_session_file(session_file, SESSION_WAIT_TIMEOUT)
@@ -174,52 +185,27 @@ def _spawn_rerun(session_id: str) -> SpawnResult | dict:
             "status": "error",
             "error": "Timeout waiting for session handshake",
             "pid": process.pid,
-            "log_file": log_file,
         }
 
-    return SpawnResult(process=process, session_id=session_id, log_file=log_file)
-
-
-def _handle_process_completion(
-    process: subprocess.Popen,
-    session_id: str,
-    log_file: str,
-    wait: bool,
-    timeout: Optional[float],
-) -> dict:
-    """
-    Handle process completion - either wait or return immediately.
-
-    Returns the appropriate output dict.
-    """
-    if wait:
-        start_time = time.time()
-        try:
-            exit_code = process.wait(timeout=timeout)
-            duration = time.time() - start_time
-            return {
-                "status": "completed" if exit_code == 0 else "failed",
-                "session_id": session_id,
-                "exit_code": exit_code,
-                "duration_seconds": round(duration, 2),
-                "log_file": log_file,
-            }
-        except subprocess.TimeoutExpired:
-            process.terminate()
-            return {
-                "status": "timeout",
-                "session_id": session_id,
-                "pid": process.pid,
-                "log_file": log_file,
-            }
-    else:
-        # Return immediately with started status
+    # Block until completion
+    start_time = time.time()
+    try:
+        exit_code = process.wait(timeout=timeout)
+        duration = time.time() - start_time
         return {
-            "status": "started",
+            "status": "completed" if exit_code == 0 else "failed",
+            "session_id": session_id,
+            "exit_code": exit_code,
+            "duration_seconds": round(duration, 2),
+        }
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        return {
+            "status": "timeout",
             "session_id": session_id,
             "pid": process.pid,
-            "log_file": log_file,
         }
+
 
 
 def wait_for_session_file(session_file: str, timeout: float) -> dict | None:
@@ -242,12 +228,11 @@ def wait_for_session_file(session_file: str, timeout: float) -> dict | None:
 
 
 def record_command(args) -> None:
-    """Spawn ao-record as background process, return session_id via JSON."""
-    # 1. Validate script exists (unless -m module mode)
+    """Run ao-record and block until completion, return result via JSON."""
+
     if not args.module and not os.path.isfile(args.script_path):
         output_json({"status": "error", "error": f"Script not found: {args.script_path}"})
 
-    # 2. Create temp file for session_id IPC (cleaned up via atexit)
     run_id = str(uuid.uuid4())[:8]
     session_file = os.path.join(tempfile.gettempdir(), f"ao-session-{run_id}.json")
 
@@ -260,11 +245,6 @@ def record_command(args) -> None:
 
     atexit.register(cleanup_session_file)
 
-    # 3. Create log files for stdout and stderr
-    stdout_file = os.path.join(AO_TOOL_LOG_DIR, f"run-{run_id}.out")
-    stderr_file = os.path.join(AO_TOOL_LOG_DIR, f"run-{run_id}.err")
-
-    # 4. Build command: python -m ao.cli.ao_record [options] script_path [args...]
     cmd = [sys.executable, "-m", "ao.cli.ao_record"]
     if args.run_name:
         cmd.extend(["--run-name", args.run_name])
@@ -273,24 +253,15 @@ def record_command(args) -> None:
     cmd.append(args.script_path)
     cmd.extend(args.script_args)
 
-    # 5. Set up environment with session file path
     env = os.environ.copy()
     env["AO_SESSION_FILE"] = session_file
 
-    # 6. Spawn process with stdout/stderr redirected to separate files
-    stdout_handle = open(stdout_file, "w")
-    stderr_handle = open(stderr_file, "w")
     process = subprocess.Popen(
         cmd,
         env=env,
         stdin=subprocess.DEVNULL,
-        stdout=stdout_handle,
-        stderr=stderr_handle,
-        close_fds=True,
-        start_new_session=True,
     )
 
-    # 7. Wait for session_id from agent_runner (written after handshake)
     session_data = wait_for_session_file(session_file, SESSION_WAIT_TIMEOUT)
 
     # Clean up temp file now that we've read it
@@ -302,53 +273,26 @@ def record_command(args) -> None:
             "status": "error",
             "error": "Timeout waiting for session_id from agent runner",
             "pid": process.pid,
-            "stdout_file": stdout_file,
-            "stderr_file": stderr_file,
         })
 
     session_id = session_data["session_id"]
 
-    # 8. Handle --wait mode: block until process completes
-    if args.wait:
-        start_time = time.time()
-        try:
-            exit_code = process.wait(timeout=args.timeout)
-            duration = time.time() - start_time
-            result = {
-                "status": "completed" if exit_code == 0 else "failed",
-                "session_id": session_id,
-                "exit_code": exit_code,
-                "duration_seconds": round(duration, 2),
-                "stdout_file": stdout_file,
-                "stderr_file": stderr_file,
-            }
-            # On failure, include the last part of stderr to show the error
-            if exit_code != 0:
-                try:
-                    with open(stderr_file, "r") as f:
-                        err_content = f.read()
-                        # Get last 2000 chars to capture the traceback
-                        result["error"] = err_content[-2000:] if len(err_content) > 2000 else err_content
-                except Exception:
-                    pass
-            output_json(result)
-        except subprocess.TimeoutExpired:
-            process.terminate()
-            output_json({
-                "status": "timeout",
-                "session_id": session_id,
-                "pid": process.pid,
-                "stdout_file": stdout_file,
-                "stderr_file": stderr_file,
-            })
-    else:
-        # Return immediately with started status
+    start_time = time.time()
+    try:
+        exit_code = process.wait(timeout=args.timeout)
+        duration = time.time() - start_time
         output_json({
-            "status": "started",
+            "status": "completed" if exit_code == 0 else "failed",
+            "session_id": session_id,
+            "exit_code": exit_code,
+            "duration_seconds": round(duration, 2),
+        })
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        output_json({
+            "status": "timeout",
             "session_id": session_id,
             "pid": process.pid,
-            "stdout_file": stdout_file,
-            "stderr_file": stderr_file,
         })
 
 
@@ -395,7 +339,7 @@ def _filter_by_key_regex(obj, pattern: str):
 
 
 def probe_command(args) -> None:
-    """Query the state of a session - metadata, topology, or specific nodes."""
+    """Query the state of a session - metadata or specific nodes."""
     session_id = args.session_id
 
     # Get experiment metadata
@@ -453,6 +397,13 @@ def probe_command(args) -> None:
                 input_to_show = _truncate_strings(input_to_show)
                 output_to_show = _truncate_strings(output_to_show)
 
+            # Flatten completely (including lists into key.0, key.1 notation)
+            from flatten_json import flatten as flatten_complete
+            if isinstance(input_to_show, dict):
+                input_to_show = flatten_complete(input_to_show, ".")
+            if isinstance(output_to_show, dict):
+                output_to_show = flatten_complete(output_to_show, ".")
+
             # Determine which content to include based on --input/--output flags
             # If neither specified, include both; if one specified, include only that one
             show_input = not args.show_output or args.show_input
@@ -468,7 +419,7 @@ def probe_command(args) -> None:
                 "session_id": session_id,
                 "api_type": llm_call["api_type"],
                 "label": llm_call["label"],
-                "timestamp": str(llm_call["timestamp"]) if llm_call["timestamp"] else None,
+                "timestamp": format_timestamp(llm_call["timestamp"]),
                 "parent_ids": parent_ids.get(node_id.strip(), []),
                 "child_ids": child_ids.get(node_id.strip(), []),
                 "has_input_overwrite": llm_call["input_overwrite"] is not None,
@@ -490,31 +441,12 @@ def probe_command(args) -> None:
             output_json({"nodes": nodes_data})
         return
 
-    # Handle --topology: return only graph structure
-    if args.topology:
-        topology_nodes = []
-        for node in graph_topology.get("nodes", []):
-            node_id = node["id"]
-            topology_nodes.append({
-                "node_id": node_id,
-                "label": node.get("label", ""),
-                "parent_ids": parent_ids.get(node_id, []),
-                "child_ids": child_ids.get(node_id, []),
-            })
-        output_json({
-            "session_id": session_id,
-            "status": "finished",  # TODO: track running status
-            "nodes": topology_nodes,
-            "edges": [{"source": e["source"], "target": e["target"]} for e in edges],
-        })
-        return
-
     # Default: full probe - metadata + graph summary
     output_json({
         "session_id": session_id,
         "name": experiment["name"],
         "status": "finished",  # TODO: track running status
-        "timestamp": str(experiment["timestamp"]) if experiment["timestamp"] else None,
+        "timestamp": format_timestamp(experiment["timestamp"]),
         "result": experiment["success"] if experiment["success"] else None,
         "version_date": experiment["version_date"],
         "node_count": len(graph_topology.get("nodes", [])),
@@ -574,45 +506,13 @@ def experiments_command(args) -> None:
         result.append({
             "session_id": exp["session_id"],
             "name": exp["name"],
-            "timestamp": str(timestamp) if timestamp else None,
+            "timestamp": format_timestamp(timestamp),
             "result": exp["success"],
             "version_date": exp["version_date"],
         })
 
     output_json({"experiments": result, "total": total_count, "range": f"{start}:{end if end else ''}"})
 
-
-def terminate_command(args) -> None:
-    """Terminate a running process by PID."""
-    pid = args.pid
-
-    # Check if process exists
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        output_json({"status": "error", "error": f"Process {pid} not found"})
-
-    # Send SIGTERM (graceful termination)
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except OSError as e:
-        output_json({"status": "error", "error": f"Failed to terminate: {e}"})
-
-    # Wait for process to exit gracefully
-    start = time.time()
-    while time.time() - start < TERMINATE_TIMEOUT:
-        try:
-            os.kill(pid, 0)
-            time.sleep(0.1)
-        except OSError:
-            output_json({"status": "terminated", "pid": pid})
-
-    # Still alive after timeout - force kill
-    try:
-        os.kill(pid, signal.SIGKILL)
-        output_json({"status": "terminated", "pid": pid})
-    except OSError:
-        output_json({"status": "terminated", "pid": pid})
 
 
 def _copy_experiment(session_id: str, run_name: str | None = None) -> str | dict:
@@ -669,51 +569,34 @@ def _copy_experiment(session_id: str, run_name: str | None = None) -> str | dict
 
 
 def edit_and_rerun_command(args) -> None:
-    """Edit a node and immediately rerun the session."""
+    """Edit a single key in a node's input or output and immediately rerun."""
     session_id = args.session_id
     node_id = args.node_id
 
-    # Determine field and value from mutually exclusive args
+    # Determine field, key, and value from mutually exclusive args
     if args.input:
         field = "input"
-        value = args.input
+        key, value = args.input
     else:
         field = "output"
-        value = args.output
+        key, value = args.output
 
-    if args.as_new_run:
-        result = _copy_experiment(session_id, args.run_name)
-        if isinstance(result, dict):
-            output_json(result)
-        session_id = result
+    # Always create a new run (copy experiment)
+    result = _copy_experiment(session_id, args.run_name)
+    if isinstance(result, dict):
+        output_json(result)
+    session_id = result
 
     # Step 1: Apply the edit
-    edit_result = _apply_edit(session_id, node_id, field, value)
+    edit_result = _apply_edit(session_id, node_id, field, key, value)
     if edit_result.get("status") == "error":
         output_json(edit_result)
 
-    # Step 2: Spawn rerun
-    spawn_result = _spawn_rerun(session_id)
-
-    # Check for spawn error
-    if isinstance(spawn_result, dict):
-        # Include edit info in error response
-        spawn_result["edited_field"] = field
-        spawn_result["node_id"] = node_id
-        output_json(spawn_result)
-
-    # Step 3: Handle completion
-    result = _handle_process_completion(
-        spawn_result.process,
-        spawn_result.session_id,
-        spawn_result.log_file,
-        args.wait,
-        args.timeout,
-    )
-
-    # Add edit info to result
+    # Step 2: Spawn rerun and block until completion
+    result = _spawn_rerun(session_id, timeout=args.timeout)
     result["node_id"] = node_id
     result["edited_field"] = field
+    result["edited_key"] = key
     output_json(result)
 
 
@@ -839,9 +722,13 @@ def playbook_start_server_command(args) -> None:
                 "url": PLAYBOOK_SERVER_URL,
             })
         else:
+            error_output = result.stderr or result.stdout or "Unknown error starting server"
             output_json({
                 "status": "error",
-                "error": result.stderr or result.stdout or "Unknown error starting server",
+                "error": error_output,
+                "hint": "ao-playbook may not be installed. To install:\n"
+                        "  - With uv: add ao-playbook = { path = \"../ao-playbook\", editable = true } to pyproject.toml\n"
+                        "  - With pip: pip install -e ../ao-playbook",
             })
     except FileNotFoundError:
         output_json({
@@ -862,54 +749,143 @@ def playbook_start_server_command(args) -> None:
 
 def playbook_design_guide_query_command(args) -> None:
     """Query the design guide for agent development techniques."""
+    query = args.query
+
+    data = {"query": query}
+    if args.top_k is not None:
+        data["top_k"] = args.top_k
+
+    result = _playbook_request("POST", "/api/v1/query/design-guide", data)
+    if "error" in result:
+        output_json(result)
+    else:
+        output_json({
+            "status": "success",
+            "query": query,
+            "results": result,
+        })
+
+
+def _playbook_request(method: str, path: str, data: dict | None = None) -> dict:
+    """Make an HTTP request to the playbook server.
+
+    Returns the parsed JSON response, or an error dict.
+    Uses AO_API_KEY env var for authentication if set.
+    """
     import urllib.request
     import urllib.error
 
-    query = args.query
-    top_k = args.top_k
+    url = f"{PLAYBOOK_SERVER_URL}{path}"
 
-    # Check if server is running
-    if not _is_playbook_server_running():
-        output_json({
-            "status": "error",
-            "error": "Playbook server is not running. Start it first with: ao-tool playbook start-server",
-        })
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+    else:
+        body = None
 
-    # Make the query request
-    url = f"{PLAYBOOK_SERVER_URL}/api/v1/query/design-guide"
-    data = json.dumps({"query": query, "top_k": top_k}).encode("utf-8")
+    headers = {}
+    if body:
+        headers["Content-Type"] = "application/json"
+
+    # Add API key if available
+    api_key = os.environ.get("AO_API_KEY")
+    if api_key:
+        headers["X-API-Key"] = api_key
 
     req = urllib.request.Request(
         url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
+        data=body,
+        headers=headers,
+        method=method,
     )
 
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            output_json({
-                "status": "success",
-                "query": query,
-                "results": result,
-            })
+            return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else str(e)
-        output_json({
-            "status": "error",
-            "error": f"HTTP {e.code}: {error_body}",
-        })
+        try:
+            server_error = json.loads(error_body)
+            if "detail" in server_error:
+                return {"status": "error", "error": server_error["detail"]}
+            if "error" in server_error:
+                return {"status": "error", "error": server_error["error"]}
+        except json.JSONDecodeError:
+            pass
+        return {"status": "error", "error": error_body}
     except urllib.error.URLError as e:
-        output_json({
-            "status": "error",
-            "error": f"Connection failed: {e.reason}",
-        })
+        return {"status": "error", "error": f"Connection failed: {e.reason}"}
     except json.JSONDecodeError as e:
-        output_json({
-            "status": "error",
-            "error": f"Invalid JSON response: {e}",
-        })
+        return {"status": "error", "error": f"Invalid JSON response: {e}"}
+
+
+def playbook_lessons_list_command(args) -> None:
+    """List all lessons."""
+    result = _playbook_request("GET", "/api/v1/lessons")
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({"status": "success", "lessons": result})
+
+
+def playbook_lessons_get_command(args) -> None:
+    """Get a specific lesson by ID."""
+    result = _playbook_request("GET", f"/api/v1/lessons/{args.lesson_id}")
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({"status": "success", "lesson": result})
+
+
+def playbook_lessons_create_command(args) -> None:
+    """Create a new lesson."""
+    data = {
+        "name": args.name,
+        "summary": args.summary,
+        "content": args.content,
+    }
+    result = _playbook_request("POST", "/api/v1/lessons", data)
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({"status": "success", "lesson": result})
+
+
+def playbook_lessons_update_command(args) -> None:
+    """Update an existing lesson."""
+    data = {}
+    if args.name:
+        data["name"] = args.name
+    if args.summary:
+        data["summary"] = args.summary
+    if args.content:
+        data["content"] = args.content
+
+    if not data:
+        output_json({"status": "error", "error": "At least one of --name, --summary, or --content is required"})
+
+    result = _playbook_request("PUT", f"/api/v1/lessons/{args.lesson_id}", data)
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({"status": "success", "lesson": result})
+
+
+def playbook_lessons_delete_command(args) -> None:
+    """Delete a lesson."""
+    result = _playbook_request("DELETE", f"/api/v1/lessons/{args.lesson_id}")
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({"status": "success", "deleted": args.lesson_id})
+
+
+def playbook_lessons_query_command(args) -> None:
+    """Query lessons by semantic similarity."""
+    data = {"query": args.context}
+    if args.top_k is not None:
+        data["top_k"] = args.top_k
+    result = _playbook_request("POST", "/api/v1/query/lessons", data)
+    if "status" in result and result["status"] == "error":
+        output_json(result)
+    output_json({
+        "status": "success",
+        "results": result.get("results", []),
+    })
 
 
 def create_parser() -> ArgumentParser:
@@ -933,15 +909,10 @@ def create_parser() -> ArgumentParser:
     )
     record.add_argument("--run-name", help="Human-readable name for this run")
     record.add_argument(
-        "--wait",
-        action="store_true",
-        help="Block until execution completes instead of returning immediately",
-    )
-    record.add_argument(
         "--timeout",
         type=float,
         default=None,
-        help="Timeout in seconds when using --wait",
+        help="Timeout in seconds (terminates script if exceeded)",
     )
     # Positional args must come after options to avoid REMAINDER capturing them
     record.add_argument("script_path", help="Script to execute (or module name with -m)")
@@ -951,14 +922,9 @@ def create_parser() -> ArgumentParser:
     probe = subparsers.add_parser(
         "probe",
         help="Query session state",
-        description="Query metadata, graph topology, or specific nodes of a session.",
+        description="Query metadata or specific nodes of a session.",
     )
     probe.add_argument("session_id", help="Session ID to probe")
-    probe.add_argument(
-        "--topology",
-        action="store_true",
-        help="Return only graph structure (nodes and edges, no content)",
-    )
     probe.add_argument(
         "--node",
         help="Return detailed info for a single node",
@@ -1005,50 +971,38 @@ def create_parser() -> ArgumentParser:
         help="Filter experiments by name using regex pattern",
     )
 
-    # terminate subcommand
-    terminate = subparsers.add_parser(
-        "terminate",
-        help="Terminate a running process",
-        description="Terminate a running ao-record process by PID.",
-    )
-    terminate.add_argument("pid", type=int, help="Process ID to terminate")
-
     # edit-and-rerun subcommand
     edit_and_rerun = subparsers.add_parser(
         "edit-and-rerun",
         help="Edit a node and immediately rerun",
-        description="Edit a node's input or output and immediately rerun the session.",
+        description="Copy a session, edit a single key in a node's input or output, and rerun. "
+                    "Keys use flattened dot-notation from probe output (e.g., messages.0.content). "
+                    "Value can be a literal or a path to a file.",
     )
     edit_and_rerun.add_argument("session_id", help="Session ID containing the node")
     edit_and_rerun.add_argument("node_id", help="Node ID to edit")
     edit_and_rerun_group = edit_and_rerun.add_mutually_exclusive_group(required=True)
     edit_and_rerun_group.add_argument(
         "--input",
-        help="New input value as JSON (the to_show structure)",
+        nargs=2,
+        metavar=("KEY", "VALUE"),
+        help="Edit an input key: --input <flat_key> <value_or_file_path>",
     )
     edit_and_rerun_group.add_argument(
         "--output",
-        help="New output value as JSON (the to_show structure)",
-    )
-    edit_and_rerun.add_argument(
-        "--wait",
-        action="store_true",
-        help="Block until execution completes instead of returning immediately",
+        nargs=2,
+        metavar=("KEY", "VALUE"),
+        help="Edit an output key: --output <flat_key> <value_or_file_path>",
     )
     edit_and_rerun.add_argument(
         "--timeout",
         type=float,
         default=None,
-        help="Timeout in seconds when using --wait",
-    )
-    edit_and_rerun.add_argument(
-        "--as-new-run",
-        action="store_true",
-        help="Create a new session instead of reusing the existing one",
+        help="Timeout in seconds (terminates script if exceeded)",
     )
     edit_and_rerun.add_argument(
         "--run-name",
-        help="Name for the new run (only used with --as-new-run). Defaults to 'Edit of <original name>'",
+        help="Name for the new run. Defaults to 'Edit of <original name>'",
     )
 
     # install-skill subcommand
@@ -1073,22 +1027,112 @@ def create_parser() -> ArgumentParser:
         description="Start the ao-playbook-server daemon for design guide queries.",
     )
 
-    # playbook design-guide-query
+    # playbook design-guide (nested subcommand)
     design_guide = playbook_subparsers.add_parser(
-        "design-guide-query",
+        "design-guide",
         help="Query the design guide",
         description="Query the design guide for agent development techniques and best practices.",
     )
-    design_guide.add_argument(
+    design_guide_subparsers = design_guide.add_subparsers(dest="design_guide_command", required=True)
+
+    # playbook design-guide query
+    design_guide_query = design_guide_subparsers.add_parser(
+        "query",
+        help="Query the design guide",
+        description="Search the design guide using semantic similarity.",
+    )
+    design_guide_query.add_argument(
         "--query", "-q",
         required=True,
         help="The problem or question to query the design guide with",
     )
-    design_guide.add_argument(
+    design_guide_query.add_argument(
         "--top-k", "-k",
         type=int,
-        default=3,
-        help="Number of results to return (default: 3)",
+        default=None,
+        help="Number of results to return (omit for best match)",
+    )
+
+    # playbook lessons (nested subcommand)
+    lessons = playbook_subparsers.add_parser(
+        "lessons",
+        help="Manage lessons",
+        description="CRUD operations for user lessons.",
+    )
+    lessons_subparsers = lessons.add_subparsers(dest="lessons_command", required=True)
+
+    # playbook lessons list
+    lessons_subparsers.add_parser(
+        "list",
+        help="List all lessons",
+        description="List all lessons with their IDs, names, and summaries.",
+    )
+
+    # playbook lessons get
+    lessons_get = lessons_subparsers.add_parser(
+        "get",
+        help="Get a specific lesson",
+        description="Get full details of a lesson by its ID.",
+    )
+    lessons_get.add_argument("lesson_id", help="The lesson ID to retrieve")
+
+    # playbook lessons create
+    lessons_create = lessons_subparsers.add_parser(
+        "create",
+        help="Create a new lesson",
+        description="Create a new lesson with name, summary, and content.",
+    )
+    lessons_create.add_argument(
+        "--name", "-n",
+        required=True,
+        help="Lesson name (max 200 chars)",
+    )
+    lessons_create.add_argument(
+        "--summary", "-s",
+        required=True,
+        help="Brief summary (max 1000 chars)",
+    )
+    lessons_create.add_argument(
+        "--content", "-c",
+        required=True,
+        help="Full lesson content in markdown",
+    )
+
+    # playbook lessons update
+    lessons_update = lessons_subparsers.add_parser(
+        "update",
+        help="Update a lesson",
+        description="Update an existing lesson's name, summary, or content.",
+    )
+    lessons_update.add_argument("lesson_id", help="The lesson ID to update")
+    lessons_update.add_argument("--name", "-n", help="New lesson name")
+    lessons_update.add_argument("--summary", "-s", help="New summary")
+    lessons_update.add_argument("--content", "-c", help="New content")
+
+    # playbook lessons delete
+    lessons_delete = lessons_subparsers.add_parser(
+        "delete",
+        help="Delete a lesson",
+        description="Delete a lesson by its ID.",
+    )
+    lessons_delete.add_argument("lesson_id", help="The lesson ID to delete")
+
+    # playbook lessons query
+    lessons_query = lessons_subparsers.add_parser(
+        "query",
+        help="Query lessons by semantic similarity",
+        description="Find lessons most relevant to a given context using embeddings.",
+    )
+    lessons_query.add_argument(
+        "--context", "-c",
+        required=True,
+        help="The context to find relevant lessons for",
+    )
+    lessons_query.add_argument(
+        "--top-k", "-k",
+        type=int,
+        default=None,
+        help="Number of results to return (omit for all lessons)",
     )
 
     return parser
@@ -1104,8 +1148,6 @@ def main():
         probe_command(args)
     elif args.command == "experiments":
         experiments_command(args)
-    elif args.command == "terminate":
-        terminate_command(args)
     elif args.command == "edit-and-rerun":
         edit_and_rerun_command(args)
     elif args.command == "install-skill":
@@ -1113,8 +1155,22 @@ def main():
     elif args.command == "playbook":
         if args.playbook_command == "start-server":
             playbook_start_server_command(args)
-        elif args.playbook_command == "design-guide-query":
-            playbook_design_guide_query_command(args)
+        elif args.playbook_command == "design-guide":
+            if args.design_guide_command == "query":
+                playbook_design_guide_query_command(args)
+        elif args.playbook_command == "lessons":
+            if args.lessons_command == "list":
+                playbook_lessons_list_command(args)
+            elif args.lessons_command == "get":
+                playbook_lessons_get_command(args)
+            elif args.lessons_command == "create":
+                playbook_lessons_create_command(args)
+            elif args.lessons_command == "update":
+                playbook_lessons_update_command(args)
+            elif args.lessons_command == "delete":
+                playbook_lessons_delete_command(args)
+            elif args.lessons_command == "query":
+                playbook_lessons_query_command(args)
 
 
 if __name__ == "__main__":
