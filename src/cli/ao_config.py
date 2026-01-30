@@ -1,17 +1,3 @@
-# Register taint functions in builtins BEFORE any other imports
-import builtins
-from ao.server.ast_helpers import (
-    taint_fstring_join,
-    taint_format_string,
-    taint_percent_format,
-    exec_func,
-)
-
-builtins.taint_fstring_join = taint_fstring_join
-builtins.taint_format_string = taint_format_string
-builtins.taint_percent_format = taint_percent_format
-builtins.exec_func = exec_func
-
 import argparse
 import os
 from ao.common.config import (

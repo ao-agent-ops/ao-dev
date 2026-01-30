@@ -7,14 +7,13 @@ import json
 import shlex
 import random
 import threading
+import traceback
 import queue
 import time
 import psutil
 import signal
 import runpy
-import builtins
 
-from contextvars import ContextVar
 from typing import Optional, List
 
 from ao.common.logger import logger
@@ -23,36 +22,16 @@ from ao.common.constants import (
     PORT,
     CONNECTION_TIMEOUT,
     SERVER_START_TIMEOUT,
-    SERVER_START_WAIT,
     MESSAGE_POLL_INTERVAL,
 )
 from ao.cli.ao_server import launch_daemon_server
-from ao.runner.ast_rewrite_hook import install_patch_hook
 from ao.runner.context_manager import set_parent_session_id, set_server_connection
 from ao.runner.monkey_patching.apply_monkey_patches import apply_all_monkey_patches
-from ao.server.ast_helpers import (
-    taint_fstring_join,
-    taint_format_string,
-    taint_percent_format,
-    taint_open,
-    exec_func,
-    exec_setitem,
-    exec_delitem,
-    exec_inplace_binop,
-    taint_assign,
-    get_attr,
-    get_item,
-    set_attr,
-    add_to_taint_dict_and_return,
-    get_taint,
-)
 from ao.server.database_manager import DB
 
 
 def _log_error(context: str, exception: Exception) -> None:
     """Centralized error logging utility."""
-    import traceback
-
     logger.error(f"[AgentRunner] {context}: {exception}")
     logger.debug(f"[AgentRunner] Traceback: {traceback.format_exc()}")
 
@@ -233,7 +212,6 @@ class AgentRunner:
     def _listen_for_server_messages(self, sock: socket.socket) -> None:
         """Background thread: listen for 'restart' or 'shutdown' messages from the server."""
         try:
-            sock.setblocking(False)
             buffer = b""
             while not self.shutdown_flag:
                 try:
@@ -401,39 +379,9 @@ class AgentRunner:
 
     def _setup_environment(self) -> None:
         """Set up the execution environment for the agent runner."""
-        # Enable tracing - this tells AST-injected code to use real exec_func
-        os.environ["AO_ENABLE_TRACING"] = "1"
-
-        # Set random seed
+        # Set random seed for reproducibility
         if not os.environ.get("AO_SEED"):
             os.environ["AO_SEED"] = str(random.randint(0, 2**31 - 1))
-
-        # Install AST import hook (discovers modules on-demand via should_rewrite())
-        install_patch_hook()
-
-        # Register taint functions in builtins
-        builtins.taint_fstring_join = taint_fstring_join
-        builtins.taint_format_string = taint_format_string
-        builtins.taint_percent_format = taint_percent_format
-        builtins.taint_open = taint_open
-        builtins.exec_func = exec_func
-        builtins.exec_setitem = exec_setitem
-        builtins.exec_delitem = exec_delitem
-        builtins.exec_inplace_binop = exec_inplace_binop
-        builtins.taint_assign = taint_assign
-        builtins.get_attr = get_attr
-        builtins.get_item = get_item
-        builtins.set_attr = set_attr
-        builtins.add_to_taint_dict_and_return = add_to_taint_dict_and_return
-        builtins.get_taint = get_taint
-
-        # Register ACTIVE_TAINT (ContextVar) for passing taint through third-party code
-        builtins.ACTIVE_TAINT = ContextVar("active_taint", default=[])
-
-        # Register TAINT_DICT (id-based dict) as single source of truth for taint
-        from ao.runner.taint_dict import ThreadSafeTaintDict
-
-        builtins.TAINT_DICT = ThreadSafeTaintDict()
 
     def _apply_runtime_setup(self) -> None:
         """Apply runtime setup for the agent runner execution environment."""
@@ -475,7 +423,8 @@ class AgentRunner:
         except SystemExit as e:
             return e.code if e.code is not None else 0
         except Exception as e:
-            _log_error("Error executing user code", e)
+            # Print traceback to stderr so user sees it (regardless of logger level)
+            traceback.print_exc()
             return 1
 
     def _run_debug_mode(self) -> int:

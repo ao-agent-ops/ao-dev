@@ -2,7 +2,6 @@
 PostgreSQL database backend for workflow experiments.
 """
 
-import json
 import psycopg2
 import psycopg2.extras
 import psycopg2.pool
@@ -11,7 +10,6 @@ from urllib.parse import urlparse
 
 from ao.common.logger import logger
 from ao.common.constants import REMOTE_DATABASE_URL
-from ao.common.utils import hash_input
 
 # Global connection pool
 _connection_pool = None
@@ -166,17 +164,13 @@ def _init_db(conn):
     """
     )
 
-    # Create attachments table
+    # Create attachments table (for caching file attachments like images)
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS attachments (
             file_id TEXT PRIMARY KEY,
-            session_id TEXT,
-            line_no INTEGER,
             content_hash TEXT,
-            file_path TEXT,
-            taint TEXT,
-            FOREIGN KEY (session_id) REFERENCES experiments (session_id)
+            file_path TEXT
         )
     """
     )
@@ -279,44 +273,6 @@ def execute(sql, params=()):
         raise
     finally:
         return_conn(conn)
-
-
-def store_taint_info(session_id, file_path, line_no, taint_nodes):
-    """Store taint information for a line in a file"""
-    file_id = f"{session_id}:{file_path}:{line_no}"
-    content_hash = hash_input(f"{file_path}:{line_no}")
-    taint_json = json.dumps(taint_nodes) if taint_nodes else "[]"
-
-    execute(
-        """
-        INSERT INTO attachments (file_id, session_id, line_no, content_hash, file_path, taint)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (file_id) DO UPDATE SET
-            session_id = EXCLUDED.session_id,
-            line_no = EXCLUDED.line_no,
-            content_hash = EXCLUDED.content_hash,
-            file_path = EXCLUDED.file_path,
-            taint = EXCLUDED.taint
-        """,
-        (file_id, session_id, line_no, content_hash, file_path, taint_json),
-    )
-
-
-def get_taint_info(file_path, line_no):
-    """Get taint information for a specific line in a file from any previous session"""
-    row = query_one(
-        """
-        SELECT session_id, taint FROM attachments 
-        WHERE file_path = %s AND line_no = %s
-        ORDER BY ctid DESC
-        LIMIT 1
-        """,
-        (file_path, line_no),
-    )
-    if row:
-        taint_nodes = json.loads(row["taint"]) if row["taint"] else []
-        return row["session_id"], taint_nodes
-    return None, []
 
 
 def add_experiment_query(

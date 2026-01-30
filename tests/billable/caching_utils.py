@@ -38,14 +38,22 @@ def restart_server():
 
 def _run_script_with_ao_record(script_path: str, env: dict) -> tuple[int, str]:
     """
-    Run a script using ao-record and return (return_code, session_id).
+    Run a script using ao-record via uv and return (return_code, session_id).
+
+    Uses `uv run --directory <provider_dir> ao-record <script_name>` to run
+    the script in its provider-specific uv environment.
 
     Parses the session_id from the runner's output.
     """
     env["AO_NO_DEBUG_MODE"] = "True"
     env["PYTHONUNBUFFERED"] = "1"  # Ensure output isn't buffered
+
+    # Extract directory and script name for uv run
+    script_dir = os.path.dirname(os.path.abspath(script_path))
+    script_name = os.path.basename(script_path)
+
     proc = subprocess.Popen(
-        [sys.executable, "-m", "ao.cli.ao_record", script_path],
+        ["uv", "run", "--directory", script_dir, "ao-record", script_name],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

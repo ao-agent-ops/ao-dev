@@ -1,0 +1,12 @@
+[project]
+name = "ao-examples-mcp"
+version = "0.1.0"
+description = "AO debug examples for Model Context Protocol"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "mcp",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

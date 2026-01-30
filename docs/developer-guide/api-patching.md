@@ -1,6 +1,6 @@
 # API Patching
 
-AO uses monkey patching to intercept LLM API calls, record their inputs/outputs, and taint their responses.
+AO uses monkey patching to intercept LLM API calls and record their inputs/outputs for building dataflow graphs.
 
 ## Overview
 
@@ -9,52 +9,81 @@ When you import an LLM SDK (like OpenAI or Anthropic), AO patches the relevant m
 1. Record the call inputs
 2. Execute the original API call
 3. Record the outputs
-4. Wrap outputs with taint information
+4. Detect dataflow edges using content-based matching
 5. Report the call to the server
 
 ## Supported APIs
 
-Currently supported LLM APIs:
+AO intercepts LLM calls via HTTP library patches:
 
-- **OpenAI** - Chat completions, responses API
-- **Anthropic** - Messages API
-- **Google GenAI** - Generate content
-- **LangChain** - Various LLM wrappers
+| Patch | Covers |
+|-------|--------|
+| `httpx_patch.py` | OpenAI, Anthropic (via httpx) |
+| `requests_patch.py` | APIs using requests library |
+| `genai_patch.py` | Google GenAI |
+| `mcp_patches.py` | MCP tool calls |
+| `randomness_patch.py` | numpy, torch, uuid seeding |
 
 ## How Patches Are Applied
 
-Patches are applied when you run `ao-record`. The process:
+Patches are applied lazily when you import the relevant module. The `LAZY_PATCHES` dict in `apply_monkey_patches.py` maps module names to patch functions:
 
-1. **Import hook** - Catches imports of LLM SDKs
-2. **Apply patches** - Wraps SDK methods with our instrumentation
-3. **Transparent execution** - Your code runs normally, unaware of patches
+```python
+LAZY_PATCHES = {
+    "httpx": ("ao.runner.monkey_patching.patches.httpx_patch", "httpx_patch"),
+    "requests": ("ao.runner.monkey_patching.patches.requests_patch", "requests_patch"),
+    "google.genai": ("ao.runner.monkey_patching.patches.genai_patch", "genai_patch"),
+    "mcp": ("ao.runner.monkey_patching.patches.mcp_patches", "mcp_patch"),
+    ...
+}
+```
+
+When you `import httpx`, AO's import hook triggers `httpx_patch()` before returning the module.
 
 ## Patch Structure
 
-A typical patch follows this pattern:
+A typical patch follows this pattern (see `httpx_patch.py` for a complete example):
 
+```python
+from ao.runner.string_matching import find_source_nodes, store_output_strings
+
+def patched_function(self, *args, **kwargs):
+    api_type = "my_api.method"
+
+    # 1. Build input dict from args/kwargs
+    input_dict = get_input_dict(original_function, *args, **kwargs)
+
+    # 2. Check cache or call the LLM
+    cache_output = DB.get_in_out(input_dict, api_type)
+    if cache_output.output is None:
+        result = original_function(**cache_output.input_dict)
+        DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
+
+    # 3. Find edges using content-based matching
+    source_node_ids = find_source_nodes(cache_output.session_id, cache_output.input_dict, api_type)
+    store_output_strings(cache_output.session_id, cache_output.node_id, cache_output.output, api_type)
+
+    # 4. Report node and edges to server
+    send_graph_node_and_edges(
+        node_id=cache_output.node_id,
+        input_dict=cache_output.input_dict,
+        output_obj=cache_output.output,
+        source_node_ids=source_node_ids,
+        api_type=api_type,
+    )
+
+    return cache_output.output
 ```
-def create_patched_method(original_method):
-    @wraps(original_method)
-    def patched_method(self, *args, **kwargs):
-        # 1. Untaint inputs
-        clean_args = untaint_if_needed(args)
-        clean_kwargs = untaint_if_needed(kwargs)
 
-        # 2. Collect taint origins from inputs
-        input_origins = get_taint_origins(args) + get_taint_origins(kwargs)
+## Content-Based Edge Detection
 
-        # 3. Execute original method
-        result = original_method(self, *clean_args, **clean_kwargs)
+AO detects dataflow between LLM calls using content-based matching:
 
-        # 4. Report to server
-        report_llm_call(inputs=clean_args, output=result, origins=input_origins)
+1. **Store outputs**: When an LLM call completes, all text strings from the response are stored
+2. **Match inputs**: When a new LLM call is made, we check if any stored output strings appear in the input
+3. **Create edges**: If a match is found, an edge is created from the source node to the current node
 
-        # 5. Taint the output
-        return taint_wrap(result, taint_origin=[node_id])
-
-    return patched_method
-```
+This approach is simple and robust - user code runs completely unmodified, and edges are detected automatically.
 
 ## Writing New Patches
 
@@ -71,26 +100,27 @@ client.chat.completions.create(...)
 
 Add a new file in `src/runner/monkey_patching/patches/`:
 
-```
-# src/runner/monkey_patching/patches/my_api_patches.py
+```python
+# src/runner/monkey_patching/patches/my_api_patch.py
 
 from functools import wraps
-from ao.runner.taint_wrappers import get_taint_origins, untaint_if_needed, taint_wrap
-from ao.runner.monkey_patching.patching_utils import report_llm_call
+from ao.runner.monkey_patching.patching_utils import get_input_dict, send_graph_node_and_edges
+from ao.runner.string_matching import find_source_nodes, store_output_strings
+from ao.server.database_manager import DB
 
-def patch_my_api_create(original_create):
-    @wraps(original_create)
-    def patched_create(self, *args, **kwargs):
-        # Your patching logic here
+def patch_my_api_send(original_send):
+    @wraps(original_send)
+    def patched_send(self, *args, **kwargs):
+        # Your patching logic here (see httpx_patch.py for full example)
         pass
-    return patched_create
+    return patched_send
 ```
 
-### Step 3: Register the Patch
+### Step 3: Create the Patch Function
 
-In `apply_monkey_patches.py`, add your patch:
+In your patch file, create a function that applies the patches when called:
 
-```
+```python
 def my_api_patch():
     try:
         from my_api import Client
@@ -103,62 +133,66 @@ def my_api_patch():
         def patched_init(self, *args, **kwargs):
             original_init(self, *args, **kwargs)
             # Apply method patches here
-            self.completions.create = patch_my_api_create(
-                self.completions.create
-            )
+            patch_my_api_send(self, type(self))
         return patched_init
 
     Client.__init__ = create_patched_init(Client.__init__)
 ```
 
-### Step 4: Add to Patch Registry
+### Step 4: Register in LAZY_PATCHES
 
-In `apply_monkey_patches.py`:
+Add your patch to the `LAZY_PATCHES` dict in `apply_monkey_patches.py`:
 
+```python
+LAZY_PATCHES = {
+    "httpx": ("ao.runner.monkey_patching.patches.httpx_patch", "httpx_patch"),
+    "my_api": ("ao.runner.monkey_patching.patches.my_api_patch", "my_api_patch"),  # Add here
+    ...
+}
 ```
-def apply_all_monkey_patches():
-    openai_patch()
-    anthropic_patch()
-    my_api_patch()  # Add your patch here
-```
 
-## Example: OpenAI Patch
+The patch will be applied automatically when users `import my_api`.
 
-Here's a simplified view of how the OpenAI patch works:
+## Example: httpx Patch
 
-```
-def patch_openai_responses_create(original_create):
-    @wraps(original_create)
-    async def patched_create(self, *args, **kwargs):
-        # Clean inputs
-        clean_kwargs = untaint_if_needed(kwargs)
+Here's a simplified view of how the httpx patch works (used by OpenAI, Anthropic, etc.):
 
-        # Get taint origins
-        origins = get_taint_origins(kwargs)
+```python
+def patch_httpx_send(bound_obj, bound_cls):
+    original_function = bound_obj.send
 
-        # Call original
-        response = await original_create(self, *args, **clean_kwargs)
+    @wraps(original_function)
+    def patched_function(self, *args, **kwargs):
+        api_type = "httpx.Client.send"
+        input_dict = get_input_dict(original_function, *args, **kwargs)
 
-        # Parse and report
-        parsed = parse_openai_response(response)
-        node_id = report_llm_call(
-            model=parsed.model,
-            input=parsed.input,
-            output=parsed.output,
-            origins=origins,
-        )
+        # Check if URL is whitelisted (LLM endpoint)
+        request = input_dict["request"]
+        if not is_whitelisted_endpoint(str(request.url), request.url.path):
+            return original_function(*args, **kwargs)
 
-        # Taint the response
-        return taint_wrap(response, taint_origin=[node_id])
+        # Get cached result or call LLM
+        cache_output = DB.get_in_out(input_dict, api_type)
+        if cache_output.output is None:
+            result = original_function(**cache_output.input_dict)
+            DB.cache_output(cache_result=cache_output, output_obj=result, api_type=api_type)
 
-    return patched_create
+        # Content-based edge detection
+        source_node_ids = find_source_nodes(cache_output.session_id, cache_output.input_dict, api_type)
+        store_output_strings(cache_output.session_id, cache_output.node_id, cache_output.output, api_type)
+
+        # Report to server
+        send_graph_node_and_edges(...)
+        return cache_output.output
+
+    bound_obj.send = patched_function.__get__(bound_obj, bound_cls)
 ```
 
 ## Async Support
 
 Many LLM APIs are async. Patches must handle both sync and async methods:
 
-```
+```python
 def patch_method(original):
     if asyncio.iscoroutinefunction(original):
         @wraps(original)
@@ -180,23 +214,13 @@ Each LLM API has different request/response formats. API parsers extract relevan
 
 ```
 src/runner/monkey_patching/api_parsers/
-├── openai_api_parser.py
-├── anthropic_api_parser.py
-├── genai_api_parser.py
-└── ...
+├── httpx_api_parser.py    # OpenAI, Anthropic (via httpx)
+├── requests_api_parser.py # APIs using requests
+├── genai_api_parser.py    # Google GenAI
+└── mcp_api_parser.py      # MCP tool calls
 ```
 
-Parsers normalize the data for the server:
-
-```
-def parse_openai_response(response):
-    return {
-        "model": response.model,
-        "input": extract_messages(response),
-        "output": response.choices[0].message.content,
-        "usage": response.usage,
-    }
-```
+Parsers normalize HTTP responses into a common format for caching and display. See `api_parser.py` for the main interface that routes to the appropriate parser based on `api_type`.
 
 ## Maintenance
 
@@ -208,5 +232,6 @@ LLM APIs change frequently. To detect API changes:
 
 ## Next Steps
 
+- [Edge Detection](edge-detection.md) - How dataflow edges are detected
 - [Testing](testing.md) - Running the test suite
 - [Architecture](architecture.md) - System overview

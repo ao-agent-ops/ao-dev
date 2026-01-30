@@ -8,28 +8,24 @@ from ao.runner.monkey_patching.api_parsers.mcp_api_parser import (
     api_obj_to_json_str_mcp,
     json_str_to_api_obj_mcp,
     json_str_to_original_inp_dict_mcp,
-    get_model_mcp,
 )
 from ao.runner.monkey_patching.api_parsers.httpx_api_parser import (
     func_kwargs_to_json_str_httpx,
     api_obj_to_json_str_httpx,
     json_str_to_api_obj_httpx,
     json_str_to_original_inp_dict_httpx,
-    get_model_httpx,
 )
 from ao.runner.monkey_patching.api_parsers.requests_api_parser import (
     func_kwargs_to_json_str_requests,
     api_obj_to_json_str_requests,
     json_str_to_api_obj_requests,
     json_str_to_original_inp_dict_requests,
-    get_model_requests,
 )
 from ao.runner.monkey_patching.api_parsers.genai_api_parser import (
     func_kwargs_to_json_str_genai,
     api_obj_to_json_str_genai,
     json_str_to_api_obj_genai,
     json_str_to_original_inp_dict_genai,
-    get_model_genai,
 )
 from ao.common.constants import EDIT_IO_EXCLUDE_PATTERNS
 
@@ -248,19 +244,6 @@ def json_str_to_api_obj(new_output_text: str, api_type: str) -> Any:
         return json_str_to_api_obj_mcp(merged_json_str)
     elif api_type == "genai.BaseApiClient.async_request":
         return json_str_to_api_obj_genai(merged_json_str)
-    else:
-        raise ValueError(f"Unknown API type {api_type}")
-
-
-def get_model_name(input_dict: Dict[str, Any], api_type: str) -> str:
-    if api_type == "requests.Session.send":
-        return get_model_requests(input_dict)
-    elif api_type in ["httpx.Client.send", "httpx.AsyncClient.send"]:
-        return get_model_httpx(input_dict)
-    elif api_type == "MCP.ClientSession.send_request":
-        return get_model_mcp(input_dict)
-    elif api_type == "genai.BaseApiClient.async_request":
-        return get_model_genai(input_dict)
     else:
         raise ValueError(f"Unknown API type {api_type}")
 

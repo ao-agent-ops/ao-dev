@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { JSONViewer } from '../JSONViewer';
 import { parse, stringify } from 'lossless-json';
+import { DetectedDocument } from '../../utils/documentDetection';
 
 interface NodeEditModalProps {
   nodeId: string;
@@ -10,6 +11,7 @@ interface NodeEditModalProps {
   isDarkTheme: boolean;
   onClose: () => void;
   onSave: (nodeId: string, field: string, value: string) => void;
+  onOpenDocument?: (doc: DetectedDocument) => void;
 }
 
 /**
@@ -41,7 +43,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   value: initialValue,
   isDarkTheme,
   onClose,
-  onSave
+  onSave,
+  onOpenDocument
 }) => {
   /**
    * Extracts and pretty-prints the `to_show` field if present.
@@ -242,11 +245,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
         }}
       >
         {parsedData !== null ? (
-          <JSONViewer
-            data={parsedData}
-            isDarkTheme={isDarkTheme}
-            onChange={handleJSONChange}
-          />
+          <JSONViewer data={parsedData} isDarkTheme={isDarkTheme} onChange={handleJSONChange} onOpenDocument={onOpenDocument} />
         ) : (
           <div
             style={{

@@ -1,6 +1,6 @@
 # AO Agent Dev: What-if Questions over Agent Trajectories  
 
-AO Agent Dev is a developer tool for agent builders. It supports arbitrary Python progams (like your existing ones!) and will visualize your agent's LLM and MCP calls into a dataflow graph. You can then inspect, edit and rerun this graph and understand how to fix your agent.
+AO Agent Dev is a developer tool for agent builders. It supports arbitrary Python progams (like your existing agents!) and will visualize your agent's LLM and MCP calls into a dataflow graph. You can then inspect, edit and rerun this graph and understand how to fix your agent.
 
 [![Quickstart video](docs/media/quickstart_screenshot.png)](https://youtu.be/woVctiSRJU0)
 
@@ -15,33 +15,51 @@ Simply download (1) our [VS Code Extension](https://marketplace.visualstudio.com
 pip install ao-dev
 ```
 
+Or if you use [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add ao-dev
+```
+
 **Then, give it a spin:**
 
-1. Create a folder called `my-agent` and add a file with some LM program. For example, in the video above we use `openai_example.py` with the following content:
+1. Create some little agent program that you want to run (or use your existing agent!). For example, you can try this little OpenAI example below (or find many further example scripts in our [examples folder](/example_workflows/debug_examples/)):
 
 ```python
 from openai import OpenAI
 
+
 def main():
     client = OpenAI()
 
-    response = client.responses.create(
+    # First LLM: Generate a yes/no question
+    question_response = client.responses.create(
         model="gpt-4o-mini",
-        input="Output the number 42 and nothing else",
-        temperature=0
+        input="Come up with a simple question where there is a pro and contra opinion. Only output the question and nothing else.",
+        temperature=0,
     )
-    number = response.output_text
+    question = question_response.output_text
 
-    prompt_add_1 = f"Add 1 to {number} and just output the result."
-    prompt_add_2 = f"Add 2 to {number} and just output the result."
+    # Second LLM: Argue "yes"
+    yes_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'yes'"
+    yes_response = client.responses.create(
+        model="gpt-4o-mini", input=yes_prompt, temperature=0
+    )
 
-    response1 = client.responses.create(model="gpt-4o-mini", input=prompt_add_1, temperature=0)
-    response2 = client.responses.create(model="gpt-4o-mini", input=prompt_add_2, temperature=0)
+    # Third LLM: Argue "no"
+    no_prompt = f"Consider this question: {question}\nWrite a short paragraph on why to answer this question with 'no'"
+    no_response = client.responses.create(
+        model="gpt-4o-mini", input=no_prompt, temperature=0
+    )
 
-    sum_prompt = f"Add these two numbers together and just output the result: {response1.output_text} + {response2.output_text}"
-    final_sum = client.responses.create(model="gpt-4o-mini", input=sum_prompt, temperature=0)
+    # Fourth LLM: Judge who won
+    judge_prompt = f"Consider the following two paragraphs:\n1. {yes_response.output_text}\n2. {no_response.output_text}\nWho won the argument?"
+    judge_response = client.responses.create(
+        model="gpt-4o-mini", input=judge_prompt, temperature=0
+    )
 
-    print(f"Final sum: {final_sum.output_text}")
+    print(f"Question: {question}")
+    print(f"\nJudge's verdict: {judge_response.output_text}")
 
 if __name__ == "__main__":
     main()
@@ -50,27 +68,16 @@ if __name__ == "__main__":
 2. Run the script with python to verify it works (keys are set correctly, etc.):
 
 ```bash
-cd my-agent
 python openai_example.py
 ```
 
-3. Run the script using ao-record and check out the graph (should look like in the video above).
+3. Run the script using `ao-record`.
 
 ```bash
 ao-record openai_example.py
 ```
 
-
-
-#### 3. Run an example
-
-Open your `my-agent` folder in VS Code, then run the example with AO in the terminal:
-
-```bash
-ao-record openai_example.py
-```
-
-The VS Code extension will display the dataflow graph showing how data flows between the LLM calls.
+This should show you the agent's trajectory graph like in the video above. You can edit inputs and outputs in the graph and rerun.
 
 ## Documentation
 
@@ -78,7 +85,7 @@ For complete documentation, installation guides, and tutorials, visit our **[Doc
 
 ## Building from source and developing
 
-See the [Installation Guide](https://ao-agent-ops.github.io/ao-dev/getting-started/installation/) for development setup and the [Developer Guide](https://ao-agent-ops.github.io/ao-dev/developer-guide/architecture/) for architecture details.
+See the [Installation Guide](https://ao-agent-ops.github.io/ao-dev/getting-started/installation/) for development setup and the [Developer Guide](https://ao-agent-ops.github.io/ao-dev/developer-guide/architecture/) for architecture details. More details can also be found in the READMEs of the corresponding dirs in `src/`.
 
 ## Community
 

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { parse, stringify } from 'lossless-json';
+import { detectDocument, formatFileSize, getDocumentKey, DetectedDocument } from '../utils/documentDetection';
+import { useDocumentContext } from '../contexts/DocumentContext';
 
 interface JSONViewerProps {
   data: any;
   isDarkTheme: boolean;
   depth?: number;
   onChange?: (newData: any) => void;
+  onOpenDocument?: (doc: DetectedDocument) => void;
 }
 
 interface JSONNodeProps {
@@ -16,41 +19,36 @@ interface JSONNodeProps {
   isLast: boolean;
   path: string[];
   onChange?: (path: string[], newValue: any) => void;
+  siblingData?: Record<string, unknown>;
+  onOpenDocument?: (doc: DetectedDocument) => void;
 }
 
-const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth, isLast, path, onChange }) => {
+const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth, isLast, path, onChange, siblingData, onOpenDocument }) => {
   // Expand everything by default
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   // Track the original type to preserve it during editing
   const [originalType] = useState<string>(typeof value);
+  // Toggle to show raw base64 instead of document button
+  const [showRawDocument, setShowRawDocument] = useState(false);
+  // Get opened document paths from context
+  const { openedPaths } = useDocumentContext();
 
-  const colors = isDarkTheme
-    ? {
-        key: '#9cdcfe',
-        string: '#ce9178',
-        number: '#b5cea8',
-        boolean: '#569cd6',
-        null: '#569cd6',
-        bracket: '#d4d4d4',
-        background: '#1e1e1e',
-        hoverBackground: '#2a2a2a',
-        inputBackground: '#2d2d2d',
-        inputBorder: '#3c3c3c',
-      }
-    : {
-        key: '#0451a5',
-        string: '#a31515',
-        number: '#098658',
-        boolean: '#0000ff',
-        null: '#0000ff',
-        bracket: '#333333',
-        background: '#ffffff',
-        hoverBackground: '#f3f3f3',
-        inputBackground: '#ffffff',
-        inputBorder: '#d0d0d0',
-      };
+  // Use VS Code CSS variables for theme-aware colors
+  // Syntax highlighting colors use VS Code's token colors with fallbacks
+  const colors = {
+    key: 'var(--vscode-symbolIcon-propertyForeground, #9cdcfe)',
+    string: 'var(--vscode-debugTokenExpression-string, #ce9178)',
+    number: 'var(--vscode-debugTokenExpression-number, #b5cea8)',
+    boolean: 'var(--vscode-debugTokenExpression-boolean, #569cd6)',
+    null: 'var(--vscode-debugTokenExpression-boolean, #569cd6)',
+    bracket: 'var(--vscode-foreground)',
+    background: 'var(--vscode-editor-background)',
+    hoverBackground: 'var(--vscode-list-hoverBackground)',
+    inputBackground: 'var(--vscode-input-background)',
+    inputBorder: 'var(--vscode-input-border, var(--vscode-panel-border))',
+  };
 
   const indent = depth * 15;
 
@@ -164,6 +162,86 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
       if (content.length < 2000) return 15;
       return 30;
     };
+
+    // Check for base64-encoded documents (PDF, images, etc.)
+    if (typeof val === 'string' && onOpenDocument && !showRawDocument) {
+      const doc = detectDocument(val, siblingData);
+      if (doc) {
+        const docKey = getDocumentKey(doc.data);
+        const openedPath = openedPaths.get(docKey);
+
+        const iconMap: Record<string, string> = {
+          pdf: 'file-pdf',
+          png: 'file-media',
+          jpeg: 'file-media',
+          gif: 'file-media',
+          webp: 'file-media',
+          docx: 'file',
+          xlsx: 'file',
+          zip: 'file-zip',
+          unknown: 'file-binary',
+        };
+
+        const buttonStyle: React.CSSProperties = {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px 8px',
+          border: `1px solid ${colors.inputBorder}`,
+          borderRadius: '4px',
+          backgroundColor: isDarkTheme ? '#2d2d2d' : '#f3f3f3',
+          color: isDarkTheme ? '#cccccc' : '#333333',
+          cursor: 'pointer',
+          fontFamily: 'var(--vscode-font-family, sans-serif)',
+          fontSize: 'var(--vscode-font-size, 13px)',
+        };
+
+        const linkStyle: React.CSSProperties = {
+          background: 'none',
+          border: 'none',
+          color: isDarkTheme ? '#569cd6' : '#0451a5',
+          cursor: 'pointer',
+          textDecoration: 'underline',
+          fontFamily: 'var(--vscode-font-family, sans-serif)',
+          fontSize: 'var(--vscode-font-size, 13px)',
+          padding: '4px',
+        };
+
+        const pathStyle: React.CSSProperties = {
+          fontFamily: 'var(--vscode-editor-font-family, monospace)',
+          fontSize: 'var(--vscode-editor-font-size, 12px)',
+          color: isDarkTheme ? '#888888' : '#666666',
+        };
+
+        // Use friendly label - "Open file" for zip/unknown since we can't distinguish DOCX/XLSX/etc
+        const labelMap: Record<string, string> = {
+          pdf: 'PDF',
+          png: 'PNG',
+          jpeg: 'JPEG',
+          gif: 'GIF',
+          webp: 'WebP',
+          docx: 'DOCX',
+          xlsx: 'XLSX',
+          zip: 'file',
+          unknown: 'file',
+        };
+
+        return (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button style={buttonStyle} onClick={() => onOpenDocument(doc)}>
+              <i className={`codicon codicon-${iconMap[doc.type]}`} />
+              {` Open ${labelMap[doc.type]} (${formatFileSize(doc.size)})`}
+            </button>
+            {openedPath && (
+              <span style={pathStyle}>File available at {openedPath}</span>
+            )}
+            <button style={linkStyle} onClick={() => setShowRawDocument(true)}>
+              Show raw
+            </button>
+          </div>
+        );
+      }
+    }
 
     // Handle LosslessNumber objects - render them as regular numbers
     if (isLosslessNumber(val)) {
@@ -392,6 +470,8 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
               isLast={index === entries.length - 1}
               path={[...path, key]}
               onChange={onChange}
+              siblingData={isArray ? undefined : value}
+              onOpenDocument={onOpenDocument}
             />
           ))}
           <div
@@ -410,7 +490,7 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
   );
 };
 
-export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth = 0, onChange }) => {
+export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth = 0, onChange, onOpenDocument }) => {
   const handleChange = (path: string[], newValue: any) => {
     if (!onChange) return;
 
@@ -437,7 +517,7 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
       height: '100%',
       overflow: 'auto',
       padding: '12px',
-      backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+      backgroundColor: 'var(--vscode-editor-background)',
     }}>
       {(isObject || isArray) ? (
         // Render children directly, starting at depth -1 so first level is depth 0
@@ -452,6 +532,8 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
               isLast={index === arr.length - 1}
               path={[key]}
               onChange={onChange ? handleChange : undefined}
+              siblingData={isArray ? undefined : data}
+              onOpenDocument={onOpenDocument}
             />
           ))}
         </>
@@ -465,6 +547,7 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
           isLast={true}
           path={[]}
           onChange={onChange ? handleChange : undefined}
+          onOpenDocument={onOpenDocument}
         />
       )}
     </div>

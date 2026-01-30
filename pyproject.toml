@@ -34,9 +34,9 @@ line-length = 100
 
 [project]
 name = "ao-dev"
-version = "0.0.3"
+version = "0.0.6"
 description = "A development tool for LLM call visualization and debugging"
-readme = "docs/PKG_README.md"
+readme = "docs/release/PYPI_DESC.md"
 requires-python = ">=3.10"
 
 dependencies = [

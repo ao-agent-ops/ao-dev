@@ -10,11 +10,6 @@ AO's Python API is organized into several modules:
 
 - [**CLI**](cli.md) - Command-line interface entry points (`ao-record`, `ao-server`, `ao-config`)
 
-### Core Runtime
-
-- [**Taint Wrappers**](taint-wrappers.md) - Taint-aware data types for tracking data provenance
-- [**AST Transformer**](ast-transformer.md) - AST rewriting for taint propagation
-
 ## Module Structure
 
 ```
@@ -24,13 +19,13 @@ ao/
 │   ├── ao_server.py       # Server management
 │   └── ao_config.py       # Configuration tool
 ├── runner/                 # Runtime execution
-│   ├── taint_wrappers.py   # Taint-aware types
+│   ├── string_matching.py  # Content-based edge detection
 │   ├── context_manager.py  # Session management
 │   └── monkey_patching/    # API interception
 └── server/                 # Core server
-    ├── ast_transformer.py  # AST rewriting
-    ├── file_watcher.py     # File monitoring
-    └── main_server.py   # Main server
+    ├── file_watcher.py     # Git versioning
+    ├── database_manager.py # Caching and content registry
+    └── main_server.py      # Main server
 ```
 
 ## Using the API
@@ -39,29 +34,14 @@ Most users interact with AO through the CLI commands. However, you can also use 
 
 ### Context Manager for Subruns
 
-```
-from ao.runner.context_manager import ao_record
+```python
+from ao import launch
 
-with ao_record("my-run"):
+with launch("my-run"):
     # Your LLM code here
     pass
-```
-
-### Taint Wrappers
-
-Taint wrappers are automatically applied when using `ao-record`. You generally don't need to create them manually, but understanding them helps with debugging:
-
-```
-from ao.runner.taint_wrappers import TaintStr, get_taint_origins
-
-# Check if a value is tainted
-origins = get_taint_origins(some_value)
-if origins:
-    print(f"Value came from: {origins}")
 ```
 
 ## Next Steps
 
 - [CLI Reference](cli.md)
-- [Taint Wrappers Reference](taint-wrappers.md)
-- [AST Transformer Reference](ast-transformer.md)

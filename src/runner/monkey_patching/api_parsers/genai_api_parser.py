@@ -68,22 +68,3 @@ def json_str_to_api_obj_genai(new_output_text: str) -> Any:
     return obj
 
 
-def get_model_genai(input_dict: Dict[str, Any]) -> str:
-    """Extract the model name from the input dictionary."""
-    try:
-        # Try to extract from request_dict
-        request_dict = input_dict.get("request_dict", {})
-        if "model" in request_dict:
-            return str(request_dict["model"])
-
-        # Fallback: try to extract model name from URL path
-        import re
-
-        path = input_dict.get("path", "")
-        match = re.search(r"models/([^/:]+)", path)
-        if match:
-            return match.group(1)
-    except (AttributeError, KeyError, TypeError):
-        pass
-
-    return "undefined"

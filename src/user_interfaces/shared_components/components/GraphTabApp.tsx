@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GraphView } from './graph/GraphView';
 import { GraphData, ProcessInfo } from '../types';
 import { MessageSender } from '../types/MessageSender';
 import { WorkflowRunDetailsPanel } from './experiment/WorkflowRunDetailsPanel';
 import { NodeEditModal } from './modals/NodeEditModal';
 import { ResultButtons } from './graph/ResultButtons';
+import { DetectedDocument, getFileExtension, getDocumentKey } from '../utils/documentDetection';
 
 interface GraphTabAppProps {
   experiment: ProcessInfo | null;
@@ -13,6 +14,7 @@ interface GraphTabAppProps {
   messageSender: MessageSender;
   isDarkTheme: boolean;
   onNodeUpdate: (nodeId: string, field: string, value: string, sessionId?: string, attachments?: any) => void;
+  headerContent?: React.ReactNode;
 }
 
 export const GraphTabApp: React.FC<GraphTabAppProps> = ({
@@ -22,6 +24,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
   messageSender,
   isDarkTheme,
   onNodeUpdate,
+  headerContent,
 }) => {
   const [showNodeEditModal, setShowNodeEditModal] = useState(false);
   const [nodeEditData, setNodeEditData] = useState<{ nodeId: string; field: 'input' | 'output'; label: string; value: string } | null>(null);
@@ -58,6 +61,37 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
       document.body.style.overflow = 'auto';
     };
   }, [showNodeEditModal]);
+
+  // Handle opening base64-encoded documents (PDF, images, etc.)
+  const handleOpenDocument = useCallback((doc: DetectedDocument) => {
+    // Check if we're in VS Code environment
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({
+        type: 'openDocument',
+        payload: {
+          data: doc.data,
+          fileType: getFileExtension(doc.type),
+          mimeType: doc.mimeType,
+          documentKey: getDocumentKey(doc.data),
+        },
+      });
+    } else {
+      // Fallback for web app: trigger download
+      const binary = atob(doc.data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: doc.mimeType });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `document.${getFileExtension(doc.type)}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, []);
 
   if (!experiment || !sessionId) {
     return (
@@ -101,7 +135,6 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                 onNodeUpdate(nodeId, field, value, sessionId, attachments);
               }}
               session_id={sessionId}
-              experiment={experiment}
               messageSender={messageSender}
               isDarkTheme={isDarkTheme}
               metadataPanel={experiment ? (
@@ -116,6 +149,15 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   messageSender={messageSender}
                 />
               ) : undefined}
+              currentResult={experiment?.result || ''}
+              onResultChange={(result) => {
+                messageSender.send({
+                  type: 'update_result',
+                  session_id: sessionId,
+                  result: result,
+                });
+              }}
+              headerContent={headerContent}
             />
           </div>
         </div>
@@ -192,6 +234,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                 const attachments = node?.attachments || undefined;
                 onNodeUpdate(nodeId, field, value, sessionId, attachments);
               }}
+              onOpenDocument={handleOpenDocument}
             />
           </div>
         </div>

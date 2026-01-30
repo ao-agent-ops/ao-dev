@@ -2,82 +2,53 @@
 
 This is basically the core of the tool. All analysis happens here. It receives messages from the user's agent runner process and controls the UI. I.e., communication goes agent_runner <-> server <-> UI.
 
+ - To check if the server process is still running: `ps aux | grep main_server.py` or check which processes are holding the port: `lsof -i :5959`
 
-Manually start, stop, restart server:
+## Server processes
 
- - `ao-server start` 
+1. Main server: Receives all UI and runner messages and forwards them. Core forwarding logic.
+2. File watcher: Handles git versioning. On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version time stamp to the run, so the user knows what version of the code they ran. In the future, we will probably also allow the user to jump between versions. This git versioner is completely independent of any git operations the user performs. It is saved in `~/.cache/ao/git`. We expect it to commit way more frequently than the user, as it commits on any file change once the user runs `ao-record`.
+
+## Server commands and log
+
+Upon running `ao-record` or actions in the UI, the server will be started automatically. It will also automatically shut down after periods of inactivity. Use the following to manually start and stop the server:
+
+ - `ao-server start`
  - `ao-server stop`
  - `ao-server restart`
 
-Some basics: 
+> [!NOTE]
+> When you make changes to the server code, you need to restart such that these changes are reflected in the running server!
 
- - To check if the server process is still running: `ps aux | grep main_server.py` or check which processes are holding the port: `lsof -i :5959`
+If you want to clear all recorded runs and cached LLM calls (i.e., clear the DB), do `ao-server clear`.
 
- - When you make changes to `main_server.py`, remember to restart the server to see them take effect.
+To see logs, use these commands:
 
+ - Logs of the main server: `ao-server logs`
+ - Logs of the file watcher (git versioning): `ao-server git-logs`
 
-## Editing and caching LLM calls
+Note that all server logs are printed to files and not visible from any terminal.
 
-### Goal
+## Database
 
-Overall, we want the following user experience:
+We support different database backends (e.g., sqlite, postgres) but (at the time of writing) only expose sqlite to the user. Amongst other things, the database stores cached LLM results and user input overrides (see `llm_calls` table). See [sqlite.py](/src/server/database_backends/sqlite.py) for the sqlite DB schema. Schemas may be different between different DB backends (beyond syntax).
 
- - We have our dataflow graph in the UI where each node is an LLM call. The user can click "edit input" and "edit output" and the develop epxeriment will rerun using cached LLM calls (so things are quick) but then apply the user edits.
- - If there are past runs, the user can see the graph and it's inputs and ouputs, but not re-run (we can leave the dialogs, and all UI the same, we just need to remember what the graph looked like and what input, output, colors and labels were).
+## Edge Detection via Content Matching
 
-We want to achieve this with the following functionality:
+We detect dataflow between LLM calls using **content-based matching**. When an LLM call is made:
 
-1. For any past run, we can display the graph and all the inputs, outputs, labels and colors like when it was executed. This must also work if VS Code is closed and restarted again.
-2. LLM calls are cached so calls with the same prompt to the same model can be replayed.
-3. The user can overwrite LLM inputs and ouputs.
+1. We extract all text strings from the input
+2. We check if any previously stored LLM output strings appear as substrings in the input
+3. If a match is found, we create an edge from the source node to the current node
 
+This approach:
+- Runs user code completely unmodified
+- Works with any LLM library (OpenAI, Anthropic, etc.)
+- Is simple and robust
 
-### Database
+The matching logic is implemented in [string_matching.py](/src/runner/string_matching.py). The content registry (storing outputs for matching) lives in [database_manager.py](/src/server/database_manager.py).
 
-We use a [SQLite](https://sqlite.org) database to cache LLM results and store user overwrites. See `db.py` for their schemas.
-
-The `graph_topology` in the `experiments` table is a dict representation of the graph, that is used inside the develop server. I.e., the develop server can dump and reconstruct in-memory graph representations from that column.
-
-When we run a workflow, new nodes with new `node_ids` are created (the graph may change based on an edited input). So instead of querying the cache based on `node_id`, we query based on `input_hash`.
-
-`CacheManager` is responsible for look ups in the DB.
-
-`EditManager` is responible for updating the DB.
-
-## AST rewrites
-
-To track data flow ("taint") between LLM calls, we use "[taint wrapper](/src/runner/taint_wrappers.py)" objects that wrap values in user code and record the LLM calls that influenced them.
-
-### Taint Architecture Invariant
-
-Our system maintains a strict boundary between user code and third-party code:
-
-- **TaintWrapper objects exist only in user code** (within project root) - they track data provenance through user program logic
-- **Third-party code receives only untainted data** - all communication with third-party libraries uses plain Python objects  
-- **ACTIVE_TAINT handles all taint transfer** - a global context variable manages taint information when crossing the user/third-party boundary
-
-### AST Transformation Process
-
-We rewrite user code to propagate taint through third-party library calls. For example:
-`result = os.path.join(a, "LLM string")` becomes `result = exec_func(os.path.join, a, "LLM string")`
-
-[exec_func](/src/server/ast_transformer.py) implements the boundary protocol:
-1. Collect taint origins from input TaintWrapper objects
-2. Store taint in ACTIVE_TAINT and untaint all inputs  
-3. Execute the third-party function with clean data
-4. Retrieve final taint from ACTIVE_TAINT and wrap the result for user code
-
-To do these rewrites, the server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base. If a file changed (i.e., the user edited its code), the [File Watcher](/src/server/file_watcher.py) reads the file and uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite the file. After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory. When the user runs their program (i.e., `ao-record script.py`), an import hook ensures these rewritten `.pyc` files exist before module imports. This allows `script.py` to directly run with pre-compiled rewrites without runtime overhead.
-
-### AST Rewrite Verification
-
-To distinguish between standard Python-compiled `.pyc` files and our taint-tracking rewritten versions, we inject a verification marker:
-
-As the first line of every rewritten module, we put `__AO_AST_REWRITTEN__ = True`. The file watcher's `_needs_recompilation()` method uses `is_pyc_rewritten(pyc_path)` to check if existing `.pyc` files contain this marker. If a `.pyc` file exists but lacks the marker (indicating standard Python compilation), it forces recompilation with our AST transformer.
-
-Also see [here](/src/runner/README.md) on how the whole taint propagation process fits together.
-
-## Maintainance of EC2 server
+## Maintainance of EC2 server [OUT OF SERVICE]
 
 ### List running process
 
@@ -101,8 +72,3 @@ docker logs XXX
 ```
 
 `XXX`: `workflow-backend` for main_server, `workflow-proxy` for auth server. `workflow-frontend` is not interesting, should do Right click -> Inspect -> Console
-
-### Debugging
-
-If you want to see the rewritten python code (not only the binary): `export ACO_DEBUG_AST_REWRITES=1`. 
-This will store `xxx.rewritten.py` files next to the original ones that are rewritten. If you don't see these files, maybe you're not rewriting the originals.

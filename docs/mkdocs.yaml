@@ -1,0 +1,96 @@
+site_name: AO
+site_description: A development tool for LLM call visualization and debugging
+site_url: https://ao-agent-ops.github.io/ao-dev/
+repo_url: https://github.com/ao-agent-ops/ao-dev
+repo_name: ao-dev
+docs_dir: .
+site_dir: ../site
+
+theme:
+  name: material
+  logo: assets/images/logo.svg
+  favicon: assets/images/logo.svg
+  palette:
+    - scheme: default
+      primary: white
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/stylesheets/custom.css
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 2
+            members_order: source
+            docstring_style: google
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Introduction: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - User Guide:
+      - CLI Commands: user-guide/cli-commands.md
+      - VS Code Extension: user-guide/vscode-extension.md
+      - Subruns: user-guide/subruns.md
+  - Examples: examples/index.md
+  - API Reference:
+      - Overview: api-reference/index.md
+      - CLI: api-reference/cli.md
+  - Developer Guide:
+      - Installation: developer-guide/installation.md
+      - Architecture: developer-guide/architecture.md
+      - Server: developer-guide/server.md
+      - Edge Detection: developer-guide/edge-detection.md
+      - API Patching: developer-guide/api-patching.md
+      - Testing: developer-guide/testing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ao-agent-ops/ao-dev
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/fjsNSa6TAh

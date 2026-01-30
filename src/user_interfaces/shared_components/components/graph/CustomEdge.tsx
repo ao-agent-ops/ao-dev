@@ -2,11 +2,10 @@
 import React from 'react';
 import { EdgeProps, getSmoothStepPath } from 'reactflow';
 import { Point } from '../../types';
-import { NODE_BORDER_WIDTH } from '../../utils/layoutConstants';
 
 interface CustomEdgeData {
   points?: Point[];
-  color?: string;
+  isHighlighted?: boolean;
 }
 
 export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
@@ -32,20 +31,6 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
       },
     ];
 
-    const len = pts.length;
-    const p1 = pts[len - 2];
-    const p2 = pts[len - 1];
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist > 0) {
-      const factor = (dist - NODE_BORDER_WIDTH) / dist;
-      pts[len - 1] = {
-        x: p1.x + dx * factor,
-        y: p1.y + dy * factor,
-      };
-    }
     d = pts.reduce((acc, p, i) => (i === 0 ? `M ${p.x},${p.y}` : `${acc} L ${p.x},${p.y}`), '');
   } else {
     // fallback to the built-in smooth path
@@ -60,25 +45,12 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
     });
   }
 
-  const stroke = data?.color || '#e0e0e0';
-  
-  // Determine arrow direction based on the final arrow segment direction
-  let arrowType = 'vertical'; // default to vertical
-  
-  if (data?.points && data.points.length >= 2) {
-    // Use the last two points to determine the final arrow direction
-    const lastTwoPoints = data.points.slice(-2);
-    const dx = lastTwoPoints[1].x - lastTwoPoints[0].x;
-    const dy = lastTwoPoints[1].y - lastTwoPoints[0].y;
-    arrowType = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-  } else {
-    // Fallback to source/target comparison for simple paths
-    const isHorizontal = Math.abs(targetX - sourceX) > Math.abs(targetY - sourceY);
-    arrowType = isHorizontal ? 'horizontal' : 'vertical';
-  }
-  
-  const markerId = `chevron-arrowhead-${arrowType}-${id}`;
-  
+  const defaultStroke = 'var(--vscode-foreground, #CCCCCC)';
+  const isHighlighted = data?.isHighlighted ?? false;
+  const highlightColor = '#43884e';
+
+  const markerId = `arrow-${id}`;
+
   return (
     <svg style={{ overflow: 'visible', position: 'absolute' }}>
       <defs>
@@ -86,26 +58,52 @@ export const CustomEdge: React.FC<EdgeProps<CustomEdgeData>> = ({
           id={markerId}
           markerWidth="6"
           markerHeight="6"
-          refX={arrowType === 'horizontal' ? "4.8" : "2"}
+          refX="6"
           refY="3"
           orient="auto"
-          markerUnits="strokeWidth"
+          markerUnits="userSpaceOnUse"
         >
-          <polyline
-            points="0,0 3,3 0,6"
-            fill="none"
-            stroke={stroke}
-            strokeWidth="1"
-            strokeLinecap="round"
+          <polygon
+            points="0,0 6,3 0,6"
+            fill={isHighlighted ? highlightColor : defaultStroke}
+            stroke="none"
           />
         </marker>
       </defs>
+      {/* Glow layers - only rendered when highlighted */}
+      {isHighlighted && (
+        <>
+          <path
+            d={d}
+            style={{
+              stroke: highlightColor,
+              strokeWidth: 8,
+              fill: 'none',
+              opacity: 0.15,
+            }}
+          />
+          <path
+            d={d}
+            style={{
+              stroke: highlightColor,
+              strokeWidth: 5,
+              fill: 'none',
+              opacity: 0.3,
+            }}
+          />
+        </>
+      )}
+      {/* Main edge path */}
       <path
         id={id}
         className="react-flow__edge-path"
         d={d}
         markerEnd={`url(#${markerId})`}
-        style={{ stroke, strokeWidth: 2, fill: 'none' }}
+        style={{
+          stroke: isHighlighted ? highlightColor : defaultStroke,
+          strokeWidth: isHighlighted ? 2 : 1,
+          fill: 'none',
+        }}
       />
     </svg>
   );

@@ -1,5 +1,5 @@
 import { LayoutNode, LayerInfo, BandInfo } from '../core/types';
-import { BAND_SPACING, BAND_COLORS, DEFAULT_BAND_COLOR } from '../../layoutConstants';
+import { BAND_SPACING, DEFAULT_BAND_COLOR } from '../../layoutConstants';
 import { chooseBandSideForNode } from './bands';
 import { wouldDirectLineCrossNodes, hasNodesBetweenInVisualLayers } from './collisions';
 
@@ -166,12 +166,10 @@ export function calculateBands(
     node.band = findAvailableBand(node);
   });
 
+  // Colors are assigned at render time in GraphView, so use placeholder here
   for (let level = 1; level <= Math.max(...Array.from(usedLevels), 0); level++) {
-    const colorCfg = BAND_COLORS[level];
-    const rightColor = colorCfg?.right ?? DEFAULT_BAND_COLOR;
-    const leftColor = colorCfg?.left ?? DEFAULT_BAND_COLOR;
-    bands.push({ name: `Band ${level} Right`, x: nodeAreaEnd + 15 + (level - 1) * bandSpacing, side: 'right', level, color: rightColor });
-    bands.push({ name: `Band ${level} Left`, x: nodeAreaStart - 15 - (level - 1) * bandSpacing, side: 'left', level, color: leftColor });
+    bands.push({ name: `Band ${level} Right`, x: nodeAreaEnd + 15 + (level - 1) * bandSpacing, side: 'right', level, color: DEFAULT_BAND_COLOR });
+    bands.push({ name: `Band ${level} Left`, x: nodeAreaStart - 15 - (level - 1) * bandSpacing, side: 'left', level, color: DEFAULT_BAND_COLOR });
   }
   return bands;
 }

@@ -1,0 +1,13 @@
+[project]
+name = "ao-examples-crewai"
+version = "0.1.0"
+description = "AO debug examples for CrewAI"
+requires-python = ">=3.10"
+dependencies = [
+    "ao-dev",
+    "crewai",
+    "crewai-tools",
+]
+
+[tool.uv.sources]
+ao-dev = { path = "../../..", editable = true }

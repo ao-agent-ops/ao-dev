@@ -1,19 +1,23 @@
 # Running a user script
 
+When the user runs `ao-record script.py` (instead of `python script.py`), they create an AgentRunner instance that runs their script.
+
+
 ## agent_runner.py
 
 This is the wrapper around the user's python command. It works like this:
 
-1. User types `ao-record script.py` (instead of `python script.py`)
-2. This drops into an "agent runner". The agent runner installs monkey patches, establishes a connection to the server, and then runs the user's actual python program using `runpy.run_module`.
-Through the monkey patches, the agent runner communicates events in the user's code to the server (e.g., LLM call happened + inputs and outputs). Its stdin, stdout, stderr, etc. will be shown to the user's terminal as is. The goal here is to provide the illusion that the user just types `python script.py`.
-
+1. **Set up environment**: Sets random seed for reproducibility.
+2. **Connect to server**: Connects to the main server. If it isn't running already, it starts it.
+3. **Listen for messages**: Starts a thread to listen to `kill` messages from the server (if the user kills/reruns before the user program finished).
+4. **Send restart command**: The "rerun command" is used by the server to issue the same command the user issued to trigger the current run. It also transmits working dir, env vars, etc. We send it async because it takes long to generate the command and don't want it to be on the critical path.
+5. **Run user program**: Starts the user program unmodified.
 
 ## context_manager.py
 
 Manages context like the session ids for different threads.
 
-Sometimes the user wants to do "subruns" within their `ao-record` run. For example, if the user runs an eval script, they may want each sample to be a separate run. The can do this as follows:
+Sometimes the user wants to do "subruns" within their `ao-record` run. For example, if the user runs an eval script, they may want each sample to be a separate run. They can do this as follows:
 
 ```
 for sample in samples:
@@ -23,76 +27,57 @@ for sample in samples:
 
 This can also be used to run many samples concurrently (see examples in `example_workflows/debug_examples/`).
 
-The implementation of the ao_launch context manager is in `context_manager.py`. The diagram below depicts its message sequence chart:
+## string_matching.py
 
-![Subruns](/docs/media/subrun.png)
+Implements content-based edge detection. When an LLM call is made, we check if any previous LLM outputs appear in the current input. If so, we create an edge between those nodes.
 
+This module provides:
+- `find_source_nodes(session_id, input_dict, api_type)` - Find which previous outputs appear in this input
+- `store_output_strings(session_id, node_id, output_obj, api_type)` - Store output strings for future matching
 
-## Computing data flow
+## Computing data flow (graph edges)
 
-To log LLM inputs and outputs and trace data flow ("taint") from LLM to LLM, we use two mechanisms:
+We detect dataflow between LLM calls using **content-based matching**:
 
-1. **Recording LLM calls:** We "[monkey-patch](/src/runner/monkey_patching/)" LLM calls. When the user imports a package (e.g., `import OpenAI`), patched methods (i) log LLM calls to the server, and (ii) use ACTIVE_TAINT to pass taint information back to user code, where results are wrapped in "[taint wrappers](/src/runner/taint_wrappers.py)".
+1. **Record LLM outputs**: When an LLM call completes, we extract all text strings from the response and store them.
 
-2. **Propagating taint:** We track how LLM outputs propagate through the program until used as input to another LLM. This uses a strict boundary between user code and third-party code:
-   - **User code:** TaintWrapper objects track data provenance (e.g., `taint_wrap("hello") + " world"` becomes `TaintWrapper("Hello world")`)  
-   - **Third-party code:** Receives only untainted data, with taint managed via ACTIVE_TAINT
-   - **Boundary crossing:** AST-rewritten calls (e.g., `os.path.join(b, c)`) use [exec_func](/src/server/ast_transformer.py) to transfer taint through ACTIVE_TAINT 
+2. **Match on input**: When a new LLM call is made, we extract all text from the input and check if any previously stored output strings appear as substrings.
 
-### Putting it Together: Execution Flow
-1. The server spawns a [File Watcher](/src/server/file_watcher.py) daemon process that continuously polls `.py` files in the user's code base.
-    - If a file changed, the [File Watcher](/src/server/file_watcher.py) uses the [AST Transformer](/src/server/ast_transformer.py) to rewrite third-party library calls using the ACTIVE_TAINT pattern
-    - After rewriting a file, the [File Watcher](/src/server/file_watcher.py) compiles it and saves the binary as `.pyc` file in the correct `__pycache__` directory.
+3. **Create edges**: If a match is found, we create an edge from the source node (whose output matched) to the current node.
 
-2. The user runs a script using `ao-launch script.py`. 
-   - An import hook (`ast_rewrite_hook.py`) ensures AST-rewritten `.pyc` files exist before user module imports
-   - Python loads the compiled `.pyc` binary with ACTIVE_TAINT-based taint propagation
-   - [Monkey patches](/src/runner/monkey_patching/) are installed for LLM libraries (e.g., OpenAI), which use ACTIVE_TAINT to communicate taint with user code
+This approach is simple and robust:
+- User code runs completely unmodified (no AST rewrites)
+- Works with any LLM library that uses httpx/requests under the hood
+- No risk of crashing user code
 
-3. TaintWrapper objects propagate through user code while third-party functions receive clean data via ACTIVE_TAINT. When tainted data reaches another LLM call, the monkey patch extracts taint origins from ACTIVE_TAINT and tells the server to create dataflow graph edges. 
+The matching algorithm is implemented in [string_matching.py](/src/runner/string_matching.py).
 
-> [!NOTE]
-> The AST rewrites and monkey patches serve very similar purposes. However: 
->  - For LLM calls, we want to have custom handling (parse inputs and outputs for custom APIs). Monkey patches make it easier to perform such targeted overwrites on specific methods. 
-> - For general library calls, we don't distinguish between different libraries/classes/methods and just want to pass taint through. AST rewrites make it easier to cover a broad range of libraries.
+## Intercepting LLM call events (graph nodes)
 
+We write monkey patches at a level as low as possible. I.e., we try to not patch `openai` but `httpx`, the http package that `openai`, `anthropic` and others use so one patch serves many libraries.
 
+## Caching and Reruns
 
-## Maintainance
+When an LLM call is intercepted (e.g., in [httpx_patch.py](/src/runner/monkey_patching/patches/httpx_patch.py)), the following happens:
 
-We need to patch a lot of API functions. Maintaining them will be challenging but since all of the patches follow a similar pattern, the hope is that AI tools will be pretty good at generating them. Please make your code as clean as possible and try to follow existing conventions. For our own sanity but also so the AI tools work better.
+1. **Cache lookup**: `DB.get_in_out()` hashes the input and looks it up by `(session_id, input_hash)`. The [database_manager.py](/src/server/database_manager.py) handles all cache operations.
 
-TODO: We need CI/CD tests that detect API changes. Can simply be if API changed (pip upgrade openai, etc) and then send email with change log link.
+2. **Cache hit**: If a matching entry exists:
+   - If `input_overwrite` is set (user edited input in UI), use the modified input instead
+   - If `output` is cached (from previous run or user-edited), return it directly without calling the LLM
 
-### Writing a monkey patch
+3. **Cache miss**: If no entry exists or output is `None`:
+   - Call the actual LLM with the (possibly overwritten) input
+   - Store the result via `DB.cache_output()` for future runs
 
-First look at `patch_openai_responses_create` in `monkey_patches/openai_patches.py` to understand how a patch looks like. Also check how patches are applied inside the `__init__` of a client. For many patches, you can use our patching agent (`_dev_patch.py`). Run it from this folder as it contains hardcoded the prompts contain relative paths.
+4. **Edge detection**: `find_source_nodes()` checks if any previous outputs appear in this input.
 
-1. Before patching the function, you must specify which file the patch should be written to. You might need to create a new file for this. 
+5. **Graph update**: `send_graph_node_and_edges()` notifies the server to update the UI with the node and its edges.
 
-2. The patch needs to be installed inside a client `__init__`. If you're writing the first patch for a client, you need to write a patch for the client `__init__`:
-   
-```python
-def openai_patch():
-    try:
-        from openai import OpenAI
-    except ImportError:
-        logger.info("OpenAI not installed, skipping OpenAI patches")
-        return
+**Reruns work deterministically** because:
+- The same `session_id` (inherited from parent) means cache lookups find previous entries
+- Cached outputs are returned without re-calling the LLM
+- Users can modify inputs/outputs via the UI, and these overwrites are respected on rerun
+- Randomness is patched (random, numpy, torch) to produce the same sequence given the same seed
 
-    def create_patched_init(original_init):
-
-        @wraps(original_init)
-        def patched_init(self, *args, **kwargs):
-            original_init(self, *args, **kwargs)
-
-        return patched_init
-
-    OpenAI.__init__ = create_patched_init(OpenAI.__init__)
-```
-
-You then need to register this patching function in `apply_monkey_patches.py`. Many times this
-
-3. Set up the agent by following the instructions in `_dev_patch.py`.
-
-4. `python _dev_patch.py`
+This enables interactive debugging: run once, inspect the graph, edit an LLM's input or output, and rerun to see how changes propagate through the dataflow.

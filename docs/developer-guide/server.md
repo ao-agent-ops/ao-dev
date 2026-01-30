@@ -1,6 +1,6 @@
 # Server
 
-The development server is the core of AO. It receives events from user processes, manages the dataflow graph, and controls the UI.
+The development server is the core of AO. It receives events from user processes, manages the dataflow graph, and controls the UI. All communication goes: agent_runner <-> server <-> UI.
 
 ## Overview
 
@@ -13,27 +13,39 @@ The server (`main_server.py`) handles:
 - User edit management
 - UI updates
 
-## Starting the Server
+## Server Processes
+
+The server spawns a background process:
+
+### Main Server
+
+Receives all UI and runner messages and forwards them. Core forwarding logic.
+
+### File Watcher
+
+The file watcher handles **git versioning**: On every `ao-record`, it checks if any user files have changed and commits them if so. It adds a version timestamp to the run, so the user knows what version of the code they ran. This git versioner is completely independent of any git operations the user performs. It is saved in `~/.cache/ao/git`. We expect it to commit more frequently than the user, as it commits on any file change once the user runs `ao-record`.
+
+## Server Commands
+
+The server starts automatically when you run `ao-record` or interact with the UI. It also automatically shuts down after periods of inactivity.
 
 ```bash
 # Manual server management
 ao-server start
 ao-server stop
 ao-server restart
-ao-server clear    # Clear all cached data
-ao-server logs     # View server logs
+ao-server clear    # Clear all cached data and DB
 ```
 
-The server automatically starts when you run `ao-record` if it's not already running.
+> **Note:** When you make changes to the server code, you need to restart the server for changes to take effect!
 
 ## Server Logs
 
-Logs are stored at: `~/.cache/ao/logs/server.log`
-
-View logs:
+All server logs are written to files (not visible in any terminal). Use these commands to view them:
 
 ```bash
-ao-server logs
+ao-server logs      # Main server logs
+ao-server git-logs  # Git versioning logs (file_watcher.py)
 ```
 
 ## Debugging the Server
@@ -52,21 +64,38 @@ lsof -i :5959
 
 ## Database
 
-AO uses SQLite to store:
+We support different database backends (e.g., sqlite, postgres) but currently only expose sqlite to the user. The database stores:
 
 - **Cached LLM calls** - For fast replay during re-runs
 - **User edits** - Input/output modifications
 - **Graph topology** - For reconstructing past runs
 
+See `src/server/database_backends/sqlite.py` for the sqlite DB schema. Schemas may differ between different DB backends.
+
 ### Key Concepts
 
 - **`input_hash`** - LLM calls are cached based on a hash of their inputs, not node IDs (since the graph structure may change)
-- **`CacheManager`** - Handles cache lookups
-- **`EditManager`** - Manages user modifications
+- **`DatabaseManager`** - Handles all cache operations and user edit storage (see `database_manager.py`)
 
 ### Graph Topology Storage
 
 The `graph_topology` column in the `experiments` table stores a dictionary representation of the graph. This allows the server to reconstruct in-memory graph representations for past runs.
+
+## Edge Detection via Content Matching
+
+The server stores a content registry for detecting dataflow edges:
+
+```python
+# In-memory registry: session_id -> {node_id -> [output_strings]}
+_content_registry: Dict[str, Dict[str, List[str]]] = {}
+```
+
+When an LLM call is made:
+1. We extract all text strings from the input
+2. We check if any previously stored output strings appear as substrings
+3. If a match is found, we create an edge from the source node to the current node
+
+This approach runs user code completely unmodified and works with any LLM library.
 
 ## Editing and Caching
 
@@ -115,5 +144,5 @@ When modifying server code:
 
 ## Next Steps
 
-- [Taint tracking](taint-tracking.md) - How data flow is tracked
+- [Edge detection](edge-detection.md) - How dataflow edges are detected
 - [API patching](api-patching.md) - How LLM APIs are intercepted

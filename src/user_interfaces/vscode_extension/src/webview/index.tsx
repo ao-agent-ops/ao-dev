@@ -5,6 +5,7 @@ import { GraphTabApp } from './GraphTabApp';
 import { RunDetailsModalApp } from './RunDetailsModalApp';
 import { NodeEditModalApp } from './NodeEditModalApp';
 import { LessonsTabApp } from './LessonsTabApp';
+import { NodeEditorTabApp } from './NodeEditorTabApp';
 import './styles.css';
 
 if (document.getElementById('root')) {
@@ -18,6 +19,10 @@ if (document.getElementById('root')) {
   // Render LessonsTabApp for lessons tab
   const root = ReactDOM.createRoot(document.getElementById('lessons-root') as HTMLElement);
   root.render(<LessonsTabApp />);
+} else if (document.getElementById('node-editor-root')) {
+  // Render NodeEditorTabApp for node editor tab
+  const root = ReactDOM.createRoot(document.getElementById('node-editor-root') as HTMLElement);
+  root.render(<NodeEditorTabApp />);
 } else if (document.getElementById('run-details-root')) {
   // Render RunDetailsModalApp for run details dialog
   const root = ReactDOM.createRoot(document.getElementById('run-details-root') as HTMLElement);

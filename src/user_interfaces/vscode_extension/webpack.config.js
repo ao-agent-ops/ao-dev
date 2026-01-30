@@ -1,5 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
+const CopyPlugin = require('copy-webpack-plugin');
 
 const extensionConfig = {
   target: 'node',
@@ -96,6 +97,13 @@ const webviewConfig = {
       'process.type': JSON.stringify(process.type),
       'process.arch': JSON.stringify(process.arch),
       'process.env.NODE_ENV': JSON.stringify('development')
+    }),
+    new CopyPlugin({
+      patterns: [
+        { from: '../node_modules/@vscode/codicons/dist/codicon.css', to: 'codicons/' },
+        { from: '../node_modules/@vscode/codicons/dist/codicon.ttf', to: 'codicons/' },
+        { from: 'icon.png', to: 'icon.png' }
+      ]
     })
   ],
   devtool: 'source-map'

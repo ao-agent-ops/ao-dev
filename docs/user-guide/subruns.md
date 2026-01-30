@@ -4,13 +4,13 @@ Subruns allow you to create separate tracked sessions within a single `ao-record
 
 ## Basic Usage
 
-Use the `ao_record` context manager to create subruns:
+Use the `launch` context manager to create subruns:
 
 ```
-from ao.runner.context_manager import ao_record
+from ao import launch
 
 for sample in samples:
-    with ao_record("sample-name"):
+    with launch("sample-name"):
         eval_sample(sample)
 ```
 
@@ -26,7 +26,7 @@ Give descriptive names to your subruns for easy identification:
 
 ```
 for i, sample in enumerate(samples):
-    with ao_record(f"sample-{i}-{sample.id}"):
+    with launch(f"sample-{i}-{sample.id}"):
         result = process_sample(sample)
 ```
 
@@ -36,10 +36,10 @@ Subruns can run concurrently using Python's threading or multiprocessing:
 
 ```
 from concurrent.futures import ThreadPoolExecutor
-from ao.runner.context_manager import ao_record
+from ao import launch
 
 def process_sample(sample):
-    with ao_record(f"sample-{sample.id}"):
+    with launch(f"sample-{sample.id}"):
         return run_evaluation(sample)
 
 with ThreadPoolExecutor(max_workers=4) as executor:
@@ -66,9 +66,11 @@ When the context exits, the session is closed and the graph is finalized.
 ### Evaluation Pipelines
 
 ```
+from ao import launch
+
 results = []
 for sample in test_dataset:
-    with ao_record(f"eval-{sample.id}"):
+    with launch(f"eval-{sample.id}"):
         prediction = agent.run(sample.input)
         score = evaluate(prediction, sample.expected)
         results.append(score)
@@ -79,23 +81,27 @@ print(f"Average score: {sum(results) / len(results)}")
 ### A/B Testing
 
 ```
+from ao import launch
+
 configs = [
     {"model": "gpt-4", "temperature": 0.7},
     {"model": "gpt-4", "temperature": 0.2},
 ]
 
 for config in configs:
-    with ao_record(f"config-{config['model']}-t{config['temperature']}"):
+    with launch(f"config-{config['model']}-t{config['temperature']}"):
         run_benchmark(config)
 ```
 
 ### Debugging Specific Cases
 
 ```
+from ao import launch
+
 failed_samples = [s for s in samples if s.status == "failed"]
 
 for sample in failed_samples:
-    with ao_record(f"debug-{sample.id}"):
+    with launch(f"debug-{sample.id}"):
         # Run with verbose logging
         result = agent.run(sample.input, verbose=True)
 ```

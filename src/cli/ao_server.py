@@ -1,6 +1,3 @@
-# Register taint functions in builtins BEFORE any other imports
-# This ensures any rewritten .pyc files can call these functions
-import builtins
 import sys
 import os
 import time as _time
@@ -12,20 +9,6 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# Import directly from file path to avoid triggering ao.__init__.py
-import importlib.util
-
-ast_helpers_path = os.path.join(current_dir, "server", "ast_helpers.py")
-spec = importlib.util.spec_from_file_location("ast_helpers", ast_helpers_path)
-ast_helpers = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ast_helpers)
-
-builtins.taint_fstring_join = ast_helpers.taint_fstring_join
-builtins.taint_format_string = ast_helpers.taint_format_string
-builtins.taint_percent_format = ast_helpers.taint_percent_format
-builtins.exec_func = ast_helpers.exec_func
-
-# Now safe to import other modules
 import socket
 import time
 import subprocess
@@ -36,7 +19,6 @@ from ao.common.logger import logger, create_file_logger
 from ao.common.constants import (
     MAIN_SERVER_LOG,
     FILE_WATCHER_LOG,
-    GIT_VERSIONER_LOG,
     HOST,
     PORT,
     SOCKET_TIMEOUT,
@@ -70,7 +52,7 @@ def launch_daemon_server() -> None:
 
 def server_command_parser():
     parser = ArgumentParser(
-        usage="ao-server {start, stop, restart, clear, logs, rewrite-logs, git-logs, clear-logs}",
+        usage="ao-server {start, stop, restart, clear, logs, git-logs, clear-logs}",
         description="Server utilities.",
         allow_abbrev=False,
     )
@@ -83,7 +65,6 @@ def server_command_parser():
             "restart",
             "clear",
             "logs",
-            "rewrite-logs",
             "git-logs",
             "clear-logs",
             "_serve",
@@ -162,8 +143,8 @@ def execute_server_command(args):
             logger.error(f"Error reading log file: {e}")
         return
 
-    elif args.command == "rewrite-logs":
-        # Print the contents of the file watcher log file
+    elif args.command == "git-logs":
+        # Print the contents of the git versioning log file (file_watcher.py)
         try:
             with open(FILE_WATCHER_LOG, "r") as log_file:
                 print(log_file.read(), end="")
@@ -173,20 +154,9 @@ def execute_server_command(args):
             logger.error(f"Error reading log file: {e}")
         return
 
-    elif args.command == "git-logs":
-        # Print the contents of the git versioner log file
-        try:
-            with open(GIT_VERSIONER_LOG, "r") as log_file:
-                print(log_file.read(), end="")
-        except FileNotFoundError:
-            logger.error(f"Log file not found at {GIT_VERSIONER_LOG}")
-        except Exception as e:
-            logger.error(f"Error reading log file: {e}")
-        return
-
     elif args.command == "clear-logs":
         # Clear all server log files
-        log_files = [MAIN_SERVER_LOG, FILE_WATCHER_LOG, GIT_VERSIONER_LOG]
+        log_files = [MAIN_SERVER_LOG, FILE_WATCHER_LOG]
         for log_path in log_files:
             try:
                 os.makedirs(os.path.dirname(log_path), exist_ok=True)

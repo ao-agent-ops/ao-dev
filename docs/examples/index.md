@@ -11,14 +11,32 @@ AO includes several example workflows to help you understand how to use the tool
 
 Location: `example_workflows/debug_examples/`
 
-Simple workflows designed for testing and debugging AO itself.
+Over 30 simple workflows for testing different LLM providers and frameworks:
+
+| Provider/Framework | Examples |
+|-------------------|----------|
+| OpenAI | `openai_debate.py`, `openai_async_debate.py`, etc. |
+| Anthropic | `anthropic_debate.py`, `anthropic_document_query.py`, etc. |
+| Google GenAI | `genai_debate.py` |
+| CrewAI | `crewai_research_writer.py`, `crewai_multi_tool.py`, etc. |
+| LangChain | `langchain_debate.py`, `langchain_tools.py`, etc. |
 
 ```bash
-# Run the OpenAI addition example
-ao-record ./example_workflows/debug_examples/openai_add_numbers.py
+# Run an example
+ao-record ./example_workflows/debug_examples/openai_debate.py
 ```
 
 These examples are included directly in the repository and don't require additional setup.
+
+### MCP Examples
+
+Location: `example_workflows/mcp/`
+
+Examples demonstrating MCP (Model Context Protocol) tool integration:
+
+```bash
+ao-record ./example_workflows/mcp/google_search.py
+```
 
 ## External Example Workflows
 
@@ -105,4 +123,4 @@ ao-record ./example_workflows/EXAMPLE_NAME/script.py
 ## Next Steps
 
 - [Understand the architecture](../developer-guide/architecture.md)
-- [Learn about taint tracking](../developer-guide/taint-tracking.md)
+- [Learn about edge detection](../developer-guide/edge-detection.md)

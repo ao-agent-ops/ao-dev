@@ -17,7 +17,5 @@
     "clean": "rm -rf node_modules vscode_extension/node_modules web_app/node_modules web_app/client/node_modules"
   },
   "dependencies": {
-    "react-pdf": "^7.7.2",
-    "pdfjs-dist": "3.11.174"
   }
 }
