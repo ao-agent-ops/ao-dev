@@ -4,7 +4,6 @@ import { GraphData, ProcessInfo } from '../types';
 import { MessageSender } from '../types/MessageSender';
 import { WorkflowRunDetailsPanel } from './experiment/WorkflowRunDetailsPanel';
 import { NodeEditModal } from './modals/NodeEditModal';
-import { ResultButtons } from './graph/ResultButtons';
 import { DetectedDocument, getFileExtension, getDocumentKey } from '../utils/documentDetection';
 
 interface GraphTabAppProps {
@@ -149,6 +148,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   messageSender={messageSender}
                 />
               ) : undefined}
+              headerContent={headerContent}
               currentResult={experiment?.result || ''}
               onResultChange={(result) => {
                 messageSender.send({
@@ -157,26 +157,9 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   result: result,
                 });
               }}
-              headerContent={headerContent}
             />
           </div>
         </div>
-      )}
-
-      {/* Floating Result Buttons */}
-      {experiment && sessionId && (
-        <ResultButtons
-          currentResult={experiment.result || ''}
-          sessionId={sessionId}
-          isDarkTheme={isDarkTheme}
-          onResultChange={(result) => {
-            messageSender.send({
-              type: 'update_result',
-              session_id: sessionId,
-              result: result,
-            });
-          }}
-        />
       )}
 
       {/* Node Edit Modal */}

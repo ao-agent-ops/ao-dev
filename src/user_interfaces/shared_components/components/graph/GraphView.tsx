@@ -25,9 +25,9 @@ interface GraphViewProps {
   messageSender: MessageSender;
   isDarkTheme?: boolean;
   metadataPanel?: React.ReactNode;
+  headerContent?: React.ReactNode;
   currentResult?: string;
   onResultChange?: (result: string) => void;
-  headerContent?: React.ReactNode;
 }
 
 const nodeTypes = {
@@ -93,9 +93,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
   messageSender,
   isDarkTheme = false,
   metadataPanel,
+  headerContent,
   currentResult = '',
   onResultChange,
-  headerContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
