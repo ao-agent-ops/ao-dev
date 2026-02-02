@@ -3,8 +3,9 @@ import { GraphView } from './graph/GraphView';
 import { GraphData, ProcessInfo } from '../types';
 import { MessageSender } from '../types/MessageSender';
 import { WorkflowRunDetailsPanel } from './experiment/WorkflowRunDetailsPanel';
-import { NodeEditModal } from './modals/NodeEditModal';
+import { NodeEditorView } from './editor/NodeEditorView';
 import { DetectedDocument, getFileExtension, getDocumentKey } from '../utils/documentDetection';
+import { parse, stringify } from 'lossless-json';
 
 interface GraphTabAppProps {
   experiment: ProcessInfo | null;
@@ -26,13 +27,57 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
   headerContent,
 }) => {
   const [showNodeEditModal, setShowNodeEditModal] = useState(false);
-  const [nodeEditData, setNodeEditData] = useState<{ nodeId: string; field: 'input' | 'output'; label: string; value: string } | null>(null);
+  const [nodeEditData, setNodeEditData] = useState<{
+    nodeId: string;
+    label: string;
+    sessionId: string;
+  } | null>(null);
+
+  // State for NodeEditorView
+  const [activeTab, setActiveTab] = useState<'input' | 'output'>('input');
+  const [inputData, setInputData] = useState<any>(null);
+  const [outputData, setOutputData] = useState<any>(null);
+  const [originalInputData, setOriginalInputData] = useState<any>(null);
+  const [originalOutputData, setOriginalOutputData] = useState<any>(null);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges =
+    stringify(inputData) !== stringify(originalInputData) ||
+    stringify(outputData) !== stringify(originalOutputData);
 
   // Listen for showNodeEditModal messages from messageSender
   useEffect(() => {
     const handleShowNodeEditModal = (event: CustomEvent) => {
-      const { nodeId, field, label, value } = event.detail;
-      setNodeEditData({ nodeId, field, label, value });
+      const { nodeId, field, label, inputValue, outputValue, sessionId: eventSessionId } = event.detail;
+
+      // Parse the JSON values
+      let parsedInput = null;
+      let parsedOutput = null;
+
+      try {
+        if (inputValue) {
+          const parsed = parse(inputValue);
+          parsedInput = (parsed as any)?.to_show ?? parsed;
+        }
+      } catch (e) {
+        parsedInput = inputValue;
+      }
+
+      try {
+        if (outputValue) {
+          const parsed = parse(outputValue);
+          parsedOutput = (parsed as any)?.to_show ?? parsed;
+        }
+      } catch (e) {
+        parsedOutput = outputValue;
+      }
+
+      setNodeEditData({ nodeId, label, sessionId: eventSessionId || sessionId || '' });
+      setInputData(parsedInput);
+      setOutputData(parsedOutput);
+      setOriginalInputData(parsedInput);
+      setOriginalOutputData(parsedOutput);
+      setActiveTab(field || 'input');
       setShowNodeEditModal(true);
     };
 
@@ -41,7 +86,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
     return () => {
       window.removeEventListener('show-node-edit-modal', handleShowNodeEditModal as EventListener);
     };
-  }, []);
+  }, [sessionId]);
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -148,6 +193,7 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   messageSender={messageSender}
                 />
               ) : undefined}
+              headerContent={headerContent}
               currentResult={experiment?.result || ''}
               onResultChange={(result) => {
                 messageSender.send({
@@ -156,7 +202,6 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
                   result: result,
                 });
               }}
-              headerContent={headerContent}
             />
           </div>
         </div>
@@ -192,30 +237,46 @@ export const GraphTabApp: React.FC<GraphTabAppProps> = ({
               backgroundColor: isDarkTheme ? '#1e1e1e' : '#ffffff',
               border: `1px solid ${isDarkTheme ? '#3c3c3c' : '#e0e0e0'}`,
               borderRadius: '6px',
-              width: '600px',
-              height: '500px',
+              width: '700px',
+              height: '600px',
               minWidth: '400px',
               minHeight: '300px',
               maxWidth: '90vw',
               maxHeight: '90vh',
               resize: 'both',
-              overflow: 'auto',
+              overflow: 'hidden',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <NodeEditModal
-              nodeId={nodeEditData.nodeId}
-              field={nodeEditData.field}
-              label={nodeEditData.label}
-              value={nodeEditData.value}
+            <NodeEditorView
+              inputData={inputData}
+              outputData={outputData}
+              activeTab={activeTab}
+              hasUnsavedChanges={hasUnsavedChanges}
               isDarkTheme={isDarkTheme}
-              onClose={() => setShowNodeEditModal(false)}
-              onSave={(nodeId, field, value) => {
+              nodeLabel={nodeEditData.label}
+              onTabChange={setActiveTab}
+              onInputChange={setInputData}
+              onOutputChange={setOutputData}
+              onSave={() => {
                 const nodes = graphData?.nodes || [];
-                const node = nodes.find((n: any) => n.id === nodeId);
+                const node = nodes.find((n: any) => n.id === nodeEditData.nodeId);
                 const attachments = node?.attachments || undefined;
-                onNodeUpdate(nodeId, field, value, sessionId, attachments);
+
+                // Save input if changed
+                if (stringify(inputData) !== stringify(originalInputData)) {
+                  const inputToSave = stringify({ to_show: inputData, raw: inputData });
+                  onNodeUpdate(nodeEditData.nodeId, 'input', inputToSave || '', nodeEditData.sessionId, attachments);
+                  setOriginalInputData(inputData);
+                }
+
+                // Save output if changed
+                if (stringify(outputData) !== stringify(originalOutputData)) {
+                  const outputToSave = stringify({ to_show: outputData, raw: outputData });
+                  onNodeUpdate(nodeEditData.nodeId, 'output', outputToSave || '', nodeEditData.sessionId, attachments);
+                  setOriginalOutputData(outputData);
+                }
               }}
               onOpenDocument={handleOpenDocument}
             />

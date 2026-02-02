@@ -27,8 +27,9 @@ export const NodePopover: React.FC<NodePopoverProps> = ({
     const hoverBg = isDarkTheme ? '#555' : '#f2f2f2';
 
     const actions = [
-        { id: 'editInput', label: 'Edit input' },
-        { id: 'editOutput', label: 'Edit output' },
+        // { id: 'editInput', label: 'Edit input' },
+        // { id: 'editOutput', label: 'Edit output' },
+        { id: 'editInput', label: 'Edit input / output' },
         { id: 'changeLabel', label: 'Change label' },
     ];
 

@@ -4,6 +4,7 @@ import { GraphData, ProcessInfo } from '../../../shared_components/types';
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
 import { GraphHeader } from '../../../shared_components/components/graph/GraphHeader';
+import { Lesson } from '../../../shared_components/components/lessons/LessonsView';
 import { DocumentContextProvider, useDocumentContext } from '../../../shared_components/contexts/DocumentContext';
 
 // Global type augmentation for window.vscode
@@ -20,9 +21,9 @@ declare global {
 // Inner component that uses the document context
 const GraphTabAppInner: React.FC = () => {
   const [experiment, setExperiment] = useState<ProcessInfo | null>(null);
-  const [experiments, setExperiments] = useState<ProcessInfo[]>([]);
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const isDarkTheme = useIsVsCodeDarkTheme();
   const { setDocumentOpened } = useDocumentContext();
 
@@ -98,27 +99,14 @@ const GraphTabAppInner: React.FC = () => {
           }
           break;
         case 'experiment_list':
-          // Handle experiment list updates from server
-          if (message.experiments) {
-            // Store all experiments for the dropdown
-            const allExperiments = message.experiments.map((exp: any) => ({
-              session_id: exp.session_id,
-              status: exp.status,
-              timestamp: exp.timestamp,
-              run_name: exp.run_name,
-              result: exp.result,
-              notes: exp.notes,
-              log: exp.log,
-              color_preview: exp.color_preview,
-              version_date: exp.version_date
-            }));
-            setExperiments(allExperiments);
-            // Note: Don't auto-update experiment here to avoid overwriting
-            // user's selection due to stale closure issues
-          }
+          // Experiment list is handled by the sidebar, not the graph tab
           break;
         case 'vscode-theme-change':
           // Theme changes are handled by the useIsVsCodeDarkTheme hook
+          break;
+        case 'lessons_list':
+          // Update lessons for header stats
+          setLessons(message.lessons || []);
           break;
         case 'documentOpened':
           // Track opened document path for UI update
@@ -132,8 +120,10 @@ const GraphTabAppInner: React.FC = () => {
     window.addEventListener('message', handleMessage);
 
     // Send ready message to indicate the webview is loaded
+    // Also request lessons data for header stats
     if (window.vscode) {
       window.vscode.postMessage({ type: 'ready' });
+      window.vscode.postMessage({ type: 'get_lessons' });
     }
 
     return () => {
@@ -174,19 +164,10 @@ const GraphTabAppInner: React.FC = () => {
     }
   };
 
-  const handleNavigateToExperiment = (exp: ProcessInfo) => {
-    // Switch to the selected experiment in the current tab
-    setExperiment(exp);
-    setSessionId(exp.session_id);
-    setGraphData(null); // Clear current graph while loading
-
-    // Request new graph data
+  const handleNavigateToLessons = () => {
+    // Open lessons tab in VSCode
     if (window.vscode) {
-      window.vscode.postMessage({
-        type: 'switchExperiment',
-        sessionId: exp.session_id,
-        experiment: exp
-      });
+      window.vscode.postMessage({ type: 'openLessonsTab' });
     }
   };
 
@@ -198,7 +179,7 @@ const GraphTabAppInner: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         background: isDarkTheme ? "#252525" : "#F0F0F0",
-        overflow: "hidden",
+        overflow: "auto",
         position: "relative",
       }}
     >
@@ -215,8 +196,8 @@ const GraphTabAppInner: React.FC = () => {
               runName={experiment.run_name || ''}
               isDarkTheme={isDarkTheme}
               sessionId={sessionId || undefined}
-              experiments={experiments}
-              onNavigateToExperiment={handleNavigateToExperiment}
+              lessons={lessons}
+              onNavigateToLessons={handleNavigateToLessons}
             />
           ) : undefined}
         />

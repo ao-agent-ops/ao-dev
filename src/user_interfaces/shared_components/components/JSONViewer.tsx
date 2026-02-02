@@ -9,6 +9,9 @@ interface JSONViewerProps {
   depth?: number;
   onChange?: (newData: any) => void;
   onOpenDocument?: (doc: DetectedDocument) => void;
+  searchQuery?: string;
+  currentMatchIndex?: number;
+  onMatchCountChange?: (count: number) => void;
 }
 
 interface JSONNodeProps {
@@ -21,9 +24,12 @@ interface JSONNodeProps {
   onChange?: (path: string[], newValue: any) => void;
   siblingData?: Record<string, unknown>;
   onOpenDocument?: (doc: DetectedDocument) => void;
+  searchQuery?: string;
+  currentMatchIndex?: number;
+  matchIndexOffset: number;
 }
 
-const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth, isLast, path, onChange, siblingData, onOpenDocument }) => {
+const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth, isLast, path, onChange, siblingData, onOpenDocument, searchQuery, currentMatchIndex, matchIndexOffset }) => {
   // Expand everything by default
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -51,6 +57,55 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
   };
 
   const indent = depth * 15;
+
+  // Helper to highlight text with search matches
+  const highlightText = (text: string, query: string, startIndex: number, currentMatch: number): { element: React.ReactNode; matchCount: number } => {
+    if (!query || !text) return { element: text, matchCount: 0 };
+
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let matchIndex = startIndex;
+    let matchCount = 0;
+
+    let pos = 0;
+    while ((pos = lowerText.indexOf(lowerQuery, lastIndex)) !== -1) {
+      // Add text before match
+      if (pos > lastIndex) {
+        parts.push(text.substring(lastIndex, pos));
+      }
+
+      // Add highlighted match
+      const isCurrentMatch = matchIndex === currentMatch;
+      const matchText = text.substring(pos, pos + query.length);
+      parts.push(
+        <span
+          key={`match-${matchIndex}`}
+          data-match-index={matchIndex}
+          style={{
+            backgroundColor: isCurrentMatch ? '#f0a020' : '#ffff00',
+            color: '#000000',
+            borderRadius: '2px',
+            padding: '0 1px',
+          }}
+        >
+          {matchText}
+        </span>
+      );
+
+      matchIndex++;
+      matchCount++;
+      lastIndex = pos + query.length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return { element: parts.length > 0 ? <>{parts}</> : text, matchCount };
+  };
 
   // Check if a value is a LosslessNumber from lossless-json library
   const isLosslessNumber = (val: any): boolean => {
@@ -301,6 +356,46 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
     if (typeof val === 'string') {
       // Display strings directly - lossless-json preserves types
       const displayValue = isEditing ? editValue : val;
+
+      // If searching and not editing, show highlighted text
+      if (searchQuery && !isEditing) {
+        const { element: highlighted } = highlightText(val, searchQuery, matchIndexOffset, currentMatchIndex ?? -1);
+
+        const preStyle: React.CSSProperties = {
+          fontFamily: 'var(--vscode-editor-font-family, monospace)',
+          fontSize: 'var(--vscode-editor-font-size, 13px)',
+          padding: '2px 4px',
+          border: `1px solid ${colors.inputBorder}`,
+          borderRadius: '2px',
+          backgroundColor: colors.inputBackground,
+          color: colors.string,
+          width: '100%',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          lineHeight: '1.4',
+          margin: 0,
+          cursor: editable ? 'text' : 'default',
+          boxSizing: 'border-box',
+          minHeight: '24px',
+          maxHeight: '400px',
+          overflow: 'auto',
+        };
+
+        return (
+          <pre
+            style={preStyle}
+            onClick={() => {
+              if (editable) {
+                setEditValue(val);
+                setIsEditing(true);
+              }
+            }}
+          >
+            {highlighted}
+          </pre>
+        );
+      }
+
       return (
         <textarea
           rows={getRows(displayValue)}
@@ -472,6 +567,9 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
               onChange={onChange}
               siblingData={isArray ? undefined : value}
               onOpenDocument={onOpenDocument}
+              searchQuery={searchQuery}
+              currentMatchIndex={currentMatchIndex}
+              matchIndexOffset={0}
             />
           ))}
           <div
@@ -490,7 +588,9 @@ const JSONNode: React.FC<JSONNodeProps> = ({ keyName, value, isDarkTheme, depth,
   );
 };
 
-export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth = 0, onChange, onOpenDocument }) => {
+export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth = 0, onChange, onOpenDocument, searchQuery, currentMatchIndex, onMatchCountChange }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
   const handleChange = (path: string[], newValue: any) => {
     if (!onChange) return;
 
@@ -506,19 +606,47 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
     onChange(newData);
   };
 
+  // Count matches and scroll to current match when search changes
+  React.useEffect(() => {
+    if (!containerRef.current || !searchQuery) {
+      onMatchCountChange?.(0);
+      return;
+    }
+
+    // Use setTimeout to allow DOM to render first
+    setTimeout(() => {
+      const matches = containerRef.current?.querySelectorAll('[data-match-index]') || [];
+      onMatchCountChange?.(matches.length);
+
+      // Scroll to current match
+      if (currentMatchIndex !== undefined && currentMatchIndex >= 0 && currentMatchIndex < matches.length) {
+        const currentMatch = matches[currentMatchIndex];
+        currentMatch?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Update highlight colors - current match is orange, others are yellow
+        matches.forEach((match, i) => {
+          (match as HTMLElement).style.backgroundColor = i === currentMatchIndex ? '#f0a020' : '#ffff00';
+        });
+      }
+    }, 0);
+  }, [searchQuery, currentMatchIndex, data, onMatchCountChange]);
+
   // If data is an object or array, render its children directly without the wrapper
   const isObject = data !== null && typeof data === 'object' && !Array.isArray(data);
   const isArray = Array.isArray(data);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      overflow: 'auto',
-      padding: '12px',
-      backgroundColor: 'var(--vscode-editor-background)',
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'auto',
+        padding: '12px',
+        backgroundColor: 'var(--vscode-editor-background)',
+      }}
+    >
       {(isObject || isArray) ? (
         // Render children directly, starting at depth -1 so first level is depth 0
         <>
@@ -534,6 +662,9 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
               onChange={onChange ? handleChange : undefined}
               siblingData={isArray ? undefined : data}
               onOpenDocument={onOpenDocument}
+              searchQuery={searchQuery}
+              currentMatchIndex={currentMatchIndex}
+              matchIndexOffset={0}
             />
           ))}
         </>
@@ -548,6 +679,9 @@ export const JSONViewer: React.FC<JSONViewerProps> = ({ data, isDarkTheme, depth
           path={[]}
           onChange={onChange ? handleChange : undefined}
           onOpenDocument={onOpenDocument}
+          searchQuery={searchQuery}
+          currentMatchIndex={currentMatchIndex}
+          matchIndexOffset={0}
         />
       )}
     </div>

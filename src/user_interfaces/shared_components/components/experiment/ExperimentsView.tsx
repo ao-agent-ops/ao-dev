@@ -843,7 +843,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         ) : null}
       </div> */}
 
-      {/* Lessons Button - temporarily disabled
+      {/* Lessons Button */}
       {onLessonsClick && (
         <div
           style={{
@@ -884,7 +884,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           </button>
         </div>
       )}
-      */}
     </div>
   );
 };

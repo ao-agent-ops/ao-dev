@@ -25,9 +25,9 @@ interface GraphViewProps {
   messageSender: MessageSender;
   isDarkTheme?: boolean;
   metadataPanel?: React.ReactNode;
+  headerContent?: React.ReactNode;
   currentResult?: string;
   onResultChange?: (result: string) => void;
-  headerContent?: React.ReactNode;
 }
 
 const nodeTypes = {
@@ -93,9 +93,9 @@ export const GraphView: React.FC<GraphViewProps> = ({
   messageSender,
   isDarkTheme = false,
   metadataPanel,
+  headerContent,
   currentResult = '',
   onResultChange,
-  headerContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -337,6 +337,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
       },
     })));
     // Update edge styles - React Flow watches the style prop for changes
+    // Sort edges so highlighted ones render last (on top)
     setEdges(currentEdges => currentEdges.map(edge => {
       const isHighlighted = highlightedEdges.has(edge.id);
       return {
@@ -348,6 +349,10 @@ export const GraphView: React.FC<GraphViewProps> = ({
           isHighlighted,
         },
       };
+    }).sort((a, b) => {
+      const aHighlighted = a.data?.isHighlighted ? 1 : 0;
+      const bHighlighted = b.data?.isHighlighted ? 1 : 0;
+      return aHighlighted - bHighlighted;
     }));
   }, [highlightedNodes, highlightedEdges, setNodes, setEdges]);
 
@@ -433,7 +438,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
-            paddingTop: headerContent ? "8px" : "120px",
+            paddingTop: headerContent ? "100px" : "120px",
           }}
         >
           <ReactFlowProvider>
@@ -457,6 +462,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
           </ReactFlowProvider>
         </div>
       </div>
+
 
       {/* Right Section: Fixed side panel (metadata + action buttons) */}
       <div
@@ -496,8 +502,12 @@ export const GraphView: React.FC<GraphViewProps> = ({
             justifyContent: "flex-start",
             gap: 4,
             padding: "10px",
-            backgroundColor: "var(--vscode-sideBar-background, var(--vscode-editor-background))",
-            borderLeft: "1px solid var(--vscode-panel-border, var(--vscode-widget-border))",
+            backgroundColor: isDarkTheme
+              ? "var(--vscode-sideBar-background, #252526)"
+              : "var(--vscode-sideBar-background, #f3f3f3)",
+            borderLeft: isDarkTheme
+              ? "1px solid var(--vscode-panel-border, #3c3c3c)"
+              : "1px solid var(--vscode-panel-border, #e0e0e0)",
             minWidth: "35px",
             flexShrink: 0,
           }}

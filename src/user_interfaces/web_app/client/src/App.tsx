@@ -117,6 +117,19 @@ function App() {
         window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
           detail: message.payload
         }));
+      } else if (message.type === "openNodeEditorTab") {
+        // Handle openNodeEditorTab by dispatching window event to show inline modal
+        // This is sent by CustomNode when clicking "Edit input" or "Edit output"
+        window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
+          detail: {
+            nodeId: message.nodeId,
+            sessionId: message.sessionId,
+            field: message.field,
+            label: message.label,
+            inputValue: message.inputValue,
+            outputValue: message.outputValue,
+          }
+        }));
       } else if (message.type === "navigateToCode") {
         // Code navigation not available in webapp
       } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

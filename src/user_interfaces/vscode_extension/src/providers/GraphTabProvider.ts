@@ -434,6 +434,9 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                 case 'openDocument':
                     this._handleOpenDocument(data.payload, panel);
                     break;
+                case 'closeTab':
+                    panel.dispose();
+                    break;
             }
         });
 
