@@ -24,17 +24,19 @@ packages = [
 ao-record = "ao.cli.ao_record:main"
 ao-config = "ao.cli.ao_config:main"
 ao-server = "ao.cli.ao_server:main"
+ao-tool = "ao.cli.ao_tool:main"
 
 # Aliases for quick access
 record = "ao.cli.ao_record:main"
 server = "ao.cli.ao_server:main"
+tool = "ao.cli.ao_tool:main"
 
 [tool.black]
 line-length = 100
 
 [project]
 name = "ao-dev"
-version = "0.0.6"
+version = "0.0.8"
 description = "A development tool for LLM call visualization and debugging"
 readme = "docs/release/PYPI_DESC.md"
 requires-python = ">=3.10"

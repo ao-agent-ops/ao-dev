@@ -2,7 +2,7 @@ export interface GraphNode {
     id: string;
     input: string;
     output: string;
-    codeLocation: string;
+    stack_trace: string;
     label: string;
     position?: { x: number; y: number };
     border_color?: string;
@@ -71,6 +71,12 @@ export interface ProcessInfo {
     notes?: string;
     log?: string;
     version_date?: string;
+}
+
+export interface LessonSummary {
+    id: string;
+    name: string;
+    summary: string;
 }
 
 export interface WorkflowRunDetailsPanelProps {

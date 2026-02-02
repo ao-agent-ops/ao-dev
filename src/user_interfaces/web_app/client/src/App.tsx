@@ -5,7 +5,7 @@ import type { GraphNode, GraphEdge, ProcessInfo } from "../../../shared_componen
 import { GraphTabApp } from "../../../shared_components/components/GraphTabApp";
 import { ExperimentsView} from "../../../shared_components/components/experiment/ExperimentsView";
 import type { MessageSender } from "../../../shared_components/types/MessageSender";
-import { LessonsView, type Lesson } from "../../../shared_components/components/lessons/LessonsView";
+import { LessonsView, type Lesson, type LessonFormData, type ValidationResult } from "../../../shared_components/components/lessons/LessonsView";
 import { GraphHeader } from "../../../shared_components/components/graph/GraphHeader";
 
 interface Experiment {
@@ -57,6 +57,10 @@ function App() {
   const messageBufferRef = useRef<string>(''); // Buffer for incomplete WebSocket frames
   const [showLessons, setShowLessons] = useState(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessonError, setLessonError] = useState<string | null>(null);
+  const [lessonValidationResult, setLessonValidationResult] = useState<ValidationResult | null>(null);
+  const [isLessonValidating, setIsLessonValidating] = useState(false);
+  const [lessonApiKeyError, setLessonApiKeyError] = useState(false);
 
   // Detect dark theme reactively
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
@@ -116,6 +120,19 @@ function App() {
         // Handle showNodeEditModal by dispatching window event (same as VS Code)
         window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
           detail: message.payload
+        }));
+      } else if (message.type === "openNodeEditorTab") {
+        // Handle openNodeEditorTab by dispatching window event to show inline modal
+        // This is sent by CustomNode when clicking "Edit input" or "Edit output"
+        window.dispatchEvent(new CustomEvent('show-node-edit-modal', {
+          detail: {
+            nodeId: message.nodeId,
+            sessionId: message.sessionId,
+            field: message.field,
+            label: message.label,
+            inputValue: message.inputValue,
+            outputValue: message.outputValue,
+          }
         }));
       } else if (message.type === "navigateToCode") {
         // Code navigation not available in webapp
@@ -239,7 +256,64 @@ function App() {
         case "lessons_list":
           if (msg.lessons) {
             setLessons(msg.lessons);
+            setLessonError(null); // Clear any previous error on successful list
+            setLessonApiKeyError(false); // Clear API key error on success
           }
+          break;
+
+        case "lesson_content":
+          // Update the specific lesson with its full content
+          if ((msg as any).lesson) {
+            const lessonWithContent = (msg as any).lesson;
+            setLessons((prev) =>
+              prev.map((l) =>
+                l.id === lessonWithContent.id ? { ...l, content: lessonWithContent.content } : l
+              )
+            );
+          }
+          break;
+
+        case "lesson_error":
+          console.error('[App] Received lesson_error:', (msg as any).error);
+          setIsLessonValidating(false);
+          const errorMsg = (msg as any).error || 'An unknown error occurred';
+          // Check if it's an API key error
+          if (errorMsg.toLowerCase().includes('api key') || errorMsg.toLowerCase().includes('invalid') || errorMsg.toLowerCase().includes('unavailable')) {
+            setLessonApiKeyError(true);
+          } else {
+            setLessonError(errorMsg);
+            // Auto-clear error after 5 seconds
+            setTimeout(() => setLessonError(null), 5000);
+          }
+          break;
+
+        case "lesson_created":
+        case "lesson_updated":
+          console.log(`[App] Received ${msg.type}:`, msg);
+          setIsLessonValidating(false);
+          if ((msg as any).validation) {
+            // Show validation feedback (info or warning)
+            setLessonValidationResult({
+              feedback: (msg as any).validation.feedback || '',
+              severity: (msg as any).validation.severity || 'info',
+              conflicting_lesson_ids: (msg as any).validation.conflicting_lesson_ids || [],
+              isRejected: false,
+            });
+          } else {
+            // No validation feedback, clear any previous result
+            setLessonValidationResult(null);
+          }
+          break;
+
+        case "lesson_rejected":
+          console.log('[App] Received lesson_rejected:', msg);
+          setIsLessonValidating(false);
+          setLessonValidationResult({
+            feedback: (msg as any).reason || 'Validation failed',
+            severity: (msg as any).severity || 'error',
+            conflicting_lesson_ids: (msg as any).conflicting_lesson_ids || [],
+            isRejected: true,
+          });
           break;
 
         default:
@@ -430,33 +504,75 @@ function App() {
       </div>
 
       <div className="graph-container" ref={graphContainerRef}>
+        {/* Lesson Error Banner */}
+        {lessonError && (
+          <div
+            style={{
+              padding: '10px 16px',
+              backgroundColor: isDarkTheme ? '#5a1d1d' : '#ffebee',
+              color: isDarkTheme ? '#f48771' : '#d32f2f',
+              fontSize: '13px',
+              borderBottom: `1px solid ${isDarkTheme ? '#6a2a2a' : '#ffcdd2'}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span style={{ fontWeight: 500 }}>Error:</span>
+            <span>{lessonError}</span>
+            <button
+              onClick={() => setLessonError(null)}
+              style={{
+                marginLeft: 'auto',
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer',
+                padding: '4px',
+                fontSize: '16px',
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {showLessons ? (
           <LessonsView
             lessons={lessons}
             isDarkTheme={isDarkTheme}
-            onAddLesson={() => {
-              // Add a new lesson via WebSocket
-              const newLessonId = `lesson-${Date.now()}`;
+            validationResult={lessonValidationResult}
+            isValidating={isLessonValidating}
+            onClearValidation={() => setLessonValidationResult(null)}
+            apiKeyError={lessonApiKeyError}
+            onLessonCreate={(data: LessonFormData, force?: boolean) => {
+              // Create lesson via WebSocket (proxied to ao-playbook)
               if (ws && ws.readyState === WebSocket.OPEN) {
+                setIsLessonValidating(true);
                 ws.send(JSON.stringify({
                   type: "add_lesson",
-                  lesson_id: newLessonId,
-                  lesson_text: 'New lesson - click to edit',
+                  name: data.name,
+                  summary: data.summary,
+                  content: data.content,
+                  path: data.path || '',
+                  force: force || false,
                 }));
               }
             }}
-            onLessonUpdate={(id, content) => {
-              // Update lesson via WebSocket
+            onLessonUpdate={(id: string, data: Partial<LessonFormData>, force?: boolean) => {
+              // Update lesson via WebSocket (proxied to ao-playbook)
               if (ws && ws.readyState === WebSocket.OPEN) {
+                setIsLessonValidating(true);
                 ws.send(JSON.stringify({
                   type: "update_lesson",
                   lesson_id: id,
-                  lesson_text: content,
+                  ...data,
+                  force: force || false,
                 }));
               }
             }}
-            onLessonDelete={(id) => {
-              // Delete lesson via WebSocket
+            onLessonDelete={(id: string) => {
+              // Delete lesson via WebSocket (proxied to ao-playbook)
               if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                   type: "delete_lesson",
@@ -464,7 +580,7 @@ function App() {
                 }));
               }
             }}
-            onNavigateToRun={(sessionId, nodeId) => {
+            onNavigateToRun={(sessionId: string, nodeId?: string) => {
               // Navigate to the run (and optionally focus on a specific node)
               const experiment = experiments.find(e => e.session_id === sessionId);
               if (experiment) {
@@ -473,6 +589,12 @@ function App() {
                 if (ws && ws.readyState === WebSocket.OPEN) {
                   ws.send(JSON.stringify({ type: "get_graph", session_id: sessionId }));
                 }
+              }
+            }}
+            onFetchLessonContent={(id: string) => {
+              // Fetch individual lesson content via WebSocket
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "get_lesson", lesson_id: id }));
               }
             }}
           />

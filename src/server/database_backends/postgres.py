@@ -158,6 +158,7 @@ def _init_db(conn):
             color TEXT,
             label TEXT,
             api_type TEXT,
+            stack_trace TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (session_id, node_id)
         )
@@ -443,17 +444,17 @@ def get_llm_call_by_session_and_hash_query(session_id, input_hash):
 
 
 def insert_llm_call_with_output_query(
-    session_id, input_pickle, input_hash, node_id, api_type, output_pickle
+    session_id, input_pickle, input_hash, node_id, api_type, output_pickle, stack_trace=None
 ):
     """Insert new LLM call record with output in a single operation (upsert)."""
     execute(
         """
-        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output) 
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (session_id, node_id) 
-        DO UPDATE SET output = EXCLUDED.output
+        INSERT INTO llm_calls (session_id, input, input_hash, node_id, api_type, output, stack_trace)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (session_id, node_id)
+        DO UPDATE SET output = EXCLUDED.output, stack_trace = EXCLUDED.stack_trace
         """,
-        (session_id, input_pickle, input_hash, node_id, api_type, output_pickle),
+        (session_id, input_pickle, input_hash, node_id, api_type, output_pickle, stack_trace),
     )
 
 
@@ -509,6 +510,19 @@ def get_experiment_exec_info_query(session_id):
     )
 
 
+# Copy queries
+def copy_llm_calls_query(old_session_id, new_session_id):
+    """Copy all llm_calls from one session to another with a new session_id."""
+    execute(
+        """
+        INSERT INTO llm_calls (session_id, node_id, input, input_hash, input_overwrite, output, color, label, api_type, stack_trace, timestamp)
+        SELECT %s, node_id, input, input_hash, input_overwrite, output, color, label, api_type, stack_trace, timestamp
+        FROM llm_calls WHERE session_id=%s
+        """,
+        (new_session_id, old_session_id),
+    )
+
+
 # Database cleanup queries
 def delete_all_experiments_query():
     """Delete all records from experiments table."""
@@ -522,7 +536,7 @@ def delete_all_llm_calls_query():
 
 def delete_llm_calls_query(session_id):
     """Delete all llm calls belonging to a session id."""
-    execute("DELETE FROM llm_calls WHERE session_id=?", (session_id,))
+    execute("DELETE FROM llm_calls WHERE session_id=%s", (session_id,))
 
 
 def get_session_name_query(session_id):
@@ -644,3 +658,48 @@ def get_next_run_index_query():
     if row:
         return row["count"] + 1
     return 1
+
+
+def update_experiment_version_date_query(version_date, session_id):
+    """Execute PostgreSQL-specific UPDATE for experiments version_date"""
+    execute(
+        "UPDATE experiments SET version_date=%s WHERE session_id=%s",
+        (version_date, session_id),
+    )
+
+
+def get_all_experiments_sorted_query():
+    """Get all experiments sorted by timestamp desc."""
+    return query_all(
+        "SELECT session_id, timestamp, color_preview, name, version_date, success, notes, log FROM experiments ORDER BY timestamp DESC",
+        (),
+    )
+
+
+# Probe-related queries for ao-tool
+def get_experiment_metadata_query(session_id):
+    """Get experiment metadata for probe command."""
+    return query_one(
+        """SELECT session_id, parent_session_id, name, timestamp, success, notes, log,
+                  graph_topology, version_date
+           FROM experiments WHERE session_id=%s""",
+        (session_id,),
+    )
+
+
+def get_llm_calls_for_session_query(session_id):
+    """Get all LLM calls for a session."""
+    return query_all(
+        """SELECT node_id, input, input_overwrite, output, api_type, label, timestamp
+           FROM llm_calls WHERE session_id=%s""",
+        (session_id,),
+    )
+
+
+def get_llm_call_full_query(session_id, node_id):
+    """Get full LLM call data including input, output, overwrites, and stack_trace."""
+    return query_one(
+        """SELECT node_id, input, input_hash, input_overwrite, output, api_type, label, timestamp, stack_trace
+           FROM llm_calls WHERE session_id=%s AND node_id=%s""",
+        (session_id, node_id),
+    )

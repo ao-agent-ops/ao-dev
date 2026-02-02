@@ -52,7 +52,6 @@ Core system files:
 ```bash
 # Running (replace python with ao-record)
 ao-record script.py
-~/miniforge3/envs/ao/bin/python -m ao.cli.ao_record script.py  # For Claude Code
 
 # Server management
 ao-server start/stop/restart/clear/logs

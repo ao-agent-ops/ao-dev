@@ -22,6 +22,24 @@
     //   "justMyCode": false,
     // },
     {
+      "name": "ao-tool record",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ao.cli.ao_tool",
+      "console": "integratedTerminal",
+      "args": ["record", "example_workflows/debug_examples/openai/debate.py"],
+      "justMyCode": false
+    },
+    {
+      "name": "ao-tool probe",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ao.cli.ao_tool",
+      "args": ["probe", "b6aaf796-8e25-4e9a-aae6-a47f261ced54", "--node", "229386ef-fa49-4505-a28a-0049c2a5eb3e"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "ao-config",
       "type": "debugpy",
       "request": "launch",
@@ -35,6 +53,22 @@
       "request": "launch",
       "module": "ao.cli.ao_server",
       "args": ["restart"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "ao-tool edit-and-rerun",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ao.cli.ao_tool",
+      "args": [
+        "edit-and-rerun",
+        "--output",
+        "{\"content.content\": [{\"text\": \"Is pineapple an acceptable pizza topping?\"}], \"content.role\": \"assistant\"}",
+        "--wait",
+        "d485e4f2-49db-43cb-aa23-91c515e0499b",
+        "c504dbef-16a8-4869-8478-1a31b8f73c4d",
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     },

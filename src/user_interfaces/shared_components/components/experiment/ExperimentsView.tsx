@@ -20,6 +20,7 @@ interface ExperimentsViewProps {
   onModeChange?: (mode: 'Local' | 'Remote') => void;
   currentMode?: 'Local' | 'Remote' | null;
   onLessonsClick?: () => void;
+  onRefresh?: () => void;
 }
 
 export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
@@ -35,16 +36,17 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   onModeChange,
   currentMode = null,
   onLessonsClick,
+  onRefresh,
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Section sizes (percentages of available height)
-  const [runningSizePercent, setRunningSizePercent] = useState(20);
-  // finishedSizePercent is calculated as: 100 - runningSizePercent
+  const [runningSizePercent, setRunningSizePercent] = useState(30);
+  const [finishedSizePercent, setFinishedSizePercent] = useState(70);
 
-  const [resizing, setResizing] = useState<'running' | null>(null);
+  const [resizing, setResizing] = useState<'running' | 'finished' | null>(null);
   const [startY, setStartY] = useState(0);
   const [startSize, setStartSize] = useState(0);
 
@@ -74,11 +76,11 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   }, []); // Empty dependency array - only runs once on mount
 
   // Handle resize dragging
-  const handleMouseDown = (section: 'running', e: React.MouseEvent) => {
+  const handleMouseDown = (section: 'running' | 'finished', e: React.MouseEvent) => {
     e.preventDefault();
     setResizing(section);
     setStartY(e.clientY);
-    setStartSize(runningSizePercent);
+    setStartSize(section === 'running' ? runningSizePercent : finishedSizePercent);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -89,8 +91,17 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     const deltaPercent = (deltaY / containerHeight) * 100;
 
     if (resizing === 'running') {
-      const newSize = Math.max(10, Math.min(80, startSize + deltaPercent));
+      // Running section: constrain so finished still has space
+      const maxRunning = 100 - 10; // Leave at least 10% for finished
+      const newSize = Math.max(10, Math.min(maxRunning, startSize + deltaPercent));
       setRunningSizePercent(newSize);
+      // Adjust finished to take remaining space
+      setFinishedSizePercent(100 - newSize);
+    } else if (resizing === 'finished') {
+      // Finished section: constrain so running still has space
+      const maxFinished = 100 - runningSizePercent;
+      const newSize = Math.max(10, Math.min(maxFinished, startSize + deltaPercent));
+      setFinishedSizePercent(newSize);
     }
   };
 
@@ -427,7 +438,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         {showResizeHandle && isExpanded && (
           <div
             style={resizeHandleStyle}
-            onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running', e)}
+            onMouseDown={(e) => handleMouseDown(sectionPrefix as 'running' | 'finished', e)}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--vscode-focusBorder)';
             }}
@@ -557,7 +568,37 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     <div style={containerStyle}>
       {showHeader && (
         <div style={headerStyle}>
-          <h3 style={headerTitleStyle}>Agent Runs</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={headerTitleStyle}>Agent Runs</h3>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--vscode-foreground)',
+                  opacity: 0.7,
+                  borderRadius: '4px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0.7';
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Refresh"
+              >
+                <i className="codicon codicon-refresh" style={{ fontSize: '14px' }} />
+              </button>
+            )}
+          </div>
           {renderDropdown()}
         </div>
       )}
@@ -567,55 +608,12 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         flexDirection: 'column',
         flex: 1,
         overflow: 'hidden',
-        // marginBottom: `${footerHeight}px`
       }}>
         {renderExperimentSection(runningProcesses, 'Running', 'running', runningSizePercent, true)}
-        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', 100 - runningSizePercent, false)}
+        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', finishedSizePercent, false)}
       </div>
 
-      {/* User Section commented out - auth disabled */}
-      {/* <div style={userSectionContainerStyle}>
-        {user ? (
-          <div style={userRowStyle}>
-            <img
-              src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
-              alt={user.displayName || 'User avatar'}
-              style={avatarStyle}
-            />
-            <div style={nameBlockStyle}>
-              <div style={nameStyle}>{user.displayName || 'User'}</div>
-              <div style={emailStyle}>{user.email || ''}</div>
-            </div>
-            <button
-              onClick={handleLogoutClick}
-              style={{
-                marginLeft: 'auto',
-                padding: '4px',
-                backgroundColor: 'transparent',
-                color: isDarkTheme ? '#cccccc' : '#333333',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: 0.7,
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
-              }}
-              title="Logout"
-            >
-              <IconSignOut size={20} />
-            </button>
-          </div>
-        ) : null}
-      </div> */}
-
-      {/* Lessons Button - temporarily disabled
+      {/* Lessons Button */}
       {onLessonsClick && (
         <div
           style={{
@@ -629,7 +627,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
             style={{
               width: '100%',
               padding: '10px 16px',
-              backgroundColor: isDarkTheme ? '#0e639c' : '#007acc',
+              backgroundColor: '#43884e',
               color: '#ffffff',
               border: 'none',
               borderRadius: '4px',
@@ -643,10 +641,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
               transition: 'background-color 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#005a9e';
+              e.currentTarget.style.backgroundColor = '#3a7644';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+              e.currentTarget.style.backgroundColor = '#43884e';
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -656,7 +654,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
           </button>
         </div>
       )}
-      */}
     </div>
   );
 };

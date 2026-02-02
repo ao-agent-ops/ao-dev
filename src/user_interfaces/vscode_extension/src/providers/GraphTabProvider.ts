@@ -9,6 +9,11 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
     public static readonly viewType = 'graphExtension.graphTab';
     private _panels: Map<string, vscode.WebviewPanel> = new Map();
     private _pythonClient: PythonServerClient | null = null;
+    private _sidebarProvider: { refreshLessons: () => void } | null = null;
+
+    public setSidebarProvider(provider: { refreshLessons: () => void }): void {
+        this._sidebarProvider = provider;
+    }
 
     constructor(private readonly _extensionUri: vscode.Uri) {
         // Initialize Python client
@@ -146,7 +151,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                     }
                     break;
                 case 'navigateToCode':
-                    const { filePath, line } = this._parseCodeLocation(data.payload.codeLocation);
+                    const { filePath, line } = this._parseStackTrace(data.payload.stack_trace);
                     if (filePath && line) {
                         vscode.workspace.openTextDocument(filePath).then(document => {
                             vscode.window.showTextDocument(document, {
@@ -293,6 +298,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                 case 'add_lesson':
                 case 'update_lesson':
                 case 'delete_lesson':
+                case 'get_lesson':
                     // Forward lesson CRUD operations to Python server
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
@@ -529,8 +535,16 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         }
 
         const messageHandler = (msg: any) => {
-            // Forward lessons_list messages to the lessons panel
-            if (msg.type === 'lessons_list') {
+            // Forward lesson-related messages to the lessons panel
+            const lessonMessageTypes = [
+                'lessons_list',
+                'lesson_content',
+                'lesson_error',
+                'lesson_created',
+                'lesson_updated',
+                'lesson_rejected',
+            ];
+            if (lessonMessageTypes.includes(msg.type)) {
                 panel.webview.postMessage(msg);
             }
         };
@@ -675,8 +689,15 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         return html;
     }
 
-    private _parseCodeLocation(codeLocation: string): { filePath: string | undefined; line: number | undefined } {
-        const match = codeLocation.match(/(.+):(\d+)/);
+    private _parseStackTrace(stackTrace: string): { filePath: string | undefined; line: number | undefined } {
+        // Parse Python stack trace format: File "/path/to/file.py", line 42, in function_name
+        // Returns the first (most recent user code) file and line number
+        if (!stackTrace) {
+            return { filePath: undefined, line: undefined };
+        }
+
+        // Match Python traceback format
+        const match = stackTrace.match(/File "([^"]+)", line (\d+)/);
         if (match) {
             const [, filePath, lineStr] = match;
             return {
@@ -720,6 +741,177 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         }
     }
 
+
+    public closeLessonEditorTab(): void {
+        const panel = this._panels.get('lesson-editor');
+        if (panel && !(panel as any)._disposed && !(panel as any).disposed) {
+            panel.dispose();
+        }
+        this._panels.delete('lesson-editor');
+    }
+
+    public async createOrShowLessonEditorTab(
+        lessonId: string,
+        lessonName: string
+    ): Promise<void> {
+        // Single reusable tab for lesson editor (updates content when switching lessons)
+        const tabId = 'lesson-editor';
+        const columnToShowIn = vscode.ViewColumn.One;
+
+        // Check if we already have a lesson editor panel
+        let panel = this._panels.get(tabId);
+
+        if (panel) {
+            // Check if panel is disposed
+            if ((panel as any)._disposed || (panel as any).disposed) {
+                this._panels.delete(tabId);
+                panel = undefined;
+            } else {
+                // Panel exists - send message to update its content with new lesson data
+                panel.webview.postMessage({
+                    type: 'updateLessonData',
+                    payload: { lessonId, lessonName }
+                });
+                panel.title = `Lesson: ${lessonName.substring(0, 20)}${lessonName.length > 20 ? '...' : ''}`;
+                panel.reveal();
+                return;
+            }
+        }
+
+        // Create new panel for lesson editor
+        panel = vscode.window.createWebviewPanel(
+            GraphTabProvider.viewType,
+            `Lesson: ${lessonName.substring(0, 20)}${lessonName.length > 20 ? '...' : ''}`,
+            columnToShowIn,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [
+                    this._extensionUri,
+                    vscode.Uri.joinPath(this._extensionUri, 'dist')
+                ]
+            }
+        );
+
+        // Set tab icon
+        panel.iconPath = this._iconPath;
+
+        // Set up the webview content for lesson editor
+        panel.webview.html = this._getHtmlForLessonEditorWebview(panel.webview, lessonId, lessonName);
+
+        // Store panel reference
+        this._panels.set(tabId, panel);
+
+        // Handle panel disposal
+        panel.onDidDispose(() => {
+            this._panels.delete(tabId);
+        }, null);
+
+        // Handle messages from the webview
+        panel.webview.onDidReceiveMessage(data => {
+            switch (data.type) {
+                case 'ready':
+                    // Request lessons list for dropdown
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
+                    break;
+                case 'lessonUpdated':
+                    // Notify sidebar to refresh lessons list
+                    this._sidebarProvider?.refreshLessons();
+                    break;
+                case 'get_lessons':
+                case 'get_lesson':
+                case 'add_lesson':
+                case 'update_lesson':
+                    // Forward lesson operations to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
+                    break;
+            }
+        });
+
+        // Forward lesson responses from server to this panel
+        const lessonEditorMessageHandler = (msg: any) => {
+            const lessonMessageTypes = [
+                'lessons_list',
+                'lesson_content',
+                'lesson_error',
+                'lesson_created',
+                'lesson_updated',
+                'lesson_rejected',
+            ];
+            if (lessonMessageTypes.includes(msg.type)) {
+                panel.webview.postMessage(msg);
+            }
+        };
+        this._pythonClient?.onMessage(lessonEditorMessageHandler);
+        panel.onDidDispose(() => {
+            this._pythonClient?.removeMessageListener(lessonEditorMessageHandler);
+        });
+
+        // Send theme info
+        this._sendThemeToPanel(panel);
+        vscode.window.onDidChangeActiveColorTheme(() => {
+            this._sendThemeToPanel(panel);
+        });
+    }
+
+    private _getHtmlForLessonEditorWebview(
+        webview: vscode.Webview,
+        lessonId: string,
+        lessonName: string
+    ): string {
+        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview.js'));
+        const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'codicons', 'codicon.css'));
+
+        const escapedLessonId = lessonId.replace(/'/g, "\\'");
+        const escapedLessonName = lessonName.replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Editor</title>
+    <link rel="stylesheet" href="${codiconsUri}">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+    <script>
+        window.process = {
+            env: {},
+            platform: 'browser',
+            version: '',
+            versions: {},
+            type: 'renderer',
+            arch: 'x64'
+        };
+    </script>
+</head>
+<body>
+    <div id="lesson-editor-root"></div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        window.vscode = vscode;
+        window.lessonEditorContext = {
+            lessonId: '${escapedLessonId}',
+            lessonName: '${escapedLessonName}'
+        };
+    </script>
+    <script src="${scriptUri}"></script>
+</body>
+</html>
+        `;
+
+        return html;
+    }
 
     public async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any): Promise<void> {
         // This method is called when VS Code restarts and needs to restore the panel

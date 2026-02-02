@@ -30,84 +30,78 @@ export const NodeEditorView: React.FC<NodeEditorViewProps> = ({
   onOpenDocument,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcut for save
+  // Navigate to next match
+  const goToNextMatch = useCallback(() => {
+    if (matchCount > 0) {
+      setCurrentMatchIndex((prev) => (prev + 1) % matchCount);
+    }
+  }, [matchCount]);
+
+  // Navigate to previous match
+  const goToPrevMatch = useCallback(() => {
+    if (matchCount > 0) {
+      setCurrentMatchIndex((prev) => (prev - 1 + matchCount) % matchCount);
+    }
+  }, [matchCount]);
+
+  // Reset match index when search query changes or tab changes
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchQuery, activeTab]);
+
+  // Keyboard shortcuts for save and search navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         onSave();
       }
+      // Enter to go to next match, Shift+Enter for previous (when search input is focused)
+      if (e.key === 'Enter' && document.activeElement === searchInputRef.current) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          goToPrevMatch();
+        } else {
+          goToNextMatch();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSave]);
+  }, [onSave, goToNextMatch, goToPrevMatch]);
 
-  // Use VS Code CSS variables for theme-aware colors
-  const colors = {
-    background: 'var(--vscode-editor-background)',
-    headerBg: 'var(--vscode-sideBar-background, var(--vscode-editor-background))',
-    border: 'var(--vscode-panel-border, var(--vscode-widget-border))',
-    text: 'var(--vscode-foreground)',
-    textMuted: 'var(--vscode-descriptionForeground)',
-    inputBg: 'var(--vscode-input-background)',
-    tabActive: 'var(--vscode-tab-activeBackground, var(--vscode-editor-background))',
-    tabInactive: 'var(--vscode-tab-inactiveBackground)',
-    tabHover: 'var(--vscode-tab-hoverBackground)',
-    accentColor: 'var(--vscode-focusBorder)',
-  };
-
-  // Filter data based on search query
-  const filterData = useCallback((data: any, query: string): any => {
-    if (!query.trim() || data === null || typeof data !== 'object') {
-      return data;
-    }
-
-    const lowerQuery = query.toLowerCase();
-
-    if (Array.isArray(data)) {
-      // For arrays, filter items that have matching keys in their contents
-      const filtered = data
-        .map((item, index) => {
-          if (typeof item === 'object' && item !== null) {
-            const filteredItem = filterData(item, query);
-            // Keep if the filtered item has any keys
-            if (Object.keys(filteredItem).length > 0) {
-              return filteredItem;
-            }
-          }
-          return null;
-        })
-        .filter((item) => item !== null);
-      return filtered.length > 0 ? filtered : data; // Return original if no matches to avoid empty arrays
-    }
-
-    // For objects, filter by key names
-    const result: Record<string, any> = {};
-    for (const [key, value] of Object.entries(data)) {
-      const keyMatches = key.toLowerCase().includes(lowerQuery);
-
-      if (keyMatches) {
-        // Key matches, include entire subtree
-        result[key] = value;
-      } else if (typeof value === 'object' && value !== null) {
-        // Key doesn't match, but check children
-        const filteredChild = filterData(value, query);
-        if (Array.isArray(value)) {
-          if (filteredChild.length > 0) {
-            result[key] = filteredChild;
-          }
-        } else if (Object.keys(filteredChild).length > 0) {
-          result[key] = filteredChild;
-        }
+  // Use VS Code CSS variables for theme-aware colors, with fallbacks for webapp
+  const colors = isDarkTheme
+    ? {
+        background: 'var(--vscode-editor-background, #1e1e1e)',
+        headerBg: 'var(--vscode-sideBar-background, #252526)',
+        border: 'var(--vscode-panel-border, #3c3c3c)',
+        text: 'var(--vscode-foreground, #cccccc)',
+        textMuted: 'var(--vscode-descriptionForeground, #808080)',
+        inputBg: 'var(--vscode-input-background, #3c3c3c)',
+        tabActive: 'var(--vscode-tab-activeBackground, #1e1e1e)',
+        tabInactive: 'var(--vscode-tab-inactiveBackground, #2d2d2d)',
+        tabHover: 'var(--vscode-tab-hoverBackground, #383838)',
+        accentColor: 'var(--vscode-focusBorder, #007acc)',
       }
-      // Primitive values with non-matching keys are excluded
-    }
-    return result;
-  }, []);
+    : {
+        background: 'var(--vscode-editor-background, #ffffff)',
+        headerBg: 'var(--vscode-sideBar-background, #f3f3f3)',
+        border: 'var(--vscode-panel-border, #e0e0e0)',
+        text: 'var(--vscode-foreground, #333333)',
+        textMuted: 'var(--vscode-descriptionForeground, #666666)',
+        inputBg: 'var(--vscode-input-background, #ffffff)',
+        tabActive: 'var(--vscode-tab-activeBackground, #ffffff)',
+        tabInactive: 'var(--vscode-tab-inactiveBackground, #ececec)',
+        tabHover: 'var(--vscode-tab-hoverBackground, #e8e8e8)',
+        accentColor: 'var(--vscode-focusBorder, #007acc)',
+      };
 
   const currentData = activeTab === 'input' ? inputData : outputData;
-  const filteredData = filterData(currentData, searchQuery);
   const handleChange = activeTab === 'input' ? onInputChange : onOutputChange;
 
   return (
@@ -115,7 +109,7 @@ export const NodeEditorView: React.FC<NodeEditorViewProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: '100%',
         backgroundColor: colors.background,
         color: colors.text,
         fontFamily: "var(--vscode-font-family, 'Segoe UI', sans-serif)",
@@ -154,8 +148,9 @@ export const NodeEditorView: React.FC<NodeEditorViewProps> = ({
             <path d="M15.7 13.3l-3.81-3.83A5.93 5.93 0 0 0 13 6c0-3.31-2.69-6-6-6S1 2.69 1 6s2.69 6 6 6c1.3 0 2.48-.41 3.47-1.11l3.83 3.81c.19.2.45.3.7.3.25 0 .52-.09.7-.3a.996.996 0 0 0 0-1.41v.01zM7 10.7c-2.59 0-4.7-2.11-4.7-4.7 0-2.59 2.11-4.7 4.7-4.7 2.59 0 4.7 2.11 4.7 4.7 0 2.59-2.11 4.7-4.7 4.7z" />
           </svg>
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search attributes..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -167,22 +162,76 @@ export const NodeEditorView: React.FC<NodeEditorViewProps> = ({
               fontSize: '13px',
             }}
           />
+          {/* Match count and navigation */}
           {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '2px',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill={colors.textMuted}>
-                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
-              </svg>
-            </button>
+            <>
+              <span
+                style={{
+                  fontSize: '12px',
+                  color: matchCount > 0 ? colors.text : colors.textMuted,
+                  marginRight: '8px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {matchCount > 0 ? `${currentMatchIndex + 1} of ${matchCount}` : 'No results'}
+              </span>
+              {/* Previous match button */}
+              <button
+                onClick={goToPrevMatch}
+                disabled={matchCount === 0}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: matchCount > 0 ? 'pointer' : 'default',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  opacity: matchCount > 0 ? 1 : 0.4,
+                }}
+                title="Previous match (Shift+Enter)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill={colors.textMuted}>
+                  <path d="M8 4l4 4H4l4-4z" />
+                </svg>
+              </button>
+              {/* Next match button */}
+              <button
+                onClick={goToNextMatch}
+                disabled={matchCount === 0}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: matchCount > 0 ? 'pointer' : 'default',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  opacity: matchCount > 0 ? 1 : 0.4,
+                }}
+                title="Next match (Enter)"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill={colors.textMuted}>
+                  <path d="M8 12l4-4H4l4 4z" />
+                </svg>
+              </button>
+              {/* Clear search button */}
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginLeft: '4px',
+                }}
+                title="Clear search"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill={colors.textMuted}>
+                  <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z" />
+                </svg>
+              </button>
+            </>
           )}
         </div>
 
@@ -290,10 +339,13 @@ export const NodeEditorView: React.FC<NodeEditorViewProps> = ({
         }}
       >
         <JSONViewer
-          data={filteredData}
+          data={currentData}
           isDarkTheme={isDarkTheme}
           onChange={handleChange}
           onOpenDocument={onOpenDocument}
+          searchQuery={searchQuery}
+          currentMatchIndex={currentMatchIndex}
+          onMatchCountChange={setMatchCount}
         />
       </div>
     </div>

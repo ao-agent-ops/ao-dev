@@ -10,7 +10,7 @@ import uuid
 import json
 import random
 from dataclasses import dataclass
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any
 
 from ao.common.logger import logger
 
@@ -41,6 +41,7 @@ class CacheOutput:
         input_pickle: Serialized input data for caching purposes
         input_hash: Hash of the input for efficient cache lookups
         session_id: The session ID associated with this cache operation
+        stack_trace: Python stack trace at the point of the LLM call
     """
 
     input_dict: dict
@@ -49,6 +50,7 @@ class CacheOutput:
     input_pickle: bytes
     input_hash: str
     session_id: str
+    stack_trace: Optional[str] = None
 
 
 class DatabaseManager:
@@ -420,6 +422,10 @@ class DatabaseManager:
         """Get input/output for LLM call, handling caching and overwrites."""
         from ao.runner.context_manager import get_session_id
         from ao.common.utils import hash_input, set_seed
+        from ao.runner.monkey_patching.patching_utils import capture_stack_trace
+
+        # Capture stack trace early (before any internal calls pollute it)
+        stack_trace = capture_stack_trace()
 
         # Pickle input object.
         api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
@@ -449,6 +455,7 @@ class DatabaseManager:
                 input_pickle=input_pickle,
                 input_hash=input_hash,
                 session_id=session_id,
+                stack_trace=stack_trace,
             )
 
         # Use data from previous LLM call.
@@ -485,6 +492,7 @@ class DatabaseManager:
             input_pickle=input_pickle,
             input_hash=input_hash,
             session_id=session_id,
+            stack_trace=stack_trace,
         )
 
     def cache_output(
@@ -523,6 +531,7 @@ class DatabaseManager:
                 node_id,
                 api_type,
                 output_json_str,
+                cache_result.stack_trace,
             )
         else:
             logger.warning(f"Node {node_id} response not OK.")
@@ -598,67 +607,56 @@ class DatabaseManager:
         """Get the next run index based on how many runs already exist."""
         return self.backend.get_next_run_index_query()
 
+    # Probe-related methods for ao-tool
+    def get_experiment_metadata(self, session_id):
+        """Get experiment metadata for probe command."""
+        return self.backend.get_experiment_metadata_query(session_id)
+
+    def get_llm_calls_for_session(self, session_id):
+        """Get all LLM calls for a session."""
+        return self.backend.get_llm_calls_for_session_query(session_id)
+
+    def get_llm_call_full(self, session_id, node_id):
+        """Get full LLM call data including input, output, and overwrites."""
+        return self.backend.get_llm_call_full_query(session_id, node_id)
+
+    def copy_llm_calls(self, old_session_id, new_session_id):
+        """Copy all LLM calls from one session to another."""
+        self.backend.copy_llm_calls_query(old_session_id, new_session_id)
+
     # ============================================================
-    # Lessons operations
+    # Lessons Applied operations (tracks which ao-playbook lessons were applied)
     # ============================================================
 
-    def get_all_lessons(self):
+    def get_all_lessons_applied(self):
         """
-        Get all lessons with their extracted_from and applied_to information.
+        Get all lesson application records for merging with ao-playbook lesson data.
 
         Returns:
-            List of lesson dicts with structure:
-            {
-                "id": str,
-                "content": str,
-                "extractedFrom": {"sessionId": str, "nodeId": str, "runName": str} | None,
-                "appliedTo": [{"sessionId": str, "nodeId": str, "runName": str}, ...]
-            }
+            List of dicts: [{"lesson_id": str, "session_id": str, "node_id": str, "run_name": str}, ...]
         """
-        lessons_rows = self.backend.get_all_lessons_query()
-        lessons = []
-
-        for row in lessons_rows:
-            lesson = {
-                "id": row["lesson_id"],
-                "content": row["lesson_text"],
+        rows = self.backend.get_all_lessons_applied_query()
+        return [
+            {
+                "lesson_id": row["lesson_id"],
+                "session_id": row["session_id"],
+                "node_id": row["node_id"],
+                "run_name": row["run_name"] or "Unknown Run",
             }
+            for row in rows
+        ]
 
-            # Add extractedFrom if present
-            if row["from_session_id"]:
-                lesson["extractedFrom"] = {
-                    "sessionId": row["from_session_id"],
-                    "nodeId": row["from_node_id"],
-                    "runName": row["from_run_name"] or "Unknown Run",
-                }
-
-            # Get applied_to records
-            applied_rows = self.backend.get_lessons_applied_query(row["lesson_id"])
-            if applied_rows:
-                lesson["appliedTo"] = [
-                    {
-                        "sessionId": applied["session_id"],
-                        "nodeId": applied["node_id"],
-                        "runName": applied["run_name"] or "Unknown Run",
-                    }
-                    for applied in applied_rows
-                ]
-
-            lessons.append(lesson)
-
-        return lessons
-
-    def add_lesson(self, lesson_id, lesson_text, from_session_id=None, from_node_id=None):
-        """Add a new lesson."""
-        self.backend.insert_lesson_query(lesson_id, lesson_text, from_session_id, from_node_id)
-
-    def update_lesson(self, lesson_id, lesson_text):
-        """Update an existing lesson's text."""
-        self.backend.update_lesson_query(lesson_id, lesson_text)
-
-    def delete_lesson(self, lesson_id):
-        """Delete a lesson and its applied records."""
-        self.backend.delete_lesson_query(lesson_id)
+    def get_lessons_applied_for_lesson(self, lesson_id):
+        """Get all sessions/nodes where a specific lesson was applied."""
+        rows = self.backend.get_lessons_applied_query(lesson_id)
+        return [
+            {
+                "sessionId": row["session_id"],
+                "nodeId": row["node_id"],
+                "runName": row["run_name"] or "Unknown Run",
+            }
+            for row in rows
+        ]
 
     def add_lesson_applied(self, lesson_id, session_id, node_id=None):
         """Record that a lesson was applied to a session/node."""
@@ -667,6 +665,10 @@ class DatabaseManager:
     def remove_lesson_applied(self, lesson_id, session_id, node_id=None):
         """Remove a lesson application record."""
         self.backend.remove_lesson_applied_query(lesson_id, session_id, node_id)
+
+    def delete_lessons_applied_for_lesson(self, lesson_id):
+        """Delete all application records for a lesson (when lesson is deleted from ao-playbook)."""
+        self.backend.delete_lessons_applied_for_lesson_query(lesson_id)
 
 
 # Create singleton instance following the established pattern

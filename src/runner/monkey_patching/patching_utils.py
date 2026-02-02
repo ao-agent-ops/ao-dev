@@ -1,4 +1,7 @@
 import inspect
+import os
+import re
+import traceback
 from collections import defaultdict
 from ao.runner.context_manager import get_session_id
 from ao.common.constants import CERTAINTY_UNKNOWN
@@ -13,6 +16,50 @@ from ao.common.logger import logger
 # str -> {str -> set(str)}
 # if we add a -> b, we go through every element. If a is in the set, we add b to the
 _graph_reachable_set = defaultdict(lambda: defaultdict(set))
+
+def capture_stack_trace() -> str:
+    """Capture the current stack trace, showing only user code.
+
+    Removes ao infrastructure frames:
+    - Beginning: everything up to and including ao/runner/agent_runner.py
+    - End: everything from and including ao/server/database_manager.py
+    - Middle: any frames inside ao-dev/ (unless cwd is ao-dev itself)
+    """
+    stack_lines = traceback.format_stack()
+
+    # Find the start index: skip frames up to and including agent_runner.py
+    start_idx = 0
+    for i, line in enumerate(stack_lines):
+        if "ao/runner/agent_runner.py" in line or "ao\\runner\\agent_runner.py" in line:
+            start_idx = i + 1  # Start after this frame
+
+    # Find the end index: stop before database_manager.py
+    end_idx = len(stack_lines)
+    for i, line in enumerate(stack_lines):
+        if "ao/server/database_manager.py" in line or "ao\\server\\database_manager.py" in line:
+            end_idx = i
+            break
+
+    # Extract only user code frames
+    user_frames = stack_lines[start_idx:end_idx]
+
+    # Filter out ao-dev frames unless we're developing ao-dev itself
+    # Split cwd on path separators and check if "ao-dev" is an exact directory name
+    cwd = os.getcwd()
+    cwd_parts = re.split(r"[/\\]", cwd)
+    developing_ao = "ao-dev" in cwd_parts
+
+    if not developing_ao:
+        # Filter out any frames from ao-dev directory
+        # Match /ao-dev/ or \ao-dev\ as exact directory name
+        filtered_frames = []
+        for frame in user_frames:
+            if "/ao-dev/" not in frame and "\\ao-dev\\" not in frame:
+                filtered_frames.append(frame)
+        user_frames = filtered_frames
+
+    return "".join(user_frames).rstrip()
+
 
 def get_input_dict(func, *args, **kwargs):
     # Arguments are normalized to the function's parameter order.
@@ -67,13 +114,11 @@ def get_input_dict(func, *args, **kwargs):
     return input_dict
 
 
-def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type):
+def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, api_type, stack_trace=None):
     """Send graph node and edge updates to the server."""
-    frame = inspect.currentframe()
-    user_program_frame = inspect.getouterframes(frame)[2]
-    line_no = user_program_frame.lineno
-    file_name = user_program_frame.filename
-    codeLocation = f"{file_name}:{line_no}"
+    # Use provided stack_trace or capture a new one
+    if stack_trace is None:
+        stack_trace = capture_stack_trace()
 
     # Import here to avoid circular import
     from ao.runner.monkey_patching.api_parser import func_kwargs_to_json_str, api_obj_to_json_str
@@ -116,7 +161,7 @@ def send_graph_node_and_edges(node_id, input_dict, output_obj, source_node_ids, 
             "output": output_string,
             "border_color": CERTAINTY_UNKNOWN,
             "label": label,
-            "codeLocation": codeLocation,
+            "stack_trace": stack_trace,
             "model": model,
             "attachments": attachments,
         },

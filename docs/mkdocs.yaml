@@ -75,6 +75,7 @@ nav:
   - User Guide:
       - CLI Commands: user-guide/cli-commands.md
       - VS Code Extension: user-guide/vscode-extension.md
+      - Claude Code Integration: user-guide/claude-code.md
       - Subruns: user-guide/subruns.md
   - Examples: examples/index.md
   - API Reference:
@@ -86,6 +87,7 @@ nav:
       - Server: developer-guide/server.md
       - Edge Detection: developer-guide/edge-detection.md
       - API Patching: developer-guide/api-patching.md
+      - AO Tool CLI: developer-guide/ao-tool.md
       - Testing: developer-guide/testing.md
 
 extra:

@@ -47,7 +47,7 @@ REMOTE_DATABASE_URL = os.environ.get("DB_URL", "Unavailable")
 # server-related constants
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PYTHON_PORT", 5959))
-CONNECTION_TIMEOUT = 5
+CONNECTION_TIMEOUT = 20
 SERVER_START_TIMEOUT = 2
 PROCESS_TERMINATE_TIMEOUT = 5
 MESSAGE_POLL_INTERVAL = 0.1
@@ -127,6 +127,7 @@ os.makedirs(AO_LOG_DIR, exist_ok=True)
 MAIN_SERVER_LOG = os.path.join(AO_LOG_DIR, "main_server.log")
 FILE_WATCHER_LOG = os.path.join(AO_LOG_DIR, "file_watcher.log")  # Git versioning logs
 
+
 default_attachment_cache = os.path.join(AO_CACHE, "attachments")
 ATTACHMENT_CACHE = os.path.expandvars(
     os.path.expanduser(
@@ -192,7 +193,6 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     r"^content\.usage",
     r"^content\.service_tier$",
     r"^content\.system_fingerprint$",
-    r"^content\.stop_reason$",
     r"^content\.stop_sequence$",
     r"^content\.billing",
     r"^content\.error$",
@@ -204,6 +204,7 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     r"^content\.prompt_cache",
     r"^content\.reasoning\.(effort|summary)$",
     r"^content\.safety_identifier$",
+    r"^content\.signature$",
     r"^content\.store$",
     r"^content\.temperature$",
     r"^content\.text\.(format\.type|verbosity)$",
@@ -213,12 +214,12 @@ EDIT_IO_EXCLUDE_PATTERNS = [
     r"^content\.user$",
     r"^content\.responseId$",
     # content.content.* fields (array elements)
-    r"^content\.content\.\d+\.(type|id)$",
+    r"^content\.content\.\d+\.(type|id|signature)$",
     r"^content\.content\.\d+\.content\.\d+\.type$",
     # content.choices.* fields
     r"^content\.choices\.\d+\.index$",
     r"^content\.choices\.\d+\.message\.(refusal|annotations|reasoning)$",
-    r"^content\.choices\.\d+\.(finish_reason|logprobs|seed)$",
+    r"^content\.choices\.\d+\.(logprobs|seed)$",
     # content.output.* fields
     r"^content\.output\.\d+\.(id|type|status)$",
     r"^content\.output\.\d+\.content\.\d+\.(type|annotations|logprobs)$",
@@ -249,6 +250,7 @@ STRING_MATCH_EXCLUDE_PATTERNS = [
     r".*previous_response_id$",
     r".*prompt_cache_key$",
     r".*safety_identifier$",
+    r".*signature$",
     # Model & config
     r".*model$",
     r".*modelVersion$",
@@ -409,3 +411,10 @@ COMPILED_MODEL_NAME_PATTERNS = [
 ]
 
 INVALID_LABEL_CHARS = set("{[<>%$#@")
+
+# Playbook server constants
+PLAYBOOK_SERVER_URL = os.environ.get(
+    "PLAYBOOK_SERVER_URL", "https://ao-playbook-732575904722.us-central1.run.app"
+)
+PLAYBOOK_SERVER_TIMEOUT = 30  # Seconds to wait for server startup
+PLAYBOOK_API_KEY = os.environ.get("AO_API_KEY", "")

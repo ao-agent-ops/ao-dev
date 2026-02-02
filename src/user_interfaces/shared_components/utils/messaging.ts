@@ -23,10 +23,10 @@ export function sendReady() {
     });
 }
 
-export function sendNavigateToCode(codeLocation: string) {
+export function sendNavigateToCode(stack_trace: string) {
     vscode.postMessage({
         type: 'navigateToCode',
-        payload: { codeLocation }
+        payload: { stack_trace }
     });
 }
 

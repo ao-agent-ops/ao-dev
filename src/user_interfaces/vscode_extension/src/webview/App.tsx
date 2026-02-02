@@ -6,7 +6,6 @@ import { GraphNode, GraphEdge, GraphData, ProcessInfo } from '../../../shared_co
 import { MessageSender } from '../../../shared_components/types/MessageSender';
 import { useIsVsCodeDarkTheme } from '../../../shared_components/utils/themeUtils';
 
-
 // Add global type augmentation for window.vscode
 declare global {
   interface Window {
@@ -117,9 +116,16 @@ export const App: React.FC = () => {
   };
 
   const handleLessonsClick = () => {
-    // Open lessons in a separate tab (like graphs)
+    // Open lessons in a separate tab
     if (window.vscode) {
       window.vscode.postMessage({ type: 'openLessonsTab' });
+    }
+  };
+
+  const handleRefresh = () => {
+    // Refresh experiments from backend
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'requestExperimentRefresh' });
     }
   };
 
@@ -205,21 +211,11 @@ export const App: React.FC = () => {
             finishedProcesses={finishedExperiments}
             onCardClick={handleExperimentCardClick}
             isDarkTheme={isDarkTheme}
-            // user={user || undefined}
-            // onLogin={() => {
-            //   if (window.vscode) {
-            //     window.vscode.postMessage({ type: 'signIn' });
-            //   }
-            // }}
-            // onLogout={() => {
-            //   if (window.vscode) {
-            //     window.vscode.postMessage({ type: 'signOut' });
-            //   }
-            // }}
             showHeader={true}
             onModeChange={handleDatabaseModeChange}
             currentMode={databaseMode}
             onLessonsClick={handleLessonsClick}
+            onRefresh={handleRefresh}
           />
         ) : activeTab === "experiment-graph" && selectedExperiment && !showDetailsPanel ? (
           <GraphView

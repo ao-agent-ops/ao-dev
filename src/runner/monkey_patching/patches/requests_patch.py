@@ -64,6 +64,7 @@ def patch_requests_send(bound_obj, bound_cls):
             output_obj=cache_output.output,
             source_node_ids=source_node_ids,
             api_type=api_type,
+            stack_trace=cache_output.stack_trace,
         )
 
         return cache_output.output

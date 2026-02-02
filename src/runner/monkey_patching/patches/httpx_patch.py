@@ -56,7 +56,7 @@ def patch_httpx_send(bound_obj, bound_cls):
         session_id = get_session_id()
         source_node_ids = find_source_nodes(session_id, input_dict, api_type)
 
-        # Get result from cache or call LLM
+        # Get result from cache or call LLM (stack_trace captured inside get_in_out)
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = original_function(**cache_output.input_dict)  # Call LLM
@@ -74,6 +74,7 @@ def patch_httpx_send(bound_obj, bound_cls):
             output_obj=cache_output.output,
             source_node_ids=source_node_ids,
             api_type=api_type,
+            stack_trace=cache_output.stack_trace,
         )
 
         return cache_output.output
@@ -101,7 +102,7 @@ def patch_async_httpx_send(bound_obj, bound_cls):
         session_id = get_session_id()
         source_node_ids = find_source_nodes(session_id, input_dict, api_type)
 
-        # Get result from cache or call LLM
+        # Get result from cache or call LLM (stack_trace captured inside get_in_out)
         cache_output = DB.get_in_out(input_dict, api_type)
         if cache_output.output is None:
             result = await original_function(**cache_output.input_dict)  # Call LLM
@@ -119,6 +120,7 @@ def patch_async_httpx_send(bound_obj, bound_cls):
             output_obj=cache_output.output,
             source_node_ids=source_node_ids,
             api_type=api_type,
+            stack_trace=cache_output.stack_trace,
         )
 
         return cache_output.output

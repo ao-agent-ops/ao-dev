@@ -79,6 +79,29 @@ ao-record openai_example.py
 
 This should show you the agent's trajectory graph like in the video above. You can edit inputs and outputs in the graph and rerun.
 
+## Integration with Coding Agents
+Coding Agents already accelerate generic coding quite successfully. By augmenting them with `ao`, you can supercharge your agent development while making sure you adhere to state-of-the-art coding practices for enterprise-grade agents.
+
+<h3><img src="docs/media/cc.png" alt="Claude Code" height="24" align="absmiddle">&nbsp;&nbsp;Claude Code</h3>
+
+**Setup:**
+
+```bash
+ao-tool install-skill
+```
+
+This interactive command will:
+1. Copy the AO skill file to your project's `.claude/skills/ao/` directory
+2. Add Bash permissions so Claude Code can run `ao-tool` commands without prompts
+
+After setup, restart Claude Code and ask "What skills are available?". The ao skill should now show up, and you can start developing/improving your agent as you would normally do.
+
+**Why use this integration?**
+
+- **Keep context clean**: Agent runs produce verbose logs that quickly pollute Claude's context window. With `ao-tool`, Claude queries only the specific nodes it needs.
+- **Structured access**: Claude gets structured JSON data (inputs, outputs, graph topology) rather than parsing raw logs.
+- **Edit and rerun**: Claude can programmatically edit an LLM's input or output and trigger a rerun to test hypotheses.
+
 ## Documentation
 
 For complete documentation, installation guides, and tutorials, visit our **[Documentation Site](https://ao-agent-ops.github.io/ao-dev/)**.
