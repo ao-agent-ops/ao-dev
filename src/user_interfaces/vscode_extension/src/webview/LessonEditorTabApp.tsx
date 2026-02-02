@@ -11,19 +11,9 @@ declare global {
     lessonEditorContext?: {
       lessonId: string;
       lessonName: string;
-      playbookUrl: string;
-      playbookApiKey: string;
     };
   }
 }
-
-// Helper to build headers with optional API key
-const buildHeaders = (apiKey?: string, contentType?: string): HeadersInit => {
-  const headers: HeadersInit = {};
-  if (contentType) headers['Content-Type'] = contentType;
-  if (apiKey) headers['X-API-Key'] = apiKey;
-  return headers;
-};
 
 interface LessonData {
   id: string;
@@ -47,48 +37,25 @@ export const LessonEditorTabApp: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [validationError, setValidationError] = useState<string | null>(null);
   const isNewLesson = context?.lessonId === 'new';
+  // Track pending lesson fetch to update UI when response arrives
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null);
 
-  // Fetch all lessons for dropdown
-  const fetchAllLessons = useCallback(async () => {
-    if (!context?.playbookUrl) return;
-    try {
-      const response = await fetch(`${context.playbookUrl}/api/v1/lessons`, {
-        headers: buildHeaders(context.playbookApiKey),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLessons(data);
-      }
-    } catch (err) {
-      console.debug('Failed to fetch lessons list:', err);
+  // Request all lessons for dropdown via server proxy
+  const requestAllLessons = useCallback(() => {
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'get_lessons' });
     }
-  }, [context?.playbookUrl, context?.playbookApiKey]);
+  }, []);
 
-  // Fetch single lesson data
-  const fetchLesson = useCallback(async (lessonId: string) => {
-    if (!context?.playbookUrl) return;
+  // Request single lesson data via server proxy
+  const requestLesson = useCallback((lessonId: string) => {
     setLoading(true);
     setError(null);
-    try {
-      const response = await fetch(`${context.playbookUrl}/api/v1/lessons/${lessonId}`, {
-        headers: buildHeaders(context.playbookApiKey),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setLesson(data);
-        setEditedContent(data.content || '');
-        setEditedName(data.name || '');
-        setEditedSummary(data.summary || '');
-        setHasUnsavedChanges(false);
-      } else {
-        setError('Failed to load lesson');
-      }
-    } catch (err) {
-      setError('Server not available');
-    } finally {
-      setLoading(false);
+    setPendingLessonId(lessonId);
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'get_lesson', lesson_id: lessonId });
     }
-  }, [context?.playbookUrl, context?.playbookApiKey]);
+  }, []);
 
   // Load lesson on mount or when context changes
   useEffect(() => {
@@ -101,21 +68,87 @@ export const LessonEditorTabApp: React.FC = () => {
       setHasUnsavedChanges(true); // Mark as unsaved since it's a new lesson
       setLoading(false);
     } else if (context?.lessonId) {
-      fetchLesson(context.lessonId);
+      requestLesson(context.lessonId);
     }
-  }, [context, fetchLesson]);
+  }, [context, requestLesson]);
 
-  // Fetch all lessons on mount
+  // Request all lessons on mount
   useEffect(() => {
-    fetchAllLessons();
-  }, [fetchAllLessons]);
+    requestAllLessons();
+  }, [requestAllLessons]);
 
   // Listen for messages from extension
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.type === 'updateLessonData') {
-        setContext(message.payload);
+
+      switch (message.type) {
+        case 'updateLessonData':
+          setContext(message.payload);
+          break;
+
+        case 'lessons_list':
+          // Response to get_lessons - update dropdown
+          setLessons(message.lessons || []);
+          break;
+
+        case 'lesson_content':
+          // Response to get_lesson - populate editor
+          if (message.lesson && message.lesson.id === pendingLessonId) {
+            const data = message.lesson;
+            setLesson(data);
+            setEditedContent(data.content || '');
+            setEditedName(data.name || '');
+            setEditedSummary(data.summary || '');
+            setHasUnsavedChanges(false);
+            setLoading(false);
+            setPendingLessonId(null);
+          }
+          break;
+
+        case 'lesson_created':
+        case 'lesson_updated':
+          // Success - update lesson and show saved status
+          if (message.lesson) {
+            const updatedLesson = message.lesson;
+            setLesson(updatedLesson);
+            // Update context with new lesson ID if it was a new lesson
+            if (isNewLesson && updatedLesson.id) {
+              setContext({ lessonId: updatedLesson.id, lessonName: updatedLesson.name });
+            }
+            setHasUnsavedChanges(false);
+            setSaveStatus('saved');
+            // Refresh lessons list for dropdown
+            requestAllLessons();
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          }
+          break;
+
+        case 'lesson_rejected':
+          // Validation rejected - show error
+          setValidationError(message.reason || 'Validation failed');
+          setSaveStatus('error');
+          setTimeout(() => {
+            setSaveStatus('idle');
+            setValidationError(null);
+          }, 5000);
+          break;
+
+        case 'lesson_error':
+          // General error
+          if (pendingLessonId) {
+            setError(message.error || 'Failed to load lesson');
+            setLoading(false);
+            setPendingLessonId(null);
+          } else {
+            setValidationError(message.error || 'Server error');
+            setSaveStatus('error');
+            setTimeout(() => {
+              setSaveStatus('idle');
+              setValidationError(null);
+            }, 3000);
+          }
+          break;
       }
     };
 
@@ -128,7 +161,7 @@ export const LessonEditorTabApp: React.FC = () => {
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [pendingLessonId, isNewLesson, requestAllLessons]);
 
   // Detect changes
   useEffect(() => {
@@ -157,8 +190,8 @@ export const LessonEditorTabApp: React.FC = () => {
     return hasUnsavedChanges && !validateFields();
   }, [hasUnsavedChanges, validateFields]);
 
-  // Handle save
-  const handleSave = useCallback(async () => {
+  // Handle save via server proxy
+  const handleSave = useCallback(() => {
     // Validate fields
     const validationErr = validateFields();
     if (validationErr) {
@@ -170,67 +203,36 @@ export const LessonEditorTabApp: React.FC = () => {
     setSaveStatus('saving');
     setValidationError(null);
 
-    try {
-      let response: Response;
-
-      if (isNewLesson) {
-        // Create new lesson via POST
-        response = await fetch(`${context?.playbookUrl}/api/v1/lessons`, {
-          method: 'POST',
-          headers: buildHeaders(context?.playbookApiKey, 'application/json'),
-          body: JSON.stringify({
-            name: editedName.trim(),
-            summary: editedSummary.trim(),
-            content: editedContent.trim(),
-          }),
-        });
-      } else {
-        // Update existing lesson via PUT
-        response = await fetch(`${context?.playbookUrl}/api/v1/lessons/${context?.lessonId}`, {
-          method: 'PUT',
-          headers: buildHeaders(context?.playbookApiKey, 'application/json'),
-          body: JSON.stringify({
-            name: editedName.trim(),
-            summary: editedSummary.trim(),
-            content: editedContent.trim(),
-          }),
-        });
-      }
-
-      if (response.ok) {
-        const updatedLesson = await response.json();
-        setLesson(updatedLesson);
-        // Update context with new lesson ID if it was a new lesson
-        if (isNewLesson && updatedLesson.id) {
-          setContext({ lessonId: updatedLesson.id, lessonName: updatedLesson.name, playbookUrl: context?.playbookUrl || '', playbookApiKey: context?.playbookApiKey || '' });
-        }
-        setHasUnsavedChanges(false);
-        setSaveStatus('saved');
-        // Refresh lessons list for dropdown
-        fetchAllLessons();
-        // Notify sidebar to refresh
-        if (window.vscode) {
-          window.vscode.postMessage({ type: 'lessonUpdated' });
-        }
-        setTimeout(() => setSaveStatus('idle'), 2000);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        setValidationError(errorData.detail || 'Failed to save lesson');
-        setSaveStatus('error');
-        setTimeout(() => {
-          setSaveStatus('idle');
-          setValidationError(null);
-        }, 3000);
-      }
-    } catch (err) {
-      setValidationError('Server not available');
+    if (!window.vscode) {
+      setValidationError('VSCode API not available');
       setSaveStatus('error');
-      setTimeout(() => {
-        setSaveStatus('idle');
-        setValidationError(null);
-      }, 3000);
+      return;
     }
-  }, [context, editedContent, editedName, editedSummary, fetchAllLessons, isNewLesson, validateFields]);
+
+    if (isNewLesson) {
+      // Create new lesson via server proxy
+      window.vscode.postMessage({
+        type: 'add_lesson',
+        name: editedName.trim(),
+        summary: editedSummary.trim(),
+        content: editedContent.trim(),
+      });
+    } else {
+      // Update existing lesson via server proxy
+      window.vscode.postMessage({
+        type: 'update_lesson',
+        lesson_id: context?.lessonId,
+        name: editedName.trim(),
+        summary: editedSummary.trim(),
+        content: editedContent.trim(),
+      });
+    }
+
+    // Notify sidebar to refresh when save completes (handled in message listener)
+    if (window.vscode) {
+      window.vscode.postMessage({ type: 'lessonUpdated' });
+    }
+  }, [context?.lessonId, editedContent, editedName, editedSummary, isNewLesson, validateFields]);
 
   // Handle CMD+S / Ctrl+S keyboard shortcut for save
   useEffect(() => {
@@ -249,7 +251,7 @@ export const LessonEditorTabApp: React.FC = () => {
 
   // Handle navigating to a different lesson
   const handleNavigateToLesson = useCallback((lessonSummary: LessonSummary) => {
-    setContext(prev => ({ lessonId: lessonSummary.id, lessonName: lessonSummary.name, playbookUrl: prev?.playbookUrl || '', playbookApiKey: prev?.playbookApiKey || '' }));
+    setContext({ lessonId: lessonSummary.id, lessonName: lessonSummary.name });
     setShowPreview(false);
   }, []);
 
@@ -352,7 +354,7 @@ export const LessonEditorTabApp: React.FC = () => {
         <div style={{ color: '#e05252' }}>{error}</div>
         <button
           style={{ ...buttonStyle, marginTop: '16px' }}
-          onClick={() => context?.lessonId && fetchLesson(context.lessonId)}
+          onClick={() => context?.lessonId && requestLesson(context.lessonId)}
         >
           Retry
         </button>

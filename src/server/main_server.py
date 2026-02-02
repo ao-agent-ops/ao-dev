@@ -584,55 +584,218 @@ class MainServer:
         # Then send the experiment list
         self.broadcast_experiment_list_to_uis(conn)
 
+    # ============================================================
+    # Lessons (proxied to ao-playbook API)
+    # ============================================================
+
+    def _playbook_request(self, method: str, endpoint: str, data: dict = None) -> dict:
+        """Make HTTP request to ao-playbook server."""
+        import urllib.request
+        import urllib.error
+
+        url = f"{PLAYBOOK_SERVER_URL}/api/v1{endpoint}"
+        headers = {"Content-Type": "application/json"}
+        if PLAYBOOK_API_KEY:
+            headers["X-API-Key"] = PLAYBOOK_API_KEY
+
+        logger.info(f"[Playbook] {method} {url} (API key: {'set' if PLAYBOOK_API_KEY else 'NOT SET'})")
+
+        body = json.dumps(data).encode("utf-8") if data else None
+        req = urllib.request.Request(url, data=body, headers=headers, method=method)
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                if isinstance(result, dict):
+                    logger.info(f"[Playbook] Response status: {result.get('status', 'ok')}")
+                else:
+                    logger.info(f"[Playbook] Response: list with {len(result)} items")
+                return result
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8") if e.fp else ""
+            logger.error(f"Playbook API error {e.code}: {error_body}")
+            return {"error": f"API error: {e.code}", "detail": error_body}
+        except urllib.error.URLError as e:
+            logger.warning(f"Playbook server unavailable: {e.reason}")
+            return {"error": "Playbook server unavailable"}
+        except Exception as e:
+            logger.error(f"Playbook request failed: {e}")
+            return {"error": str(e)}
+
+    def _merge_lessons_with_applied(self, lessons: list) -> list:
+        """Merge ao-playbook lessons with local applied data."""
+        # Get all applied records grouped by lesson_id
+        applied_records = DB.get_all_lessons_applied()
+        applied_by_lesson = {}
+        for record in applied_records:
+            lid = record["lesson_id"]
+            if lid not in applied_by_lesson:
+                applied_by_lesson[lid] = []
+            applied_by_lesson[lid].append({
+                "sessionId": record["session_id"],
+                "nodeId": record["node_id"],
+                "runName": record["run_name"],
+            })
+
+        # Merge applied data into lessons
+        for lesson in lessons:
+            lesson_id = lesson.get("id")
+            if lesson_id and lesson_id in applied_by_lesson:
+                lesson["appliedTo"] = applied_by_lesson[lesson_id]
+
+        return lessons
+
     def handle_get_lessons(self, conn: socket.socket) -> None:
-        """Handle request for LLM lessons list."""
-        lessons = DB.get_all_lessons()
-        send_json(conn, {"type": "lessons_list", "lessons": lessons})
+        """Fetch lessons from ao-playbook and merge with local applied data."""
+        result = self._playbook_request("GET", "/lessons")
+
+        if "error" in result:
+            send_json(conn, {"type": "lessons_list", "lessons": [], "error": result["error"]})
+            return
+
+        # Handle both list response and dict with "lessons" key
+        lessons = result if isinstance(result, list) else result.get("lessons", [])
+        merged = self._merge_lessons_with_applied(lessons)
+        send_json(conn, {"type": "lessons_list", "lessons": merged})
 
     def handle_add_lesson(self, msg: dict, conn: socket.socket) -> None:
-        """Handle request to add a new lesson."""
-        lesson_id = msg.get("lesson_id")
-        lesson_text = msg.get("lesson_text", "")
-        from_session_id = msg.get("from_session_id")
-        from_node_id = msg.get("from_node_id")
+        """Create lesson via ao-playbook API with validation feedback."""
+        data = {
+            "name": msg.get("name", ""),
+            "summary": msg.get("summary", ""),
+            "content": msg.get("content", ""),
+            "path": msg.get("path", ""),
+        }
 
-        if not lesson_id:
-            logger.error("add_lesson: Missing lesson_id")
+        if not data["name"] or not data["content"]:
+            logger.error("add_lesson: Missing required fields (name, content)")
+            send_json(conn, {"type": "lesson_error", "error": "Missing required fields (name, content)"})
             return
 
-        DB.add_lesson(lesson_id, lesson_text, from_session_id, from_node_id)
-        # Broadcast updated lessons list to all UIs
-        self._broadcast_lessons_to_uis()
+        # Use force query param to skip server-side validation
+        force = msg.get("force", False)
+        endpoint = "/lessons" + ("?force=true" if force else "")
+
+        result = self._playbook_request("POST", endpoint, data)
+
+        if result.get("status") == "rejected":
+            # Validation rejection - keep modal open, include hint if present
+            reason = result.get("reason", "Validation failed")
+            hint = result.get("hint")
+            if hint:
+                reason = f"{reason}\n\nHint: {hint}"
+            send_json(conn, {
+                "type": "lesson_rejected",
+                "reason": reason,
+                "severity": "error",
+                "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
+            })
+        elif "error" in result:
+            send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
+        elif result.get("status") == "created":
+            # Success - include validation feedback
+            validation = result.get("validation")
+            send_json(conn, {
+                "type": "lesson_created",
+                "lesson": result,
+                "validation": validation,
+            })
+            self._broadcast_lessons_to_uis()
+        else:
+            logger.warning(f"Unexpected add_lesson response: {result}")
+            send_json(conn, {"type": "lesson_error", "error": "Unexpected server response"})
 
     def handle_update_lesson(self, msg: dict, conn: socket.socket) -> None:
-        """Handle request to update a lesson's text."""
+        """Update lesson via ao-playbook API with validation feedback."""
         lesson_id = msg.get("lesson_id")
-        lesson_text = msg.get("lesson_text")
-
-        if not lesson_id or lesson_text is None:
-            logger.error(f"update_lesson: Missing required fields: lesson_id={lesson_id}")
+        if not lesson_id:
+            logger.error("update_lesson: Missing lesson_id")
+            send_json(conn, {"type": "lesson_error", "error": "Missing lesson_id"})
             return
 
-        DB.update_lesson(lesson_id, lesson_text)
-        # Broadcast updated lessons list to all UIs
-        self._broadcast_lessons_to_uis()
+        # Only include fields that were provided
+        data = {}
+        for field in ["name", "summary", "content", "path"]:
+            if field in msg:
+                data[field] = msg[field]
+
+        if not data:
+            logger.error("update_lesson: No fields to update")
+            send_json(conn, {"type": "lesson_error", "error": "No fields to update"})
+            return
+
+        # Use force query param to skip server-side validation
+        force = msg.get("force", False)
+        endpoint = f"/lessons/{lesson_id}" + ("?force=true" if force else "")
+
+        result = self._playbook_request("PUT", endpoint, data)
+
+        if result.get("status") == "rejected":
+            # Validation rejection - keep modal open, include hint if present
+            reason = result.get("reason", "Validation failed")
+            hint = result.get("hint")
+            if hint:
+                reason = f"{reason}\n\nHint: {hint}"
+            send_json(conn, {
+                "type": "lesson_rejected",
+                "reason": reason,
+                "severity": "error",
+                "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
+            })
+        elif "error" in result:
+            send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
+        elif result.get("status") == "updated":
+            # Success - include validation feedback
+            validation = result.get("validation")
+            send_json(conn, {
+                "type": "lesson_updated",
+                "lesson": result,
+                "validation": validation,
+            })
+            self._broadcast_lessons_to_uis()
+        else:
+            logger.warning(f"Unexpected update_lesson response: {result}")
+            send_json(conn, {"type": "lesson_error", "error": "Unexpected server response"})
 
     def handle_delete_lesson(self, msg: dict, conn: socket.socket) -> None:
-        """Handle request to delete a lesson."""
+        """Delete lesson via ao-playbook API and clean up local applied records."""
         lesson_id = msg.get("lesson_id")
-
         if not lesson_id:
             logger.error("delete_lesson: Missing lesson_id")
+            send_json(conn, {"type": "lesson_error", "error": "Missing lesson_id"})
             return
 
-        DB.delete_lesson(lesson_id)
-        # Broadcast updated lessons list to all UIs
-        self._broadcast_lessons_to_uis()
+        result = self._playbook_request("DELETE", f"/lessons/{lesson_id}")
+        if "error" in result:
+            send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
+        else:
+            # Clean up local applied records
+            DB.delete_lessons_applied_for_lesson(lesson_id)
+            self._broadcast_lessons_to_uis()
+
+    def handle_get_lesson(self, msg: dict, conn: socket.socket) -> None:
+        """Fetch a single lesson's full content via ao-playbook API."""
+        lesson_id = msg.get("lesson_id")
+        if not lesson_id:
+            logger.error("get_lesson: Missing lesson_id")
+            send_json(conn, {"type": "lesson_error", "error": "Missing lesson_id"})
+            return
+
+        result = self._playbook_request("GET", f"/lessons/{lesson_id}")
+        if "error" in result:
+            send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
+        else:
+            # Result contains the full lesson with content
+            lesson = result.get("lesson", result)
+            send_json(conn, {"type": "lesson_content", "lesson": lesson})
 
     def _broadcast_lessons_to_uis(self) -> None:
         """Broadcast updated lessons list to all UI connections."""
-        lessons = DB.get_all_lessons()
-        self.broadcast_to_all_uis({"type": "lessons_list", "lessons": lessons})
+        result = self._playbook_request("GET", "/lessons")
+        lessons = result if isinstance(result, list) else result.get("lessons", [])
+        if "error" not in result:
+            merged = self._merge_lessons_with_applied(lessons)
+            self.broadcast_to_all_uis({"type": "lessons_list", "lessons": merged})
 
     # NOTE: Auth disabled - handle_auth method commented out
     # def handle_auth(self, msg: dict, conn: socket.socket) -> None:
@@ -863,6 +1026,8 @@ class MainServer:
             self.handle_update_lesson(msg, conn)
         elif msg_type == "delete_lesson":
             self.handle_delete_lesson(msg, conn)
+        elif msg_type == "get_lesson":
+            self.handle_get_lesson(msg, conn)
         else:
             logger.error(f"Unknown message type. Message:\n{msg}")
 

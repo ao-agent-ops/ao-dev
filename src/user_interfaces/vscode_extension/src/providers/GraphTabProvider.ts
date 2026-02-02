@@ -298,6 +298,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
                 case 'add_lesson':
                 case 'update_lesson':
                 case 'delete_lesson':
+                case 'get_lesson':
                     // Forward lesson CRUD operations to Python server
                     if (this._pythonClient) {
                         this._pythonClient.sendMessage(data);
@@ -534,8 +535,16 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         }
 
         const messageHandler = (msg: any) => {
-            // Forward lessons_list messages to the lessons panel
-            if (msg.type === 'lessons_list') {
+            // Forward lesson-related messages to the lessons panel
+            const lessonMessageTypes = [
+                'lessons_list',
+                'lesson_content',
+                'lesson_error',
+                'lesson_created',
+                'lesson_updated',
+                'lesson_rejected',
+            ];
+            if (lessonMessageTypes.includes(msg.type)) {
                 panel.webview.postMessage(msg);
             }
         };
@@ -802,13 +811,44 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         panel.webview.onDidReceiveMessage(data => {
             switch (data.type) {
                 case 'ready':
-                    // Lesson editor fetches its own data via HTTP
+                    // Request lessons list for dropdown
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage({ type: 'get_lessons' });
+                    }
                     break;
                 case 'lessonUpdated':
                     // Notify sidebar to refresh lessons list
                     this._sidebarProvider?.refreshLessons();
                     break;
+                case 'get_lessons':
+                case 'get_lesson':
+                case 'add_lesson':
+                case 'update_lesson':
+                    // Forward lesson operations to Python server
+                    if (this._pythonClient) {
+                        this._pythonClient.sendMessage(data);
+                    }
+                    break;
             }
+        });
+
+        // Forward lesson responses from server to this panel
+        const lessonEditorMessageHandler = (msg: any) => {
+            const lessonMessageTypes = [
+                'lessons_list',
+                'lesson_content',
+                'lesson_error',
+                'lesson_created',
+                'lesson_updated',
+                'lesson_rejected',
+            ];
+            if (lessonMessageTypes.includes(msg.type)) {
+                panel.webview.postMessage(msg);
+            }
+        };
+        this._pythonClient?.onMessage(lessonEditorMessageHandler);
+        panel.onDidDispose(() => {
+            this._pythonClient?.removeMessageListener(lessonEditorMessageHandler);
         });
 
         // Send theme info
@@ -828,8 +868,6 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
 
         const escapedLessonId = lessonId.replace(/'/g, "\\'");
         const escapedLessonName = lessonName.replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const playbookUrl = this._pythonClient?.getPlaybookUrl() || '';
-        const playbookApiKey = this._pythonClient?.getPlaybookApiKey() || '';
 
         const html = `
 <!DOCTYPE html>
@@ -864,9 +902,7 @@ export class GraphTabProvider implements vscode.WebviewPanelSerializer {
         window.vscode = vscode;
         window.lessonEditorContext = {
             lessonId: '${escapedLessonId}',
-            lessonName: '${escapedLessonName}',
-            playbookUrl: '${playbookUrl}',
-            playbookApiKey: '${playbookApiKey}'
+            lessonName: '${escapedLessonName}'
         };
     </script>
     <script src="${scriptUri}"></script>

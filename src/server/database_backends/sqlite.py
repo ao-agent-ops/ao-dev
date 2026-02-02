@@ -126,22 +126,7 @@ def _init_db(conn):
     """
     )
 
-    # Create lessons table
-    c.execute(
-        """
-        CREATE TABLE IF NOT EXISTS lessons (
-            lesson_id TEXT PRIMARY KEY,
-            from_session_id TEXT,
-            from_node_id TEXT,
-            lesson_text TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT (datetime('now')),
-            updated_at TIMESTAMP DEFAULT (datetime('now')),
-            FOREIGN KEY (from_session_id) REFERENCES experiments (session_id)
-        )
-    """
-    )
-
-    # Create lessons_applied table
+    # Create lessons_applied table (tracks which lessons from ao-playbook were applied to runs)
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS lessons_applied (
@@ -150,7 +135,6 @@ def _init_db(conn):
             session_id TEXT NOT NULL,
             node_id TEXT,
             applied_at TIMESTAMP DEFAULT (datetime('now')),
-            FOREIGN KEY (lesson_id) REFERENCES lessons (lesson_id),
             FOREIGN KEY (session_id) REFERENCES experiments (session_id),
             UNIQUE (lesson_id, session_id, node_id)
         )
@@ -545,24 +529,26 @@ def get_llm_call_full_query(session_id, node_id):
 # ============================================================
 
 
-def get_all_lessons_query():
-    """Get all lessons with their extracted_from and applied_to information."""
-    # Get all lessons
-    lessons = query_all(
+# ============================================================
+# Lessons Applied queries (tracks which ao-playbook lessons were applied to runs)
+# ============================================================
+
+
+def get_all_lessons_applied_query():
+    """Get all lesson application records with run names for merging with ao-playbook data."""
+    return query_all(
         """
-        SELECT l.lesson_id, l.lesson_text, l.from_session_id, l.from_node_id,
-               e.name as from_run_name
-        FROM lessons l
-        LEFT JOIN experiments e ON l.from_session_id = e.session_id
-        ORDER BY l.created_at DESC
+        SELECT la.lesson_id, la.session_id, la.node_id, e.name as run_name
+        FROM lessons_applied la
+        LEFT JOIN experiments e ON la.session_id = e.session_id
+        ORDER BY la.applied_at DESC
         """,
         (),
     )
-    return lessons
 
 
 def get_lessons_applied_query(lesson_id):
-    """Get all sessions/nodes where a lesson was applied."""
+    """Get all sessions/nodes where a specific lesson was applied."""
     return query_all(
         """
         SELECT la.session_id, la.node_id, e.name as run_name
@@ -573,34 +559,6 @@ def get_lessons_applied_query(lesson_id):
         """,
         (lesson_id,),
     )
-
-
-def insert_lesson_query(lesson_id, lesson_text, from_session_id=None, from_node_id=None):
-    """Insert a new lesson."""
-    execute(
-        """
-        INSERT INTO lessons (lesson_id, lesson_text, from_session_id, from_node_id)
-        VALUES (?, ?, ?, ?)
-        """,
-        (lesson_id, lesson_text, from_session_id, from_node_id),
-    )
-
-
-def update_lesson_query(lesson_id, lesson_text):
-    """Update an existing lesson's text."""
-    execute(
-        """
-        UPDATE lessons SET lesson_text = ?, updated_at = datetime('now')
-        WHERE lesson_id = ?
-        """,
-        (lesson_text, lesson_id),
-    )
-
-
-def delete_lesson_query(lesson_id):
-    """Delete a lesson and its applied records."""
-    execute("DELETE FROM lessons_applied WHERE lesson_id = ?", (lesson_id,))
-    execute("DELETE FROM lessons WHERE lesson_id = ?", (lesson_id,))
 
 
 def add_lesson_applied_query(lesson_id, session_id, node_id=None):
@@ -626,3 +584,8 @@ def remove_lesson_applied_query(lesson_id, session_id, node_id=None):
             "DELETE FROM lessons_applied WHERE lesson_id = ? AND session_id = ? AND node_id IS NULL",
             (lesson_id, session_id),
         )
+
+
+def delete_lessons_applied_for_lesson_query(lesson_id):
+    """Delete all application records for a lesson (when lesson is deleted from ao-playbook)."""
+    execute("DELETE FROM lessons_applied WHERE lesson_id = ?", (lesson_id,))

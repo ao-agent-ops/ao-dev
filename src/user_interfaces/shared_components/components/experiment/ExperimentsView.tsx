@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { ProcessInfo, LessonSummary } from '../../types';
+import { ProcessInfo } from '../../types';
 
 // interface UserInfo {
 //   displayName?: string;
@@ -11,11 +11,7 @@ interface ExperimentsViewProps {
   similarProcesses: ProcessInfo[];
   runningProcesses: ProcessInfo[];
   finishedProcesses: ProcessInfo[];
-  lessons?: LessonSummary[];
   onCardClick?: (process: ProcessInfo) => void;
-  onLessonClick?: (lesson: LessonSummary) => void;
-  onLessonDelete?: (lessonId: string) => void;
-  onCreateLesson?: () => void;
   isDarkTheme?: boolean;
   // user?: UserInfo;
   // onLogout?: () => void;
@@ -31,11 +27,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   similarProcesses,
   runningProcesses,
   finishedProcesses,
-  lessons = [],
   onCardClick,
-  onLessonClick,
-  onLessonDelete,
-  onCreateLesson,
   isDarkTheme = false,
   // user,
   // onLogout,
@@ -47,14 +39,12 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   onRefresh,
 }) => {
   const [hoveredCards, setHoveredCards] = useState<Set<string>>(new Set());
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished', 'lessons']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['running', 'finished']));
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Section sizes (percentages of available height)
-  // Running takes runningSizePercent, Finished takes finishedSizePercent, Lessons takes the rest
-  const [runningSizePercent, setRunningSizePercent] = useState(20);
-  const [finishedSizePercent, setFinishedSizePercent] = useState(50);
-  // lessonsSizePercent is calculated as: 100 - runningSizePercent - finishedSizePercent
+  const [runningSizePercent, setRunningSizePercent] = useState(30);
+  const [finishedSizePercent, setFinishedSizePercent] = useState(70);
 
   const [resizing, setResizing] = useState<'running' | 'finished' | null>(null);
   const [startY, setStartY] = useState(0);
@@ -101,13 +91,15 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
     const deltaPercent = (deltaY / containerHeight) * 100;
 
     if (resizing === 'running') {
-      // Running section: constrain so finished + lessons still have space
-      const maxRunning = 100 - finishedSizePercent - 10; // Leave at least 10% for lessons
+      // Running section: constrain so finished still has space
+      const maxRunning = 100 - 10; // Leave at least 10% for finished
       const newSize = Math.max(10, Math.min(maxRunning, startSize + deltaPercent));
       setRunningSizePercent(newSize);
+      // Adjust finished to take remaining space
+      setFinishedSizePercent(100 - newSize);
     } else if (resizing === 'finished') {
-      // Finished section: constrain so lessons still has space
-      const maxFinished = 100 - runningSizePercent - 10; // Leave at least 10% for lessons
+      // Finished section: constrain so running still has space
+      const maxFinished = 100 - runningSizePercent;
       const newSize = Math.max(10, Math.min(maxFinished, startSize + deltaPercent));
       setFinishedSizePercent(newSize);
     }
@@ -572,184 +564,6 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
   // Show lock screen if in Remote mode without user
   // const showLockScreen = currentMode === 'Remote' && !user;
 
-  const truncateName = (name: string, maxLength: number = 20): string => {
-    if (name.length <= maxLength) return name;
-    return name.slice(0, maxLength) + '...';
-  };
-
-  const renderLessonsSection = (sizePercent: number) => {
-    const isExpanded = expandedSections.has('lessons');
-
-    const sectionHeaderStyle: React.CSSProperties = {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      padding: '4px 16px',
-      fontSize: '11px',
-      fontWeight: 700,
-      letterSpacing: '0.5px',
-      textTransform: 'uppercase',
-      color: 'var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground))',
-      cursor: 'pointer',
-      userSelect: 'none',
-      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-    };
-
-    const chevronStyle: React.CSSProperties = {
-      fontSize: '16px',
-      transition: 'transform 0.1s ease',
-      display: 'flex',
-      alignItems: 'center',
-    };
-
-    const listContainerStyle: React.CSSProperties = {
-      display: 'flex',
-      flexDirection: 'column',
-      flex: isExpanded ? sizePercent : 'none',
-      minHeight: isExpanded ? 0 : undefined,
-      overflow: 'hidden',
-    };
-
-    const listItemsStyle: React.CSSProperties = {
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      flex: 1,
-      paddingBottom: '12px',
-    };
-
-    const listItemStyle: React.CSSProperties = {
-      display: 'flex',
-      alignItems: 'center',
-      padding: '2px 16px 2px 24px',
-      fontSize: '13px',
-      color: 'var(--vscode-foreground)',
-      cursor: 'pointer',
-      userSelect: 'none',
-      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-      height: '22px',
-      lineHeight: '22px',
-    };
-
-    const emptyMessageStyle: React.CSSProperties = {
-      padding: '8px 16px 8px 24px',
-      fontSize: '12px',
-      color: 'var(--vscode-descriptionForeground)',
-      fontStyle: 'italic',
-      fontFamily: "var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif)",
-    };
-
-    return (
-      <div style={listContainerStyle}>
-        <div
-          style={sectionHeaderStyle}
-        >
-          <div
-            onClick={() => toggleSection('lessons')}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}
-          >
-            <i
-              className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`}
-              style={chevronStyle}
-            />
-            <span>Lessons</span>
-          </div>
-          {onCreateLesson && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCreateLesson();
-              }}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '2px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--vscode-foreground)',
-                opacity: 0.7,
-                borderRadius: '4px',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.backgroundColor = 'var(--vscode-toolbar-hoverBackground)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title="Create new lesson"
-            >
-              <i className="codicon codicon-add" style={{ fontSize: '14px' }} />
-            </button>
-          )}
-        </div>
-        {isExpanded && (
-          <div style={listItemsStyle}>
-            {lessons.length > 0 ? (
-              lessons.map((lesson) => {
-                const cardId = `lesson-${lesson.id}`;
-                const isHovered = hoveredCards.has(cardId);
-
-                return (
-                  <div
-                    key={lesson.id}
-                    style={{
-                      ...listItemStyle,
-                      backgroundColor: isHovered
-                        ? 'var(--vscode-list-hoverBackground)'
-                        : 'transparent',
-                    }}
-                    onClick={() => onLessonClick && onLessonClick(lesson)}
-                    onMouseEnter={() => handleCardHover(cardId, true)}
-                    onMouseLeave={() => handleCardHover(cardId, false)}
-                  >
-                    <i className="codicon codicon-lightbulb" style={{ marginRight: '8px', fontSize: '16px', opacity: 0.7 }} />
-                    <span style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1,
-                    }}>
-                      {truncateName(lesson.name)}
-                    </span>
-                    {isHovered && onLessonDelete && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onLessonDelete(lesson.id);
-                        }}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#e05252',
-                          marginLeft: '4px',
-                        }}
-                        title="Delete lesson"
-                      >
-                        <i className="codicon codicon-trash" style={{ fontSize: '14px' }} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <div style={emptyMessageStyle}>
-                No lessons
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div style={containerStyle}>
       {showHeader && (
@@ -794,54 +608,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
         flexDirection: 'column',
         flex: 1,
         overflow: 'hidden',
-        // marginBottom: `${footerHeight}px`
       }}>
         {renderExperimentSection(runningProcesses, 'Running', 'running', runningSizePercent, true)}
-        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', finishedSizePercent, lessons.length > 0)}
-        {renderLessonsSection(100 - runningSizePercent - finishedSizePercent)}
+        {renderExperimentSection(finishedProcesses, 'Finished', 'finished', finishedSizePercent, false)}
       </div>
-
-      {/* User Section commented out - auth disabled */}
-      {/* <div style={userSectionContainerStyle}>
-        {user ? (
-          <div style={userRowStyle}>
-            <img
-              src={user.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp&s=200'}
-              alt={user.displayName || 'User avatar'}
-              style={avatarStyle}
-            />
-            <div style={nameBlockStyle}>
-              <div style={nameStyle}>{user.displayName || 'User'}</div>
-              <div style={emailStyle}>{user.email || ''}</div>
-            </div>
-            <button
-              onClick={handleLogoutClick}
-              style={{
-                marginLeft: 'auto',
-                padding: '4px',
-                backgroundColor: 'transparent',
-                color: isDarkTheme ? '#cccccc' : '#333333',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: 0.7,
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
-              }}
-              title="Logout"
-            >
-              <IconSignOut size={20} />
-            </button>
-          </div>
-        ) : null}
-      </div> */}
 
       {/* Lessons Button */}
       {onLessonsClick && (
@@ -857,7 +627,7 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
             style={{
               width: '100%',
               padding: '10px 16px',
-              backgroundColor: isDarkTheme ? '#0e639c' : '#007acc',
+              backgroundColor: '#43884e',
               color: '#ffffff',
               border: 'none',
               borderRadius: '4px',
@@ -871,10 +641,10 @@ export const ExperimentsView: React.FC<ExperimentsViewProps> = ({
               transition: 'background-color 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = isDarkTheme ? '#1177bb' : '#005a9e';
+              e.currentTarget.style.backgroundColor = '#3a7644';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = isDarkTheme ? '#0e639c' : '#007acc';
+              e.currentTarget.style.backgroundColor = '#43884e';
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
