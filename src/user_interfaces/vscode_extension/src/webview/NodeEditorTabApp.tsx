@@ -197,6 +197,9 @@ export const NodeEditorTabApp: React.FC = () => {
     setInitialInputData(parse(safeStringify(inputData)));
     setInitialOutputData(parse(safeStringify(outputData)));
     setHasUnsavedChanges(false);
+
+    // Close the tab after saving
+    window.vscode.postMessage({ type: 'closeTab' });
   }, [context, inputData, outputData, initialInputData, initialOutputData]);
 
   // Handle document open
