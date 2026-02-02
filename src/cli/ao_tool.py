@@ -14,7 +14,11 @@ from pathlib import Path
 from ao.common.constants import PLAYBOOK_SERVER_URL, PLAYBOOK_SERVER_TIMEOUT
 from ao.server.database_manager import DB
 
-SESSION_WAIT_TIMEOUT = 5  # Max seconds to wait for session_id from agent_runner
+# Model for lesson validation LLM guard
+LESSON_VALIDATION_MODEL = "gpt-5.2"
+LESSON_VALIDATION_REASONING = "medium"  # OpenAI reasoning effort
+
+SESSION_WAIT_TIMEOUT = 30  # Max seconds to wait for session_id from agent_runner
 
 
 def output_json(data: dict) -> None:
@@ -818,9 +822,198 @@ def _playbook_request(method: str, path: str, data: dict | None = None) -> dict:
         return {"status": "error", "error": f"Invalid JSON response: {e}"}
 
 
+def _validate_lesson_with_llm(
+    name: str,
+    summary: str,
+    content: str,
+    path: str | None,
+    existing_lesson_id: str | None = None,
+) -> dict:
+    """
+    Validate a lesson using GPT-5.2 with medium reasoning.
+
+    Checks for:
+    - Internal consistency and quality
+    - Conflicts with existing lessons at the same path
+    - Redundancy or contradictions
+
+    Args:
+        name: Lesson name
+        summary: Lesson summary
+        content: Full lesson content
+        path: Folder path for the lesson (for fetching context)
+        existing_lesson_id: If updating, the ID of the lesson being updated (to exclude from context)
+
+    Returns:
+        Dict with:
+        - "approved": bool - whether the lesson should be created/updated
+        - "feedback": str - suggestions for improvement or rejection reason
+        - "severity": str - "info", "warning", or "error"
+        - "conflicting_lesson_ids": list[str] - IDs of lessons that conflict
+    """
+    # Fetch existing lessons at the same path for context
+    endpoint = "/api/v1/lessons"
+    if path:
+        from urllib.parse import urlencode
+        endpoint += "?" + urlencode({"path": path})
+
+    existing_lessons_result = _playbook_request("GET", endpoint)
+    existing_lessons = []
+    if isinstance(existing_lessons_result, list):
+        existing_lessons = existing_lessons_result
+    elif isinstance(existing_lessons_result, dict) and "lessons" in existing_lessons_result:
+        existing_lessons = existing_lessons_result.get("lessons", [])
+
+    # Filter out the lesson being updated (if applicable)
+    if existing_lesson_id:
+        existing_lessons = [l for l in existing_lessons if l.get("id") != existing_lesson_id]
+
+    is_first_lesson = len(existing_lessons) == 0
+
+    # Build the context for the LLM with lesson IDs
+    if is_first_lesson:
+        existing_context = "(This will be the first lesson in this folder - no existing lessons to compare against)"
+        lesson_ids_info = ""
+    else:
+        existing_context = "Existing lessons in this folder:\n\n"
+        lesson_ids_info = "Available lesson IDs for reference: "
+        ids_list = []
+        for i, lesson in enumerate(existing_lessons, 1):
+            lesson_id = lesson.get("id", f"unknown_{i}")
+            ids_list.append(lesson_id)
+            existing_context += f"--- Lesson (ID: {lesson_id}): {lesson.get('name', 'Untitled')} ---\n"
+            existing_context += f"Summary: {lesson.get('summary', 'No summary')}\n"
+            existing_context += f"Content:\n{lesson.get('content', 'No content')}\n\n"
+        lesson_ids_info += ", ".join(ids_list)
+
+    # Build the prompt
+    system_prompt = f"""You are a critical lesson quality reviewer. Your task is to analyze a proposed lesson and determine if it should be accepted, needs improvement, or should be rejected.
+
+You must evaluate:
+1. **Internal Quality**: Is the lesson clear and well-structured?
+2. **Consistency**: Does it contradict itself or make unclear statements?
+3. **Conflicts**: Does it conflict with or contradict existing lessons?
+4. **Redundancy**: Is it largely redundant with existing lessons without adding value?
+5. **Accuracy**: Does it make claims that seem incorrect or misleading?
+
+{lesson_ids_info}
+
+Guidelines:
+- "approved": true with "severity": "info" - Lesson is good, minor suggestions only
+- "approved": true with "severity": "warning" - Lesson is acceptable but has notable issues to address
+- "approved": false with "severity": "error" - Lesson has severe problems (conflicts, major inaccuracies, or critical quality issues)
+
+Be constructive but rigorous. Most lessons should be approved with helpful feedback for improvement.
+Only reject (approved: false) for severe issues like direct contradictions with existing lessons or fundamentally flawed content.
+
+If you identify conflicts or inconsistencies with existing lessons, include their IDs in conflicting_lesson_ids."""
+
+    user_prompt = f"""Please analyze the following proposed lesson:
+
+**Lesson Name:** {name}
+
+**Summary:** {summary}
+
+**Content:**
+{content}
+
+**Path/Folder:** {path or "(root)"}
+
+**Existing Context:**
+{existing_context}
+
+Analyze this lesson critically and provide your assessment."""
+
+    # Make the LLM call with structured outputs
+    try:
+        import openai
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return {
+                "approved": True,
+                "feedback": "Skipped validation: OPENAI_API_KEY not set",
+                "severity": "info",
+                "conflicting_lesson_ids": [],
+            }
+
+        client = openai.OpenAI(api_key=api_key)
+
+        # Structured output schema
+        response_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "lesson_validation",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "approved": {
+                            "type": "boolean",
+                            "description": "Whether the lesson should be created/updated"
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["info", "warning", "error"],
+                            "description": "Severity level of the feedback"
+                        },
+                        "feedback": {
+                            "type": "string",
+                            "description": "Detailed feedback with suggestions or rejection reason"
+                        },
+                        "conflicting_lesson_ids": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "IDs of existing lessons that conflict with or contradict this lesson"
+                        }
+                    },
+                    "required": ["approved", "severity", "feedback", "conflicting_lesson_ids"],
+                    "additionalProperties": False
+                }
+            }
+        }
+
+        response = client.chat.completions.create(
+            model=LESSON_VALIDATION_MODEL,
+            reasoning_effort=LESSON_VALIDATION_REASONING,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=response_schema,
+        )
+
+        result = json.loads(response.choices[0].message.content)
+        return {
+            "approved": result["approved"],
+            "feedback": result["feedback"],
+            "severity": result["severity"],
+            "conflicting_lesson_ids": result["conflicting_lesson_ids"],
+        }
+
+    except ImportError:
+        return {
+            "approved": True,
+            "feedback": "Skipped validation: openai package not installed",
+            "severity": "info",
+            "conflicting_lesson_ids": [],
+        }
+    except Exception as e:
+        return {
+            "approved": True,
+            "feedback": f"Validation failed with error: {e}. Proceeding anyway.",
+            "severity": "warning",
+            "conflicting_lesson_ids": [],
+        }
+
+
 def playbook_lessons_list_command(args) -> None:
-    """List all lessons."""
-    result = _playbook_request("GET", "/api/v1/lessons")
+    """List all lessons, optionally filtered by folder path."""
+    endpoint = "/api/v1/lessons"
+    if args.path:
+        from urllib.parse import urlencode
+        endpoint += "?" + urlencode({"path": args.path})
+    result = _playbook_request("GET", endpoint)
     if "status" in result and result["status"] == "error":
         output_json(result)
     output_json({"status": "success", "lessons": result})
@@ -836,15 +1029,45 @@ def playbook_lessons_get_command(args) -> None:
 
 def playbook_lessons_create_command(args) -> None:
     """Create a new lesson."""
+    # Validate with LLM unless --force is used
+    if not args.force:
+        validation = _validate_lesson_with_llm(
+            name=args.name,
+            summary=args.summary,
+            content=args.content,
+            path=args.path,
+        )
+
+        if not validation["approved"]:
+            output_json({
+                "status": "rejected",
+                "reason": validation["feedback"],
+                "severity": validation["severity"],
+                "conflicting_lesson_ids": validation["conflicting_lesson_ids"],
+                "hint": "Use --force to skip validation and create anyway",
+            })
+
     data = {
         "name": args.name,
         "summary": args.summary,
         "content": args.content,
     }
+    if args.path:
+        data["path"] = args.path
+
     result = _playbook_request("POST", "/api/v1/lessons", data)
     if "status" in result and result["status"] == "error":
         output_json(result)
-    output_json({"status": "success", "lesson": result})
+
+    # Include validation feedback in successful response
+    response = {"status": "success", "lesson": result}
+    if not args.force:
+        response["validation"] = {
+            "feedback": validation["feedback"],
+            "severity": validation["severity"],
+            "conflicting_lesson_ids": validation["conflicting_lesson_ids"],
+        }
+    output_json(response)
 
 
 def playbook_lessons_update_command(args) -> None:
@@ -860,10 +1083,49 @@ def playbook_lessons_update_command(args) -> None:
     if not data:
         output_json({"status": "error", "error": "At least one of --name, --summary, or --content is required"})
 
+    # Validate with LLM unless --force is used
+    if not args.force:
+        # Fetch current lesson to get path and fill in unchanged fields
+        current_lesson = _playbook_request("GET", f"/api/v1/lessons/{args.lesson_id}")
+        if "status" in current_lesson and current_lesson["status"] == "error":
+            output_json(current_lesson)
+
+        # Use updated values or fall back to current values
+        validation_name = args.name or current_lesson.get("name", "")
+        validation_summary = args.summary or current_lesson.get("summary", "")
+        validation_content = args.content or current_lesson.get("content", "")
+        validation_path = current_lesson.get("path")
+
+        validation = _validate_lesson_with_llm(
+            name=validation_name,
+            summary=validation_summary,
+            content=validation_content,
+            path=validation_path,
+            existing_lesson_id=args.lesson_id,
+        )
+
+        if not validation["approved"]:
+            output_json({
+                "status": "rejected",
+                "reason": validation["feedback"],
+                "severity": validation["severity"],
+                "conflicting_lesson_ids": validation["conflicting_lesson_ids"],
+                "hint": "Use --force to skip validation and update anyway",
+            })
+
     result = _playbook_request("PUT", f"/api/v1/lessons/{args.lesson_id}", data)
     if "status" in result and result["status"] == "error":
         output_json(result)
-    output_json({"status": "success", "lesson": result})
+
+    # Include validation feedback in successful response
+    response = {"status": "success", "lesson": result}
+    if not args.force:
+        response["validation"] = {
+            "feedback": validation["feedback"],
+            "severity": validation["severity"],
+            "conflicting_lesson_ids": validation["conflicting_lesson_ids"],
+        }
+    output_json(response)
 
 
 def playbook_lessons_delete_command(args) -> None:
@@ -875,16 +1137,17 @@ def playbook_lessons_delete_command(args) -> None:
 
 
 def playbook_lessons_query_command(args) -> None:
-    """Query lessons by semantic similarity."""
-    data = {"query": args.context}
-    if args.top_k is not None:
-        data["top_k"] = args.top_k
+    """Query lessons by folder path."""
+    data = {}
+    if args.path:
+        data["path"] = args.path
     result = _playbook_request("POST", "/api/v1/query/lessons", data)
     if "status" in result and result["status"] == "error":
         output_json(result)
     output_json({
         "status": "success",
-        "results": result.get("results", []),
+        "lessons": result.get("lessons", []),
+        "injected_context": result.get("injected_context", ""),
     })
 
 
@@ -1062,11 +1325,12 @@ def create_parser() -> ArgumentParser:
     lessons_subparsers = lessons.add_subparsers(dest="lessons_command", required=True)
 
     # playbook lessons list
-    lessons_subparsers.add_parser(
+    lessons_list = lessons_subparsers.add_parser(
         "list",
         help="List all lessons",
         description="List all lessons with their IDs, names, and summaries.",
     )
+    lessons_list.add_argument("--path", "-p", default=None, help="Folder path to filter by")
 
     # playbook lessons get
     lessons_get = lessons_subparsers.add_parser(
@@ -1097,6 +1361,16 @@ def create_parser() -> ArgumentParser:
         required=True,
         help="Full lesson content in markdown",
     )
+    lessons_create.add_argument(
+        "--path", "-p",
+        default=None,
+        help="Folder path (e.g. 'beaver/retriever/')",
+    )
+    lessons_create.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Skip LLM validation and create the lesson directly",
+    )
 
     # playbook lessons update
     lessons_update = lessons_subparsers.add_parser(
@@ -1108,6 +1382,11 @@ def create_parser() -> ArgumentParser:
     lessons_update.add_argument("--name", "-n", help="New lesson name")
     lessons_update.add_argument("--summary", "-s", help="New summary")
     lessons_update.add_argument("--content", "-c", help="New content")
+    lessons_update.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Skip LLM validation and update the lesson directly",
+    )
 
     # playbook lessons delete
     lessons_delete = lessons_subparsers.add_parser(
@@ -1120,19 +1399,13 @@ def create_parser() -> ArgumentParser:
     # playbook lessons query
     lessons_query = lessons_subparsers.add_parser(
         "query",
-        help="Query lessons by semantic similarity",
-        description="Find lessons most relevant to a given context using embeddings.",
+        help="Query lessons by folder path",
+        description="Get lessons from a folder and return them as injected context.",
     )
     lessons_query.add_argument(
-        "--context", "-c",
-        required=True,
-        help="The context to find relevant lessons for",
-    )
-    lessons_query.add_argument(
-        "--top-k", "-k",
-        type=int,
+        "--path", "-p",
         default=None,
-        help="Number of results to return (omit for all lessons)",
+        help="Folder path to retrieve lessons from (omit for all lessons)",
     )
 
     return parser

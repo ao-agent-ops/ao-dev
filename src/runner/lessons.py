@@ -1,8 +1,8 @@
 """
 Lesson injection for LLM contexts.
 
-This module provides functions to inject relevant lessons into context strings
-by querying the ao-playbook server for semantically similar lessons.
+Queries the ao-playbook server for lessons in a given folder path
+and returns them formatted as injected context.
 """
 
 import json
@@ -15,27 +15,22 @@ from ao.common.constants import PLAYBOOK_SERVER_URL
 from ao.common.logger import logger
 
 
-def inject_lesson(context: Optional[str] = None, top_k: Optional[int] = None) -> str:
+def inject_lesson(path: Optional[str] = None) -> str:
     """
-    Inject relevant lessons into a context string.
-
-    Queries the playbook server for semantically similar lessons
-    and prepends them to the context.
+    Retrieve lessons from the playbook server and return them as injected context.
 
     Args:
-        context: The context string to inject lessons into
-        top_k: Number of lessons to inject (None for all lessons)
+        path: Folder path to retrieve lessons from (e.g. 'beaver/retriever/').
+              If None, returns all lessons.
 
     Returns:
-        The context with lessons prepended, or original context if server unavailable
+        The injected context string with lessons, or empty string if unavailable.
     """
     url = f"{PLAYBOOK_SERVER_URL}/api/v1/query/lessons"
 
     payload = {}
-    if top_k is not None:
-        payload["top_k"] = top_k
-    if context is not None:
-        payload["query"] = context
+    if path is not None:
+        payload["path"] = path
 
     data = json.dumps(payload).encode("utf-8")
 
@@ -51,10 +46,10 @@ def inject_lesson(context: Optional[str] = None, top_k: Optional[int] = None) ->
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return result.get("injected_context", context)
+            return result.get("injected_context", "")
     except urllib.error.URLError as e:
         logger.warning(f"Playbook server unavailable: {e.reason}")
-        return context
+        return ""
     except Exception as e:
         logger.warning(f"Failed to inject lessons: {e}")
-        return context
+        return ""

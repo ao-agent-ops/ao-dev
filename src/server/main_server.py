@@ -771,6 +771,10 @@ class MainServer:
                 s.close()
             except Exception as e:
                 logger.error(f"Error closing socket: {e}")
+        # TODO: os._exit(0) bypasses Python's resource tracker, causing
+        # "leaked semaphore" warnings from the 2 multiprocessing.Queue objects.
+        # Fix: close server_sock here to break accept() loop, move cleanup to
+        # run_server()'s finally block, and let the process exit normally.
         os._exit(0)
 
     def handle_clear(self):

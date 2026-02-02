@@ -347,10 +347,10 @@ Then compare results across the three sessions using `ao-tool probe` and `ao-too
 
 ## Lessons
 
-Lessons are small snippets that augment a context at runtime to inform the agent of specifics like company policies, specific domain knowledge, or conventions. `ao-tool` provides capability to create and manage lessons.
+Lessons are small snippets that augment a context at runtime to inform the agent of specifics like company policies, specific domain knowledge, or conventions. Lessons are organized in folders (e.g. `beaver/retriever/`) so different parts of an agent system can have their own lessons. `ao-tool` provides capability to create and manage lessons.
 
 ### When to use
-If injecting additional information that resolves ambiguituy, introduces domain knowledge, or specifies company policy, can resolve the issue – construct a lesson.
+If injecting additional information that resolves ambiguity, introduces domain knowledge, or specifies company policy, can resolve the issue – construct a lesson.
 The ideal lesson has three properties:
 
   1. It fixes the problem at hand
@@ -368,22 +368,25 @@ Example:
 ```python
 from ao.runner.lessons import inject_lesson
 
-# Before making an LLM call, inject relevant lessons into your prompt
-user_query = "How should I handle API rate limits?"
-enriched_prompt = inject_lesson(user_query, top_k=3)
+# Inject all lessons from a specific folder into a <lessons> block
+lessons_context = inject_lesson(path="beaver/retriever/")
 
-# enriched_prompt now contains:
+# lessons_context now contains:
 # <lessons>
 # ## Rate Limiting Best Practices
 # When dealing with rate limits, implement exponential backoff...
-# </lessons>
 #
-# How should I handle API rate limits?
+# ## Always Validate SQL
+# Before executing generated SQL, validate syntax...
+# </lessons>
 
-# Use enriched_prompt in your LLM call
+# Prepend to your prompt
+prompt = f"{lessons_context}\n\n{user_query}" if lessons_context else user_query
+
+# Use in your LLM call
 response = client.messages.create(
     model="claude-sonnet-4-20250514",
-    messages=[{"role": "user", "content": enriched_prompt}]
+    messages=[{"role": "user", "content": prompt}]
 )
 ```
 **Note:** Ignore the warning that `inject_lesson` is not available.
@@ -402,21 +405,30 @@ positional arguments:
     create              Create a new lesson
     update              Update a lesson
     delete              Delete a lesson
-    query               Query lessons by semantic similarity
+    query               Query lessons by folder path
 
 options:
   -h, --help            show this help message and exit
 ```
 
 ### List Lessons
-You can view all lessons associated to the current user.
+List all lessons, optionally filtered by folder path.
 ```
-usage: ao-tool playbook lessons list [-h]
+usage: ao-tool playbook lessons list [-h] [--path PATH]
 
-List all lessons with their IDs, names, and summaries.
+List all lessons with their IDs, names, summaries, and paths.
+
+options:
+  --path, -p    Folder path to filter by (e.g. 'beaver/retriever/')
 ```
 
-This returns a list like this:
+Examples:
+```bash
+ao-tool playbook lessons list                              # All lessons
+ao-tool playbook lessons list --path "beaver/retriever/"   # Only lessons in that folder
+```
+
+This returns:
 ```json
 {
   "status": "success",
@@ -424,15 +436,15 @@ This returns a list like this:
     {
       "id": "24d90294",
       "name": "Rate Limiting Best Practices",
-      "summary": "How to implement exponential backoff for API rate limits"
-    },
-    ...
+      "summary": "How to implement exponential backoff for API rate limits",
+      "path": "beaver/retriever/"
+    }
   ]
 }
 ```
 
 ### Get Lesson
-You can retrieve a certain lesson, in case you'd like to update it later.
+Retrieve a specific lesson by ID.
 
 ```
 usage: ao-tool playbook lessons get [-h] lesson_id
@@ -443,31 +455,31 @@ positional arguments:
   lesson_id   The lesson ID to retrieve
 ```
 
-This returns 
+This returns:
 ```json
 {
-  "status": "success",  # if successful
+  "status": "success",
   "lesson": {
     "id": "<lesson_id>",
-    "name": "<name of the lesson>",
-    "summary": "<quick summary>",
-    "content": "<the actual content in markdown>"
+    "name": "<name>",
+    "summary": "<summary>",
+    "content": "<content in markdown>",
+    "path": "<folder path>"
   }
 }
 ```
 
 ### Create Lesson
-Create a new lesson with a name, summary, and full content.
+Create a new lesson with a name, summary, content, and folder path.
 
 ```
-usage: ao-tool playbook lessons create [-h] --name NAME --summary SUMMARY --content CONTENT
-
-positional arguments: (none)
+usage: ao-tool playbook lessons create [-h] --name NAME --summary SUMMARY --content CONTENT [--path PATH]
 
 options:
   --name, -n      Lesson name (max 200 chars, required)
   --summary, -s   Brief summary (max 1000 chars, required)
   --content, -c   Full lesson content in markdown (required)
+  --path, -p      Folder path (e.g. 'beaver/retriever/'). Defaults to root.
 ```
 
 Example:
@@ -475,7 +487,8 @@ Example:
 ao-tool playbook lessons create \
   --name "<name>" \
   --summary "<summary>" \
-  --content "<content>"
+  --content "<content>" \
+  --path "beaver/retriever/"
 ```
 
 This returns:
@@ -486,13 +499,14 @@ This returns:
     "id": "<lesson_id>",
     "name": "<name>",
     "summary": "<summary>",
-    "content": "<content>"
+    "content": "<content>",
+    "path": "beaver/retriever/"
   }
 }
 ```
 
 ### Update Lesson
-Update an existing lesson's name, summary, or content. At least one field must be provided.
+Update an existing lesson's name, summary, content, or path. At least one field must be provided.
 
 ```
 usage: ao-tool playbook lessons update [-h] [--name NAME] [--summary SUMMARY] [--content CONTENT] lesson_id
@@ -521,7 +535,8 @@ This returns the updated lesson:
     "id": "<lesson_id>",
     "name": "<name>",
     "summary": "<summary>",
-    "content": "<content>"
+    "content": "<content>",
+    "path": "<folder path>"
   }
 }
 ```
@@ -550,38 +565,35 @@ This returns:
 ```
 
 ### Query Lessons
-Find lessons most relevant to a given context using semantic similarity search.
+Get all lessons in a folder and return them as injectable context (a `<lessons>` block).
 
 ```
-usage: ao-tool playbook lessons query [-h] --context CONTEXT [--top-k TOP_K]
+usage: ao-tool playbook lessons query [-h] [--path PATH]
 
 options:
-  --context, -c   The context to find relevant lessons for (required)
-  --top-k, -k     Number of results to return (omit for all lessons)
+  --path, -p    Folder path to retrieve lessons from (omit for all lessons)
 ```
 
-Example:
+Examples:
 ```bash
-ao-tool playbook lessons query --context "<context>"          # Returns all lessons
-ao-tool playbook lessons query --context "<context>" --top-k 3  # Returns top 3
+ao-tool playbook lessons query                              # All lessons
+ao-tool playbook lessons query --path "beaver/retriever/"   # Lessons in that folder
 ```
 
-This returns matching lessons with scores:
+This returns lessons and the formatted injected context:
 ```json
 {
   "status": "success",
-  "results": [
+  "lessons": [
     {
-      "lesson": {
-        "id": "<lesson_id>",
-        "name": "<name>",
-        "summary": "<summary>",
-        "content": "<content>"
-      },
-      "score": <score>
-    },
-    ...
-  ]
+      "id": "<lesson_id>",
+      "name": "<name>",
+      "summary": "<summary>",
+      "content": "<content>",
+      "path": "beaver/retriever/"
+    }
+  ],
+  "injected_context": "<lessons>\n## <name>\n<content>\n</lessons>"
 }
 ```
 
