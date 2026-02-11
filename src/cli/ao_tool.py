@@ -798,7 +798,7 @@ def _playbook_request(method: str, path: str, data: dict | None = None) -> dict:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=120) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else str(e)
@@ -955,6 +955,107 @@ def playbook_lessons_query_command(args) -> None:
         "lessons": result.get("lessons", []),
         "injected_context": result.get("injected_context", ""),
     })
+
+
+def _normalize_folder_path(path: str) -> str:
+    """Normalize a folder path: append '/' if non-empty and missing trailing slash.
+
+    Validates path safety: rejects '..', leading '/', double '//', and '.folder' segments.
+    """
+    if not path:
+        return path
+    # Reject unsafe patterns
+    if ".." in path:
+        output_json({"status": "error", "error": "Path must not contain '..'"})
+    if path.startswith("/"):
+        output_json({"status": "error", "error": "Path must not start with '/'"})
+    if "//" in path:
+        output_json({"status": "error", "error": "Path must not contain '//'"})
+    # Reject segments ending with '.' (e.g. '.hidden/' or 'some.folder/')
+    for segment in path.rstrip("/").split("/"):
+        if segment.startswith("."):
+            output_json({"status": "error", "error": f"Path segment '{segment}' must not start with '.'"})
+    if not path.endswith("/"):
+        return path + "/"
+    return path
+
+
+def playbook_lessons_ls_command(args) -> None:
+    """List folder contents at a path."""
+    path = _normalize_folder_path(args.path or "")
+    result = _playbook_request("POST", "/api/v1/lessons/folders/ls", {"path": path})
+    if result.get("status") == "error":
+        output_json(result)
+    output_json({
+        "status": "success",
+        "path": result.get("path", path),
+        "folders": result.get("folders", []),
+        "lessons": result.get("lessons", []),
+        "lesson_count": result.get("lesson_count", 0),
+    })
+
+
+def playbook_lessons_mkdir_command(args) -> None:
+    """Create an empty folder."""
+    path = _normalize_folder_path(args.path)
+    result = _playbook_request("POST", "/api/v1/lessons/folders/mkdir", {"path": path})
+    if result.get("status") == "error":
+        output_json(result)
+    output_json({"status": "success", "path": result.get("path", path)})
+
+
+def playbook_lessons_mv_command(args) -> None:
+    """Move/rename a folder, or move lessons by ID."""
+    if args.ids:
+        # Lesson mode: -i id1,id2 DST
+        lesson_ids = [i.strip() for i in args.ids.split(",")]
+        if not args.paths:
+            output_json({"status": "error", "error": "DST path is required when using -i"})
+        dst = _normalize_folder_path(args.paths[0])
+        result = _playbook_request("POST", "/api/v1/lessons/folders/mv", {
+            "lesson_ids": lesson_ids,
+            "dst": dst,
+        })
+    else:
+        # Folder mode: SRC DST
+        if not args.paths or len(args.paths) != 2:
+            output_json({"status": "error", "error": "mv requires SRC and DST arguments (or use -i for lesson IDs)"})
+        src = _normalize_folder_path(args.paths[0])
+        dst = _normalize_folder_path(args.paths[1])
+        result = _playbook_request("POST", "/api/v1/lessons/folders/mv", {
+            "src": src,
+            "dst": dst,
+        })
+    if result.get("status") == "error":
+        output_json(result)
+    output_json(result)
+
+
+def playbook_lessons_cp_command(args) -> None:
+    """Copy a folder to a new destination."""
+    src = _normalize_folder_path(args.src)
+    dst = _normalize_folder_path(args.dst)
+    result = _playbook_request("POST", "/api/v1/lessons/folders/cp", {
+        "src": src,
+        "dst": dst,
+    })
+    if result.get("status") == "error":
+        output_json(result)
+    output_json(result)
+
+
+def playbook_lessons_rm_command(args) -> None:
+    """Delete a lesson by ID, or recursively delete a folder."""
+    if args.recursive:
+        # Folder mode: rm -r PATH
+        path = _normalize_folder_path(args.target)
+        result = _playbook_request("POST", "/api/v1/lessons/folders/rm", {"path": path})
+    else:
+        # Single lesson delete by ID
+        result = _playbook_request("DELETE", f"/api/v1/lessons/{args.target}")
+    if result.get("status") == "error":
+        output_json(result)
+    output_json(result)
 
 
 def create_parser() -> ArgumentParser:
@@ -1214,6 +1315,57 @@ def create_parser() -> ArgumentParser:
         help="Folder path to retrieve lessons from (omit for all lessons)",
     )
 
+    # playbook lessons ls
+    lessons_ls = lessons_subparsers.add_parser(
+        "ls",
+        help="List folder contents",
+        description="List immediate child folders and lessons at a path.",
+    )
+    lessons_ls.add_argument("path", nargs="?", default="", help="Folder path to list (default: root)")
+
+    # playbook lessons mkdir
+    lessons_mkdir = lessons_subparsers.add_parser(
+        "mkdir",
+        help="Create an empty folder",
+        description="Create an empty folder at the given path.",
+    )
+    lessons_mkdir.add_argument("path", help="Folder path to create (e.g. 'beaver/new-folder/')")
+
+    # playbook lessons mv
+    lessons_mv = lessons_subparsers.add_parser(
+        "mv",
+        help="Move/rename a folder or move lessons by ID",
+        description="Move a folder (mv SRC DST) or move lessons by ID (mv -i id1,id2 DST).",
+    )
+    lessons_mv.add_argument(
+        "-i", "--ids",
+        default=None,
+        help="Comma-separated lesson IDs to move (lesson mode)",
+    )
+    lessons_mv.add_argument("paths", nargs="*", help="SRC DST (folder mode) or DST (with -i)")
+
+    # playbook lessons cp
+    lessons_cp = lessons_subparsers.add_parser(
+        "cp",
+        help="Copy a folder",
+        description="Copy all lessons under a folder to a new destination.",
+    )
+    lessons_cp.add_argument("src", help="Source folder path")
+    lessons_cp.add_argument("dst", help="Destination folder path")
+
+    # playbook lessons rm
+    lessons_rm = lessons_subparsers.add_parser(
+        "rm",
+        help="Delete a lesson or folder",
+        description="Delete a single lesson by ID (rm TARGET) or a folder recursively (rm -r PATH).",
+    )
+    lessons_rm.add_argument(
+        "-r", "--recursive",
+        action="store_true",
+        help="Delete folder recursively",
+    )
+    lessons_rm.add_argument("target", help="Lesson ID or folder path (with -r)")
+
     return parser
 
 
@@ -1250,6 +1402,16 @@ def main():
                 playbook_lessons_delete_command(args)
             elif args.lessons_command == "query":
                 playbook_lessons_query_command(args)
+            elif args.lessons_command == "ls":
+                playbook_lessons_ls_command(args)
+            elif args.lessons_command == "mkdir":
+                playbook_lessons_mkdir_command(args)
+            elif args.lessons_command == "mv":
+                playbook_lessons_mv_command(args)
+            elif args.lessons_command == "cp":
+                playbook_lessons_cp_command(args)
+            elif args.lessons_command == "rm":
+                playbook_lessons_rm_command(args)
 
 
 if __name__ == "__main__":
