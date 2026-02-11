@@ -394,18 +394,23 @@ response = client.messages.create(
 The lessons tool is generally structured like this.
 
 ```
-usage: ao-tool playbook lessons [-h] {list,get,create,update,delete,query} ...
+usage: ao-tool playbook lessons [-h] {list,get,create,update,delete,query,ls,mkdir,mv,cp,rm} ...
 
-CRUD operations for user lessons.
+CRUD operations and folder management for user lessons.
 
 positional arguments:
-  {list,get,create,update,delete,query}
+  {list,get,create,update,delete,query,ls,mkdir,mv,cp,rm}
     list                List all lessons
     get                 Get a specific lesson
     create              Create a new lesson
     update              Update a lesson
     delete              Delete a lesson
     query               Query lessons by folder path
+    ls                  List folder contents
+    mkdir               Create an empty folder
+    mv                  Move/rename folder or lessons
+    cp                  Copy a folder
+    rm                  Delete a lesson or folder
 
 options:
   -h, --help            show this help message and exit
@@ -595,6 +600,108 @@ This returns lessons and the formatted injected context:
   ],
   "injected_context": "<lessons>\n## <name>\n<content>\n</lessons>"
 }
+```
+
+### Folder Commands
+
+Unix-style commands for organizing lessons into folders.
+
+#### List Folder Contents
+List immediate child folders and lessons at a path.
+
+```
+usage: ao-tool playbook lessons ls [path]
+
+positional arguments:
+  path    Folder path to list (default: root)
+```
+
+Examples:
+```bash
+ao-tool playbook lessons ls                    # List root
+ao-tool playbook lessons ls beaver/            # List beaver/ folder
+```
+
+Returns:
+```json
+{
+  "status": "success",
+  "path": "beaver/",
+  "folders": ["retriever/", "validator/"],
+  "lessons": [
+    {"id": "abc123", "name": "Some Lesson", "summary": "...", "path": "beaver/"}
+  ],
+  "lesson_count": 1
+}
+```
+
+#### Create Folder
+Create an empty folder.
+
+```
+usage: ao-tool playbook lessons mkdir path
+
+positional arguments:
+  path    Folder path to create (e.g. 'beaver/new-folder/')
+```
+
+Example:
+```bash
+ao-tool playbook lessons mkdir beaver/new-folder/
+```
+
+#### Move / Rename
+Move or rename a folder, or move individual lessons by ID.
+
+```
+usage: ao-tool playbook lessons mv [-i IDS] paths [paths ...]
+
+positional arguments:
+  paths             SRC DST (folder mode) or DST (with -i)
+
+options:
+  -i, --ids IDS     Comma-separated lesson IDs to move (lesson mode)
+```
+
+Examples:
+```bash
+ao-tool playbook lessons mv beaver/old/ beaver/new/         # Rename/move folder
+ao-tool playbook lessons mv -i abc123,def456 beaver/dest/   # Move lessons by ID
+```
+
+#### Copy Folder
+Copy all lessons under a folder to a new destination with new IDs.
+
+```
+usage: ao-tool playbook lessons cp src dst
+
+positional arguments:
+  src    Source folder path
+  dst    Destination folder path
+```
+
+Example:
+```bash
+ao-tool playbook lessons cp beaver/retriever/ beaver/retriever-backup/
+```
+
+#### Delete
+Delete a single lesson by ID, or delete a folder recursively.
+
+```
+usage: ao-tool playbook lessons rm [-r] target
+
+positional arguments:
+  target    Lesson ID or folder path (with -r)
+
+options:
+  -r, --recursive    Delete folder recursively
+```
+
+Examples:
+```bash
+ao-tool playbook lessons rm abc123               # Delete single lesson
+ao-tool playbook lessons rm -r beaver/old/       # Delete folder and all contents
 ```
 
 ---
