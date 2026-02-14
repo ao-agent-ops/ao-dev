@@ -23,7 +23,6 @@ from ao.runner.monkey_patching.api_parser import (
     json_str_to_original_inp_dict,
     api_obj_to_response_ok,
 )
-from ao.common.utils import get_raw_model_name
 
 
 @dataclass
@@ -427,16 +426,8 @@ class DatabaseManager:
         # Capture stack trace early (before any internal calls pollute it)
         stack_trace = capture_stack_trace()
 
-        # Pickle input object.
-        api_json_str, attachments = func_kwargs_to_json_str(input_dict, api_type)
-        model = get_raw_model_name(input_dict, api_type)
-
-        cacheable_input = {
-            "input": api_json_str,
-            "attachments": attachments,
-            "model": model,
-        }
-        input_pickle = json.dumps(cacheable_input, sort_keys=True)
+        # Cache key is the serialized input (URL + body for HTTP APIs)
+        input_pickle, _ = func_kwargs_to_json_str(input_dict, api_type)
         input_hash = hash_input(input_pickle)
 
         # Check if API call with same session_id & input has been made before.

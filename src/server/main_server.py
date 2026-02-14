@@ -77,14 +77,9 @@ class MainServer:
             return
 
         try:
-            # Use workspace root from VS Code UI, or fall back to config
-            from ao.common.constants import AO_PROJECT_ROOT
-
-            project_root = self._project_root or AO_PROJECT_ROOT
-
             self.file_watcher_process = multiprocessing.Process(
                 target=run_file_watcher_process,
-                args=(project_root, self.file_watch_queue, self.file_watch_response_queue),
+                args=(self._project_root, self.file_watch_queue, self.file_watch_response_queue),
                 daemon=True,  # Dies when parent process dies
             )
             self.file_watcher_process.start()
@@ -598,7 +593,9 @@ class MainServer:
         if PLAYBOOK_API_KEY:
             headers["X-API-Key"] = PLAYBOOK_API_KEY
 
-        logger.info(f"[Playbook] {method} {url} (API key: {'set' if PLAYBOOK_API_KEY else 'NOT SET'})")
+        logger.info(
+            f"[Playbook] {method} {url} (API key: {'set' if PLAYBOOK_API_KEY else 'NOT SET'})"
+        )
 
         body = json.dumps(data).encode("utf-8") if data else None
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
@@ -631,11 +628,13 @@ class MainServer:
             lid = record["lesson_id"]
             if lid not in applied_by_lesson:
                 applied_by_lesson[lid] = []
-            applied_by_lesson[lid].append({
-                "sessionId": record["session_id"],
-                "nodeId": record["node_id"],
-                "runName": record["run_name"],
-            })
+            applied_by_lesson[lid].append(
+                {
+                    "sessionId": record["session_id"],
+                    "nodeId": record["node_id"],
+                    "runName": record["run_name"],
+                }
+            )
 
         # Merge applied data into lessons
         for lesson in lessons:
@@ -669,7 +668,9 @@ class MainServer:
 
         if not data["name"] or not data["content"]:
             logger.error("add_lesson: Missing required fields (name, content)")
-            send_json(conn, {"type": "lesson_error", "error": "Missing required fields (name, content)"})
+            send_json(
+                conn, {"type": "lesson_error", "error": "Missing required fields (name, content)"}
+            )
             return
 
         # Use force query param to skip server-side validation
@@ -684,22 +685,28 @@ class MainServer:
             hint = result.get("hint")
             if hint:
                 reason = f"{reason}\n\nHint: {hint}"
-            send_json(conn, {
-                "type": "lesson_rejected",
-                "reason": reason,
-                "severity": "error",
-                "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
-            })
+            send_json(
+                conn,
+                {
+                    "type": "lesson_rejected",
+                    "reason": reason,
+                    "severity": "error",
+                    "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
+                },
+            )
         elif "error" in result:
             send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
         elif result.get("status") == "created":
             # Success - include validation feedback
             validation = result.get("validation")
-            send_json(conn, {
-                "type": "lesson_created",
-                "lesson": result,
-                "validation": validation,
-            })
+            send_json(
+                conn,
+                {
+                    "type": "lesson_created",
+                    "lesson": result,
+                    "validation": validation,
+                },
+            )
             self._broadcast_lessons_to_uis()
         else:
             logger.warning(f"Unexpected add_lesson response: {result}")
@@ -736,22 +743,28 @@ class MainServer:
             hint = result.get("hint")
             if hint:
                 reason = f"{reason}\n\nHint: {hint}"
-            send_json(conn, {
-                "type": "lesson_rejected",
-                "reason": reason,
-                "severity": "error",
-                "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
-            })
+            send_json(
+                conn,
+                {
+                    "type": "lesson_rejected",
+                    "reason": reason,
+                    "severity": "error",
+                    "conflicting_lesson_ids": result.get("conflicting_lesson_ids", []),
+                },
+            )
         elif "error" in result:
             send_json(conn, {"type": "lesson_error", "error": result.get("error", "Unknown error")})
         elif result.get("status") == "updated":
             # Success - include validation feedback
             validation = result.get("validation")
-            send_json(conn, {
-                "type": "lesson_updated",
-                "lesson": result,
-                "validation": validation,
-            })
+            send_json(
+                conn,
+                {
+                    "type": "lesson_updated",
+                    "lesson": result,
+                    "validation": validation,
+                },
+            )
             self._broadcast_lessons_to_uis()
         else:
             logger.warning(f"Unexpected update_lesson response: {result}")
@@ -1203,7 +1216,7 @@ class MainServer:
         self.server_sock.listen()
         logger.info(f"Develop server listening on {HOST}:{PORT} ({time.time() - _run_start:.2f}s)")
 
-        # Start file watcher process for AST recompilation
+        # Start file watcher process for git versioning
         logger.info(f"Starting file watcher... ({time.time() - _run_start:.2f}s)")
         self.start_file_watcher()
 
