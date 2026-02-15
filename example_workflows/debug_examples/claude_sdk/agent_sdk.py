@@ -6,6 +6,7 @@ make multiple API calls, similar to how Claude Code works.
 """
 
 import asyncio
+import os
 from claude_agent_sdk import query, ClaudeAgentOptions
 
 
@@ -18,7 +19,7 @@ async def main():
         and perform calculations as needed. Think step by step.""",
         permission_mode="acceptEdits",  # Auto-accept file edits
         allowed_tools=["Bash", "Glob", "Grep", "Read", "Write", "WebSearch"],
-        cwd="/Users/ferdi/Documents/erp_demo",
+        cwd=os.getcwd(),
     )
 
     prompt = """
